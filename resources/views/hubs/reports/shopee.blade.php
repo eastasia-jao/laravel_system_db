@@ -1,0 +1,1 @@
+@include('hubs.reports.marketplace')
