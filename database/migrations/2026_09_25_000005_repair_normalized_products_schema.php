@@ -46,7 +46,18 @@ return new class extends Migration
         foreach (Schema::getIndexes('products') as $index) {
             if ($index['name'] === 'products_item_id_store_hub_id_unique'
                 || array_intersect($index['columns'], $this->legacyColumns)) {
-                Schema::table('products', fn (Blueprint $table) => $table->dropIndex($index['name']));
+                Schema::table('products', function (Blueprint $table) use ($index) {
+                    // PostgreSQL owns the backing index of a UNIQUE constraint.
+                    // Drop the constraint, not its index, so a fresh Postgres
+                    // database can continue through the normalization migration.
+                    if ($index['unique']) {
+                        $table->dropUnique($index['name']);
+
+                        return;
+                    }
+
+                    $table->dropIndex($index['name']);
+                });
             }
         }
 
