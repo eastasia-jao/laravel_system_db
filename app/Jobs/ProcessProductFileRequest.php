@@ -17,7 +17,8 @@ class ProcessProductFileRequest implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 600;
+    // Large spreadsheet imports can exceed the default 10-minute job limit.
+    public int $timeout = 1800;
 
     public bool $failOnTimeout = true;
 

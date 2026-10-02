@@ -10,4 +10,23 @@ sed -ri "s/<VirtualHost \*:10000>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-a
 php artisan migrate --force --no-interaction
 php artisan app:bootstrap-initial-admin
 
-exec apache2-foreground
+# Free Render services cannot run a separate Background Worker. For test
+# deployments, keep the product-file queue consumer in this same container.
+# It is intentionally a single worker to limit memory use on the free plan.
+php artisan queue:work inventory --queue=product-files --sleep=2 --tries=1 --timeout=1800 --memory=256 &
+queue_worker_pid=$!
+
+stop_services() {
+    kill -TERM "$queue_worker_pid" 2>/dev/null || true
+    wait "$queue_worker_pid" 2>/dev/null || true
+}
+
+trap 'stop_services; exit 0' INT TERM
+
+apache2-foreground &
+apache_pid=$!
+wait "$apache_pid"
+apache_status=$?
+
+stop_services
+exit "$apache_status"
