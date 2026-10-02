@@ -1,3 +1,9 @@
+@push('scripts')
+<script type="module">
+    import { setupHubImport } from {{ Illuminate\Support\Js::from(asset('js/store-hub-import.js')) }};
+    setupHubImport();
+</script>
+@endpush
 <style>
     .import-loader-shell {
         background: linear-gradient(145deg, #f8fbff 0%, #eef5ff 100%);
@@ -42,7 +48,7 @@
                 activeStep: 0,
                 elapsedTimer: null,
                 stepTimer: null,
-                steps: ['Reading and validating the CSV file', 'Matching products with inventory records', 'Saving product and stock information', 'Creating the staff activity log'],
+                steps: ['Uploading the CSV file', 'Checking the file format', 'Applying product updates', 'Recording the import activity'],
                 startImport() {
                     if (this.importing) return;
                     this.importing = true;
@@ -54,15 +60,15 @@
                     }, 2200);
                 }
             }">
-                <form @submit.prevent="startImport(); $el.submit()" action="{{ route('hub.products.import', $hub->id) }}" method="POST" enctype="multipart/form-data">
+                <form id="storeHubImportForm" @submit.prevent="startImport(); $el.submit()" action="{{ route('hub.products.import', $hub->id) }}" method="POST" enctype="multipart/form-data">
                     @csrf
 
                     <div class="modal-header border-0 px-4 pt-4 pb-2">
                         <div>
                             <h5 class="modal-title fw-bold" id="importProductModalLabel"><i class="fa-solid fa-file-import text-success me-2"></i>Import Products</h5>
-                            <div class="small text-muted mt-1" x-show="!importing">Upload a CSV file to synchronize this hub's inventory.</div>
+                            <div class="small text-muted mt-1" x-show="!importing">Upload a CSV file to import products directly into this branch.</div>
+                            <div class="small text-muted mt-1">Branch imports keep existing shared product details. Head Office imports can update those details for all branches.</div>
                         </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" x-show="!importing"></button>
                     </div>
 
                     <div class="modal-body px-4 pb-4">
@@ -72,6 +78,8 @@
                                 <i class="fa-solid fa-cloud-arrow-up text-success fs-2 mb-3"></i>
                                 <input type="file" name="file" accept=".csv,.txt,text/csv" required class="form-control" @change="fileName = $event.target.files[0]?.name || ''">
                                 <div class="small text-muted mt-2">CSV or TXT format</div>
+                                
+                                <div id="storeHubImportError" class="alert alert-danger mt-3 mb-0 text-start d-none" role="alert" style="white-space: pre-line;"></div>
                             </div>
                         </div>
 
@@ -84,7 +92,7 @@
                                 </div>
 
                                 <div class="text-center mb-3">
-                                    <h6 class="fw-bold mb-1">Synchronizing inventory</h6>
+                                    <h6 class="fw-bold mb-1">Importing products</h6>
                                     <div class="small text-muted text-truncate" x-text="fileName || 'Selected CSV file'"></div>
                                 </div>
 
@@ -103,7 +111,7 @@
 
                                 <div class="alert alert-light border small text-muted mt-4 mb-0 py-2">
                                     <i class="fa-solid fa-circle-info me-1 text-primary"></i>
-                                    Keep this window open. Large files may take several minutes.
+                                    Keep this window open while the import completes. Large files may take several minutes.
                                     <span class="float-end font-monospace" x-text="Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')"></span>
                                 </div>
                             </div>

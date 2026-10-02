@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\PendingSale;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
@@ -19,11 +20,29 @@ class StaffActivityLogTest extends TestCase
     {
         $inventoryStaff = User::factory()->create(['role' => 'inventory_staff']);
         $salesStaff = User::factory()->create(['role' => 'sales_marketing_staff']);
+        $hub = StoreHub::create(['name' => 'Transfer Branch', 'code' => 'TRANSFER', 'status' => 'active']);
+        $sender = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $hub->id]);
+        StaffActivityLog::create([
+            'user_id' => $sender->id,
+            'store_hub_id' => $hub->id,
+            'action_type' => 'branch_transfer_sent',
+            'description' => 'Transfer Document TRF-TEST sent from Transfer Branch to Other Branch.',
+            'details' => ['reference' => 'TRF-TEST', 'status' => 'approved'],
+        ]);
 
         $this->actingAs($inventoryStaff)
             ->get(route('staff-logs.index'))
             ->assertOk()
-            ->assertSee('Staff Activity Logs');
+            ->assertSee('Staff Activity Logs')
+            ->assertSee('catalog assignments')
+            ->assertSee('Catalog Assignment')
+            ->assertSee('Branch Transfer')
+            ->assertSee('max-height: 220px', false)
+            ->assertSee('js-staff-log-scroll-select', false)
+            ->assertSee('<option value="'.$sender->id.'"', false)
+            ->assertDontSee('<option value="'.$salesStaff->id.'"', false)
+            ->assertViewHas('staff', fn ($staff) => $staff->modelKeys() === [$sender->id])
+            ->assertDontSee('>Activity</span>', false);
 
         $this->actingAs($salesStaff)
             ->get(route('staff-logs.index'))
@@ -36,7 +55,7 @@ class StaffActivityLogTest extends TestCase
         $staff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
 
         $csv = implode("\n", [
-            'ID,Item ID,Name,Description,Barcode,Brand,Group,Department,Cost,Sales,Wholesale,Shopee,Lazada,Tiktok,Stock,Unit',
+            'ID,Item ID,Name,Description,Barcode,Brand,Retail Group,Retail Department,Cost Price,Sales Price,Wholesale Price,Shopee Price,Lazada Price,Tiktok Price,Stock,Unit Type',
             '1,SKU-001,Brush,Paint brush,12345,Brand A,Art,Tools,10,20,18,21,22,23,8,PC',
         ]);
 
@@ -44,9 +63,9 @@ class StaffActivityLogTest extends TestCase
             ->post(route('hub.products.import', $hub), [
                 'file' => UploadedFile::fake()->createWithContent('products.csv', $csv),
             ])
-            ->assertRedirect(route('hub.dashboard', $hub->id));
+            ->assertSessionHasNoErrors()->assertRedirect();
 
-        $product = Product::where('item_id', 'SKU-001')->sole();
+        $product = Product::whereCatalog('item_id', 'SKU-001')->sole();
         $importLog = StaffActivityLog::where('action_type', 'product_import')->sole();
         $this->assertSame(1, $importLog->items()->count());
         $this->assertDatabaseHas('staff_activity_log_items', [
@@ -88,6 +107,7 @@ class StaffActivityLogTest extends TestCase
             'status' => 'active',
             'store_hub_id' => $hub->id,
         ]);
+        ProductStockAllocation::create(['product_id' => $product->id, 'online' => 10]);
         $pendingSale = PendingSale::create([
             'store_hub_id' => $hub->id,
             'sales_channel' => 'Online',

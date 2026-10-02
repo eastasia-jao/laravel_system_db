@@ -4,12 +4,12 @@
 <div class="p-5">
     <h3 class="fw-bold mb-1">Record Inventory Transaction</h3>
     <p class="text-muted small mb-4">Use this form for transfers, sponsor/workshop usage, restocks, and returns.</p>
-    @if($errors->any()) <div class="alert alert-danger">{{ $errors->first() }}</div> @endif
+    
     <form method="POST" action="{{ route('inventory-transactions.store') }}" class="card border-0 shadow-sm rounded-4 p-4">
         @csrf
         <div class="row g-3">
             <div class="col-md-4"><label class="form-label">Transaction Type</label><select name="type" id="transactionType" class="form-select" required>
-                <option value="stock_transfer">Stock Transfer (HO to Store)</option><option value="sponsor_workshop">Sponsor / Workshop</option><option value="restock">Restock / Added Items</option><option value="return">Return Items</option>
+                <option value="stock_transfer">Stock Transfer (HO to Store)</option><option value="sponsor_workshop">Sponsor / Workshop</option><option value="restock">Restock / Added from Request (Warehouse HO)</option><option value="return">Return Items</option>
             </select></div>
             <div class="col-md-4"><label class="form-label">Store Hub</label><select name="store_hub_id" class="form-select" required>
                 @foreach($hubs as $hub)<option value="{{ $hub->id }}" @selected((int) $hubId === $hub->id)>{{ $hub->name }}</option>@endforeach

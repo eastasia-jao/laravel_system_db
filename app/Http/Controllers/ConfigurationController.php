@@ -21,7 +21,6 @@ class ConfigurationController extends Controller
         $departments = Department::orderBy('name', 'asc')->paginate(10, ['*'], 'dept_page');
         $groups = Group::orderBy('name', 'asc')->paginate(10, ['*'], 'group_page');
         $unitTypes = DB::table('unit_types')->orderBy('abbreviation', 'asc')->paginate(10, ['*'], 'unit_page');
-
         return view('configuration', compact('hubs', 'brands', 'unitTypes', 'departments', 'groups'));
     }
 
@@ -66,9 +65,12 @@ class ConfigurationController extends Controller
 
     public function destroyHub($id)
     {
-        StoreHub::findOrFail($id)->delete();
+        StoreHub::findOrFail($id);
 
-        return redirect()->back()->with('success', 'Store hub deleted successfully.');
+        return redirect()->to('/configuration?tab=hubs')->with(
+            'error',
+            'Store hubs cannot be deleted because they may contain inventory and transaction history. Deactivate the hub instead.'
+        );
     }
 
     public function updateHub(Request $request, $id)
@@ -105,7 +107,7 @@ class ConfigurationController extends Controller
     {
         $brand = Brand::findOrFail($id);
 
-        if (Product::where('brand', $brand->brand_name)->exists()) {
+        if (\App\Models\CatalogProduct::where('brand', $brand->brand_name)->exists()) {
             return redirect()->back()->with('error', 'Cannot delete this brand because it is currently assigned to one or more products.');
         }
 
@@ -118,7 +120,7 @@ class ConfigurationController extends Controller
     {
         $department = Department::findOrFail($id);
 
-        if (Product::where('retail_department', $department->name)->exists()) {
+        if (\App\Models\CatalogProduct::where('retail_department', $department->name)->exists()) {
             return redirect()->back()->with('error', 'Cannot delete this department because it is currently assigned to one or more products.');
         }
 
@@ -131,7 +133,7 @@ class ConfigurationController extends Controller
     {
         $group = Group::findOrFail($id);
 
-        if (Product::where('retail_group', $group->name)->exists()) {
+        if (\App\Models\CatalogProduct::where('retail_group', $group->name)->exists()) {
             return redirect()->back()->with('error', 'Cannot delete this group because it is currently assigned to one or more products.');
         }
 

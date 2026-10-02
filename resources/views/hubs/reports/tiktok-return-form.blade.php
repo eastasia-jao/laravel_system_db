@@ -14,9 +14,32 @@
         
                         @endforeach
                         <div class="col-md-4"><label class="form-label small" for="qty-{{ $item->id }}">Return quantity (up to {{ $item->quantity }})</label><input id="qty-{{ $item->id }}" class="form-control" type="number" name="returned_quantity" min="0" max="{{ $item->quantity }}" value="{{ $locked ? $item->returned_quantity : $fieldValue('returned_quantity', 0) }}" required @readonly($locked)><div class="form-text">Use 0 for refund-only requests.</div></div>
-                        <div class="col-md-4"><label class="form-label small" for="refund-{{ $item->id }}">Customer refund (₱)</label><input id="refund-{{ $item->id }}" class="form-control" type="number" step="0.01" name="customer_refund_amount" min="0" max="{{ $item->line_total }}" value="{{ $fieldValue('customer_refund_amount', 0) }}"><div class="form-text">Only completed refunds affect net payout.</div></div>
+                        <div class="col-md-4"><label class="form-label small" for="refund-{{ $item->id }}">Customer refund (₱)</label><input id="refund-{{ $item->id }}" class="form-control tiktok-refund-amount" type="number" step="0.01" name="customer_refund_amount" min="0" max="{{ $item->line_total }}" value="{{ $fieldValue('customer_refund_amount', 0) }}" data-unit-price="{{ $item->unit_price }}" data-discount="{{ $item->discount_percentage ?? 0 }}" data-quantity="#qty-{{ $item->id }}"><div class="form-text">For received returns, this is calculated from the discounted price × returned quantity.</div></div>
                         <div class="col-md-4"><label class="form-label small" for="reason-{{ $item->id }}">Reason (optional)</label><textarea id="reason-{{ $item->id }}" class="form-control" name="return_reason" maxlength="2000" rows="2">{{ $fieldValue('return_reason') }}</textarea></div>
                     </div>
                     <p class="small text-muted mt-3">{{ $locked ? 'Item received. You can still update the refund.' : 'Only good items received back will be added to stock.' }}</p>
                     <button class="btn btn-outline-primary" type="submit">Save changes</button>
                 </form>
+                <script>
+                document.querySelectorAll('[data-return-form]').forEach(form => {
+                    const status = form.querySelector('[name="return_status"]');
+                    const quantity = form.querySelector('[name="returned_quantity"]');
+                    const refund = form.querySelector('.tiktok-refund-amount');
+                    if (!status || !quantity || !refund) return;
+                    const updateRefund = () => {
+                        const unitPrice = Number(refund.dataset.unitPrice || 0);
+                        const discount = Number(refund.dataset.discount || 0);
+                        const returnedQuantity = Math.max(0, Number(quantity.value || 0));
+                        const automaticAmount = Math.round(unitPrice * (1 - discount / 100) * returnedQuantity * 100) / 100;
+                        if (status.value === 'received' && returnedQuantity > 0) {
+                            refund.value = automaticAmount.toFixed(2);
+                            refund.readOnly = true;
+                        } else {
+                            refund.readOnly = false;
+                        }
+                    };
+                    status.addEventListener('change', updateRefund);
+                    quantity.addEventListener('input', updateRefund);
+                    updateRefund();
+                });
+                </script>

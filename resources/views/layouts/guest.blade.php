@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>Admin Login - {{ config('app.name', 'Laravel') }}</title>
+    <title>Login</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.svg') }}">
 
     <!-- Bootstrap 5 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
@@ -86,6 +88,7 @@
             color: #94a3b8;
         }
     </style>
+<link rel="stylesheet" href="{{ asset('app-alert.css') }}"><script src="{{ asset('js/app-alert.js') }}"></script>
 </head>
 <body>
 
@@ -109,5 +112,6 @@
             }
         }
     </script>
+@include('layouts.popup-messages')
 </body>
 </html>

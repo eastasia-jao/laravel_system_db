@@ -2,37 +2,85 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessProductFileRequest;
 use App\Models\Brand;
 use App\Models\Department;
 use App\Models\Group;
+use App\Models\InventoryTransaction;
 use App\Models\Product;
-use App\Models\StoreHub;
+use App\Models\ProductFileRequest;
 use App\Models\StaffActivityLog;
 use App\Models\StaffActivityLogItem;
+use App\Models\StoreHub;
 use App\Models\UnitType;
-use App\Models\InventoryTransaction;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Support\CsvIdentifier;
+use App\Support\ProductExportFilename;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
     use AuthorizesRequests;
 
+    private const SALES_STOCK_CHANNELS = [
+        'walk_in' => 'Walk-In Physical Stock',
+        'online' => 'Online / Event / Restock',
+        'wholesale' => 'Wholesale',
+        'shopee' => 'Shopee',
+        'lazada' => 'Lazada',
+        'tiktok' => 'TikTok',
+    ];
+
     public function index(Request $request)
     {
         $user = auth()->user();
+        $isSalesAssociate = $user?->role === 'sales_associate';
+        $salesAssociateHubs = $isSalesAssociate
+            ? StoreHub::whereIn('id', $user->accessibleStoreHubIds())->orderBy('name')->get()
+            : collect();
         $selectedHubId = $request->query('hub_id');
+        $displayChannelOptions = $user?->role === 'sales_marketing_staff'
+            ? collect($user->sales_channels ?? [])
+                ->map(fn ($channel) => $this->normalizeSalesChannel($channel))
+                ->filter(fn ($channel) => array_key_exists($channel, self::SALES_STOCK_CHANNELS))
+                ->unique()
+                ->values()
+            : collect();
+        $displayChannel = null;
+        if ($user?->role === 'sales_marketing_staff' && $displayChannelOptions->isNotEmpty()) {
+            $requestedChannel = $request->query('channel');
+            if ($displayChannelOptions->count() > 1
+                && $requestedChannel !== null
+                && ! $displayChannelOptions->contains($requestedChannel)) {
+                abort(403, 'You are not assigned to view stock for this sales channel.');
+            }
+            $displayChannel = $displayChannelOptions->count() > 1
+                ? ($requestedChannel ?: $displayChannelOptions->first())
+                : $displayChannelOptions->first();
+        }
+        $displayChannelLabel = $displayChannel
+            ? self::SALES_STOCK_CHANNELS[$displayChannel]
+            : 'Available Stock';
 
-        if ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
+        if ($isSalesAssociate) {
+            $requestedHubId = $request->query('hub_id');
+            $selectedHubId = $requestedHubId !== null && $salesAssociateHubs->contains('id', (int) $requestedHubId)
+                ? (int) $requestedHubId
+                : $user->store_hub_id;
+        } elseif ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
             $selectedHubId = $user->store_hub_id;
         }
 
         $selectedHub = $selectedHubId ? StoreHub::find($selectedHubId) : null;
-        $query = Product::query();
+        $query = Product::query()->with('stockAllocation');
+        if (! in_array($user->role, ['admin', 'inventory_staff'], true) && ! $selectedHubId) {
+            $query->whereRaw('1 = 0');
+        }
 
         if ($selectedHubId) {
             $query->where('store_hub_id', $selectedHubId);
@@ -40,30 +88,86 @@ class ProductController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->input('search');
-            $field = $request->input('field', 'name');
+            $field = $request->input('field', 'all');
 
-            if ($field === 'item_id') {
-                $query->where('item_id', 'LIKE', "%{$search}%");
+            if ($field === 'all') {
+                $query->whereHas('catalogProduct', function ($catalog) use ($search) {
+                    foreach (preg_split('/\s+/', trim($search), -1, PREG_SPLIT_NO_EMPTY) as $word) {
+                        $catalog->where(fn ($q) => $q->where('name', 'like', "%{$word}%")->orWhere('item_id', 'like', "%{$word}%")->orWhere('barcode', 'like', "%{$word}%")->orWhere('brand', 'like', "%{$word}%"));
+                    }
+                });
+            } elseif ($field === 'item_id') {
+                $query->whereCatalog('item_id', 'LIKE', "%{$search}%");
             } elseif ($field === 'barcode') {
-                $query->where('barcode', 'LIKE', "%{$search}%");
+                $query->whereCatalog('barcode', 'LIKE', "%{$search}%");
             } elseif ($field === 'brand') {
-                $query->where('brand', 'LIKE', "%{$search}%");
+                $query->whereCatalog('brand', 'LIKE', "%{$search}%");
             } elseif ($field === 'retail_group') {
-                $query->where('retail_group', 'LIKE', "%{$search}%");
+                $query->whereCatalog('retail_group', 'LIKE', "%{$search}%");
             } elseif ($field === 'retail_department') {
-                $query->where('retail_department', 'LIKE', "%{$search}%");
+                $query->whereCatalog('retail_department', 'LIKE', "%{$search}%");
             } elseif ($field === 'unit_type') {
-                $query->where('unit_type', 'LIKE', "%{$search}%");
+                $query->whereCatalog('unit_type', 'LIKE', "%{$search}%");
             } else {
-                $query->where('name', 'LIKE', "%{$search}%");
+                $query->whereCatalog('name', 'LIKE', "%{$search}%");
             }
         }
 
         $products = $query->paginate(10)->appends($request->query());
+        $productIds = $products->getCollection()->pluck('id');
+        $channelAliases = $displayChannel ? $this->salesChannelAliases($displayChannel) : [];
+        $soldByProduct = DB::table('transaction_items')
+            ->join('sales_transactions', 'sales_transactions.id', '=', 'transaction_items.transaction_id')
+            ->whereIn('transaction_items.product_id', $productIds)
+            ->when($displayChannel, function ($query) use ($displayChannel) {
+                $aliases = $this->salesChannelAliases($displayChannel);
+                $query->whereRaw(
+                    'LOWER(REPLACE(REPLACE(sales_transactions.channel_type, ?, ?), ?, ?)) IN ('.implode(',', array_fill(0, count($aliases), '?')).')',
+                    ['-', '_', ' ', '_', ...$aliases]
+                );
+            }, function ($query) {
+                $query->whereRaw('1 = 0');
+            })
+            ->where(function ($query) {
+                $query->whereNull('sales_transactions.status')
+                    ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
+            })
+            ->select('transaction_items.product_id')->selectRaw('SUM(transaction_items.quantity) AS quantity')
+            ->groupBy('transaction_items.product_id')->pluck('quantity', 'transaction_items.product_id');
+        $channelMovements = $displayChannel
+            ? DB::table('inventory_transactions')
+                ->whereIn('product_id', $productIds)
+                ->whereIn('type', ['return', 'replacement_return', 'replacement_out'])
+                ->whereRaw(
+                    'LOWER(REPLACE(REPLACE(channel, ?, ?), ?, ?)) IN ('.implode(',', array_fill(0, count($channelAliases), '?')).')',
+                    ['-', '_', ' ', '_', ...$channelAliases]
+                )
+                ->select('product_id', 'type')
+                ->selectRaw('SUM(quantity) AS quantity')
+                ->groupBy('product_id', 'type')
+                ->get()
+                ->groupBy('product_id')
+            : collect();
+        $products->getCollection()->each(function (Product $product) use ($displayChannel, $soldByProduct, $channelMovements) {
+            $allocated = $displayChannel === 'walk_in'
+                ? $product->unallocatedStock()
+                : (int) ($displayChannel ? ($product->stockAllocation?->{$displayChannel} ?? 0) : 0);
+            $movements = $channelMovements->get($product->id, collect())->keyBy('type');
+            $returned = (int) ($movements->get('return')->quantity ?? 0)
+                + (int) ($movements->get('replacement_return')->quantity ?? 0);
+            $replacementOut = (int) ($movements->get('replacement_out')->quantity ?? 0);
+            $used = max(0, (int) ($soldByProduct[$product->id] ?? 0) - $returned + $replacementOut);
+            $product->setAttribute(
+                'allocated_available_stock',
+                max(0, $allocated - ($displayChannel === 'walk_in' ? 0 : $used))
+            );
+        });
 
-        $hubs = ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true))
-            ? StoreHub::whereKey($user->store_hub_id)->get()
-            : StoreHub::all();
+        $productHubs = $isSalesAssociate
+            ? $salesAssociateHubs
+            : (($user && ! in_array($user->role, ['admin', 'inventory_staff'], true))
+                ? StoreHub::whereKey($user->store_hub_id)->get()
+                : StoreHub::all());
 
         $brands = Brand::all();
         $groups = DB::table('groups')->get();
@@ -72,8 +176,22 @@ class ProductController extends Controller
         $baseUnits = $unitTypes;
 
         return view('products.index', compact(
-            'products', 'hubs', 'selectedHub', 'brands', 'groups', 'departments', 'unitTypes', 'baseUnits'
+            'products', 'productHubs', 'selectedHub', 'brands', 'groups', 'departments', 'unitTypes', 'baseUnits',
+            'displayChannel', 'displayChannelLabel', 'displayChannelOptions', 'isSalesAssociate'
         ));
+    }
+
+    private function normalizeSalesChannel(?string $channel): string
+    {
+        return strtolower(str_replace(['-', ' '], '_', trim((string) $channel)));
+    }
+
+    private function salesChannelAliases(string $channel): array
+    {
+        return match ($channel) {
+            'online' => ['online', 'online_order', 'online_sales', 'event', 'restock', 'fully_booked'],
+            default => [$channel],
+        };
     }
 
     public function store(Request $request, $hub_id)
@@ -88,7 +206,11 @@ class ProductController extends Controller
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('products')->where('store_hub_id', $hub_id),
+                function ($attribute, $value, $fail) use ($hub_id) {
+                    if (Product::where('store_hub_id', $hub_id)->whereCatalog('item_id', $value)->exists()) {
+                        $fail('This Item ID is already listed in this branch.');
+                    }
+                },
             ],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -105,7 +227,7 @@ class ProductController extends Controller
             'tiktok_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        DB::table('products')->insert([
+        Product::create([
             ...$validated,
             'status' => 'active',
             'store_hub_id' => $hub_id,
@@ -130,9 +252,12 @@ class ProductController extends Controller
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('products')
-                    ->where('store_hub_id', $product->store_hub_id)
-                    ->ignore($product->id),
+                function ($attribute, $value, $fail) use ($product) {
+                    if (Product::where('store_hub_id', $product->store_hub_id)->whereKeyNot($product->id)->whereCatalog('item_id', $value)->exists()) {
+                        $fail('This Item ID is already listed in this branch.');
+                    }
+                },
+                Rule::unique('catalog_products', 'item_id')->ignore($product->catalog_product_id),
             ],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -212,6 +337,17 @@ class ProductController extends Controller
 
     public function importCsv(Request $request, $hub_id)
     {
+        abort_unless(auth()->user()?->can('manage-inventory'), 403);
+        StoreHub::findOrFail($hub_id);
+        $request->validate(['file' => 'required|file|mimes:csv,txt|max:5120']);
+        app(ProductFileRequestController::class)->prepareCsv(file_get_contents($request->file('file')->getRealPath()));
+
+        return DB::transaction(fn () => $this->applyImportCsv($request, $hub_id));
+    }
+
+    public function applyImportCsv(Request $request, $hub_id)
+    {
+        abort_unless(auth()->user()?->can('manage-inventory'), 403);
         $user = auth()->user();
         if ($user && $user->role !== 'admin' && $user->role !== 'inventory_staff' && $user->store_hub_id && $user->store_hub_id != $hub_id) {
             abort(403, 'Unauthorized action for this store hub.');
@@ -220,11 +356,54 @@ class ProductController extends Controller
         $request->validate(['file' => 'required|mimes:csv,txt,text/csv']);
         $path = $request->file('file')->getRealPath();
         $handle = fopen($path, 'r');
+        $header = fgetcsv($handle) ?: [];
+        $normalizedHeader = array_map(
+            fn ($value) => strtolower(trim((string) preg_replace('/^\xEF\xBB\xBF/', '', $value))),
+            $header
+        );
+        $columnIndex = function (string $column, int $fallback = -1) use ($normalizedHeader): int {
+            $index = array_search(strtolower($column), $normalizedHeader, true);
+
+            return $index === false ? $fallback : $index;
+        };
+        $columns = [
+            'item_id' => $columnIndex('item id'),
+            'name' => $columnIndex('name'),
+            'description' => $columnIndex('description'),
+            'barcode' => $columnIndex('barcode'),
+            'brand' => $columnIndex('brand'),
+            'retail_group' => $columnIndex('retail group'),
+            'retail_department' => $columnIndex('retail department'),
+            'cost_price' => $columnIndex('cost price'),
+            'sales_price' => $columnIndex('retail price', $columnIndex('sales price')),
+            'wholesale_price' => $columnIndex('wholesale price'),
+            'shopee_price' => $columnIndex('shopee price'),
+            'lazada_price' => $columnIndex('lazada price'),
+            'tiktok_price' => $columnIndex('tiktok price'),
+            'stock' => $columnIndex('stock'),
+            'unit_type' => $columnIndex('unit type'),
+        ];
+        // Validate every identifier before making any product or stock changes.
+        $line = 1;
+        try {
+            while (($row = fgetcsv($handle)) !== false) {
+                $line++;
+                CsvIdentifier::read($row[$columns['item_id']] ?? '', "Row $line Item ID");
+                if ($columns['barcode'] >= 0) {
+                    CsvIdentifier::read($row[$columns['barcode']] ?? '', "Row $line Barcode");
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+        $handle = fopen($path, 'r');
         fgetcsv($handle);
         $logItems = [];
         $createdCount = 0;
         $updatedCount = 0;
         $skippedCount = 0;
+        $knownBrands = $knownGroups = $knownDepartments = $knownUnits = [];
+        $importUpdatesCatalog = (bool) StoreHub::findOrFail($hub_id)->is_head_office;
 
         $cleanPrice = function ($value) {
             if (empty($value)) {
@@ -234,45 +413,57 @@ class ProductController extends Controller
 
             return is_numeric($cleaned) ? $cleaned : 0;
         };
+        $columnValue = fn (array $row, string $column) => $columns[$column] >= 0 ? ($row[$columns[$column]] ?? null) : null;
 
         while (($row = fgetcsv($handle)) !== false) {
             if (empty(array_filter($row))) {
                 $skippedCount++;
+
                 continue;
             }
-            $itemId = trim($row[1] ?? $row[0] ?? null);
+            $itemId = CsvIdentifier::read($columnValue($row, 'item_id') ?? '', 'Item ID');
             if (! $itemId) {
                 $skippedCount++;
+
                 continue;
             }
 
-            $existingProduct = Product::where('item_id', $itemId)
+            $existingProduct = Product::whereCatalog('item_id', $itemId)
                 ->where('store_hub_id', $hub_id)
                 ->first();
             $stockBefore = $existingProduct ? (int) $existingProduct->stock : null;
+            $catalogProduct = $existingProduct?->catalogProduct;
 
-            $brandName = trim($row[5] ?? null);
-            $groupName = trim($row[6] ?? null);
-            $deptName = trim($row[7] ?? null);
-            $unitTypeName = trim($row[15] ?? null);
+            $brandName = trim((string) ($columnValue($row, 'brand') ?? '')) ?: ($catalogProduct?->brand ?? '');
+            $groupName = trim((string) ($columnValue($row, 'retail_group') ?? '')) ?: ($catalogProduct?->retail_group ?? '');
+            $deptName = trim((string) ($columnValue($row, 'retail_department') ?? '')) ?: ($catalogProduct?->retail_department ?? '');
+            $unitTypeName = trim((string) ($columnValue($row, 'unit_type') ?? '')) ?: ($catalogProduct?->unit_type ?? '');
 
-            if (! empty($brandName)) {
+            if (! empty($brandName) && ! isset($knownBrands[$brandName])) {
                 Brand::firstOrCreate(['brand_name' => $brandName]);
+                $knownBrands[$brandName] = true;
             }
-            if (! empty($groupName)) {
+            if (! empty($groupName) && ! isset($knownGroups[$groupName])) {
                 Group::firstOrCreate(['name' => $groupName]);
+                $knownGroups[$groupName] = true;
             }
-            if (! empty($deptName)) {
+            if (! empty($deptName) && ! isset($knownDepartments[$deptName])) {
                 Department::firstOrCreate(['name' => $deptName]);
+                $knownDepartments[$deptName] = true;
             }
-            if (! empty($unitTypeName)) {
+            if (! empty($unitTypeName) && ! isset($knownUnits[$unitTypeName])) {
                 UnitType::firstOrCreate(['abbreviation' => $unitTypeName], ['status' => 'active']);
+                $knownUnits[$unitTypeName] = true;
             }
 
-            $stockValue = isset($row[14]) && is_numeric(trim($row[14])) ? (int) trim($row[14]) : 0;
+            $stockValue = is_numeric(trim((string) ($columnValue($row, 'stock') ?? '')))
+                ? (int) trim($columnValue($row, 'stock'))
+                : (int) ($existingProduct?->stock ?? 0);
 
-            $nameValue = iconv('UTF-8', 'UTF-8//IGNORE', trim($row[2] ?? ''));
-            $descriptionValue = iconv('UTF-8', 'UTF-8//IGNORE', trim($row[3] ?? ''));
+            $nameValue = iconv('UTF-8', 'UTF-8//IGNORE', trim((string) ($columnValue($row, 'name') ?? '')));
+            $descriptionValue = iconv('UTF-8', 'UTF-8//IGNORE', trim((string) ($columnValue($row, 'description') ?? '')));
+            $nameValue = $nameValue ?: ($catalogProduct?->name ?? '');
+            $descriptionValue = $descriptionValue ?: ($catalogProduct?->description ?? '');
 
             // Some source CSVs leave the name column blank and put the
             // actual product text in the description column instead.
@@ -282,32 +473,33 @@ class ProductController extends Controller
                 $nameValue = $descriptionValue;
             }
 
-            $savedProduct = Product::updateOrCreate(
-                ['item_id' => $itemId, 'store_hub_id' => $hub_id],
-                [
-                    'name' => $nameValue,
-                    'description' => $descriptionValue,
-                    'barcode' => trim($row[4] ?? null),
-                    'brand' => $brandName,
-                    'retail_group' => $groupName,
-                    'retail_department' => $deptName,
-                    'unit_type' => $unitTypeName,
-                    'cost_price' => $cleanPrice($row[8] ?? 0),
-                    'sales_price' => $cleanPrice($row[9] ?? 0),
-                    'wholesale_price' => $cleanPrice($row[10] ?? 0),
-                    'shopee_price' => $cleanPrice($row[11] ?? 0),
-                    'lazada_price' => $cleanPrice($row[12] ?? 0),
-                    'tiktok_price' => $cleanPrice($row[13] ?? 0),
-                    'stock' => $stockValue,
-                    'status' => 'active',
-                ]
-            );
+            $savedProduct = $existingProduct ?? new Product(['item_id' => $itemId, 'store_hub_id' => $hub_id]);
+            $savedProduct->preserveCatalogMetadata = ! $importUpdatesCatalog;
+            $savedProduct->updateExistingCatalog = $importUpdatesCatalog;
+            $productData = ['status' => 'active'];
+            foreach (['name' => $nameValue, 'description' => $descriptionValue, 'brand' => $brandName, 'retail_group' => $groupName, 'retail_department' => $deptName, 'unit_type' => $unitTypeName] as $field => $value) {
+                if ($columns[$field === 'retail_group' ? 'retail_group' : $field] >= 0 && trim((string) ($columnValue($row, $field === 'retail_group' ? 'retail_group' : $field) ?? '')) !== '') {
+                    $productData[$field] = $value;
+                }
+            }
+            if ($columns['barcode'] >= 0 && trim((string) ($columnValue($row, 'barcode') ?? '')) !== '') {
+                $productData['barcode'] = CsvIdentifier::read($columnValue($row, 'barcode'), 'Barcode');
+            }
+            foreach (['cost_price', 'sales_price', 'wholesale_price', 'shopee_price', 'lazada_price'] as $field) {
+                if ($columns[$field] >= 0 && trim((string) ($columnValue($row, $field) ?? '')) !== '') {
+                    $productData[$field] = $cleanPrice($columnValue($row, $field));
+                }
+            }
+            if ($columns['stock'] >= 0 && trim((string) ($columnValue($row, 'stock') ?? '')) !== '') {
+                $productData['stock'] = $stockValue;
+            }
+            $savedProduct->fill($productData)->save();
             $operation = $existingProduct ? 'updated' : 'created';
             $operation === 'created' ? $createdCount++ : $updatedCount++;
             $logItems[] = [
                 'product_id' => $savedProduct?->id,
                 'item_id' => $itemId,
-                'product_name' => $nameValue !== '' ? $nameValue : ($savedProduct?->name ?? 'Unnamed product'),
+                'product_name' => $savedProduct->name ?: 'Unnamed product',
                 'operation' => $operation,
                 'quantity' => null,
                 'stock_before' => $stockBefore,
@@ -363,6 +555,41 @@ class ProductController extends Controller
 
     public function export(Request $request, $hubId)
     {
+        abort_unless(auth()->user()?->can('manage-inventory'), 403);
+        $hub = StoreHub::findOrFail($hubId);
+        if (in_array(auth()->user()->role, ['admin', 'inventory_staff'], true)) {
+            return $this->prepareExport($request, $hubId);
+        }
+
+        $request->validate([
+            'export_all' => 'sometimes|boolean',
+            'product_ids' => [Rule::requiredIf(fn () => ! $request->boolean('export_all')), 'array', 'max:5000'],
+            'product_ids.*' => ['integer', 'distinct', Rule::exists('products', 'id')->where('store_hub_id', $hubId)],
+        ]);
+        $ids = Product::where('store_hub_id', $hubId)
+            ->when(! $request->boolean('export_all'), fn ($q) => $q->whereIn('id', $request->input('product_ids', [])))
+            ->pluck('id')->all();
+        if (! $ids) {
+            throw ValidationException::withMessages(['product_ids' => 'No products are available to export.']);
+        }
+        $record = DB::transaction(function () use ($request, $hubId, $ids, $hub) {
+            $record = ProductFileRequest::create([
+                'type' => 'export', 'store_hub_id' => $hubId, 'submitted_by' => auth()->id(), 'product_ids' => $ids,
+                'file_name' => ProductExportFilename::make($hub, 'csv'),
+                'processing_status' => 'queued', 'reviewed_by' => auth()->id(), 'reviewed_at' => now(),
+            ]);
+            ProcessProductFileRequest::dispatch($record->id, auth()->id(), $request->ip() ?? '127.0.0.1');
+
+            return $record;
+        });
+        $url = route('product-file-requests.show', $record);
+
+        return $request->expectsJson() ? response()->json(['redirect' => $url]) : redirect($url)->with('success', 'Export queued. Download it here when processing completes.');
+    }
+
+    public function prepareExport(Request $request, $hubId, ?string $filename = null)
+    {
+        abort_if(auth()->user()?->role === 'sales_associate', 403, 'Submit an export request from List of Products for inventory staff approval.');
         $user = auth()->user();
         if ($user && $user->role !== 'admin' && $user->role !== 'inventory_staff' && $user->store_hub_id && $user->store_hub_id != $hubId) {
             abort(403, 'Unauthorized action.');
@@ -371,33 +598,43 @@ class ProductController extends Controller
         $productIds = $request->input('product_ids', []);
         $query = Product::where('store_hub_id', $hubId);
 
-        if (! empty($productIds)) {
-            $query->whereIn('id', $productIds);
-        } else {
-            $query->whereRaw('1 = 0');
+        $request->validate(['export_all' => 'sometimes|boolean']);
+        if (! $request->boolean('export_all')) {
+            if (! empty($productIds)) {
+                $query->whereIn('id', $productIds);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
-        $products = $query->get();
-        $filename = 'products-export-'.date('Y-m-d-H-i-s').'.csv';
+        $hub = StoreHub::findOrFail($hubId);
+        $isHeadOffice = (bool) $hub->is_head_office;
+        $productCount = (clone $query)->count();
+        $products = $query->lazyById(250);
+        foreach ($products as $product) {
+            CsvIdentifier::read($product->barcode, "Product {$product->item_id} Barcode");
+            CsvIdentifier::read($product->item_id, "Product {$product->id} Item ID");
+        }
+        $filename ??= ProductExportFilename::make($hub, 'csv');
 
         $activityLog = StaffActivityLog::create([
             'user_id' => auth()->id(),
             'store_hub_id' => $hubId,
             'action_type' => 'product_export',
-            'description' => 'Exported '.$products->count().' product item(s) to CSV.',
+            'description' => 'Exported '.$productCount.' product item(s) to CSV.',
             'details' => [
                 'file_name' => $filename,
-                'item_count' => $products->count(),
+                'item_count' => $productCount,
             ],
             'ip_address' => $request->ip(),
         ]);
         $this->notifyInventoryTeam(
             'export',
-            sprintf('User %s exported %d product item(s) from %s.', auth()->user()->name, $products->count(), StoreHub::find($hubId)?->name ?? 'the store hub'),
+            sprintf('User %s exported %d product item(s) from %s.', auth()->user()->name, $productCount, StoreHub::find($hubId)?->name ?? 'the store hub'),
             (int) $hubId
         );
 
-        $products->chunk(500)->each(function ($productsChunk) use ($activityLog) {
+        $products->chunk(100)->each(function ($productsChunk) use ($activityLog) {
             StaffActivityLogItem::insert($productsChunk->map(fn (Product $product) => [
                 'staff_activity_log_id' => $activityLog->id,
                 'product_id' => $product->id,
@@ -419,14 +656,24 @@ class ProductController extends Controller
             'Expires' => '0',
         ];
 
-        $callback = function () use ($products) {
+        $callback = function () use ($products, $isHeadOffice) {
             $file = fopen('php://output', 'w');
-            fputcsv($file, ['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Retail Group', 'Retail Department', 'Cost Price', 'Sales Price', 'Wholesale Price', 'Shopee Price', 'Lazada Price', 'Tiktok Price', 'Stock', 'Unit Type']);
+            fwrite($file, "\xEF\xBB\xBF");
+            $headers = ['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Retail Group', 'Retail Department', 'Cost Price', 'Retail Price'];
+            if ($isHeadOffice) {
+                $headers = [...$headers, 'Wholesale Price', 'Shopee Price', 'Lazada Price'];
+            }
+            $headers = [...$headers, 'Stock', 'Unit Type'];
+            fputcsv($file, $headers);
 
             foreach ($products as $prod) {
-                fputcsv($file, [
-                    $prod->id, $prod->item_id, $prod->name, $prod->description, $prod->barcode, $prod->brand, $prod->retail_group, $prod->retail_department, $prod->cost_price, $prod->sales_price, $prod->wholesale_price, $prod->shopee_price, $prod->lazada_price, $prod->tiktok_price, $prod->stock, $prod->unit_type,
-                ]);
+                $row = [
+                    $prod->id, CsvIdentifier::write($prod->item_id, 'Item ID'), $prod->name, $prod->description, CsvIdentifier::write($prod->barcode, 'Barcode'), $prod->brand, $prod->retail_group, $prod->retail_department, $prod->cost_price, $prod->sales_price,
+                ];
+                if ($isHeadOffice) {
+                    $row = [...$row, $prod->wholesale_price, $prod->shopee_price, $prod->lazada_price];
+                }
+                fputcsv($file, [...$row, $prod->stock, $prod->unit_type]);
             }
             fclose($file);
         };
@@ -470,22 +717,104 @@ class ProductController extends Controller
     public function searchAjax(Request $request, $hubId)
     {
         $user = auth()->user();
-        if ($user && $user->role !== 'admin' && $user->role !== 'inventory_staff' && $user->store_hub_id && $user->store_hub_id != $hubId) {
+        if ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true) && ! $user->canAccessHub((int) $hubId)) {
+            return response()->json([], 403);
+        }
+        if ($user?->role === 'sales_associate'
+            && ! StoreHub::whereKey($hubId)->where('is_head_office', false)->exists()) {
             return response()->json([], 403);
         }
 
         $search = $request->input('q', '');
+        $field = $request->input('field');
+        $stockChannel = $request->input('stock_channel');
+        if ($stockChannel !== null) {
+            $request->validate([
+                'stock_channel' => ['string', Rule::in(array_keys(self::SALES_STOCK_CHANNELS))],
+            ]);
+        }
         $query = Product::where('store_hub_id', $hubId);
+        if ($request->boolean('active_only')) {
+            $query->where('status', 'active');
+        }
+        if ($request->boolean('inventory_page')) {
+            $request->validate(['after' => 'nullable|integer|min:0']);
+
+            return response()->json($query->where('status', 'active')->where('id', '>', $request->integer('after'))->orderBy('id')->limit(500)->get());
+        }
 
         if ($search !== '') {
-            $query->where(function ($builder) use ($search) {
-                foreach (['name', 'description', 'item_id', 'barcode', 'brand'] as $field) {
-                    $builder->orWhere($field, 'LIKE', "%{$search}%");
-                }
+            if (in_array($field, ['brand', 'retail_group', 'retail_department'], true)) {
+                $query->whereCatalog($field, $search);
+            } elseif (in_array($field, ['item_id', 'barcode'], true)) {
+                $query->where(function ($builder) use ($field, $search) {
+                    $builder->whereCatalog($field, 'LIKE', "%{$search}%");
+                    if ($field === 'item_id' && ctype_digit((string) $search)) {
+                        $builder->orWhere('products.id', (int) $search);
+                    }
+                });
+            } else {
+                $fields = $field === null
+                    ? ['name', ...($request->boolean('exclude_description') ? [] : ['description']), 'item_id', 'barcode', ...($request->boolean('exclude_brand') ? [] : ['brand'])]
+                    : ['name', 'description'];
+                $query->where(function ($builder) use ($search, $fields) {
+                    $builder->whereHas('catalogProduct', function ($catalog) use ($search, $fields) {
+                        $catalog->where(function ($catalog) use ($search, $fields) {
+                            foreach ($fields as $column) {
+                                $catalog->orWhere($column, 'LIKE', "%{$search}%");
+                            }
+                        });
+                    });
+                    if (ctype_digit((string) $search)) {
+                        $builder->orWhere('products.id', (int) $search);
+                    }
+                });
+            }
+        }
+
+        $sortField = $request->input('sort') === 'item_id' ? 'item_id' : 'name';
+        if ($search !== '') {
+            $priority = ctype_digit((string) $search)
+                ? '(CASE WHEN products.id = ? THEN 0 ELSE 1 END) + '
+                : '';
+            $bindings = ctype_digit((string) $search) ? [(int) $search] : [];
+            $query->orderByRaw(
+                $priority.'(SELECT CASE
+                    WHEN item_id = ? THEN 0
+                    WHEN item_id LIKE ? THEN 1
+                    WHEN barcode = ? THEN 2
+                    WHEN barcode LIKE ? THEN 3
+                    ELSE 4
+                END FROM catalog_products WHERE catalog_products.id = products.catalog_product_id)',
+                [...$bindings, $search, "{$search}%", $search, "{$search}%"]
+            );
+        }
+
+        $products = $query
+            ->when($stockChannel, fn ($builder) => $builder->with('stockAllocation'))
+            ->orderByCatalog($sortField)
+            ->limit(100)
+            ->get();
+
+        $products->each(function (Product $product): void {
+            // Normalized products keep catalog metadata in catalog_products; expose
+            // the searchable fields explicitly for AJAX consumers.
+            $product->setAttribute('item_id', $product->catalogProduct?->item_id);
+            $product->setAttribute('name', $product->catalogProduct?->name);
+        });
+
+        if ($stockChannel && $products->isNotEmpty()) {
+            $products->each(function (Product $product) use ($stockChannel) {
+                $product->setAttribute(
+                    'channel_available_stock',
+                    $stockChannel === 'walk_in'
+                        ? $product->unallocatedStock()
+                        : $product->channelAvailableStock($stockChannel, $stockChannel !== 'online')
+                );
             });
         }
 
-        return response()->json($query->orderBy('name')->limit(100)->get());
+        return response()->json($products);
     }
 
     private function notifyInventoryTeam(string $event, string $message, int $hubId): void

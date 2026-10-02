@@ -2,90 +2,126 @@
 
 @section('content')
 
-<div class="p-5">
+@php
+    $usesWholesalePricing = $displayChannel === 'wholesale';
+@endphp
+
+<style>
+    .product-list-table {
+        min-width: 980px;
+    }
+
+    .product-list-table thead th {
+        white-space: nowrap;
+        letter-spacing: .04em;
+        font-size: 10px !important;
+        color: #64748b !important;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .product-list-table tbody td {
+        padding-top: .85rem;
+        padding-bottom: .85rem;
+        border-color: #eef2f7;
+    }
+
+    .product-name-cell {
+        min-width: 220px;
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .product-price-cell {
+        white-space: nowrap;
+        font-weight: 600;
+        color: #0f172a;
+    }
+
+    .product-stock-cell {
+        white-space: nowrap;
+        font-weight: 700;
+        color: #0f766e;
+    }
+
+    .product-list-table tbody tr:hover {
+        background-color: #f8fbff;
+    }
+</style>
+<style>
+    .workspace-page { max-width: 1500px; }
+    .workspace-hero { border-radius: 22px; padding: 1.75rem 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 65%, #38bdf8); box-shadow: 0 14px 32px rgba(37,99,235,.16); }
+    .workspace-hero h3 { color: #fff !important; }
+    .workspace-card { border: 0; border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,.07); }
+    .workspace-hero-content { display: flex; align-items: center; gap: 1rem; }
+    .workspace-hero-icon { width: 54px; height: 54px; flex: 0 0 54px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #1d4ed8, #38bdf8); box-shadow: 0 8px 16px rgba(37,99,235,.2); font-size: 1.25rem; }
+</style>
+<div class="p-5 workspace-page">
     <div class="mb-4">
-        <h3 class="fw-bold text-dark mb-1">Master Product Stock Sheets</h3>
-        <p class="text-muted small mb-0">Review inventory balances per physical store hub.</p>
+        <div class="workspace-hero">
+            <div class="workspace-hero-content">
+                <span class="workspace-hero-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+                <div><div class="text-uppercase small fw-bold opacity-75 mb-2">Inventory workspace</div>
+                <h3 class="fw-bold mb-1">Master Product Stock Sheets</h3>
+                <p class="small opacity-75 mb-0">Review inventory balances per physical store hub.</p></div>
+            </div>
+        </div>
+        @can('manage-shared-catalog')
+        @if($selectedHub?->is_head_office)
+        <a class="btn btn-outline-success mt-3" href="{{ route('catalog.index', ['hub_id' => $selectedHub->id]) }}">Shared Product Catalog</a>
+        @endif
+        @endcan
+        @if(in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true))
+        <a class="btn btn-outline-primary mt-3" href="{{ route('product-file-requests.index') }}">
+            Review Stock Transfer Requests
+        </a>
+        @endif
     </div>
 
-    {{-- Filter Card (Store Hub + Search & Filters) --}}
-    <div class="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
-        <div class="row align-items-end g-3">
-            {{--Selection Store Hub--}}
+    <div class="card workspace-card p-3 mb-4 bg-white">
+        <form method="GET" action="{{ route('products.index') }}" class="row g-3 align-items-end">
             <div class="col-md-3">
-                <label class="small text-muted fw-bold mb-1">SELECT STORE HUB</label>
-                <style>
-                    .custom-hub-select {
-                        font-size: 16px !important;
-                        font-weight: 600 !important;
-                    }
-                    .custom-hub-select option {
-                        font-size: 16px !important;
-                    }
-                    /* Force fix for stuck Bootstrap modal backdrops and click lockouts */
-                    .modal-backdrop {
-                        display: none !important;
-                    }
-                    body.modal-open {
-                        overflow: auto !important;
-                        padding-right: 0 !important;
-                    }
-                    .modal {
-                        background: rgba(0, 0, 0, 0.5);
-                    }
-                </style>
-                <select name="hub_id" id="storeHubSelect" class="form-select border-0 bg-light py-2 custom-hub-select" onchange="window.location.href='{{ route('products.index') }}?hub_id=' + this.value + '&field={{ request('field') }}&search={{ request('search') }}'">
-                    <option value="">-- CHOOSE A STORE --</option>
-                    @foreach($hubs as $hub)
-                        <option value="{{ $hub->id }}" {{ request('hub_id') == $hub->id ? 'selected' : '' }}>
-                            {{ strtoupper($hub->name) }}
-                        </option>
+                @if(in_array(auth()->user()->role, ['admin', 'inventory_staff'], true))
+                    <label for="storeHubSelect" class="form-label small fw-semibold">Store branch</label>
+                    <select name="hub_id" id="storeHubSelect" class="form-select" onchange="this.form.submit()">
+                        <option value="">All stores</option>
+                        @foreach($productHubs as $hub)
+                            <option value="{{ $hub->id }}" @selected($selectedHub?->id == $hub->id)>{{ $hub->name }}</option>
+                        @endforeach
+                    </select>
+                @elseif($isSalesAssociate && $productHubs->count() > 1)
+                    <label for="storeHubSelect" class="form-label small fw-semibold">Store branch</label>
+                    <select name="hub_id" id="storeHubSelect" class="form-select" onchange="this.form.submit()">
+                        @foreach($productHubs as $hub)
+                            <option value="{{ $hub->id }}" @selected($selectedHub?->id == $hub->id)>{{ $hub->name }}</option>
+                        @endforeach
+                    </select>
+                @else
+                    <span class="d-block small text-muted mb-2">Your assigned branch</span>
+                    <div class="fw-semibold py-2">{{ $selectedHub?->name ?? 'No branch assigned' }}</div>
+                @endif
+            </div>
+            @if(auth()->user()?->role === 'sales_marketing_staff' && $displayChannelOptions->count() > 1)
+            <div class="col-md-3">
+                <label for="productChannel" class="form-label small fw-semibold">Sales channel</label>
+                <select name="channel" id="productChannel" class="form-select" onchange="this.form.submit()">
+                    @foreach($displayChannelOptions as $channelOption)
+                        <option value="{{ $channelOption }}" @selected($displayChannel === $channelOption)>{{ \Illuminate\Support\Str::headline($channelOption) }}</option>
                     @endforeach
                 </select>
             </div>
-
-            {{-- Search and Filter Form --}}
-            <div class="col-md-9">
-                <form method="GET" action="{{ route('products.index') }}" class="row g-2 align-items-end">
-                    @if(request('hub_id'))
-                        <input type="hidden" name="hub_id" value="{{ request('hub_id') }}">
-                    @endif
-
-                    <div class="col-md-3">
-                        <label class="small text-muted fw-bold mb-1">FILTER BY</label>
-                        <select name="field" class="form-select border-0 bg-light py-2">
-                            <option value="name" {{ request('field') == 'name' ? 'selected' : '' }}>Product Name</option>
-                            <option value="item_id" {{ request('field') == 'item_id' ? 'selected' : '' }}>Item ID</option>
-                            <option value="barcode" {{ request('field') == 'barcode' ? 'selected' : '' }}>Barcode</option>
-                            <option value="brand" {{ request('field') == 'brand' ? 'selected' : '' }}>Brand</option>
-                            <option value="retail_group" {{ request('field') == 'retail_group' ? 'selected' : '' }}>Retail Group</option>
-                            <option value="retail_department" {{ request('field') == 'retail_department' ? 'selected' : '' }}>Retail Dept</option>
-                            <option value="unit_type" {{ request('field') == 'unit_type' ? 'selected' : '' }}>Unit Type</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="small text-muted fw-bold mb-1">SEARCH KEYWORD</label>
-                        <input type="text" name="search" class="form-control border-0 bg-light py-2" placeholder="Search products..." value="{{ request('search') }}">
-                    </div>
-
-                    <div class="col-md-3 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary w-100 py-2">
-                            <i class="fa-solid fa-search me-1"></i> Search
-                        </button>
-                        <a href="{{ route('products.index', ['hub_id' => request('hub_id')]) }}" class="btn btn-outline-secondary py-2" title="Reset Search">
-                            <i class="fa-solid fa-rotate-right"></i>
-                        </a>
-                    </div>
-                </form>
+            @endif
+            <div class="{{ auth()->user()?->role === 'sales_marketing_staff' && $displayChannelOptions->count() > 1 ? 'col-md-3' : 'col-md-6' }}">
+                <label for="productSearch" class="form-label small fw-semibold">Find a product</label>
+                <input id="productSearch" type="search" name="search" class="form-control" placeholder="Name, Item ID, barcode or brand" value="{{ request('search') }}">
             </div>
-        </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary"><i class="fa-solid fa-search me-1"></i> Search</button>
+                <a href="{{ route('products.index', ['hub_id' => $selectedHub?->id, 'channel' => $displayChannel]) }}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+            <div class="col-12 mt-2 small text-muted">Use a barcode or Item ID, or combine keywords such as “brush 12”.</div>
+        </form>
     </div>
-
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show mb-4">{{ session('success') }}</div>
-    @endif
-
     {{-- Product Table Wrapped in Bulk Delete Form --}}
     <form action="{{ route('products.bulk-destroy') }}" method="POST" id="bulkDeleteForm">
         @csrf
@@ -94,7 +130,7 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold text-dark mb-0">
                     <i class="fa-solid fa-warehouse me-2 text-muted"></i> 
-                    {{ isset($selectedHub) && $selectedHub ? strtoupper($selectedHub->name) : 'ALL STORES' }}
+                    {{ isset($selectedHub) && $selectedHub ? strtoupper($selectedHub->name) : (in_array(auth()->user()->role, ['admin', 'inventory_staff'], true) ? 'ALL STORES' : 'NO BRANCH ASSIGNED') }}
                 </h5>
                 
                 @can('full-access')
@@ -107,18 +143,17 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 product-list-table">
                     <thead class="table-light">
                         <tr class="small text-uppercase text-muted fw-bold" style="font-size: 11px;">
-                            <th style="width: 20%;">Product Name</th>
-                            <th style="width: 10%;">Item ID</th>
-                            <th style="width: 13%;">Barcode</th>
-                            <th style="width: 11%;">Brand</th>    
-                            <th style="width: 11%;">Retail Group</th>    
-                            <th style="width: 10%;">Retail Dept</th>
-                            <th style="width: 8%;">Unit Type</th>      
-                            <th class="text-end" style="width: 9%;">Retail Price</th>
-                            <th class="text-center" style="width: 8%;">Branch Stock</th>
+                            <th>Product</th>
+                            <th>Item ID</th>
+                            <th>Barcode</th>
+                            <th>Brand</th>
+                            <th>Retail Department</th>
+                            <th>Unit</th>
+                            <th class="text-end">{{ $usesWholesalePricing ? 'Wholesale Price' : 'Retail Price' }}</th>
+                            <th class="text-center">{{ $displayChannelLabel }}</th>
                             @can('manage-inventory')
                             <th class="text-end action-header-text" style="width: 9%;">Actions</th>
                             @can('full-access')
@@ -132,9 +167,9 @@
                     <tbody>
                         @forelse($products as $product)
                             <tr>
-                                <td>{{ $product->name }}</td>
-                                <td>{{ $product->item_id }}</td>
-                                <td>{{ $product->barcode ?? '-' }}</td>
+                                <td class="product-name-cell">{{ $product->name }}</td>
+                                <td class="text-nowrap">{{ $product->item_id }}</td>
+                                <td class="text-nowrap">{{ $product->barcode ?? '-' }}</td>
                                 <td>
                                     @php
                                         $brandData = json_decode($product->brand);
@@ -142,11 +177,10 @@
                                     @endphp
                                     {{ $displayBrand }}
                                 </td>
-                                <td>{{ $product->retail_group }}</td>    
-                                <td>{{ $product->retail_department }}</td>   
-                                <td>{{ $product->unit_type ?? '-' }}</td>
-                                <td class="text-end">₱{{ number_format($product->sales_price, 2) }}</td>
-                                <td class="text-center">{{ $product->stock ?? 0 }}</td>
+                                <td>{{ $product->retail_department ?: '-' }}</td>
+                                <td class="text-nowrap">{{ $product->unit_type ?? '-' }}</td>
+                                <td class="text-end product-price-cell">&#8369;{{ number_format($usesWholesalePricing ? $product->wholesale_price : $product->sales_price, 2) }}</td>
+                                <td class="text-center product-stock-cell">{{ $displayChannel ? ($product->allocated_available_stock ?? 0) : ($product->stock ?? 0) }}</td>
                                 
                                 @can('manage-inventory')
                                 <td class="text-end standard-actions-col">
@@ -214,6 +248,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4 bg-white" style="max-height: 70vh; overflow-y: auto;">
+                <div class="alert alert-info small">Item ID, name, description, barcode, brand and classification are shared across branches. Editing them updates the shared catalog. Prices apply only to this branch.</div>
                 <div class="row g-4">
                     <div class="col-12">
                         
@@ -335,13 +370,6 @@
                                         <div class="input-group">
                                             <span class="input-group-text bg-light text-muted">₱</span>
                                             <input type="text" name="lazada_price" value="{{ old('lazada_price', $product->lazada_price) }}" class="form-control">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="small fw-bold text-muted">TikTok</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text bg-light text-muted">₱</span>
-                                            <input type="text" name="tiktok_price" value="{{ old('tiktok_price', $product->tiktok_price) }}" class="form-control">
                                         </div>
                                     </div>
                                 </div>

@@ -6,7 +6,7 @@
         'return' => ['button' => 'Save Return', 'source' => 'Customer / marketplace', 'channel' => true],
     ][$type];
 @endphp
-@if($errors->any()) <div class="alert alert-danger">{{ $errors->first() }}</div> @endif
+
 <form method="POST" action="{{ route('inventory-transactions.store') }}" class="card border-0 shadow-sm rounded-4 p-4">
     @csrf
     <input type="hidden" name="type" value="{{ $type }}">

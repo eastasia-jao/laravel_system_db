@@ -3,6 +3,11 @@
     @php
        $notifications = auth()->user()->notifications()->latest()->limit(10)->get();
        $unreadNotificationCount = auth()->user()->unreadNotifications()->count();
+       $sidebarContextHubId = request()->integer('hub_id')
+           ?: request()->route('id')
+           ?: request()->route('hub')
+           ?: auth()->user()->store_hub_id;
+       $sidebarContextHub = $sidebarHubs->firstWhere('id', (int) $sidebarContextHubId);
     @endphp
     
     <div class="d-flex align-items-center justify-content-between gap-2 mb-4 pb-3 border-bottom text-primary fw-bold fs-5">
@@ -23,43 +28,88 @@
            </button>
 
            <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 p-0" style="width: min(340px, calc(100vw - 1rem)); max-height: 420px; overflow-y: auto;">
-               <div class="d-flex justify-content-between align-items-center gap-2 px-3 py-2 border-bottom">
-                   <span class="fw-semibold text-dark">Notifications</span>
-                   <a href="{{ route('notifications.read-all') }}" class="small text-primary text-decoration-none text-nowrap">Mark all read</a>
+               <div class="d-flex justify-content-between align-items-center gap-2 px-3 py-3 border-bottom">
+                   <div><div class="text-uppercase small fw-bold text-primary">Recent activity</div><span class="fw-semibold text-dark">Notifications</span></div>
+                   <form action="{{ route('notifications.read-all') }}" method="POST" class="m-0">
+                       @csrf
+                       <button type="submit" class="btn btn-link p-0 small text-primary text-decoration-none text-nowrap">Mark all read</button>
+                   </form>
                </div>
+               <div>
 
-               @forelse($notifications as $notification)
+                   @forelse($notifications as $notification)
                    @php
                        $notificationData = $notification->data ?? [];
                        $notificationUrl = route('notifications.read', $notification->id);
+                       $notificationHub = $sidebarHubs->firstWhere('id', $notificationData['hub_id'] ?? null);
+                       $isReplacementNotification = in_array($notificationData['event'] ?? null, ['replacement_request', 'replacement_approved', 'replacement_rejected'], true);
+                       $isWalkInNotification = ($notificationData['channel'] ?? null) === 'walk_in'
+                           || str_starts_with($notificationData['title'] ?? '', 'Walk-In ')
+                           || ($isReplacementNotification && $notificationHub && ! $notificationHub->is_head_office);
+                       $notificationTitle = $isWalkInNotification && $isReplacementNotification
+                           ? str_replace('Wholesale', 'Walk-In', $notificationData['title'] ?? 'Replacement notification')
+                           : ($notificationData['title'] ?? 'Notification');
+                       $notificationMessage = $notificationData['message'] ?? 'You have a new update.';
+                       if ($isWalkInNotification) {
+                           $notificationMessage = preg_replace_callback(
+                               '/\bPENDING-(\d+)\b/',
+                               fn ($matches) => sprintf('WALK-IN%03d', (int) $matches[1]),
+                               $notificationMessage
+                           );
+                       }
+                       $isRejectedNotification = in_array($notificationData['event'] ?? null, ['rejected', 'replacement_rejected', 'branch_transfer_rejected'], true);
+                       $isSuccessfulVerification = in_array($notificationData['event'] ?? null, ['confirmed', 'inventory_verification', 'replacement_approved', 'branch_transfer_approved', 'fully_booked_completed'], true);
+                       $notificationVisuals = $isRejectedNotification
+                           ? ['icon' => 'fa-circle-xmark', 'color' => 'text-danger', 'background' => 'bg-danger']
+                           : ($isSuccessfulVerification
+                           ? ['icon' => 'fa-clipboard-check', 'color' => 'text-success', 'background' => 'bg-success']
+                           : ($isWalkInNotification
+                           ? ['icon' => 'fa-cash-register', 'color' => 'text-warning', 'background' => 'bg-warning']
+                           : match ($notificationData['event'] ?? null) {
+                           'submitted' => ['icon' => 'fa-file-circle-plus', 'color' => 'text-info', 'background' => 'bg-info'],
+                           'confirmed', 'inventory_verification' => ['icon' => 'fa-clipboard-check', 'color' => 'text-success', 'background' => 'bg-success'],
+                           'rejected', 'replacement_rejected' => ['icon' => 'fa-circle-xmark', 'color' => 'text-danger', 'background' => 'bg-danger'],
+                           'import' => ['icon' => 'fa-file-import', 'color' => 'text-success', 'background' => 'bg-success'],
+                           'export' => ['icon' => 'fa-file-export', 'color' => 'text-primary', 'background' => 'bg-primary'],
+                           'stock_allocation' => ['icon' => 'fa-layer-group', 'color' => 'text-primary', 'background' => 'bg-primary'],
+                           'transaction_log' => ['icon' => 'fa-clipboard-list', 'color' => 'text-warning', 'background' => 'bg-warning'],
+                           'replacement_request' => ['icon' => 'fa-box-open', 'color' => 'text-warning', 'background' => 'bg-warning'],
+                           'branch_transfer_request' => ['icon' => 'fa-right-left', 'color' => 'text-warning', 'background' => 'bg-warning'],
+                           'replacement_approved' => ['icon' => 'fa-boxes-stacked', 'color' => 'text-success', 'background' => 'bg-success'],
+                           'return_recorded' => ['icon' => 'fa-rotate-left', 'color' => 'text-danger', 'background' => 'bg-danger'],
+                           default => ['icon' => 'fa-bell', 'color' => 'text-primary', 'background' => 'bg-primary'],
+                       }));
                    @endphp
-                   <a href="{{ $notificationUrl }}" class="dropdown-item px-3 py-3 border-bottom {{ $notification->read_at ? 'text-muted' : 'text-dark' }}" style="white-space: normal; overflow-wrap: anywhere;">
+                   <a href="{{ $notificationUrl }}" class="d-block px-3 py-3 border-bottom {{ $notification->read_at ? 'text-muted' : 'text-dark' }} text-decoration-none" style="white-space: normal; overflow-wrap: anywhere;">
                        <div class="d-flex align-items-start gap-2" style="min-width: 0;">
-                           <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; flex-shrink: 0;">
-                               <i class="fa-solid fa-bell small"></i>
+                           <div class="rounded-circle {{ $notificationVisuals['background'] }} bg-opacity-10 {{ $notificationVisuals['color'] }} d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; flex-shrink: 0;">
+                               <i class="fa-solid {{ $notificationVisuals['icon'] }} small"></i>
                            </div>
                            <div class="flex-grow-1" style="min-width: 0; overflow-wrap: anywhere; word-break: break-word;">
-                               <div class="fw-semibold small" style="overflow-wrap: anywhere; word-break: break-word;">{{ $notificationData['title'] ?? 'Notification' }}</div>
-                               <div class="small mt-1" style="overflow-wrap: anywhere; word-break: break-word;">{{ $notificationData['message'] ?? 'You have a new update.' }}</div>
-                               <div class="small text-muted mt-1">
-                                   {{ $notification->created_at?->diffForHumans() }}
-                                   <span class="d-block">{{ $notification->created_at?->format('M d, Y h:i A') }}</span>
-                               </div>
+                               <div class="fw-semibold small" style="overflow-wrap: anywhere; word-break: break-word;">{{ $notificationTitle }}</div>
+                               <div class="small mt-1" style="overflow-wrap: anywhere; word-break: break-word;">{{ $notificationMessage }}</div>
+                               <div class="small text-muted mt-1">{{ $notification->created_at?->diffForHumans() }}</div>
                            </div>
                            @if(is_null($notification->read_at))
                                <span class="rounded-circle bg-primary" style="width: 8px; height: 8px; display: inline-block; flex: 0 0 8px; margin-top: 6px;"></span>
                            @endif
                        </div>
                    </a>
-               @empty
-                   <div class="p-3 text-center text-muted small">No notifications yet.</div>
-               @endforelse
+                   @empty
+                       <div class="p-4 text-center text-muted small">No notifications yet.</div>
+                   @endforelse
+                   </div>
+                   @if($notifications->count() >= 10)
+                       <div class="p-3 border-top text-center bg-white">
+                           <a href="{{ route('notifications.index') }}" class="btn btn-link p-0 small fw-semibold text-primary text-decoration-none">See more notifications <i class="fa-solid fa-arrow-right ms-1"></i></a>
+                       </div>
+                   @endif
+               </div>
            </div>
        </div>
-    </div>
 
     <ul class="nav nav-pills flex-column mb-auto gap-1">
-        @can('access-sales')
+        @can('access-dashboard')
         <li class="nav-item">
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-chart-pie"></i> Dashboard
@@ -68,24 +118,46 @@
         @endcan
 
         @can('view-inventory')
+        @can('view-products')
         <li>
             <a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.index') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-boxes-stacked"></i> List of Products
             </a>
         </li>
-        @can('manage-inventory')
+        @endcan
+        @can('manage-stock-allocation')
+        @if(!auth()->user()->storeHub || auth()->user()->storeHub->is_head_office)
         <li>
             <a href="{{ route('stock-allocation.index') }}" class="nav-link {{ request()->routeIs('stock-allocation.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-layer-group"></i> Stock Allocation
             </a>
         </li>
+        @endif
         @endcan
         @can('view-transaction-logs')
         <li>
-            <a href="{{ route('inventory-transactions.index') }}" class="nav-link {{ request()->routeIs('inventory-transactions.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
+            <a href="{{ route('inventory-transactions.index') }}" class="nav-link {{ request()->routeIs('inventory-transactions.index') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-clipboard-list"></i> Transaction Logs
             </a>
         </li>
+        @endcan
+        @can('manage-branch-returns')
+        @if($sidebarContextHub && ! $sidebarContextHub->is_head_office)
+        <li>
+            <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $sidebarContextHub->id]) }}" class="nav-link {{ request()->routeIs('inventory-transactions.return.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
+                <i class="fa-solid fa-rotate-left"></i> Return Items
+            </a>
+        </li>
+        @endif
+        @endcan
+        @can('submit-branch-transfers')
+        @if(auth()->user()?->role === 'sales_associate')
+        <li>
+            <a href="{{ route('inventory-transactions.branch-transfer.create') }}" class="nav-link {{ request()->routeIs('inventory-transactions.branch-transfer.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
+                <i class="fa-solid fa-right-left"></i> Stock Transfer (Branch to Branch)
+            </a>
+        </li>
+        @endif
         @endcan
         @endcan
 
@@ -99,7 +171,8 @@
                     @php
                         $visibleSidebarHubs = in_array(Auth::user()->role, ['admin', 'inventory_staff'], true)
                             ? $sidebarHubs
-                            : $sidebarHubs->where('id', Auth::user()->store_hub_id);
+                            : $sidebarHubs->whereIn('id', Auth::user()->accessibleStoreHubIds());
+                        $visibleSidebarHubs = $visibleSidebarHubs->where('status', 'active');
                     @endphp
                     @foreach($visibleSidebarHubs as $hub)
                     @php
@@ -129,14 +202,6 @@
 
         @can('full-access')
         <li>
-            <a href="#" class="nav-link text-secondary d-flex align-items-center gap-3 py-2 px-3 rounded-3">
-                <i class="fa-solid fa-tags"></i> Discount
-            </a>
-        </li>
-        @endcan
-
-        @can('full-access')
-        <li>
             <a href="/users" class="nav-link {{ request()->is('users') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-users-gear"></i> Users
             </a>
@@ -157,6 +222,7 @@
             <span class="fw-semibold text-dark small text-truncate">{{ Auth::user()->name }}</span>
             <span class="text-muted text-truncate" style="font-size: 11px;">@<span>{{ Auth::user()->username }}</span></span>
         </div>
+        <span id="sidebarClock" class="text-muted small me-2" aria-label="Current time"></span>
         <form method="POST" action="{{ route('logout') }}" class="m-0">
             @csrf
             <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle p-2 shadow-2" title="Log Out">
@@ -165,3 +231,19 @@
         </form>
     </div>
 </div>
+<script>
+    (() => {
+        const clock = document.getElementById('sidebarClock');
+        const updateClock = () => {
+            clock.textContent = new Intl.DateTimeFormat('en-PH', {
+                timeZone: 'Asia/Manila',
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true,
+            }).format(new Date());
+        };
+        updateClock();
+        setInterval(updateClock, 1000);
+    })();
+</script>

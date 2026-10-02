@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fc2407b1a509d7fcbbc5146f46a2c921",
+    "content-hash": "0f04ae1b2335587ab8633e129ab84a16",
     "packages": [
         {
             "name": "brick/math",
@@ -3141,6 +3141,100 @@
                 "source": "https://github.com/ralouphie/getallheaders/tree/develop"
             },
             "time": "2019-03-08T08:55:37+00:00"
+        },
+        {
+            "name": "ramadan/custom-fresh",
+            "version": "v2.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mahmoudmohamedramadan/custom-fresh.git",
+                "reference": "f964aedefeb458baa7b9a18f3f721dc950bf6e70"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mahmoudmohamedramadan/custom-fresh/zipball/f964aedefeb458baa7b9a18f3f721dc950bf6e70",
+                "reference": "f964aedefeb458baa7b9a18f3f721dc950bf6e70",
+                "shasum": ""
+            },
+            "require": {
+                "ext-pdo": "*",
+                "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^8.36 || ^9.15 || ^10.1 || ^11.0",
+                "phpunit/phpunit": "^10.5 || ^11.5 || ^12.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Ramadan\\CustomFresh\\CustomFreshServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Ramadan\\CustomFresh\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Mahmoud Ramadan",
+                    "email": "mahmoudramadan496@gmail.com",
+                    "homepage": "https://portfolio.mmramadan.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "A Laravel package to specify the tables that you do not want to drop while refreshing the database.",
+            "homepage": "https://github.com/mahmoudmohamedramadan/custom-fresh",
+            "keywords": [
+                "custom-fresh",
+                "database",
+                "laravel",
+                "mariadb",
+                "migrate",
+                "mssql",
+                "mysql",
+                "oracle",
+                "pdo",
+                "pgsql",
+                "postgresql",
+                "queryobject",
+                "refreshing",
+                "sql",
+                "sqlite",
+                "sqlserver"
+            ],
+            "support": {
+                "issues": "https://github.com/mahmoudmohamedramadan/custom-fresh/issues",
+                "source": "https://github.com/mahmoudmohamedramadan/custom-fresh/tree/v2.1.0"
+            },
+            "funding": [
+                {
+                    "url": "https://buymeacoffee.com/mmramadan496",
+                    "type": "buymeacoffee"
+                },
+                {
+                    "url": "https://github.com/sponsors/mahmoudmohamedramadan",
+                    "type": "github"
+                },
+                {
+                    "url": "https://patreon.com/mmramadan496",
+                    "type": "patreon"
+                },
+                {
+                    "url": "https://paypal.com/paypalme/mmramadan496",
+                    "type": "paypal"
+                }
+            ],
+            "time": "2026-09-09T20:36:17+00:00"
         },
         {
             "name": "ramsey/collection",

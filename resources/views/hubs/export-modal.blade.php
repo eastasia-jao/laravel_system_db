@@ -6,7 +6,6 @@
                     <h5 class="modal-title fw-bold text-success" id="exportProductModalLabel">
                         <i class="fa-solid fa-file-export me-2"></i> Advanced Item & Filter CSV Export
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 
                 <div class="modal-body">
@@ -14,6 +13,12 @@
                         <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
                         <span>Preparing your CSV file...</span>
                     </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="export_all" value="1" id="exportAllProducts">
+                        <label class="form-check-label fw-semibold" for="exportAllProducts">Export all products in this store hub</label>
+                        <div class="form-text">Includes every product in this store, regardless of search filters.</div>
+                    </div>
+                    <fieldset id="exportItemSelection">
                     <label class="form-label small fw-bold mb-1">Search & Select Specific Items</label>
                     
                     <!-- Search Bar with Dynamic Field Selector -->
@@ -78,6 +83,7 @@
                     <div class="border rounded p-2 bg-light mb-3" id="searchResultsContainer" style="max-height: 180px; overflow-y: auto;">
                         <div class="text-muted small text-center py-2">No specific items searched yet. Use the search box above.</div>
                     </div>
+                    </fieldset>
                 </div>
 
                 <div class="modal-footer">
@@ -122,6 +128,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const exportSubmitBtn = document.getElementById('exportSubmitBtn');
     const exportStatus = document.getElementById('exportStatus');
     const hubId = "{{ $hub->id }}";
+    const exportAll = document.getElementById('exportAllProducts');
+    const itemSelection = document.getElementById('exportItemSelection');
+    exportAll.addEventListener('change', () => {
+        itemSelection.disabled = exportAll.checked;
+        itemSelection.classList.toggle('opacity-50', exportAll.checked);
+    });
 
     // Switch input element dynamically based on selected criteria category
     searchFieldSelect.addEventListener('change', function() {
@@ -153,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let field = searchFieldSelect.value;
         
         if (!query) {
-            alert('Please enter a keyword or select an option from the dropdown.');
+            AppAlert.show('Please enter a keyword or select an option from the dropdown.');
             return;
         }
 
@@ -172,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(data => {
                 if (!Array.isArray(data) || data.length === 0) {
-                    alert('No items found matching your selection.');
+                    AppAlert.show('No items found matching your selection.');
                     return;
                 }
 
@@ -188,11 +200,18 @@ document.addEventListener('DOMContentLoaded', function () {
                         let brandText = (prod.brand && prod.brand !== 'No Brand') ? `(${prod.brand})` : '';
                         let prodName = prod.name || prod.description || 'Unnamed Item';
 
-                        wrapper.innerHTML = `
-                            <input class="form-check-input item-checkbox" type="checkbox" name="product_ids[]" value="${prod.id}" id="prod_${prod.id}" checked>
-                            <label class="form-check-label small" for="prod_${prod.id}">
-                                <strong>[${itemIdText}]</strong> ${prodName} <span class="text-muted">${brandText}</span>
-                            </label>`;
+                        const input = document.createElement('input');
+                        Object.assign(input, { className: 'form-check-input item-checkbox', type: 'checkbox', name: 'product_ids[]', value: prod.id, id: 'prod_' + prod.id, checked: true });
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label small';
+                        label.htmlFor = input.id;
+                        const identifier = document.createElement('strong');
+                        identifier.textContent = '[' + itemIdText + ']';
+                        const brand = document.createElement('span');
+                        brand.className = 'text-muted';
+                        brand.textContent = brandText;
+                        label.append(identifier, ' ' + prodName + ' ', brand);
+                        wrapper.append(input, label);
                         
                         resultsContainer.appendChild(wrapper);
 
@@ -218,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(error => {
                 console.error('Error loading search results:', error);
-                alert('An error occurred while searching. Please check the console log.');
+                AppAlert.show('We could not load the products. Please try searching again.', 'error', { title: 'Search could not finish' });
             });
     }
 
@@ -250,9 +269,9 @@ document.addEventListener('DOMContentLoaded', function () {
         event.preventDefault();
 
         const selectedItems = exportForm.querySelectorAll('input[name="product_ids[]"]:checked');
-        if (selectedItems.length === 0) {
+        if (!exportAll.checked && selectedItems.length === 0) {
             document.getElementById('exportErrorMessage').textContent = 'Select at least one product before exporting.';
-            bootstrap.Toast.getOrCreateInstance(document.getElementById('exportErrorToast'), { delay: 4000 }).show();
+            AppAlert.show(document.getElementById('exportErrorMessage').textContent, 'error');
             return;
         }
 
@@ -268,12 +287,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
 
-            if (!response.ok) throw new Error('The server could not create the export file.');
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(Object.values(error.errors || {}).flat().join('\n') || error.message || 'The server could not create the export file.');
+            }
 
+            if ((response.headers.get('Content-Type') || '').includes('application/json')) {
+                const result = await response.json();
+                if (result.redirect) { window.location.assign(result.redirect); return; }
+                throw new Error('The export status page is unavailable.');
+            }
             const blob = await response.blob();
             const disposition = response.headers.get('Content-Disposition') || '';
             const fileNameMatch = disposition.match(/filename="?([^";]+)"?/i);
-            const fileName = fileNameMatch ? fileNameMatch[1] : `products-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            const fileName = fileNameMatch ? fileNameMatch[1] : `exporting_products_${new Date().toISOString().replace(/[-:.]/g, '')}.csv`;
             const downloadUrl = URL.createObjectURL(blob);
             const downloadLink = document.createElement('a');
             downloadLink.href = downloadUrl;
@@ -284,10 +311,10 @@ document.addEventListener('DOMContentLoaded', function () {
             URL.revokeObjectURL(downloadUrl);
 
             bootstrap.Modal.getInstance(document.getElementById('exportProductModal'))?.hide();
-            bootstrap.Toast.getOrCreateInstance(document.getElementById('exportSuccessToast'), { delay: 5000 }).show();
+            AppAlert.show('Your selected products have been exported. The CSV file is ready in your downloads.', 'success', { title: 'Your export is ready', buttonLabel: 'Done' });
         } catch (error) {
             document.getElementById('exportErrorMessage').textContent = error.message || 'The export could not be completed.';
-            bootstrap.Toast.getOrCreateInstance(document.getElementById('exportErrorToast'), { delay: 5000 }).show();
+            AppAlert.show(document.getElementById('exportErrorMessage').textContent, 'error');
         } finally {
             exportSubmitBtn.disabled = false;
             exportSubmitBtn.innerHTML = '<i class="fa-solid fa-download me-1"></i> Download CSV';

@@ -30,6 +30,14 @@ return [
     */
 
     'connections' => [
+        'inventory' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => 'jobs',
+            'queue' => 'product-files',
+            'retry_after' => 900,
+            'after_commit' => true,
+        ],
 
         'sync' => [
             'driver' => 'sync',

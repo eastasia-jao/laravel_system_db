@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\PendingSale;
 use App\Models\Product;
+use App\Models\ProductReplacement;
 use App\Models\SalesTransaction;
 use App\Models\StaffActivityLog;
 use App\Models\StaffActivityLogItem;
 use App\Models\StoreHub;
 use App\Models\TransactionItem;
 use App\Models\InventoryTransaction;
+use App\Models\ProductStockAllocation;
 use App\Models\User;
 use App\Notifications\SalesWorkflowNotification;
 use App\Notifications\InventoryWorkflowNotification;
@@ -18,6 +20,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class SalesController extends Controller
 {
@@ -73,14 +77,14 @@ class SalesController extends Controller
                 if (auth()->user()?->role === 'sales_associate' && $normalizedChannel !== 'walk_in') {
                     abort(403, 'Sales Associates can only record Walk-In sales.');
                 }
-                if (auth()->user()?->role === 'sales_marketing_staff' && ! auth()->user()->hasSalesChannel($normalizedChannel)) {
+                if (auth()->user()?->usesAssignedSalesChannels() && ! auth()->user()->hasSalesChannel($normalizedChannel)) {
                     abort(403, 'You are not assigned to record sales for this channel.');
                 }
                 $status = $request->input('status', 'completed');
                 $paymentStatus = in_array($normalizedChannel, ['wholesale', 'walk_in'], true)
                     ? $request->input('payment_status', $normalizedChannel === 'walk_in' ? 'paid' : 'unpaid')
                     : 'not_applicable';
-                $deliveryStatus = $normalizedChannel === 'wholesale'
+                $deliveryStatus = in_array($normalizedChannel, ['wholesale', 'online', 'tiktok'], true)
                     ? $request->input('delivery_status', 'pending')
                     : 'not_applicable';
 
@@ -88,7 +92,11 @@ class SalesController extends Controller
                     'user_id' => auth()->id(),
                     'store_hub_id' => $request->store_hub_id,
                     'channel_type' => $channel,
-                    'order_number' => $request->order_number ?? 'POS-'.time(),
+                    'order_number' => auth()->user()?->role === 'sales_marketing_staff'
+                        ? $this->resolveOrderNumber($normalizedChannel)
+                        : ($normalizedChannel === 'walk_in'
+                            ? $this->resolveOrderNumber($normalizedChannel)
+                            : ($request->input('order_number') ?? 'POS-'.time())),
                     'customer_name' => $request->customer_name ?? 'Walk-In Customer',
                     'order_date' => $request->order_date,
                     'date_of_arrangement' => $request->date_of_arrangement,
@@ -128,7 +136,7 @@ class SalesController extends Controller
                     $discountPct = $itemData['discount_percentage'] ?? $itemData['discount'] ?? 0;
                     $lineTotal = ($unitPrice * $quantity) * (1 - ($discountPct / 100));
 
-                    TransactionItem::create([
+                    $transactionItem = TransactionItem::create([
                         'transaction_id' => $transaction->id,
                         'product_id' => $product->id,
                         'quantity' => $quantity,
@@ -138,10 +146,23 @@ class SalesController extends Controller
                     ]);
 
                     if ($status === 'completed') {
+                        if ($normalizedChannel === 'walk_in') {
+                            if ($product->unallocatedStock() < $quantity) {
+                                throw new \RuntimeException("Not enough unallocated physical stock for \"{$product->name}\".");
+                            }
+                        } else {
+                            $allocation = ProductStockAllocation::where('product_id', $product->id)->lockForUpdate()->first();
+                            if (! $allocation || (int) $allocation->{$normalizedChannel} < $quantity) {
+                                throw new \RuntimeException("Not enough allocated stock for \"{$product->name}\".");
+                            }
+                            $allocation->decrement($normalizedChannel, $quantity);
+                        }
                         $product->decrement('stock', $quantity);
                         InventoryTransaction::create([
                             'type' => 'sold',
                             'reference' => $transaction->order_number,
+                            'sales_transaction_id' => $transaction->id,
+                            'transaction_item_id' => $transactionItem->id,
                             'store_hub_id' => $product->store_hub_id,
                             'product_id' => $product->id,
                             'channel' => $normalizedChannel,
@@ -154,11 +175,15 @@ class SalesController extends Controller
             });
 
             $successMessage = $request->input('status') === 'pending'
-                ? 'Sale successfully saved as pending!'
+                ? ($this->normalizeSalesChannel($request->input('sales_channel') ?? $request->input('channel_type')) === 'walk_in'
+                    ? 'Walk-In sale is awaiting inventory verification.'
+                    : 'Sale successfully saved as pending!')
                 : 'Sale recorded successfully and inventory updated!';
 
             return back()->with('success', $successMessage);
 
+        } catch (ModelNotFoundException | HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to record sale: '.$e->getMessage());
         }
@@ -169,6 +194,27 @@ class SalesController extends Controller
      */
     public function storeMultiChannelSale(Request $request)
     {
+        $channelForValidation = $this->normalizeSalesChannel($request->input('sales_channel') ?? $request->input('channel_type') ?? 'online');
+        $checkPayment = in_array($channelForValidation, ['walk_in', 'online'], true)
+            && in_array($request->input($channelForValidation === 'walk_in' ? 'walkin_mop' : 'online_mop'), ['DATED_CHECK', 'POST_DATED_CHECK'], true);
+        $paymentMethodForValidation = $request->input(match ($channelForValidation) {
+            'walk_in' => 'walkin_mop',
+            'online' => 'online_mop',
+            default => 'mode_of_payment',
+        });
+        $needsPaymentProof = in_array($channelForValidation, ['walk_in', 'online', 'wholesale'], true)
+            && filled($paymentMethodForValidation)
+            && ! in_array(strtoupper((string) $paymentMethodForValidation), ['CASH', 'COD'], true);
+        $orderSlipValidation = in_array($channelForValidation, ['wholesale', 'online'], true)
+            ? 'nullable|file|mimes:jpeg,jpg,png,webp,pdf|max:5120'
+            : 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120';
+
+        if ($request->filled('contact_number')) {
+            $request->merge([
+                'contact_number' => $this->normalizeContactNumber($request->input('contact_number')),
+            ]);
+        }
+
         $validator = Validator::make($request->all(), [
             'store_hub_id' => 'required|exists:store_hubs,id',
             'sales_channel' => 'nullable|string',
@@ -179,14 +225,23 @@ class SalesController extends Controller
             'delivery_date' => 'nullable|date',
             'deliveryDate' => 'nullable|date',
             'shipping_date' => 'nullable|date',
+            'order_number' => [
+                Rule::requiredIf($channelForValidation === 'tiktok'),
+                'nullable',
+                'string',
+                'max:255',
+            ],
             'courier' => 'nullable|string',
             'courier_name' => 'nullable|string',
             'shipping_courier' => 'nullable|string',
-            'check_date' => 'nullable|date',
-            'check_number' => 'nullable|string',
+            'check_date' => [Rule::requiredIf($checkPayment), 'nullable', 'date'],
+            'check_number' => [Rule::requiredIf($checkPayment), 'nullable', 'string', 'max:255'],
+            'bank_name' => [Rule::requiredIf($checkPayment), 'nullable', 'string', 'max:255'],
+            'custom_bank_name' => [Rule::requiredIf($checkPayment && $request->input('bank_name') === 'OTHERS'), 'nullable', 'string', 'max:255'],
             'address' => 'nullable|string',
             'delivery_address' => 'nullable|string',
-            'contact_number' => 'nullable|string|max:50',
+            'location' => 'nullable|string|max:255',
+            'contact_number' => ['nullable', 'regex:/^\+639\d{9}$/'],
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -209,9 +264,36 @@ class SalesController extends Controller
             'drop_off_date' => 'nullable|date',
             'note' => 'nullable|string|max:2000',
             'walkin_remarks' => 'nullable|string|max:2000',
+            'mode_of_payment' => [
+                'nullable',
+                'string',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail) use ($channelForValidation) {
+                    if (! in_array($channelForValidation, ['shopee', 'lazada'], true) || blank($value)) {
+                        return;
+                    }
+                    $commonMethods = ['COD', 'MIXEDCARD', 'CREDIT_DEBIT_CARD', 'GCASH', 'ONLINE_OFFLINE_PAYMENT', 'QRPH', 'OTHERS'];
+                    $allowedMethods = array_merge($commonMethods, $channelForValidation === 'shopee'
+                        ? ['SPAYLATER', 'SHOPEEPAY_BALANCE']
+                        : ['PAYLATER']);
+                    if (! in_array($value, $allowedMethods, true)) {
+                        $fail('The selected mode of payment is not available for '.ucfirst($channelForValidation).'.');
+                    }
+                },
+            ],
             'custom_mop' => 'nullable|string|max:255',
-            'proof_of_payment' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:2048',
-            'order_slip' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
+            'mode_of_payment_others' => [
+                Rule::requiredIf(in_array($channelForValidation, ['shopee', 'lazada'], true) && $request->input('mode_of_payment') === 'OTHERS'),
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'proof_of_payment' => [Rule::requiredIf($needsPaymentProof && $channelForValidation !== 'walk_in'), 'nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:2048'],
+            'quotation_proofs' => 'nullable|array|max:4',
+            'quotation_proofs.*' => 'file|mimes:jpeg,png,jpg,webp,pdf|max:2048',
+            'walkin_payment_proofs' => [Rule::requiredIf($needsPaymentProof && $channelForValidation === 'walk_in'), 'nullable', 'array', 'max:4', 'min:1'],
+            'walkin_payment_proofs.*' => 'file|mimes:jpeg,png,jpg,webp,pdf|max:2048',
+            'order_slip' => $orderSlipValidation,
         ]);
 
         if ($validator->fails()) {
@@ -220,12 +302,41 @@ class SalesController extends Controller
 
         $this->ensureHubAccess((int) $request->store_hub_id);
         $channel = $this->normalizeSalesChannel($request->sales_channel ?? $request->channel_type ?? 'online');
+        $storeHub = StoreHub::findOrFail((int) $request->store_hub_id);
+        if (auth()->user()?->role === 'sales_associate'
+            && ($storeHub->is_head_office
+                || ! in_array((int) $storeHub->id, auth()->user()->accessibleStoreHubIds(), true))) {
+            abort(403, 'Sales associates can only record Walk-In sales at their assigned branches.');
+        }
+        if ($channel === 'walk_in' && ! $storeHub->is_head_office) {
+            $request->merge([
+                'customer_name' => $this->formatBranchWalkInCustomerName($request->input('customer_name')),
+                'location' => $storeHub->name,
+            ]);
+        }
         $isTiktok = $channel === 'tiktok';
+        $isSalesMarketing = auth()->user()?->role === 'sales_marketing_staff';
+        $orderNumber = $channel === 'walk_in'
+            ? $this->resolveOrderNumber($channel)
+            : ($channel === 'tiktok'
+            ? $request->input('order_number')
+            : (in_array($channel, ['shopee', 'lazada'], true)
+                ? ($request->filled('order_number') ? $request->input('order_number') : $this->resolveOrderNumber($channel))
+            : ($isSalesMarketing
+                ? $this->resolveOrderNumber($channel)
+                : ($request->input('invoice_number') ?? $request->input('order_number')))));
         if (auth()->user()?->role === 'sales_associate' && $channel !== 'walk_in') {
             abort(403, 'Sales Associates can only record Walk-In sales.');
         }
-        if (auth()->user()?->role === 'sales_marketing_staff' && ! auth()->user()->hasSalesChannel($channel)) {
+        if (auth()->user()?->usesAssignedSalesChannels() && ! auth()->user()->hasSalesChannel($channel)) {
             abort(403, 'You are not assigned to record sales for this channel.');
+        }
+
+        if ($channel === 'walk_in') {
+            $proofCount = count($request->file('quotation_proofs', [])) + count($request->file('walkin_payment_proofs', []));
+            if ($proofCount > 4) {
+                return back()->withErrors(['quotation_proofs' => 'Upload no more than 4 attachments in total.'])->withInput();
+            }
         }
 
         $orderSlipPath = null;
@@ -234,6 +345,13 @@ class SalesController extends Controller
             if ($request->hasFile('proof_of_payment')) {
                 $proofPath = $request->file('proof_of_payment')->store('proofs_of_payment', 'public');
             }
+
+            $quotationProofs = $channel === 'walk_in'
+                ? array_map(fn ($file) => $file->store('quotation_proofs', 'public'), $request->file('quotation_proofs', []))
+                : [];
+            $walkinPaymentProofs = $channel === 'walk_in'
+                ? array_map(fn ($file) => $file->store('proofs_of_payment', 'public'), $request->file('walkin_payment_proofs', []))
+                : [];
 
             $mop = $request->input('mode_of_payment') ?? $request->input('online_mop') ?? $request->input('walkin_mop');
             if ($mop === 'OTHERS') {
@@ -251,7 +369,9 @@ class SalesController extends Controller
                     ->firstOrFail();
 
                 $quantity = $item['quantity'];
-                $unitPrice = $item['unit_price'] ?? $item['price'] ?? $product->sales_price ?? 0;
+                $unitPrice = $isTiktok
+                    ? ($product->sales_price ?? 0)
+                    : ($item['unit_price'] ?? $item['price'] ?? $product->sales_price ?? 0);
                 $discountPct = $item['discount_percentage'] ?? $item['discount'] ?? 0;
 
                 $lineTotal = ($unitPrice * $quantity) * (1 - ($discountPct / 100));
@@ -277,8 +397,6 @@ class SalesController extends Controller
             $shippingFee = $request->input('shipping_fee_amount') ?? $request->input('shipping_fee') ?? $request->input('delivery_fee') ?? 0;
             $additionalDiscountPct = $request->input('additional_discount_percentage') ?? 0;
             $channel = strtolower((string) ($request->sales_channel ?? $request->channel_type ?? 'online'));
-            $shippingServiceFee = $channel === 'tiktok' ? round($subTotal * 0.05, 2) : 0;
-
             $withholdingTaxPct = $request->input('withholding_tax') ?? 0;
             $withholdingTaxAmount = $request->input('withholding_tax_amount');
 
@@ -292,7 +410,7 @@ class SalesController extends Controller
             $paymentStatus = in_array($channel, ['wholesale', 'walk_in'], true)
                 ? $request->input('payment_status', $channel === 'walk_in' ? 'paid' : 'unpaid')
                 : 'not_applicable';
-            $deliveryStatus = $channel === 'wholesale'
+            $deliveryStatus = in_array($channel, ['wholesale', 'online', 'tiktok'], true)
                 ? $request->input('delivery_status', 'pending')
                 : 'not_applicable';
             $amountPaid = (float) $request->input('amount_paid', 0);
@@ -322,7 +440,7 @@ class SalesController extends Controller
                 'delivery_date' => $deliveryDate,
                 'courier' => $isTiktok ? null : $courier,
                 'customer_name' => $request->customer_name,
-                'invoice_number' => $request->invoice_number ?? $request->order_number,
+                'invoice_number' => $orderNumber,
                 'contact_number' => $request->contact_number,
                 'delivery_address' => $request->address ?? $request->delivery_address,
                 'location' => $request->input('location'),
@@ -334,7 +452,7 @@ class SalesController extends Controller
                 'check_date' => $request->input('check_date'),
                 'shipping_fee_amount' => $shippingFee,
                 'delivery_fee' => $shippingFee,
-                'shipping_service_fee' => $shippingServiceFee,
+                'shipping_service_fee' => 0,
                 'sales_after_transaction_fee' => $request->input('sales_after_transaction_fee'),
                 'refund_shipping_fee' => $isTiktok ? 0 : $request->input('refund_shipping_fee', 0),
                 'proof_amount' => $request->input('proof_amount'),
@@ -346,6 +464,8 @@ class SalesController extends Controller
                 'total' => $grandTotal,
                 'grand_total' => $grandTotal,
                 'payment_proof' => $proofPath,
+                'quotation_proofs' => $quotationProofs,
+                'walkin_payment_proofs' => $walkinPaymentProofs,
                 'items' => $formattedItems,
                 'status' => 'pending',
                 'inventory_status' => $inventoryReady ? 'ready' : 'awaiting_stock',
@@ -365,12 +485,65 @@ class SalesController extends Controller
             }
 
             return back()->with('success', 'Order submitted for inventory verification. Stock has not been deducted yet.');
+        } catch (ModelNotFoundException | HttpExceptionInterface $e) {
+            if ($orderSlipPath) {
+                Storage::disk('local')->delete($orderSlipPath);
+            }
+            throw $e;
         } catch (\Exception $e) {
             if ($orderSlipPath) {
                 Storage::disk('local')->delete($orderSlipPath);
             }
             return back()->with('error', 'Failed to submit multi-channel sale: '.$e->getMessage());
         }
+    }
+
+    private function resolveOrderNumber(string $channel): string
+    {
+        $prefix = strtoupper(str_replace('_', '-', $this->normalizeSalesChannel($channel)));
+
+        return DB::transaction(function () use ($prefix) {
+            DB::table('sales_order_sequences')->insertOrIgnore([
+                'channel' => $prefix,
+                'next_number' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $sequence = DB::table('sales_order_sequences')
+                ->where('channel', $prefix)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $number = (int) $sequence->next_number;
+
+            DB::table('sales_order_sequences')
+                ->where('channel', $prefix)
+                ->update(['next_number' => $number + 1, 'updated_at' => now()]);
+
+            return $this->formatOrderNumber($prefix, $number);
+        });
+    }
+
+    public function previewOrderNumber(Request $request)
+    {
+        $channel = $this->normalizeSalesChannel($request->query('channel'));
+        abort_unless(in_array($channel, ['walk_in', 'online', 'wholesale'], true), 422);
+
+        $prefix = strtoupper(str_replace('_', '-', $channel));
+        $nextNumber = (int) (DB::table('sales_order_sequences')
+            ->where('channel', $prefix)
+            ->value('next_number') ?? 1);
+
+        return response()->json([
+            'order_number' => $this->formatOrderNumber($prefix, $nextNumber),
+        ]);
+    }
+
+    private function formatOrderNumber(string $prefix, int $number): string
+    {
+        return $prefix === 'WALK-IN'
+            ? sprintf('%s%03d', $prefix, $number)
+            : sprintf('%s-%06d', $prefix, $number);
     }
 
     public function orderSlip($id)
@@ -400,7 +573,7 @@ class SalesController extends Controller
         $pendingSale = PendingSale::findOrFail($id);
 
         $user = auth()->user();
-        if ($user && $user->store_hub_id && $pendingSale->store_hub_id != $user->store_hub_id) {
+        if ($user && $user->role !== 'inventory_staff' && $user->store_hub_id && $pendingSale->store_hub_id != $user->store_hub_id) {
             abort(403, 'Unauthorized action. You cannot confirm pending sales for another store hub.');
         }
 
@@ -450,7 +623,7 @@ class SalesController extends Controller
                 $paymentStatus = in_array($channel, ['wholesale', 'walk_in'], true)
                     ? ($pendingSale->payment_status ?? ($channel === 'walk_in' ? 'paid' : 'unpaid'))
                     : 'not_applicable';
-                $deliveryStatus = $channel === 'wholesale'
+                $deliveryStatus = in_array($channel, ['wholesale', 'online', 'tiktok'], true)
                     ? ($pendingSale->delivery_status ?? 'pending')
                     : 'not_applicable';
 
@@ -461,7 +634,10 @@ class SalesController extends Controller
                     'order_date' => $pendingSale->placed_order_date ?? now(),
                     'date_of_arrangement' => $pendingSale->date_of_arrangement ?? null,
                     'location' => $pendingSale->location ?? null,
-                    'order_number' => $pendingSale->invoice_number ?? 'PENDING-'.$pendingSale->id,
+                    'order_number' => $pendingSale->invoice_number
+                        ?? ($pendingSale->sales_channel === 'walk_in'
+                            ? sprintf('WALK-IN%03d', $pendingSale->id)
+                            : 'ORDER-'.$pendingSale->id),
                     'customer_name' => $pendingSale->customer_name ?? 'Online Customer',
                     'contact_number' => $pendingSale->contact_number,
                     'address' => $pendingSale->delivery_address ?? $pendingSale->address ?? null,
@@ -478,6 +654,8 @@ class SalesController extends Controller
                     'courier' => $resolvedCourier,
 
                     'proof_of_payment' => $pendingSale->payment_proof ?? $pendingSale->proof_of_payment,
+                    'quotation_proofs' => $pendingSale->quotation_proofs,
+                    'walkin_payment_proofs' => $pendingSale->walkin_payment_proofs,
                     'order_slip' => $pendingSale->order_slip,
                     'shipping_fee_amount' => $pendingSale->shipping_fee_amount ?? 0,
                     'shipping_service_fee' => $pendingSale->shipping_service_fee ?? 0,
@@ -506,11 +684,13 @@ class SalesController extends Controller
 
                     $quantity = $itemData['quantity'];
 
-                    $unitPrice = $itemData['unit_price'] ?? $itemData['price'] ?? $product->sales_price ?? 0;
+                    $unitPrice = $channel === 'tiktok'
+                        ? ($product->sales_price ?? 0)
+                        : ($itemData['unit_price'] ?? $itemData['price'] ?? $product->sales_price ?? 0);
                     $discountPct = $itemData['discount_percentage'] ?? 0;
                     $lineTotal = ($unitPrice * $quantity) * (1 - ($discountPct / 100));
 
-                    TransactionItem::create([
+                    $transactionItem = TransactionItem::create([
                         'transaction_id' => $transaction->id,
                         'product_id' => $product->id,
                         'quantity' => $quantity,
@@ -520,10 +700,32 @@ class SalesController extends Controller
                     ]);
 
                     $stockBefore = (int) $product->stock;
+                    $allocation = $channel === 'walk_in'
+                        ? null
+                        : ProductStockAllocation::where('product_id', $product->id)->lockForUpdate()->first();
+                    $channelStockBefore = $channel === 'walk_in'
+                        ? $product->unallocatedStock()
+                        : ($allocation ? (int) $allocation->{$channel} : $stockBefore);
+                    if ($channel === 'walk_in') {
+                        if ($product->unallocatedStock() < $quantity) {
+                            throw ValidationException::withMessages(['stock' => "Not enough unallocated physical stock for {$product->name}."]);
+                        }
+                    } else {
+                        if ($allocation && (int) $allocation->{$channel} < $quantity) {
+                            throw ValidationException::withMessages(['stock' => "Not enough allocated stock for {$product->name}."]);
+                        }
+                        if ($allocation) {
+                            $allocation->decrement($channel, $quantity);
+                        } elseif ($stockBefore < $quantity) {
+                            throw ValidationException::withMessages(['stock' => "Not enough stock for {$product->name}."]);
+                        }
+                    }
                     $product->decrement('stock', $quantity);
                     InventoryTransaction::create([
                         'type' => 'sold',
                         'reference' => $transaction->order_number,
+                        'sales_transaction_id' => $transaction->id,
+                        'transaction_item_id' => $transactionItem->id,
                         'store_hub_id' => $product->store_hub_id,
                         'product_id' => $product->id,
                         'channel' => $channel,
@@ -533,13 +735,17 @@ class SalesController extends Controller
                     ]);
                     $verificationItems[] = [
                         'product_id' => $product->id,
-                        'item_id' => $product->item_id,
+                        'item_id' => $product->catalogProduct?->item_id ?? $product->item_id,
                         'product_name' => $product->name ?: ($itemData['product_name'] ?? 'Unnamed product'),
                         'operation' => 'deducted',
                         'quantity' => (int) $quantity,
                         'stock_before' => $stockBefore,
                         'stock_after' => $stockBefore - (int) $quantity,
-                        'details' => null,
+                        'details' => [
+                            'sales_channel' => $channel,
+                            'channel_stock_before' => $channelStockBefore,
+                            'channel_stock_after' => max(0, $channelStockBefore - (int) $quantity),
+                        ],
                     ];
                 }
 
@@ -551,7 +757,11 @@ class SalesController extends Controller
                 ]);
                 if ($pendingSale->submitted_by && $pendingSale->submitted_by !== auth()->id()) {
                     User::find($pendingSale->submitted_by)?->notify(
-                        new SalesWorkflowNotification('confirmed', $pendingSale->fresh())
+                        new SalesWorkflowNotification(
+                            'confirmed',
+                            $pendingSale->fresh(),
+                            auth()->user()?->name
+                        )
                     );
                 }
 
@@ -569,6 +779,13 @@ class SalesController extends Controller
                         'transaction_id' => $transaction->id,
                         'invoice_number' => $pendingSale->invoice_number,
                         'sales_channel' => $pendingSale->sales_channel,
+                        'mode_of_payment' => $pendingSale->mode_of_payment,
+                        'bank_name' => $pendingSale->bank_name,
+                        'custom_bank_name' => $pendingSale->custom_bank_name,
+                        'check_number' => $pendingSale->check_number,
+                        'check_date' => $pendingSale->check_date?->toDateString(),
+                        'payment_proof' => $pendingSale->payment_proof,
+                        'proof_amount' => $pendingSale->proof_amount,
                         'item_count' => count($verificationItems),
                     ],
                     'ip_address' => request()->ip(),
@@ -593,6 +810,7 @@ class SalesController extends Controller
                 if ($verificationItems !== []) {
                     StaffActivityLogItem::insert(array_map(fn ($item) => [
                         ...$item,
+                        'details' => $item['details'] !== null ? json_encode($item['details']) : null,
                         'staff_activity_log_id' => $activityLog->id,
                     ], $verificationItems));
                 }
@@ -632,7 +850,11 @@ class SalesController extends Controller
 
         if ($pendingSale->submitted_by && (int) $pendingSale->submitted_by !== (int) auth()->id()) {
             User::find($pendingSale->submitted_by)?->notify(
-                new SalesWorkflowNotification('rejected', $pendingSale->fresh())
+                new SalesWorkflowNotification(
+                    'rejected',
+                    $pendingSale->fresh(),
+                    auth()->user()?->name
+                )
             );
         }
 
@@ -644,6 +866,33 @@ class SalesController extends Controller
         return $this->store($request);
     }
 
+    public function customerLookup(Request $request, int $hubId)
+    {
+        $this->ensureHubAccess($hubId);
+        $channel = $this->normalizeSalesChannel($request->input('channel'));
+        $search = trim((string) $request->input('q', ''));
+
+        $customers = SalesTransaction::query()
+            ->where('store_hub_id', $hubId)
+            ->whereRaw('LOWER(REPLACE(REPLACE(channel_type, "-", "_"), " ", "_")) = ?', [$channel])
+            ->whereNotNull('customer_name')
+            ->when($search !== '', fn ($query) => $query->where('customer_name', 'like', "%{$search}%"))
+            ->orderByDesc('order_date')
+            ->orderByDesc('id')
+            ->get(['customer_name', 'contact_number', 'address'])
+            ->unique(fn ($sale) => strtolower(trim($sale->customer_name)))
+            ->sortBy(fn ($sale) => strtolower(trim($sale->customer_name)))
+            ->take(30)
+            ->values()
+            ->map(fn ($sale) => [
+                'name' => $sale->customer_name,
+                'contact_number' => $sale->contact_number,
+                'address' => $sale->address,
+            ]);
+
+        return response()->json($customers);
+    }
+
     public function updateStatus(Request $request, int $id)
     {
         $sale = SalesTransaction::findOrFail($id);
@@ -651,15 +900,21 @@ class SalesController extends Controller
         $this->ensureHubAccess((int) $sale->store_hub_id);
 
         $channel = $this->normalizeSalesChannel($sale->channel_type);
-        if (! in_array($channel, ['wholesale', 'walk_in'], true)) {
-            abort(403, 'Statuses are only managed for Wholesale and Walk-In sales.');
+        if (! in_array($channel, ['wholesale', 'online', 'walk_in'], true)) {
+            abort(403, 'Statuses are not managed for this sales channel.');
         }
 
         $validated = $request->validate([
-            'payment_status' => ['required', Rule::in(['unpaid', 'partial', 'paid'])],
-            'delivery_status' => [Rule::requiredIf($channel === 'wholesale'), 'nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'])],
+            'payment_status' => [Rule::requiredIf($channel !== 'online'), 'nullable', Rule::in(['unpaid', 'partial', 'paid'])],
+            'delivery_status' => [Rule::requiredIf(in_array($channel, ['wholesale', 'online'], true)), 'nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'])],
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        if ($channel === 'online') {
+            $sale->update(['delivery_status' => $validated['delivery_status']]);
+
+            return back()->with('success', 'Online order delivery status updated.');
+        }
 
         if ($channel === 'wholesale' && $sale->payment_status === 'paid' && $validated['payment_status'] !== 'paid') {
             return back()->withErrors([
@@ -673,6 +928,11 @@ class SalesController extends Controller
         if ($validated['payment_status'] === 'paid') {
             $amountPaid = $grandTotal;
         } elseif ($validated['payment_status'] === 'unpaid') {
+            if ($amountPaid > 0) {
+                return back()->withErrors([
+                    'amount_paid' => 'An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.',
+                ])->withInput();
+            }
             $amountPaid = 0;
         } elseif ($amountPaid <= 0 || $amountPaid >= $grandTotal) {
             return back()->withErrors([
@@ -699,7 +959,7 @@ class SalesController extends Controller
 
         if (! in_array($user?->role, ['admin', 'inventory_staff'], true)) {
             return redirect()->route('dashboard')->with('notification_error',
-                'The Inventory Verification Queue is only available to inventory staff and admins. You can read the verification update in your notifications.');
+                'Access restricted. The Inventory Verification Queue is only available to inventory staff and admins. You can read the verification update in your notifications.');
         }
 
         if (! $hubId && $user && $user->store_hub_id && $user->role !== 'inventory_staff' && $user->role !== 'admin') {
@@ -719,16 +979,49 @@ class SalesController extends Controller
 
         $pendingSales = $query->orderBy('created_at', 'desc')->paginate(10);
 
+        $replacementRequests = ProductReplacement::with([
+            'transaction.storeHub', 'transactionItem.product', 'originalProduct.stockAllocation', 'replacementProduct.stockAllocation', 'creator',
+        ])->where('status', 'pending')
+            ->when($hubId, fn ($builder) => $builder->whereHas('transaction', fn ($transaction) => $transaction->where('store_hub_id', $hubId)))
+            ->latest()->get()
+            ->groupBy(fn ($replacement) => $replacement->exchange_reference ?: 'legacy-'.$replacement->id)
+            ->map(function ($lines) {
+                $primary = $lines->first();
+                $primary->setAttribute('exchange_lines', $lines->values());
+                return $primary;
+            })->values();
+        $replacementRequests->each(function (ProductReplacement $replacement) {
+            $channel = strtolower(str_replace(['-', ' '], '_', (string) $replacement->transaction?->channel_type));
+            $replacement->setAttribute('replacement_channel', $channel);
+            $lines = $replacement->exchange_lines ?? collect([$replacement]);
+            $lines->each(function ($line) use ($channel) {
+                $available = $channel === 'walk_in'
+                    ? ($line->replacementProduct?->unallocatedStock() ?? 0)
+                    : ($channel === 'online'
+                        ? ($line->replacementProduct?->channelAvailableStock($channel, false) ?? 0)
+                        : ($line->replacementProduct?->channelAvailableStock($channel) ?? 0));
+                $line->setAttribute('replacement_available_stock', $available);
+            });
+            $replacement->setAttribute('exchange_stock_ready', $lines->every(
+                fn ($line) => (int) $line->replacement_available_stock >= (int) ($line->replacement_quantity ?: $line->quantity)
+            ));
+        });
+
         $pendingSales->getCollection()->each(function (PendingSale $sale) {
             $sale->setAttribute('inventory_availability', $this->inventoryAvailability($sale));
         });
 
-        return view('hubs.pending-sales', compact('hub', 'pendingSales'));
+        return view('hubs.pending-sales', compact('hub', 'pendingSales', 'replacementRequests'));
     }
 
-    public function rejectedSalesIndex()
+    public function rejectedSalesIndex(Request $request)
     {
         $user = auth()->user();
+        $returnHubId = $request->integer('hub_id') ?: $user->store_hub_id;
+        if ($returnHubId) {
+            $this->ensureHubAccess((int) $returnHubId);
+            StoreHub::findOrFail($returnHubId);
+        }
         $query = PendingSale::with(['storeHub', 'rejectedBy', 'submittedBy'])
             ->where('status', 'rejected');
 
@@ -738,18 +1031,38 @@ class SalesController extends Controller
 
         $rejectedSales = $query
             ->latest('rejected_at')
-            ->paginate(10);
+            ->paginate(10)->withQueryString();
 
-        return view('hubs.rejected-sales', compact('rejectedSales'));
+        return view('hubs.rejected-sales', compact('rejectedSales', 'returnHubId'));
     }
 
     /**
      * Return the live stock position for all products in a pending order.
      * Quantities are grouped by product so duplicate lines cannot bypass the check.
      */
+    private function normalizeContactNumber(?string $contactNumber): ?string
+    {
+        $value = preg_replace('/[\s()-]+/', '', trim((string) $contactNumber));
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_starts_with($value, '09') && strlen($value) === 11) {
+            return '+63'.substr($value, 1);
+        }
+
+        if (str_starts_with($value, '639') && strlen($value) === 12) {
+            return '+'.$value;
+        }
+
+        return $value;
+    }
+
     private function inventoryAvailability(PendingSale $pendingSale, bool $lockForUpdate = false): array
     {
         $items = collect($pendingSale->items ?? []);
+        $channel = $this->normalizeSalesChannel($pendingSale->sales_channel);
         $requested = $items
             ->filter(fn ($item) => isset($item['product_id']))
             ->groupBy(fn ($item) => (int) $item['product_id'])
@@ -762,10 +1075,13 @@ class SalesController extends Controller
             $query->lockForUpdate();
         }
 
-        $models = $query->get()->keyBy('id');
-        $products = $requested->mapWithKeys(function ($quantity, $productId) use ($models) {
+        $models = $query->with('stockAllocation')->get()->keyBy('id');
+        $products = $requested->mapWithKeys(function ($quantity, $productId) use ($models, $channel) {
             $product = $models->get((int) $productId);
-            $available = max(0, (int) ($product?->stock ?? 0));
+            $allocated = $channel === 'walk_in'
+                ? (int) ($product?->unallocatedStock() ?? 0)
+                : (int) ($product?->stockAllocation?->{$channel} ?? 0);
+            $available = max(0, $allocated);
 
             return [(int) $productId => [
                 'name' => $product?->name ?? 'Unavailable product #'.$productId,
@@ -787,6 +1103,27 @@ class SalesController extends Controller
         ];
     }
 
+    private function confirmedChannelSales($productIds, string $channel)
+    {
+        if ($channel === 'walk_in' || $channel === '') {
+            return collect();
+        }
+
+        return DB::table('transaction_items')
+            ->join('sales_transactions', 'sales_transactions.id', '=', 'transaction_items.transaction_id')
+            ->whereIn('transaction_items.product_id', $productIds)
+            ->where('sales_transactions.channel_type', $channel)
+            ->where(function ($query) {
+                $query->whereNull('sales_transactions.status')
+                    ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
+            })
+            ->select('transaction_items.product_id')
+            ->selectRaw('SUM(transaction_items.quantity) AS quantity')
+            ->groupBy('transaction_items.product_id')
+            ->pluck('quantity', 'product_id')
+            ->map(fn ($quantity) => (int) $quantity);
+    }
+
     private function ensureHubAccess(int $hubId): void
     {
         $user = auth()->user();
@@ -799,5 +1136,16 @@ class SalesController extends Controller
     private function normalizeSalesChannel(?string $channel): string
     {
         return str_replace(['-', ' '], '_', strtolower(trim((string) $channel)));
+    }
+
+    private function formatBranchWalkInCustomerName(?string $name): ?string
+    {
+        if ($name === null) {
+            return null;
+        }
+
+        $normalized = preg_replace('/\s+/u', ' ', trim($name));
+
+        return $normalized === '' ? '' : mb_convert_case($normalized, MB_CASE_TITLE, 'UTF-8');
     }
 }

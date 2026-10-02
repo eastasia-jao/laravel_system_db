@@ -31,7 +31,7 @@
             <h2 class="fw-bold text-danger mb-1"><i class="fa-solid fa-circle-xmark me-2"></i>Rejected Sales</h2>
             <p class="text-muted small mb-0">Review corrections requested by Inventory Staff.</p>
         </div>
-        <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>Back</a>
+        <a href="{{ $returnHubId ? route('hub.dashboard', $returnHubId) : route('dashboard') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>{{ $returnHubId ? 'Back to Store Hub' : 'Back' }}</a>
     </div>
 
     @forelse($rejectedSales as $sale)
@@ -39,6 +39,7 @@
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between gap-3">
                     <div>
+                        <i class="fa-solid fa-circle-xmark text-danger me-1" aria-hidden="true"></i>
                         <span class="badge bg-danger text-uppercase">{{ $sale->sales_channel }}</span>
                         <h5 class="mt-2 mb-1">{{ $sale->customer_name ?: 'N/A' }}</h5>
                         <div class="small text-muted">
@@ -77,7 +78,7 @@
 </div>
 
 @foreach($rejectedSales as $sale)
-    <div class="modal fade" id="rejectedSaleModal{{ $sale->id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="rejectedSaleModal{{ $sale->id }}" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
@@ -85,7 +86,6 @@
                         <h5 class="modal-title mb-1">Rejected Sale Details</h5>
                         <div class="small text-muted">{{ $sale->invoice_number ?: 'Order #'.$sale->id }}</div>
                     </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row g-3">

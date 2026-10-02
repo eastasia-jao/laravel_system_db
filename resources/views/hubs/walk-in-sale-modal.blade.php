@@ -27,38 +27,66 @@
         #walkInSaleModal .modal-footer { gap: .5rem; }
     }
 </style>
-<div class="modal fade" id="walkInSaleModal" tabindex="-1" aria-labelledby="walkInSaleModalLabel" aria-hidden="true">
+<div class="modal fade" id="walkInSaleModal" tabindex="-1" aria-labelledby="walkInSaleModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <form action="{{ route('sales.storeMultiChannelSale') }}" method="POST" enctype="multipart/form-data" class="d-flex flex-column overflow-hidden">
                 @csrf
-                <input type="hidden" name="store_hub_id" value="{{ $hub->id }}">
+                <input type="hidden" name="store_hub_id" id="walkInStoreHubId" value="{{ $hub->id }}">
                 <input type="hidden" name="sales_channel" value="walk_in">
                 <div class="modal-header bg-success text-white">
                     <h5 class="modal-title" id="walkInSaleModalLabel"><i class="fa-solid fa-cash-register me-2"></i> Record Walk-In Sale</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small mb-3">Attach the order slip for review. Stock is deducted after inventory verification.</p>
                     <div class="row g-2 mb-3">
                         <div class="col-md-6"><label class="form-label small">Sale Date</label><input type="date" name="order_date" class="form-control" value="{{ now()->toDateString() }}" required></div>
-                        <div class="col-md-6"><label class="form-label small">Order Slip / Reference Number</label><input name="order_number" class="form-control" maxlength="255" placeholder="Enter order slip number"></div>
+                        <div class="col-md-6"><label class="form-label small">Order Number</label><div class="form-control bg-light text-muted">Automatically generated (e.g. WALK-IN001)</div></div>
                     </div>
                     
                     <!-- Customer Information Section -->
                     <h6 class="text-secondary fw-bold mb-2"><i class="fa-solid fa-user me-1"></i> Customer Information</h6>
                     <div class="row g-2 mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small">Customer Name <span class="text-danger">*</span></label>
-                            <input type="text" name="customer_name" class="form-control" required placeholder="Full Name">
+                            <input type="text" name="customer_name" id="walkInCustomerName" class="form-control customer-name-input" list="existingWalkInCustomers" required placeholder="Enter or search customer name" autocomplete="name">
+                            <datalist id="existingWalkInCustomers"></datalist>
+                            <div class="form-text">Choose an existing Walk-In customer or enter a new customer name.</div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small">Contact Number</label>
-                            <input type="text" name="contact_number" class="form-control" placeholder="09XXXXXXXXX">
+                            <input type="tel" name="contact_number" id="walkInCustomerContact" class="form-control philippine-contact-number" placeholder="+639123456789" inputmode="tel" maxlength="13" pattern="\+639[0-9]{9}" title="Use +63 followed by 10 mobile digits, for example +639123456789">
                         </div>
-                        <div class="col-md-4">
+                        <script>
+                            document.querySelectorAll('.philippine-contact-number').forEach((input) => {
+                                input.addEventListener('input', function () {
+                                    let value = this.value.replace(/[^\d+]/g, '');
+                                    if (value.startsWith('09')) value = '+63' + value.slice(1);
+                                    if (value.startsWith('639')) value = '+' + value;
+                                    this.value = value.slice(0, 13);
+                                });
+                            });
+                        </script>
+                        <div class="col-md-3">
+                            <label class="form-label small">Address</label>
+                            <input type="text" name="address" id="walkInCustomerAddress" class="form-control" placeholder="Customer address" autocomplete="street-address">
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label small">Branch / Location</label>
-                            <input type="text" name="location" class="form-control" value="{{ $hub->name }}" readonly>
+                            <select name="location" id="walkInLocation" class="form-select" required @disabled($walkInHubs->count() <= 1)>
+                                @foreach($walkInHubs as $walkInHub)
+                                    <option value="{{ $walkInHub->name }}"
+                                        data-hub-id="{{ $walkInHub->id }}"
+                                        data-products-url="{{ route('hub.products.search.ajax', $walkInHub->id) }}"
+                                        data-customers-url="{{ route('hub.sales.customers', $walkInHub->id) }}"
+                                        @selected((int) $walkInHub->id === (int) $hub->id)>
+                                        {{ $walkInHub->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($walkInHubs->count() === 1)
+                                <input type="hidden" name="location" value="{{ $walkInHubs->first()->name }}">
+                            @endif
                         </div>
                     </div>
 
@@ -72,6 +100,11 @@
                             <select name="mode_of_payment" id="walkInPaymentMethod" class="form-select" required onchange="handlePaymentMethodChange(this)">
                                 <option value="CASH">Cash</option>
                                 <option value="GCASH">GCash</option>
+                                <option value="PAYMAYA">PayMaya</option>
+                                <option value="QRPH">QRPH</option>
+                                <option value="BPI">BPI</option>
+                                <option value="BDO">BDO</option>
+                                <option value="METROBANK">Metrobank</option>
                                 <option value="BANK_TRANSFER">Bank Transfer</option>
                                 <option value="OTHERS">Others</option>
                             </select>
@@ -159,14 +192,90 @@
 <script>
 let walkInRowIdx = 0;
 const walkInProductOptions = @json($walkInProductOptions);
+const walkInLocation = document.getElementById('walkInLocation');
+const walkInStoreHubId = document.getElementById('walkInStoreHubId');
 const walkInDataList = document.createElement('datalist');
 walkInDataList.id = 'walkInProductOptions';
 walkInProductOptions.forEach(product => {
     const option = document.createElement('option');
-    option.value = `${product.label} | ${product.barcode || ''} | ${product.description || ''}`;
+    option.value = product.label;
     walkInDataList.appendChild(option);
 });
 document.body.appendChild(walkInDataList);
+setupProductSuggestions(document.getElementById('walkInSaleModal'), walkInDataList, walkInProductOptions,
+    () => walkInLocation.selectedOptions[0].dataset.productsUrl, product => ({
+        id: product.id, label: `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'} (Stock: ${product.stock})`,
+        barcode: product.barcode, description: product.description || product.name, price: product.sales_price || 0,
+    }), true);
+const walkInCustomerName = document.getElementById('walkInCustomerName');
+const walkInCustomerContact = document.getElementById('walkInCustomerContact');
+const walkInCustomerAddress = document.getElementById('walkInCustomerAddress');
+const walkInCustomerOptions = document.getElementById('existingWalkInCustomers');
+let selectedWalkInCustomer = null;
+async function loadWalkInCustomers() {
+    walkInCustomerOptions.replaceChildren();
+    try {
+        const url = new URL(walkInLocation.selectedOptions[0].dataset.customersUrl, window.location.origin);
+        url.searchParams.set('channel', 'walk_in');
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('Customer lookup unavailable');
+        const customers = await response.json();
+        customers.forEach(customer => {
+            const option = document.createElement('option');
+            option.value = customer.name;
+            option.dataset.contactNumber = customer.contact_number || '';
+            option.dataset.address = customer.address || '';
+            walkInCustomerOptions.appendChild(option);
+        });
+    } catch (error) {
+        window.AppAlert?.show('Existing customers could not be loaded. You can still enter a new customer.', 'warning');
+    }
+}
+document.getElementById('walkInSaleModal').addEventListener('show.bs.modal', () => {
+    if (!walkInCustomerOptions.childElementCount) loadWalkInCustomers();
+});
+walkInLocation.addEventListener('change', () => {
+    const selectedBranch = walkInLocation.selectedOptions[0];
+    walkInStoreHubId.value = selectedBranch.dataset.hubId;
+    walkInProductOptions.length = 0;
+    walkInDataList.replaceChildren();
+    document.querySelectorAll('#walk-in-product-rows .product-row').forEach(row => {
+        row.querySelector('.product-search').value = '';
+        row.querySelector('.product-search').setCustomValidity('');
+        row.querySelector('.product-id').value = '';
+        row.querySelector('.price-input').value = '0.00';
+    });
+    calculateTotals();
+    walkInCustomerName.value = '';
+    walkInCustomerContact.value = '';
+    walkInCustomerAddress.value = '';
+    selectedWalkInCustomer = null;
+    loadWalkInCustomers();
+});
+walkInCustomerName.addEventListener('input', function () {
+    const cursorPosition = this.selectionStart;
+    const beforeCursor = this.value.slice(0, cursorPosition);
+    this.value = this.value
+        .toLowerCase()
+        .replace(/(^|\s)([a-z])/g, (match, separator, letter) => separator + letter.toUpperCase());
+    this.setSelectionRange(beforeCursor.length, beforeCursor.length);
+
+    if (selectedWalkInCustomer && this.value !== selectedWalkInCustomer) {
+        walkInCustomerContact.value = '';
+        walkInCustomerAddress.value = '';
+        selectedWalkInCustomer = null;
+    }
+});
+walkInCustomerName.addEventListener('change', function () {
+    const selected = [...walkInCustomerOptions.options].find(option => option.value === this.value);
+    if (!selected) {
+        selectedWalkInCustomer = null;
+        return;
+    }
+    selectedWalkInCustomer = selected.value;
+    walkInCustomerContact.value = selected.dataset.contactNumber || '';
+    walkInCustomerAddress.value = selected.dataset.address || '';
+});
 let walkInOrderSlipUrl = null;
 document.getElementById('walkInOrderSlip').addEventListener('change', function () {
     const preview = document.getElementById('walkInOrderSlipPreview');
@@ -231,7 +340,7 @@ function removeRow(button) {
         button.closest('.product-row').remove();
         calculateTotals();
     } else {
-        alert('You must have at least one product item.');
+        AppAlert.show('You must have at least one product item.');
     }
 }
 
@@ -242,14 +351,13 @@ function updateRowPrice(inputElement) {
 
     if (value.length > 0) {
         for (const item of walkInProductOptions) {
-            const optionStr = `${item.label} | ${item.barcode || ''} | ${item.description || ''}`.toLowerCase();
-            if (optionStr === value) { matched = item; break; }
+            if (item.label.toLowerCase() === value) { matched = item; break; }
         }
-        // If no exact match, try startsWith or includes (helpful when user picks or types partially)
+        // Keep barcode and description searchable without displaying them in the selected value.
         if (!matched) {
             matched = walkInProductOptions.find(item => {
-                const optionStr = `${item.label} | ${item.barcode || ''} | ${item.description || ''}`.toLowerCase();
-                return optionStr.startsWith(value) || optionStr.includes(value);
+                return [item.label, item.barcode, item.description]
+                    .some(option => String(option || '').toLowerCase().includes(value));
             }) || null;
         }
     }

@@ -1,4 +1,35 @@
 <x-guest-layout>
+    @php
+        // 1. Locate the JSON file
+        $jsonPath = storage_path('app/quotes.json');
+        
+        // 2. Default fallback values
+        $quoteText = 'Stay curious.';
+        $quoteAuthor = 'Unknown';
+
+        // 3. Read and parse the JSON
+        if (file_exists($jsonPath)) {
+            $jsonContent = file_get_contents($jsonPath);
+            $quotesData = json_decode($jsonContent, true);
+            $selectedQuote = null;
+            
+            // Handle if JSON starts with {"quotes": [...]}
+            if (isset($quotesData['quotes']) && is_array($quotesData['quotes']) && count($quotesData['quotes']) > 0) {
+                $selectedQuote = $quotesData['quotes'][array_rand($quotesData['quotes'])];
+            } 
+            // Handle if JSON starts directly with [...]
+            elseif (is_array($quotesData) && count($quotesData) > 0) {
+                $selectedQuote = $quotesData[array_rand($quotesData)];
+            }
+
+            // 4. Map the keys safely (some JSON files use 'text' instead of 'quote')
+            if ($selectedQuote) {
+                $quoteText = $selectedQuote['quote'] ?? $selectedQuote['text'] ?? $quoteText;
+                $quoteAuthor = $selectedQuote['author'] ?? $quoteAuthor;
+            }
+        }
+    @endphp
+
     <div class="login-card">
         
         <!-- Minimalist Brand Header -->
@@ -14,23 +45,14 @@
         <p class="text-center text-muted small mb-4">Please sign-in to access the dashboard</p>
 
         <!-- Session Status -->
-        <x-auth-session-status class="alert alert-info mb-3 py-2 small" :status="session('status')" />
+        
 
         <!-- Validation Errors -->
-        @if ($errors->any())
-            <div class="alert alert-danger py-2 small mb-3">
-                <ul class="mb-0 ps-3">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
+        
 
         <form method="POST" action="{{ route('login') }}">
             @csrf
 
-            <!-- Email Address Field -->
             <!-- Username Field -->
             <div class="mb-3">
                 <label for="username" class="form-label small fw-semibold text-secondary">Username</label>
@@ -54,9 +76,16 @@
             </div>
 
             <!-- Submit Login Action -->
-            <button type="submit" class="btn btn-blue w-100 text-uppercase tracking-wide small">
+            <button type="submit" class="btn btn-blue w-100 text-uppercase tracking-wide small mb-3">
                 Sign In
             </button>
         </form>
+
+        <!-- Daily Wisdom Quote -->
+        <div class="mt-3 pt-3 border-top text-center">
+            <p class="fst-italic text-muted small mb-1">"{{ $quoteText }}"</p>
+            <small class="fw-bold text-secondary" style="font-size: 0.75rem;">— {{ $quoteAuthor }}</small>
+        </div>
+
     </div>
 </x-guest-layout>

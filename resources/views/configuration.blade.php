@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Configurations - Art Caravan PH</title>
+    <title>Configuration</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.svg') }}">
+    <link rel="stylesheet" href="{{ asset('app-alert.css') }}">
+    <script src="{{ asset('js/app-alert.js') }}"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Select2 CSS -->
@@ -29,6 +33,9 @@
             background-color: #f8fafc;
             border: 1px solid #e2e8f0 !important;
         }
+        .configuration-hero { border-radius: 22px; padding: 1.75rem 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 65%, #38bdf8); box-shadow: 0 14px 32px rgba(37,99,235,.16); }
+        .configuration-hero-content { display: flex; align-items: center; gap: 1rem; }
+        .workspace-hero-icon { width: 54px; height: 54px; flex: 0 0 54px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #1d4ed8, #38bdf8); box-shadow: 0 8px 16px rgba(37,99,235,.2); font-size: 1.25rem; }
         .config-nav-link {
             font-size: 12px;
             font-weight: 700;
@@ -70,35 +77,15 @@
 
     @include('layouts.sidebar')
 
-    <!-- Floating Toast Notification Container (Top Right) -->
-    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
-        @if(session('success'))
-            <div id="liveToast" class="toast align-items-center text-bg-success border-0 shadow-lg rounded-3" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex">
-                    <div class="toast-body fw-semibold py-3">
-                        <i class="fa-solid fa-circle-check me-2"></i> {{ session('success') }}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            </div>
-        @endif
-
-        @if(session('error'))
-            <div id="liveToast" class="toast align-items-center text-bg-danger border-0 shadow-lg rounded-3" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex">
-                    <div class="toast-body fw-semibold py-3">
-                        <i class="fa-solid fa-triangle-exclamation me-2"></i> {{ session('error') }}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            </div>
-        @endif
-    </div>
 
     <div class="p-4" style="max-width: 1600px; margin: 0 auto;">
-        <div class="mb-4">
-            <h4 class="fw-bold text-dark mb-1" style="font-size: 22px;">System Configurations</h4>
-            <p class="text-muted small mb-0">Adjust operational parameters, branch store registry controls, and payment channel integrations.</p>
+        <div class="configuration-hero mb-4">
+            <div class="configuration-hero-content">
+                <span class="workspace-hero-icon"><i class="fa-solid fa-gears"></i></span>
+                <div><div class="text-uppercase small fw-bold opacity-75 mb-2">Administration workspace</div>
+                <h4 class="fw-bold mb-1" style="font-size: 22px;">System Configurations</h4>
+                <p class="small opacity-75 mb-0">Adjust operational parameters, branch store registry controls, and payment channel integrations.</p></div>
+            </div>
         </div>
 
         <!-- Tab Navigation -->
@@ -165,14 +152,10 @@
                                                         </button>
                                                         <form action="{{ route('storehub.toggle-status', $hub->id) }}?tab=hubs" method="POST" class="m-0">
                                                             @csrf @method('PATCH')
-                                                            <button type="submit" class="btn btn-sm btn-light {{ $hub->status === 'active' ? 'text-danger' : 'text-success' }}">
+                                                            <button type="submit" class="btn btn-sm btn-light {{ $hub->status === 'active' ? 'text-danger' : 'text-success' }}" title="{{ $hub->status === 'active' ? 'Deactivate hub' : 'Reactivate hub' }}" aria-label="{{ $hub->status === 'active' ? 'Deactivate hub' : 'Reactivate hub' }}">
                                                                 <i class="fa-solid {{ $hub->status === 'active' ? 'fa-ban' : 'fa-circle-check' }}"></i>
                                                             </button>
                                                         </form>
-                                                        <button type="button" class="btn btn-sm btn-light text-danger border-0" 
-                                                            onclick="openDeleteModal('{{ route('storehub.destroy', $hub->id) }}', 'hubs')">
-                                                            <i class="fa-solid fa-trash"></i>
-                                                        </button>
                                                     @endif
                                                 </div>
                                             </td>
@@ -675,22 +658,6 @@
         }
 
         document.addEventListener("DOMContentLoaded", function () {
-            const toastEl = document.getElementById('liveToast');
-            if (toastEl) {
-                const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
-                toast.show();
-            }
-
-            @if(session('error'))
-                const errorModalEl = document.getElementById('errorModal');
-                if (errorModalEl) {
-                    setTimeout(() => {
-                        const errorModal = bootstrap.Modal.getInstance(errorModalEl) || new bootstrap.Modal(errorModalEl);
-                        errorModal.show();
-                    }, 100);
-                }
-            @endif
-
             @if ($errors->has('name') || $errors->has('code'))
                 const registerModalEl = document.getElementById('registerHubModal');
                 if (registerModalEl) {
@@ -758,5 +725,6 @@
     </script>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    @include('layouts.popup-messages')
 </body>
 </html>

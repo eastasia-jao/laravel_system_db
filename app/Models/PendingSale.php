@@ -11,6 +11,8 @@ class PendingSale extends Model
 
     protected $casts = [
         'items' => 'array',
+        'quotation_proofs' => 'array',
+        'walkin_payment_proofs' => 'array',
         'placed_order_date' => 'date',
         'date_of_arrangement' => 'date', // Added to ensure proper date casting
         'delivery_date' => 'date',

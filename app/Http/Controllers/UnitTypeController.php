@@ -33,7 +33,7 @@ class UnitTypeController extends Controller
         }
 
         // Check if any products are currently using this abbreviation
-        $isUsed = DB::table('products')->where('unit_type', $unitType->abbreviation)->exists();
+        $isUsed = \App\Models\CatalogProduct::where('unit_type', $unitType->abbreviation)->exists();
 
         if ($isUsed) {
             return redirect()->to('/configuration?tab=units')->with('error', 'Cannot delete this unit type because it is currently assigned to one or more products.');

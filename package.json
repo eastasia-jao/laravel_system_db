@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test": "node --test"
     },
     "devDependencies": {
         "@tailwindcss/forms": "^0.5.2",
@@ -19,6 +20,7 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
-        "bootstrap": "^5.3.8"
+        "bootstrap": "^5.3.8",
+        "html2canvas": "^1.4.1"
     }
 }

@@ -8,9 +8,17 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
+    public const BUILT_IN_ROLES = [
+        'admin' => 'Admin',
+        'inventory_staff' => 'Inventory Staff',
+        'sales_associate' => 'Sales Associate',
+        'sales_marketing_staff' => 'Sales/Marketing Staff',
+    ];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -67,16 +75,55 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    public function hasBuiltInRole(): bool
+    {
+        return array_key_exists($this->role, self::BUILT_IN_ROLES);
+    }
+
     public function canAccessHub(int $hubId): bool
     {
         return $this->isAdmin()
             || $this->role === 'inventory_staff'
-            || (int) $this->hub_id === $hubId;
+            || (int) $this->hub_id === $hubId
+            || ($this->role === 'sales_associate'
+                && $this->assignedStoreHubs()->whereKey($hubId)->exists());
+    }
+
+    public function assignedStoreHubs(): BelongsToMany
+    {
+        return $this->belongsToMany(StoreHub::class, 'sales_associate_store_hubs')
+            ->withTimestamps();
+    }
+
+    public function accessibleStoreHubIds(): array
+    {
+        if ($this->role !== 'sales_associate') {
+            return $this->hub_id ? [(int) $this->hub_id] : [];
+        }
+
+        return collect([(int) $this->hub_id])
+            ->merge($this->assignedStoreHubs()->pluck('store_hubs.id')->map(fn ($id) => (int) $id))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function hasSalesChannel(string $channel): bool
     {
         return $this->isAdmin() || in_array($channel, $this->sales_channels ?? [], true);
+    }
+
+    public function usesAssignedSalesChannels(): bool
+    {
+        return in_array($this->role, ['inventory_staff', 'sales_marketing_staff'], true);
+    }
+
+    public function canRecordChannelSales(): bool
+    {
+        return $this->isAdmin()
+            || $this->role === 'sales_associate'
+            || ($this->usesAssignedSalesChannels() && ! empty($this->sales_channels));
     }
 
     public function storeHub()

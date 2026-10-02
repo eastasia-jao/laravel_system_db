@@ -17,25 +17,39 @@ class StockAllocationController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
+        $assignedHub = $user?->store_hub_id ? StoreHub::find($user->store_hub_id) : null;
+        abort_if($assignedHub && ! $assignedHub->is_head_office, 403, 'Stock allocations are only available for head office stores.');
+        $canViewAllHubs = in_array($user?->role, ['admin', 'inventory_staff'], true)
+            && (! $assignedHub || $assignedHub->is_head_office);
         $hubId = $request->integer('hub_id') ?: $user?->store_hub_id;
 
-        if ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
-            $hubId = $user->store_hub_id;
+        if (! $canViewAllHubs) {
+            $hubId = $user?->store_hub_id ?: 0;
         }
 
-        $hub = $hubId ? StoreHub::findOrFail($hubId) : null;
+        $allocationHubs = $canViewAllHubs
+            ? StoreHub::where('status', 'active')->where('is_head_office', true)->orderBy('name')->get()
+            : StoreHub::whereKey($user?->store_hub_id)->where('is_head_office', true)->get();
+        if ($hubId && $hubId !== 0) {
+            abort_unless($allocationHubs->contains('id', (int) $hubId), 403, 'Stock allocations are only available for head office stores.');
+        }
+        $hub = $hubId ? $allocationHubs->firstWhere('id', (int) $hubId) : null;
+        abort_if($hubId && ! $hub, 404);
         $query = Product::query()
             ->with('stockAllocation')
-            ->when($hubId, fn ($builder) => $builder->where('store_hub_id', $hubId))
+            ->whereIn('store_hub_id', $hubId ? [(int) $hubId] : $allocationHubs->modelKeys())
+            ->when($request->filled('product_id'), fn ($builder) => $builder->whereKey($request->integer('product_id')))
             ->when($request->filled('search'), function ($builder) use ($request) {
                 $search = $request->string('search')->toString();
-                $builder->where(function ($nested) use ($search) {
+                $builder->whereHas('catalogProduct', function ($nested) use ($search) {
+                    $nested->where(function ($nested) use ($search) {
                     $nested->where('name', 'like', "%{$search}%")
                         ->orWhere('item_id', 'like', "%{$search}%")
                         ->orWhere('barcode', 'like', "%{$search}%");
+                    });
                 });
             })
-            ->orderBy('name');
+            ->orderByCatalog('item_id');
 
         $products = $query->paginate(25)->withQueryString();
         $soldByProduct = $this->soldByProduct($products->getCollection()->pluck('id'));
@@ -48,24 +62,19 @@ class StockAllocationController extends Controller
             $sold = $soldByProduct->get($product->id, collect());
             $product->allocation_values = $allocated;
             $product->sold_values = $sold;
-            $product->remaining_values = $allocated->map(
-                fn ($quantity, $channel) => max(0, $quantity - (int) $sold->get($channel, 0))
-            );
-            $product->starting_inventory = (int) $product->stock + $sold->sum();
+            $product->remaining_values = $allocated;
+            $product->starting_inventory = (int) $product->stock;
 
             return $product;
         });
 
-        $hubs = in_array($user?->role, ['admin', 'inventory_staff'], true)
-            ? StoreHub::where('status', 'active')->orderBy('name')->get()
-            : StoreHub::whereKey($user?->store_hub_id)->get();
         $assignedChannels = $user?->role === 'sales_marketing_staff'
             ? collect($user->sales_channels ?? [])->map(fn ($channel) => $this->normalizeChannel($channel))->filter()->values()->all()
             : self::CHANNELS;
 
         return view('stock-allocation.index', compact(
             'products',
-            'hubs',
+            'allocationHubs',
             'hub',
             'assignedChannels',
         ));
@@ -75,6 +84,10 @@ class StockAllocationController extends Controller
     {
         $validated = $request->validate([
             'hub_id' => ['required', 'exists:store_hubs,id'],
+            'return_to' => ['nullable', 'in:verification-queue'],
+            'return_hub_id' => ['nullable', 'integer', 'exists:store_hubs,id'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'search' => ['nullable', 'string', 'max:255'],
             'allocations' => ['required', 'array'],
             'allocations.*.online' => ['required', 'integer', 'min:0'],
             'allocations.*.wholesale' => ['required', 'integer', 'min:0'],
@@ -87,7 +100,11 @@ class StockAllocationController extends Controller
         if ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
             abort(403, 'Only inventory staff can update stock allocations.');
         }
-        if ($user?->role !== 'admin' && $user?->role !== 'inventory_staff' && $user?->store_hub_id && (int) $user->store_hub_id !== (int) $validated['hub_id']) {
+        $assignedHub = $user?->store_hub_id ? StoreHub::find($user->store_hub_id) : null;
+        $canUpdateAllHubs = ! $assignedHub || $assignedHub->is_head_office;
+        $targetHub = StoreHub::findOrFail($validated['hub_id']);
+        abort_unless($targetHub->is_head_office, 403, 'Stock allocations are only available for head office stores.');
+        if (! $canUpdateAllHubs && (int) $user->store_hub_id !== (int) $validated['hub_id']) {
             abort(403, 'Unauthorized action for this store hub.');
         }
 
@@ -105,11 +122,8 @@ class StockAllocationController extends Controller
                 }
 
                 $total = collect(self::CHANNELS)->sum(fn ($channel) => (int) $values[$channel]);
-                $sold = $this->soldByProduct(collect([$product->id]))
-                    ->get($product->id, collect())
-                    ->sum();
-                if ($total > ((int) $product->stock + $sold)) {
-                    abort(422, "The allocation for {$product->name} exceeds its starting inventory.");
+                if ($total > (int) $product->stock) {
+                    abort(422, "The allocation for {$product->name} exceeds its physical stock remaining.");
                 }
 
                 ProductStockAllocation::updateOrCreate(
@@ -132,13 +146,21 @@ class StockAllocationController extends Controller
                 )
             ));
 
-        return redirect()->route('stock-allocation.index', ['hub_id' => $validated['hub_id']])
+        $allocationQuery = [
+            'hub_id' => $validated['hub_id'],
+            'product_id' => $validated['product_id'] ?? null,
+            'search' => $validated['search'] ?? null,
+            'return_to' => $validated['return_to'] ?? null,
+            'return_hub_id' => $validated['return_hub_id'] ?? null,
+        ];
+
+        return redirect()->route('stock-allocation.index', array_filter($allocationQuery, fn ($value) => $value !== null && $value !== ''))
             ->with('success', 'Stock allocations updated successfully.');
     }
 
     private function soldByProduct($productIds)
     {
-        return DB::table('transaction_items')
+        $sales = DB::table('transaction_items')
             ->join('sales_transactions', 'sales_transactions.id', '=', 'transaction_items.transaction_id')
             ->whereIn('transaction_items.product_id', $productIds)
             ->where(function ($query) {
@@ -157,6 +179,30 @@ class StockAllocationController extends Controller
                     return $totals;
                 }, collect());
             });
+
+        $movements = DB::table('inventory_transactions')
+            ->whereIn('product_id', $productIds)
+            ->whereIn('type', ['return', 'replacement_return', 'replacement_out'])
+            ->whereNotNull('channel')
+            ->select('product_id', 'channel', 'type')
+            ->selectRaw('SUM(quantity) AS quantity')
+            ->groupBy('product_id', 'channel', 'type')
+            ->get();
+
+        foreach ($movements as $movement) {
+            $productTotals = $sales->get($movement->product_id, collect());
+            $channel = $this->normalizeChannel($movement->channel);
+            $quantity = (int) $movement->quantity;
+            $current = (int) $productTotals->get($channel, 0);
+
+            $productTotals[$channel] = match ($movement->type) {
+                'replacement_out' => $current + $quantity,
+                default => max(0, $current - $quantity),
+            };
+            $sales->put($movement->product_id, $productTotals);
+        }
+
+        return $sales;
     }
 
     private function normalizeChannel(?string $channel): string
@@ -164,7 +210,8 @@ class StockAllocationController extends Controller
         $normalized = str_replace(['-', ' '], '_', strtolower(trim((string) $channel)));
 
         return match ($normalized) {
-            'online_order', 'online_sales', 'walk_in', 'event', 'fully_booked' => 'online',
+            'online_order', 'online_sales', 'event', 'fully_booked' => 'online',
+            'walk_in', 'walkin' => 'walk_in',
             'wholesale' => 'wholesale',
             'shopee' => 'shopee',
             'lazada' => 'lazada',

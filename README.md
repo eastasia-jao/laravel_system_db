@@ -1,59 +1,100 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Inventory System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel application for multi-store inventory, sales, transfers, returns, reporting, and staff workflows.
 
-## About Laravel
+## Requirements
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.2 or later with the extensions required by Laravel and the configured database driver
+- Composer
+- Node.js 20 or later and npm
+- SQLite for local/test use, or a supported production database such as MySQL
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Local setup
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+In PowerShell, from the repository root:
 
-## Learning Laravel
+```powershell
+composer install
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Set the database connection and credentials in `.env`, then run:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```powershell
+php artisan key:generate
+php artisan migrate
+npm ci
+npm run build
+php artisan storage:link
+```
 
-## Laravel Sponsors
+For local development, `composer run dev` starts the web server, queue processes, log tail, and Vite. Product file imports and exports use the dedicated `inventory` queue connection; leave its worker running while testing these workflows.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Main workflows
 
-### Premium Partners
+- Admin and inventory staff manage shared catalog data, branch stock, imports/exports, and approvals.
+- Sales staff work within their assigned store hubs and sales channels.
+- Inventory actions are recorded in transaction and activity logs. Imports and transfers use transactional updates to avoid partial stock changes.
+- Product import/export requests run on the `product-files` queue. Keep [the scaling and worker guide](./docs/inventory-scaling.md) available to operators.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Testing and builds
 
-## Contributing
+```powershell
+composer test
+npm test
+npm run build
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+The PHP feature tests use an isolated in-memory SQLite database. They do not replace staging tests against the production database engine or concurrent-user tests. CI runs these commands on pushes and pull requests.
 
-## Code of Conduct
+## Deployment
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+1. Install PHP and Node dependencies and configure production `.env` values. Keep `APP_DEBUG=false`, use HTTPS, and use a unique `APP_KEY`.
+2. Build frontend assets with `npm ci` and `npm run build`.
+3. Review pending migrations with `php artisan migrate:status`, then apply them with `php artisan migrate --force`. The query-path index migration is additive, but index builds can consume I/O, disk, and write capacity; test it on staging with the production database engine and schedule the production rollout for a low-traffic window.
+4. Ensure `storage` and `bootstrap/cache` are writable by the application account.
+5. Run a supervised queue worker for the dedicated queue:
 
-## Security Vulnerabilities
+   ```powershell
+   php artisan queue:work inventory --queue=product-files --sleep=2 --tries=1 --timeout=600 --memory=256
+   ```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+   Use a process supervisor in production so the worker restarts after exit or host restart. After deploying code, run `php artisan queue:restart` and verify the replacement worker is online.
+6. Run `php artisan inventory:health` and review `php artisan queue:failed` after deployment. Investigate failed jobs before retrying them; import/approval retries must not be submitted concurrently.
+7. Configure encrypted, off-host backups of the database **and** `storage/app/private` and `storage/app/public`. The database alone does not contain uploaded proofs, attachments, or files. See [Backup and restore](#backup-and-restore).
 
-## License
+## Backup and restore
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Backups contain customer, staff, sales, inventory, and uploaded-file data. Encrypt them, restrict access, keep them outside the web root and repository, apply a retention policy, and regularly test restores in a non-production environment. Preserve the production `APP_KEY` securely; changing it can make encrypted application data unreadable.
+
+### Backup
+
+Schedule database-native backups using credentials supplied through a protected database-client configuration or secrets manager (do not put passwords in command history or backup scripts):
+
+- **MySQL/MariaDB:** use `mysqldump --single-transaction --routines --triggers --databases <database> --result-file=<secure-path>`.
+- **PostgreSQL:** use `pg_dump --format=custom --file=<secure-path> <database>`.
+- **SQLite:** stop web and queue writers first, then copy the configured database file to the protected backup location. Do not back up a live SQLite file with a plain file copy.
+
+Back up `storage/app/private` and `storage/app/public` from the same recovery point, or configure an equivalent versioned backup for the storage provider if uploads are stored remotely. Keep the `.env`/encryption key in a separate secure secret store; do not include it in ordinary downloadable backups.
+
+### Restore drill
+
+1. Confirm the target database and storage paths, and verify the backup files and checksums.
+2. Put the application into maintenance mode and stop all queue workers and scheduled processes.
+3. Restore the database using the matching database client and restore the backed-up private/public files to the configured storage provider. Never restore a production backup over a live database without an approved maintenance window.
+4. Restore the original application key and matching configuration, then run `php artisan migrate:status` and `php artisan inventory:health`.
+5. Start the application and supervised workers, then smoke-test login, product lookup, stock balances, reports, and access to a private attachment.
+6. Record the restore date, backup source, duration, and any issues; return the application to service only after checks pass.
+
+## History retention
+
+- Read notifications are removed after 90 days. Unread notifications are retained.
+- Completed or rejected product import/export requests, including their stored CSV chunks, are removed 90 days after their final update. Pending or processing requests are retained.
+- Staff activity logs, sales, payments, returns, replacements, and inventory movements are not automatically deleted. Keep at least three years readily searchable and retain older records in a protected archive. Keep financial and tax-related records for the period required by your accountant and applicable regulations; use ten years as the conservative planning target until that period is confirmed.
+- Back up the database and uploaded proof files before configuring retention. Deleting transaction history can break audit, reconciliation, and return workflows; archive older business records before any approved deletion.
+
+The weekly `history:prune` schedule removes only the two short-lived record types above. To preview the eligible counts without deleting anything, run `php artisan history:prune --dry-run`. Production must run Laravel's scheduler every minute (`php artisan schedule:run`); configure the host scheduler/service accordingly. The command accepts `--notifications-days=N` and `--file-requests-days=N` overrides for a manual run.
+
+## Scaling notes
+
+See [docs/inventory-scaling.md](./docs/inventory-scaling.md) for catalog normalization, bounded product loading, import/export processing, queue recovery, and known capacity-test limits.

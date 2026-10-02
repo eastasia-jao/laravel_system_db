@@ -1,0 +1,72 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Product;
+use App\Models\StoreHub;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class StockAllocationHeadOfficeScopeTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_all_stores_allocation_scope_only_lists_head_office_hubs_and_products(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-ALLOC', 'status' => 'active', 'is_head_office' => true]);
+        $branch = StoreHub::create(['name' => 'Branch Store', 'code' => 'BR-ALLOC', 'status' => 'active', 'is_head_office' => false]);
+        Product::create(['store_hub_id' => $headOffice->id, 'item_id' => 'HO-ITEM', 'name' => 'Head Office Item', 'stock' => 10, 'status' => 'active']);
+        Product::create(['store_hub_id' => $branch->id, 'item_id' => 'BR-ITEM', 'name' => 'Branch Item', 'stock' => 10, 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->get(route('stock-allocation.index'));
+
+        $response->assertOk()
+            ->assertSee('HEAD OFFICE')
+            ->assertSee('Head Office Item')
+            ->assertDontSee('Branch Item');
+        preg_match('/<select name="hub_id".*?<\/select>/s', $response->getContent(), $selector);
+        $this->assertNotEmpty($selector);
+        $this->assertStringContainsString('<option value="'.$headOffice->id.'"', $selector[0]);
+        $this->assertStringNotContainsString('<option value="'.$branch->id.'"', $selector[0]);
+        $this->assertSame([$headOffice->id], $response->viewData('allocationHubs')->modelKeys());
+        $this->assertSame([$headOffice->id], $response->viewData('products')->getCollection()->pluck('store_hub_id')->unique()->all());
+    }
+
+    public function test_non_head_office_hub_cannot_be_opened_in_stock_allocations(): void
+    {
+        $branch = StoreHub::create(['name' => 'Branch Store', 'code' => 'BR-ALLOC', 'status' => 'active', 'is_head_office' => false]);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(route('stock-allocation.index', ['hub_id' => $branch->id]))
+            ->assertForbidden();
+    }
+
+    public function test_staff_assigned_to_non_head_office_branch_cannot_open_stock_allocations(): void
+    {
+        $branch = StoreHub::create(['name' => 'Branch Store', 'code' => 'BR-ALLOC', 'status' => 'active', 'is_head_office' => false]);
+        $staff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $branch->id]);
+
+        $this->actingAs($staff)
+            ->get(route('stock-allocation.index'))
+            ->assertForbidden();
+    }
+
+    public function test_non_head_office_hub_cannot_be_updated_in_stock_allocations(): void
+    {
+        $branch = StoreHub::create(['name' => 'Branch Store', 'code' => 'BR-ALLOC', 'status' => 'active', 'is_head_office' => false]);
+        $product = Product::create(['store_hub_id' => $branch->id, 'item_id' => 'BR-ITEM', 'name' => 'Branch Item', 'stock' => 10, 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->post(route('stock-allocation.update'), [
+                'hub_id' => $branch->id,
+                'allocations' => [
+                    $product->id => ['online' => 0, 'wholesale' => 0, 'shopee' => 0, 'lazada' => 0, 'tiktok' => 0],
+                ],
+            ])
+            ->assertForbidden();
+    }
+}

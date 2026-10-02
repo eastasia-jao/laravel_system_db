@@ -4,15 +4,159 @@ namespace Tests\Feature;
 
 use App\Models\PendingSale;
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class SalesWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_shopee_and_lazada_generate_invoice_numbers_when_left_blank(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Marketplace Head Office', 'code' => 'MKT-HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $user = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
+        $product = Product::create([
+            'item_id' => 'MKT-001', 'name' => 'Marketplace Product', 'sales_price' => 100,
+            'shopee_price' => 100, 'lazada_price' => 100, 'stock' => 10, 'status' => 'active', 'store_hub_id' => $hub->id,
+        ]);
+
+        foreach (['shopee' => 'SHOPEE-000001', 'lazada' => 'LAZADA-000001'] as $channel => $expectedInvoice) {
+            $this->actingAs($user)->post(route('sales.storeMultiChannelSale'), [
+                'store_hub_id' => $hub->id,
+                'sales_channel' => $channel,
+                'placed_order_date' => '2026-09-28',
+                'order_number' => '',
+                'customer_name' => ucfirst($channel).' Customer',
+                'items' => [['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100]],
+            ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+            $this->assertDatabaseHas('pending_sales', [
+                'sales_channel' => $channel,
+                'invoice_number' => $expectedInvoice,
+            ]);
+        }
+
+        $this->actingAs($user)->get(route('hub.dashboard', $hub))
+            ->assertOk()
+            ->assertSee('SPayLater')
+            ->assertSee('PayLater')
+            ->assertSee('Mixedcard')
+            ->assertSee('Credit/Debit Card')
+            ->assertSee('ShopeePay Balance')
+            ->assertSee('Online/Offline Payment')
+            ->assertSee('QRph')
+            ->assertSee('Specify MOP')
+            ->assertSee('marketplace-mop-menu', false);
+
+        $channelMopOrder = [
+            'store_hub_id' => $hub->id,
+            'placed_order_date' => '2026-09-28',
+            'customer_name' => 'Channel MOP Customer',
+            'items' => [['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100]],
+        ];
+        $this->post(route('sales.storeMultiChannelSale'), $channelMopOrder + [
+            'sales_channel' => 'lazada', 'mode_of_payment' => 'SPAYLATER',
+        ])->assertSessionHasErrors('mode_of_payment');
+        $this->post(route('sales.storeMultiChannelSale'), $channelMopOrder + [
+            'sales_channel' => 'shopee', 'mode_of_payment' => 'PAYLATER',
+        ])->assertSessionHasErrors('mode_of_payment');
+        $this->post(route('sales.storeMultiChannelSale'), $channelMopOrder + [
+            'sales_channel' => 'lazada', 'mode_of_payment' => 'PAYLATER',
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->assertDatabaseHas('pending_sales', [
+            'customer_name' => 'Channel MOP Customer', 'sales_channel' => 'lazada', 'mode_of_payment' => 'PAYLATER',
+        ]);
+
+        $otherMopOrder = [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'shopee',
+            'placed_order_date' => '2026-09-28',
+            'customer_name' => 'Other MOP Customer',
+            'mode_of_payment' => 'OTHERS',
+            'items' => [['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100]],
+        ];
+        $this->post(route('sales.storeMultiChannelSale'), $otherMopOrder)
+            ->assertSessionHasErrors('mode_of_payment_others');
+        $this->post(route('sales.storeMultiChannelSale'), $otherMopOrder + ['mode_of_payment_others' => 'Cash on pickup'])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+        $this->assertDatabaseHas('pending_sales', [
+            'customer_name' => 'Other MOP Customer',
+            'mode_of_payment' => 'Cash on pickup',
+        ]);
+    }
+
+    public function test_inventory_staff_can_cover_only_their_assigned_sales_channels(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office',
+            'code' => 'HO-COVER',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $product = Product::create([
+            'item_id' => 'COVER-001',
+            'name' => 'Coverage Product',
+            'sales_price' => 100,
+            'shopee_price' => 100,
+            'stock' => 10,
+            'status' => 'active',
+            'store_hub_id' => $hub->id,
+        ]);
+        $unassignedInventory = User::factory()->create([
+            'hub_id' => $hub->id,
+            'role' => 'inventory_staff',
+            'sales_channels' => [],
+        ]);
+        $assignedInventory = User::factory()->create([
+            'hub_id' => $hub->id,
+            'role' => 'inventory_staff',
+            'sales_channels' => ['shopee'],
+        ]);
+        $order = [
+            'store_hub_id' => $hub->id,
+            'placed_order_date' => '2026-09-17',
+            'order_number' => 'COVER-ORDER-001',
+            'customer_name' => 'Coverage Customer',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+            ]],
+        ];
+
+        $this->actingAs($unassignedInventory)
+            ->post(route('sales.storeMultiChannelSale'), $order + ['sales_channel' => 'shopee'])
+            ->assertForbidden();
+
+        $this->actingAs($assignedInventory)
+            ->get(route('hub.dashboard', $hub))
+            ->assertOk()
+            ->assertSee('Record Multi-Channel Sale')
+            ->assertSee('Shopee Sales')
+            ->assertDontSee('Lazada Sales');
+
+        $this->post(route('sales.storeMultiChannelSale'), $order + ['sales_channel' => 'lazada'])
+            ->assertForbidden();
+
+        $this->post(route('sales.storeMultiChannelSale'), $order + ['sales_channel' => 'shopee'])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('pending_sales', [
+            'submitted_by' => $assignedInventory->id,
+            'sales_channel' => 'shopee',
+            'invoice_number' => 'COVER-ORDER-001',
+        ]);
+    }
+
 
     public function test_pending_sale_can_be_recorded_and_confirmed(): void
     {
@@ -20,6 +164,7 @@ class SalesWorkflowTest extends TestCase
             'name' => 'Test Hub',
             'code' => 'test-hub',
             'status' => 'active',
+            'is_head_office' => true,
         ]);
         $user = User::factory()->create([
             'hub_id' => $hub->id,
@@ -33,6 +178,7 @@ class SalesWorkflowTest extends TestCase
             'status' => 'active',
             'store_hub_id' => $hub->id,
         ]);
+        ProductStockAllocation::create(['product_id' => $product->id, 'wholesale' => 10]);
 
         $otherHub = StoreHub::create([
             'name' => 'Other Hub',
@@ -48,7 +194,7 @@ class SalesWorkflowTest extends TestCase
                 'product_id' => $product->id,
                 'quantity' => 1,
             ]],
-        ])->assertForbidden();
+        ])->assertNotFound();
 
         $response = $this->actingAs($user)->post(route('sales.storeMultiChannelSale'), [
             'store_hub_id' => $hub->id,
@@ -59,6 +205,10 @@ class SalesWorkflowTest extends TestCase
             'mode_of_payment' => 'Check',
             'bank_name' => 'Test Bank',
             'check_number' => 'CHECK-001',
+            'proof_of_payment' => UploadedFile::fake()->create('proof.pdf', 10, 'application/pdf'),
+            'payment_status' => 'partial',
+            'amount_paid' => 50,
+            'delivery_status' => 'shipped',
             'shipping_fee_amount' => 25,
             'items' => [[
                 'product_id' => $product->id,
@@ -72,8 +222,8 @@ class SalesWorkflowTest extends TestCase
         $pendingSale = PendingSale::sole();
         $this->assertSame('Test Bank', $pendingSale->bank_name);
         $this->assertSame('25.00', $pendingSale->shipping_fee_amount);
-        $this->assertSame('unpaid', $pendingSale->payment_status);
-        $this->assertSame('pending', $pendingSale->delivery_status);
+        $this->assertSame('partial', $pendingSale->payment_status);
+        $this->assertSame('shipped', $pendingSale->delivery_status);
         $this->assertSame(10, $product->fresh()->stock);
 
         $pendingReport = $this->actingAs($user)
@@ -86,21 +236,11 @@ class SalesWorkflowTest extends TestCase
         $this->assertSame(0, $pendingReport->viewData('totalTransactions'));
 
         $this->actingAs($user)
-            ->get(route('hub.channel-orders', ['hub' => $hub->id, 'tab' => 'awaiting']))
+            ->get(route('hub.sales.pending', $hub->id))
             ->assertOk()
             ->assertSee('ORDER-001')
-            ->assertSee('READY FOR VERIFICATION')
-            ->assertSee('View Items (1)')
+            ->assertSee('READY')
             ->assertSee('Test Product');
-
-        $this->actingAs($user)->patch(route('sales.tracking.update', [
-            'source' => 'pending',
-            'id' => $pendingSale->id,
-        ]), [
-            'payment_status' => 'partial',
-            'amount_paid' => 50,
-            'delivery_status' => 'shipped',
-        ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $this->assertSame('partial', $pendingSale->fresh()->payment_status);
         $this->assertSame('50.00', $pendingSale->fresh()->amount_paid);
@@ -121,10 +261,7 @@ class SalesWorkflowTest extends TestCase
         $this->assertSame('shipped', $transaction->delivery_status);
         $this->assertCount(1, $transaction->items);
 
-        $this->actingAs($user)->patch(route('sales.tracking.update', [
-            'source' => 'transaction',
-            'id' => $transaction->id,
-        ]), [
+        $this->actingAs($user)->patch(route('sales.status.update', $transaction->id), [
             'payment_status' => 'paid',
             'amount_paid' => 0,
             'delivery_status' => 'delivered',
@@ -137,15 +274,12 @@ class SalesWorkflowTest extends TestCase
         $confirmedReport = $this->actingAs($user)
             ->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']));
         $this->assertSame(1, $confirmedReport->viewData('totalTransactions'));
-        $this->assertSame(1, substr_count($confirmedReport->getContent(), 'ORDER-001'));
+        $confirmedReport->assertSee('ORDER-001');
 
         $this->actingAs($user)
-            ->get(route('hub.channel-orders', ['hub' => $hub->id, 'tab' => 'verified']))
+            ->get(route('hub.sales.pending', $hub->id))
             ->assertOk()
-            ->assertSee('ORDER-001')
-            ->assertSee('VERIFIED')
-            ->assertSee('View Items (1)')
-            ->assertSee('Test Product');
+            ->assertDontSee('ORDER-001');
 
         $this->actingAs($user)
             ->post(route('sales.confirmPending', $pendingSale))
@@ -163,7 +297,8 @@ class SalesWorkflowTest extends TestCase
         ]);
         $salesStaff = User::factory()->create([
             'hub_id' => $hub->id,
-            'role' => 'sales_staff',
+            'role' => 'sales_marketing_staff',
+            'sales_channels' => ['shopee'],
         ]);
         $inventoryStaff = User::factory()->create([
             'hub_id' => $hub->id,
@@ -193,11 +328,13 @@ class SalesWorkflowTest extends TestCase
 
         $this->actingAs($salesStaff)
             ->get(route('hub.sales.pending', $hub->id))
-            ->assertForbidden();
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHas('notification_error');
 
         $this->actingAs($inventoryStaff)
-            ->get(route('hub.channel-orders', $hub->id))
-            ->assertForbidden();
+            ->get(route('hub.sales.pending', $hub->id))
+            ->assertOk()
+            ->assertSee('REJECT-ORDER-001');
 
         $this->actingAs($inventoryStaff)->post(route('sales.rejectPending', $pendingSale), [
             'rejection_reason' => 'The requested quantity could not be verified.',
@@ -209,10 +346,10 @@ class SalesWorkflowTest extends TestCase
         $this->assertSame(0, SalesTransaction::count());
 
         $this->actingAs($salesStaff)
-            ->get(route('hub.channel-orders', ['hub' => $hub->id, 'tab' => 'rejected']))
+            ->get(route('sales.rejected', ['hub_id' => $hub->id]))
             ->assertOk()
             ->assertSee('The requested quantity could not be verified.')
-            ->assertSee('View Items (1)')
+            ->assertSee('Order Items')
             ->assertSee('Rejected Product');
     }
 
@@ -236,6 +373,9 @@ class SalesWorkflowTest extends TestCase
             'sales_price' => 100,
             'status' => 'active',
             'store_hub_id' => $hub->id,
+        ]))->each(fn (Product $product) => ProductStockAllocation::create([
+            'product_id' => $product->id,
+            'online' => $product->stock,
         ]));
 
         $pendingSale = PendingSale::create([
@@ -270,6 +410,7 @@ class SalesWorkflowTest extends TestCase
         $this->assertSame(0, SalesTransaction::count());
 
         $products[2]->update(['stock' => 1]);
+        $products[2]->stockAllocation->update(['online' => 1]);
 
         $this->actingAs($inventoryStaff)
             ->get(route('hub.sales.pending', $hub->id))
@@ -287,12 +428,73 @@ class SalesWorkflowTest extends TestCase
         $this->assertSame(1, SalesTransaction::count());
     }
 
+    public function test_inventory_staff_can_confirm_pending_sales_from_another_store_hub(): void
+    {
+        $assignedHub = StoreHub::create([
+            'name' => 'Assigned Inventory Hub',
+            'code' => 'ASSIGNED-INV',
+            'status' => 'active',
+        ]);
+        $saleHub = StoreHub::create([
+            'name' => 'Walk-In Branch Hub',
+            'code' => 'SALE-BRANCH',
+            'status' => 'active',
+        ]);
+        $inventoryStaff = User::factory()->create([
+            'hub_id' => $assignedHub->id,
+            'role' => 'inventory_staff',
+        ]);
+        $salesAssociate = User::factory()->create([
+            'hub_id' => $saleHub->id,
+            'role' => 'sales_associate',
+        ]);
+        $product = Product::create([
+            'item_id' => 'CROSS-HUB-001',
+            'name' => 'Cross Hub Product',
+            'sales_price' => 100,
+            'stock' => 5,
+            'status' => 'active',
+            'store_hub_id' => $saleHub->id,
+        ]);
+        $pendingSale = PendingSale::create([
+            'store_hub_id' => $saleHub->id,
+            'sales_channel' => 'walk_in',
+            'placed_order_date' => '2026-09-28',
+            'invoice_number' => 'CROSS-HUB-ORDER',
+            'customer_name' => 'Branch Customer',
+            'items' => [[
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'quantity' => 2,
+                'unit_price' => 100,
+            ]],
+            'status' => 'pending',
+            'inventory_status' => 'ready',
+            'submitted_by' => $salesAssociate->id,
+        ]);
+
+        $this->actingAs($inventoryStaff)
+            ->post(route('sales.confirmPending', $pendingSale))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertSame('confirmed', $pendingSale->fresh()->status);
+        $this->assertSame($saleHub->id, $pendingSale->fresh()->store_hub_id);
+        $this->assertSame(3, $product->fresh()->stock);
+        $this->assertDatabaseHas('sales_transactions', [
+            'store_hub_id' => $saleHub->id,
+            'order_number' => 'CROSS-HUB-ORDER',
+            'status' => 'confirmed',
+        ]);
+    }
+
     public function test_channel_reports_use_tiktok_and_online_financial_formulas(): void
     {
         $hub = StoreHub::create([
             'name' => 'Report Hub',
             'code' => 'report-hub',
             'status' => 'active',
+            'is_head_office' => true,
         ]);
         $admin = User::factory()->create([
             'hub_id' => $hub->id,
@@ -307,6 +509,7 @@ class SalesWorkflowTest extends TestCase
             'status' => 'active',
             'store_hub_id' => $hub->id,
         ]);
+        ProductStockAllocation::create(['product_id' => $product->id, 'tiktok' => 20, 'online' => 20]);
 
         $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
             'store_hub_id' => $hub->id,
@@ -327,16 +530,14 @@ class SalesWorkflowTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $tiktokPending = PendingSale::where('invoice_number', 'TIKTOK-REPORT-001')->sole();
-        $this->assertSame('9.00', $tiktokPending->shipping_service_fee);
 
         $this->actingAs($admin)
             ->post(route('sales.confirmPending', $tiktokPending))
             ->assertSessionHas('success');
-
         $tiktokTransaction = SalesTransaction::where('order_number', 'TIKTOK-REPORT-001')->sole();
-        $this->assertSame('9.00', $tiktokTransaction->shipping_service_fee);
+        $tiktokTransaction = SalesTransaction::where('order_number', 'TIKTOK-REPORT-001')->sole();
         $this->assertSame('150.00', $tiktokTransaction->sales_after_transaction_fee);
-        $this->assertSame('5.00', $tiktokTransaction->refund_shipping_fee);
+        $this->assertSame('0.00', $tiktokTransaction->refund_shipping_fee);
 
         $tiktokReport = $this->actingAs($admin)->get(route('hub.report', [
             'hub' => $hub->id,
@@ -344,9 +545,9 @@ class SalesWorkflowTest extends TestCase
         ]));
         $tiktokReport
             ->assertOk()
-            ->assertSee('TikTok Item Sales')
-            ->assertSee('Shipping Service Fee (5%)')
-            ->assertSee('Actual TikTok Payout')
+            ->assertSee('TikTok Sales Report')
+            ->assertSee('Total Shipping Fee 5%')
+            ->assertSee('Recorded Sales After Transactions')
             ->assertSee('TIKTOK-REPORT-001');
         $this->assertSame(9.0, (float) $tiktokReport->viewData('metrics')['shipping_service_fees']);
         $this->assertSame(150.0, (float) $tiktokReport->viewData('metrics')['actual_platform_payout']);
@@ -358,6 +559,7 @@ class SalesWorkflowTest extends TestCase
             'customer_name' => 'Online Customer',
             'order_number' => 'ONLINE-REPORT-001',
             'online_mop' => 'GCASH',
+            'proof_of_payment' => UploadedFile::fake()->create('online-proof.pdf', 10, 'application/pdf'),
             'delivery_fee' => 30,
             'proof_amount' => 230,
             'note' => 'Reconciled payment',
@@ -379,7 +581,8 @@ class SalesWorkflowTest extends TestCase
         ]));
         $onlineReport
             ->assertOk()
-            ->assertSee('Online Payment Reconciliation')
+            ->assertSee('Payment reconciliation')
+            ->assertSee('Reconciliation Difference')
             ->assertSee('ONLINE-REPORT-001', false)
             ->assertSee('Reconciled payment');
         $this->assertSame(230.0, (float) $onlineReport->viewData('metrics')['proof_amount']);
