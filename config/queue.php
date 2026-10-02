@@ -35,7 +35,8 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => 'jobs',
             'queue' => 'product-files',
-            'retry_after' => 900,
+            // Must exceed the 30-minute product-file job timeout.
+            'retry_after' => 1860,
             'after_commit' => true,
         ],
 

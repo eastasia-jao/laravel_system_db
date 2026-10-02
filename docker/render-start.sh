@@ -31,4 +31,4 @@ trap 'stop_services; exit 0' INT TERM
 
 # Keep the queue worker as the container's primary process. Render now tracks
 # it reliably while Apache continues serving the web application above.
-exec php artisan queue:work inventory --queue=product-files --sleep=2 --tries=1 --timeout=1800 --memory=256 --verbose
+exec php artisan queue:work inventory --queue=product-files --sleep=2 --tries=3 --timeout=1800 --memory=256 --verbose

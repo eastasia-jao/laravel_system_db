@@ -16,7 +16,9 @@ class ProcessProductFileRequest implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 1;
+    // A Render restart can release an in-progress database job. Allow a small
+    // number of safe retries rather than failing a large import immediately.
+    public int $tries = 3;
 
     // Large spreadsheet imports can exceed the default 10-minute job limit.
     public int $timeout = 1800;
