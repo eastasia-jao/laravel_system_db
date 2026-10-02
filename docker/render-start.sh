@@ -18,21 +18,17 @@ php artisan app:bootstrap-initial-admin
 # deployments, keep the product-file queue consumer in this same container.
 # It is intentionally a single worker to limit memory use on the free plan.
 echo "Starting product-files import worker..."
-php artisan queue:work inventory --queue=product-files --sleep=2 --tries=1 --timeout=1800 --memory=256 --verbose &
-queue_worker_pid=$!
-echo "Product-files import worker started (PID: $queue_worker_pid)."
+apache2-foreground &
+apache_pid=$!
+echo "Apache started (PID: $apache_pid)."
 
 stop_services() {
-    kill -TERM "$queue_worker_pid" 2>/dev/null || true
-    wait "$queue_worker_pid" 2>/dev/null || true
+    kill -TERM "$apache_pid" 2>/dev/null || true
+    wait "$apache_pid" 2>/dev/null || true
 }
 
 trap 'stop_services; exit 0' INT TERM
 
-apache2-foreground &
-apache_pid=$!
-wait "$apache_pid"
-apache_status=$?
-
-stop_services
-exit "$apache_status"
+# Keep the queue worker as the container's primary process. Render now tracks
+# it reliably while Apache continues serving the web application above.
+exec php artisan queue:work inventory --queue=product-files --sleep=2 --tries=1 --timeout=1800 --memory=256 --verbose
