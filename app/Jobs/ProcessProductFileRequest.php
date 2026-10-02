@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ProcessProductFileRequest implements ShouldQueue
@@ -30,9 +31,12 @@ class ProcessProductFileRequest implements ShouldQueue
 
     public function handle(): void
     {
+        Log::info('Product file job started.', ['request_id' => $this->requestId]);
         $claimed = ProductFileRequest::whereKey($this->requestId)->where('status', 'pending')
             ->where('processing_status', 'queued')->update(['processing_status' => 'processing']);
         if (! $claimed) {
+            Log::warning('Product file job skipped because it was not queued.', ['request_id' => $this->requestId]);
+
             return;
         }
         $previous = Auth::user();
@@ -41,6 +45,7 @@ class ProcessProductFileRequest implements ShouldQueue
             Auth::setUser($reviewer);
             $request = Request::create('/', 'POST', ['decision' => 'approved'], [], [], ['REMOTE_ADDR' => $this->ip]);
             app(ProductFileRequestController::class)->processReview($request, ProductFileRequest::findOrFail($this->requestId));
+            Log::info('Product file job completed.', ['request_id' => $this->requestId]);
         } finally {
             if ($previous) {
                 Auth::setUser($previous);
@@ -52,6 +57,11 @@ class ProcessProductFileRequest implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
+        Log::error('Product file job failed.', [
+            'request_id' => $this->requestId,
+            'error' => $exception?->getMessage(),
+        ]);
+
         // The data transaction has rolled back; staff can review and retry safely.
         ProductFileRequest::whereKey($this->requestId)->where('status', 'pending')->update([
             'processing_status' => 'failed',

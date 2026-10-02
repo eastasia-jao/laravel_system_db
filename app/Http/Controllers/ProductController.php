@@ -20,6 +20,7 @@ use App\Support\ProductExportFilename;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -360,6 +361,12 @@ class ProductController extends Controller
             $record->storeCsv($csv);
 
             ProcessProductFileRequest::dispatch($record->id, auth()->id(), $request->ip() ?? '127.0.0.1');
+
+            Log::info('Product import queued.', [
+                'request_id' => $record->id,
+                'store_hub_id' => $hub->id,
+                'submitted_by' => auth()->id(),
+            ]);
         });
 
         return redirect()->route('hub.dashboard', $hub->id)->with(
