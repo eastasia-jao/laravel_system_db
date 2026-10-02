@@ -11,7 +11,7 @@
             'staff-logs.index' => 'Staff Logs',
             'inventory-transactions.index' => 'Transaction Logs',
             'inventory-transactions.return.create' => 'Return Items',
-            'product-file-requests.index' => 'Product Import / Export Requests',
+            'product-file-requests.index' => 'Stock Transfer Review Requests',
             'hub.dashboard' => 'Store Hub Dashboard',
             'hub.report' => 'Sales Report',
             'hub.wholesale.report' => 'Wholesale Report',

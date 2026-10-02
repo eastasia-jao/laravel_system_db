@@ -215,7 +215,12 @@ class ProductFileRequestController extends Controller
                 'status' => $data['decision'], 'reviewed_by' => auth()->id(), 'reviewed_at' => now(),
                 'rejection_reason' => $data['decision'] === 'rejected' ? $data['rejection_reason'] : null,
             ])->save();
-            $record->submitter->notify(new InventoryWorkflowNotification('product_file_reviewed', "Your product {$record->type} request #{$record->id} was {$record->status}.", $record->store_hub_id, route('product-file-requests.show', $record)));
+            $record->submitter->notify(new InventoryWorkflowNotification(
+                'product_file_reviewed',
+                "Your product {$record->type} was {$record->status}.",
+                $record->store_hub_id,
+                route('products.index', ['hub_id' => $record->store_hub_id])
+            ));
         });
 
         return back()->with('success', 'Request '.$data['decision'].'.');

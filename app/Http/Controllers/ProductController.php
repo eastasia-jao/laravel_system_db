@@ -338,11 +338,34 @@ class ProductController extends Controller
     public function importCsv(Request $request, $hub_id)
     {
         abort_unless(auth()->user()?->can('manage-inventory'), 403);
-        StoreHub::findOrFail($hub_id);
+        $hub = StoreHub::findOrFail($hub_id);
         $request->validate(['file' => 'required|file|mimes:csv,txt|max:5120']);
-        app(ProductFileRequestController::class)->prepareCsv(file_get_contents($request->file('file')->getRealPath()));
+        $csv = app(ProductFileRequestController::class)->prepareCsv(
+            file_get_contents($request->file('file')->getRealPath())
+        );
 
-        return DB::transaction(fn () => $this->applyImportCsv($request, $hub_id));
+        DB::transaction(function () use ($csv, $request, $hub) {
+            // This record is internal queue storage, not an approval request.
+            // The submitting inventory user automatically authorizes the import.
+            $record = ProductFileRequest::create([
+                'type' => 'import',
+                'store_hub_id' => $hub->id,
+                'submitted_by' => auth()->id(),
+                'file_name' => $request->file('file')->getClientOriginalName(),
+                'status' => 'pending',
+                'processing_status' => 'queued',
+                'reviewed_by' => auth()->id(),
+                'reviewed_at' => now(),
+            ]);
+            $record->storeCsv($csv);
+
+            ProcessProductFileRequest::dispatch($record->id, auth()->id(), $request->ip() ?? '127.0.0.1');
+        });
+
+        return redirect()->route('hub.dashboard', $hub->id)->with(
+            'success',
+            'Import queued and will be applied automatically in the background.'
+        );
     }
 
     public function applyImportCsv(Request $request, $hub_id)

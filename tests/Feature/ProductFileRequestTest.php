@@ -8,6 +8,8 @@ use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -136,6 +138,28 @@ class ProductFileRequestTest extends TestCase
 
         $this->assertSame($this->csv(), $record->fresh()->csv);
         $this->assertDatabaseCount('product_file_csv_chunks', 1);
+    }
+
+    public function test_inventory_staff_imports_are_queued_without_an_approval_request(): void
+    {
+        Queue::fake();
+        $hub = StoreHub::create(['name' => 'Branch', 'code' => 'BR', 'status' => 'active']);
+        $staff = User::factory()->create(['role' => 'inventory_staff']);
+
+        $this->actingAs($staff)
+            ->post(route('hub.products.import', $hub), [
+                'file' => UploadedFile::fake()->createWithContent('products.csv', $this->csv()),
+            ])
+            ->assertRedirect(route('hub.dashboard', $hub))
+            ->assertSessionHas('success', 'Import queued and will be applied automatically in the background.');
+
+        $record = ProductFileRequest::sole();
+        $this->assertSame('import', $record->type);
+        $this->assertSame('pending', $record->status);
+        $this->assertSame('queued', $record->processing_status);
+        $this->assertSame($staff->id, $record->submitted_by);
+        $this->assertSame($this->csv(), $record->csv);
+        Queue::assertPushed(\App\Jobs\ProcessProductFileRequest::class, 1);
     }
 
     public function test_import_waits_for_staff_approval_and_cannot_be_applied_twice(): void

@@ -29,6 +29,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/product-catalog/assign', [\App\Http\Controllers\CatalogController::class, 'assign'])->middleware('can:manage-shared-catalog')->name('catalog.assign');
     Route::get('/sales/order-number-preview', [\App\Http\Controllers\SalesController::class, 'previewOrderNumber'])->middleware('can:access-sales')->name('sales.order-number-preview');
     Route::get('/product-file-requests', [\App\Http\Controllers\ProductFileRequestController::class, 'index'])->middleware('can:view-products')->name('product-file-requests.index');
+    // Legacy detail routes remain available for previously created records.
+    // New Admin/Inventory Staff imports and exports do not use an approval flow.
     Route::get('/product-file-requests/{fileRequest}', [\App\Http\Controllers\ProductFileRequestController::class, 'show'])->middleware('can:view-products')->name('product-file-requests.show');
     Route::post('/product-file-requests/{fileRequest}/review', [\App\Http\Controllers\ProductFileRequestController::class, 'review'])->middleware('can:verify-inventory')->name('product-file-requests.review');
     Route::get('/product-file-requests/{fileRequest}/download', [\App\Http\Controllers\ProductFileRequestController::class, 'download'])->middleware('can:view-products')->name('product-file-requests.download');
