@@ -12,6 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Render terminates TLS at its proxy and forwards the original HTTPS
+        // scheme to the application. Trust those headers so generated form
+        // actions and redirects remain HTTPS instead of falling back to HTTP.
+        $middleware->trustProxies(at: '*');
+
         $middleware->redirectUsersTo(fn () => route('dashboard'));
 
         $middleware->alias([
