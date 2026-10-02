@@ -29,7 +29,8 @@ COPY --from=assets /var/www/html/public/build ./public/build
 COPY docker/render-apache.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/render-start.sh /usr/local/bin/render-start
 
-RUN chmod +x /usr/local/bin/render-start \
+RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+    && chmod +x /usr/local/bin/render-start \
     && chown -R www-data:www-data storage bootstrap/cache
 
 ENV PORT=10000
