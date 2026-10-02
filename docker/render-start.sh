@@ -8,5 +8,6 @@ sed -ri "s/<VirtualHost \*:10000>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-a
 # Test deployments use this startup migration because Render Free does not
 # provide one-off shell jobs. Laravel skips migrations that already ran.
 php artisan migrate --force --no-interaction
+php artisan app:bootstrap-initial-admin
 
 exec apache2-foreground
