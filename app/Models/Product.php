@@ -119,8 +119,16 @@ class Product extends Model
     public function scopeOrderByCatalog($query, string $field = 'name')
     {
         if ($field === 'item_id') {
+            $itemIdNumericExpression = match (DB::connection()->getDriverName()) {
+                'mysql', 'mariadb' => 'CAST(item_id AS UNSIGNED)',
+                // PostgreSQL has no UNSIGNED type. Strip non-digits first so
+                // IDs such as BR-001 remain safe to sort numerically.
+                'pgsql' => "CAST(NULLIF(regexp_replace(item_id, '[^0-9]', '', 'g'), '') AS BIGINT)",
+                default => 'CAST(item_id AS INTEGER)',
+            };
+
             return $query
-                ->orderByRaw('(SELECT CAST(item_id AS UNSIGNED) FROM catalog_products WHERE catalog_products.id = products.catalog_product_id)')
+                ->orderByRaw("(SELECT {$itemIdNumericExpression} FROM catalog_products WHERE catalog_products.id = products.catalog_product_id)")
                 ->orderBy(CatalogProduct::select($field)->whereColumn('catalog_products.id', 'products.catalog_product_id'))
                 ->orderBy('products.id');
         }

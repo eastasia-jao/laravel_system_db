@@ -15,13 +15,17 @@ class CatalogController extends Controller
     public function index(Request $request)
     {
         $sourceHub = $this->headOfficeSource($request);
-        $itemIdCastType = DB::connection()->getDriverName() === 'mysql' ? 'UNSIGNED' : 'INTEGER';
+        $itemIdNumericExpression = match (DB::connection()->getDriverName()) {
+            'mysql', 'mariadb' => 'CAST(item_id AS UNSIGNED)',
+            'pgsql' => "CAST(NULLIF(regexp_replace(item_id, '[^0-9]', '', 'g'), '') AS BIGINT)",
+            default => 'CAST(item_id AS INTEGER)',
+        };
         $catalog = CatalogProduct::query()->when($request->filled('search'), function ($query) use ($request) {
             foreach (preg_split('/\s+/', trim($request->string('search')), -1, PREG_SPLIT_NO_EMPTY) as $word) {
                 $query->where(fn ($q) => $q->where('item_id', 'like', "%{$word}%")->orWhere('name', 'like', "%{$word}%")->orWhere('barcode', 'like', "%{$word}%")->orWhere('brand', 'like', "%{$word}%"));
             }
         })->withCount('branchInventories')
-            ->orderByRaw("CAST(item_id AS {$itemIdCastType})")
+            ->orderByRaw($itemIdNumericExpression)
             ->orderBy('item_id')
             ->orderBy('id')
             ->paginate(50)
