@@ -44,8 +44,15 @@ return new class extends Migration
         }
 
         foreach (Schema::getIndexes('products') as $index) {
-            if ($index['name'] === 'products_item_id_store_hub_id_unique'
-                || array_intersect($index['columns'], $this->legacyColumns)) {
+            if ($index['name'] === 'products_item_id_store_hub_id_unique') {
+                // PostgreSQL reports this unique constraint as an index in
+                // getIndexes(), but it must be removed as a constraint.
+                Schema::table('products', fn (Blueprint $table) => $table->dropUnique($index['name']));
+
+                continue;
+            }
+
+            if (array_intersect($index['columns'], $this->legacyColumns)) {
                 Schema::table('products', function (Blueprint $table) use ($index) {
                     // PostgreSQL owns the backing index of a UNIQUE constraint.
                     // Drop the constraint, not its index, so a fresh Postgres
