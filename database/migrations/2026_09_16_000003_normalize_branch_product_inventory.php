@@ -30,7 +30,17 @@ return new class extends Migration
         });
         foreach (Schema::getIndexes('products') as $index) {
             if (array_intersect($index['columns'], $this->shared)) {
-                Schema::table('products', fn (Blueprint $table) => $table->dropIndex($index['name']));
+                Schema::table('products', function (Blueprint $table) use ($index) {
+                    // PostgreSQL requires its UNIQUE constraint to be dropped
+                    // as a constraint instead of dropping the backing index.
+                    if ($index['name'] === 'products_item_id_store_hub_id_unique') {
+                        $table->dropUnique($index['name']);
+
+                        return;
+                    }
+
+                    $table->dropIndex($index['name']);
+                });
             }
         }
         Schema::table('products', function (Blueprint $table) {
