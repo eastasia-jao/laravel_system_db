@@ -42,6 +42,45 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_account_is_locked_for_fifteen_minutes_after_five_failed_sign_in_attempts(): void
+    {
+        $user = User::factory()->create();
+
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $this->post('/login', [
+                'username' => $user->username,
+                'password' => 'wrong-password',
+            ])->assertSessionHasErrors('username');
+        }
+
+        $lockoutMessage = 'This account has been temporarily locked after 5 unsuccessful sign-in attempts. Please contact the administrator.';
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors(['username' => $lockoutMessage]);
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ])->assertSessionHasErrors(['username' => $lockoutMessage]);
+
+        $this->assertGuest();
+    }
+
+    public function test_user_is_signed_out_after_fifteen_minutes_without_activity(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($user)
+            ->withSession(['last_user_activity_at' => now()->subMinutes(16)->timestamp])
+            ->get('/dashboard')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('warning', 'You were signed out after 15 minutes of inactivity. Please sign in again.');
+
+        $this->assertGuest();
+    }
+
     public function test_users_can_logout(): void
     {
         $user = User::factory()->create();

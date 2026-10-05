@@ -69,12 +69,6 @@
                 </div>
             </div>
 
-            <!-- Remember Me Field Layout -->
-            <div class="mb-4 form-check d-flex align-items-center">
-                <input type="checkbox" id="remember_me" name="remember" class="form-check-input mt-0 me-2">
-                <label class="form-check-label small text-muted" for="remember_me">Keep me logged in</label>
-            </div>
-
             <!-- Submit Login Action -->
             <button type="submit" class="btn btn-blue w-100 text-uppercase tracking-wide small mb-3">
                 Sign In

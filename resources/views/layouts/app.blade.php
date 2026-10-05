@@ -79,6 +79,47 @@
             if (isMobile()) setCollapsed(true, false);
         });
     })();
+    (() => {
+        const timeoutMilliseconds = {{ (int) config('session.lifetime') * 60 * 1000 }};
+        const activityUrl = @json(route('session.activity'));
+        const logoutUrl = @json(route('logout'));
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        let logoutTimer;
+        let lastActivitySync = 0;
+
+        const signOutForInactivity = () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = logoutUrl;
+            form.innerHTML = `<input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="idle_logout" value="1">`;
+            document.body.appendChild(form);
+            form.submit();
+        };
+
+        const recordActivity = () => {
+            window.clearTimeout(logoutTimer);
+            logoutTimer = window.setTimeout(signOutForInactivity, timeoutMilliseconds);
+
+            if (Date.now() - lastActivitySync < 60000) return;
+
+            lastActivitySync = Date.now();
+            fetch(activityUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            }).then(response => {
+                if (response.redirected) window.location.assign(response.url);
+            }).catch(() => {});
+        };
+
+        ['click', 'keydown', 'scroll', 'touchstart', 'mousemove'].forEach(eventName => {
+            window.addEventListener(eventName, recordActivity, { passive: true });
+        });
+        recordActivity();
+    })();
 </script>
 </body>
 </html>

@@ -24,7 +24,7 @@ Route::get('/', function () {
 require __DIR__.'/auth.php';
 
 // 2. Protected Routes
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'idle-timeout'])->group(function () {
     Route::get('/product-catalog', [\App\Http\Controllers\CatalogController::class, 'index'])->middleware('can:manage-shared-catalog')->name('catalog.index');
     Route::post('/product-catalog/assign', [\App\Http\Controllers\CatalogController::class, 'assign'])->middleware('can:manage-shared-catalog')->name('catalog.assign');
     Route::get('/sales/order-number-preview', [\App\Http\Controllers\SalesController::class, 'previewOrderNumber'])->middleware('can:access-sales')->name('sales.order-number-preview');
@@ -63,6 +63,12 @@ Route::middleware(['auth'])->group(function () {
             'html' => view('layouts.notification-feed', compact('notifications', 'notificationHubs'))->render(),
         ]);
     })->name('notifications.feed');
+
+    Route::post('/session/activity', function () {
+        session(['last_user_activity_at' => now()->timestamp]);
+
+        return response()->noContent();
+    })->name('session.activity');
 
     Route::get('/notifications/{notification}/read', function (string $notification) {
         $record = auth()->user()->notifications()->whereKey($notification)->firstOrFail();

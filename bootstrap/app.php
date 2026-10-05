@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureUserBelongsToHub;
+use App\Http\Middleware\EnforceIdleSessionTimeout;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'hub.access' => EnsureUserBelongsToHub::class,
+            'idle-timeout' => EnforceIdleSessionTimeout::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

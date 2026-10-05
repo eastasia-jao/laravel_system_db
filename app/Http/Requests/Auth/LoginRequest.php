@@ -9,9 +9,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Models\User;
 
 class LoginRequest extends FormRequest
 {
+    private const MAX_LOGIN_ATTEMPTS = 5;
+
+    private const LOCKOUT_SECONDS = 900;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -43,15 +48,23 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $login = (string) ($this->input('username') ?: $this->input('email'));
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        $login = $this->loginIdentifier();
+        $field = $this->loginField();
 
         if (! Auth::attempt([
             $field => $login,
             'password' => $this->input('password'),
             'status' => 'active',
         ], $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+            RateLimiter::hit($this->throttleKey(), self::LOCKOUT_SECONDS);
+
+            if (RateLimiter::tooManyAttempts($this->throttleKey(), self::MAX_LOGIN_ATTEMPTS)) {
+                event(new Lockout($this));
+
+                throw ValidationException::withMessages([
+                    $field => $this->lockoutMessage(),
+                ]);
+            }
 
             throw ValidationException::withMessages([
                 $field => trans('auth.failed'),
@@ -68,19 +81,14 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        if (! RateLimiter::tooManyAttempts($this->throttleKey(), self::MAX_LOGIN_ATTEMPTS)) {
             return;
         }
 
         event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
-
         throw ValidationException::withMessages([
-            'username' => trans('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
-            ]),
+            $this->loginField() => $this->lockoutMessage(),
         ]);
     }
 
@@ -89,8 +97,29 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        $login = $this->input('username') ?: $this->input('email');
+        $login = Str::lower($this->loginIdentifier());
+        $userId = User::query()
+            ->whereRaw('LOWER(username) = ?', [$login])
+            ->orWhereRaw('LOWER(email) = ?', [$login])
+            ->value('id');
 
-        return Str::transliterate(Str::lower((string) $login).'|'.$this->ip());
+        return $userId
+            ? 'login-lock:user:'.$userId
+            : 'login-lock:identifier:'.Str::transliterate($login);
+    }
+
+    private function loginIdentifier(): string
+    {
+        return trim((string) ($this->input('username') ?: $this->input('email')));
+    }
+
+    private function loginField(): string
+    {
+        return filter_var($this->loginIdentifier(), FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+    }
+
+    private function lockoutMessage(): string
+    {
+        return 'This account has been temporarily locked after 5 unsuccessful sign-in attempts. Please contact the administrator.';
     }
 }

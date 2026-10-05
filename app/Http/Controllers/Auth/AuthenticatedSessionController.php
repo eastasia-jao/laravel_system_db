@@ -27,6 +27,7 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $request->session()->put('last_user_activity_at', now()->timestamp);
 
         // Ensure this points back to 'dashboard'
         return redirect()->intended(route('dashboard', absolute: false));
@@ -42,7 +43,10 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        // CHANGE THIS LINE to point straight to your login page
-        return redirect()->route('login');
+        $redirect = redirect()->route('login');
+
+        return $request->boolean('idle_logout')
+            ? $redirect->with('warning', 'You were signed out after 15 minutes of inactivity. Please sign in again.')
+            : $redirect;
     }
 }
