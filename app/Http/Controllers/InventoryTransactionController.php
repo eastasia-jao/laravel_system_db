@@ -349,6 +349,26 @@ class InventoryTransactionController extends Controller
             });
         }
 
+        $unlinkedTikTokReturns = $transactions
+            ->where('type', 'return')
+            ->filter(fn (InventoryTransaction $transaction) => ! $transaction->sales_transaction_id
+                && $this->normalizeChannel($transaction->channel) === 'tiktok'
+                && $transaction->reference);
+        if ($unlinkedTikTokReturns->isNotEmpty()) {
+            $salesByHubAndReference = SalesTransaction::query()
+                ->where('channel_type', 'tiktok')
+                ->whereIn('store_hub_id', $unlinkedTikTokReturns->pluck('store_hub_id')->unique())
+                ->whereIn('order_number', $unlinkedTikTokReturns->pluck('reference')->unique())
+                ->get()
+                ->keyBy(fn (SalesTransaction $sale) => $sale->store_hub_id.'|'.$sale->order_number);
+            $unlinkedTikTokReturns->each(function (InventoryTransaction $transaction) use ($salesByHubAndReference) {
+                $transaction->setRelation(
+                    'salesTransaction',
+                    $salesByHubAndReference->get($transaction->store_hub_id.'|'.$transaction->reference)
+                );
+            });
+        }
+
         $replacementTransactions = $transactions
             ->whereIn('type', ['replacement_return', 'replacement_out'])
             ->whereNull('product_replacement_id');

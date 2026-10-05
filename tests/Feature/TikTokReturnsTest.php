@@ -31,6 +31,15 @@ class TikTokReturnsTest extends TestCase
         $this->assertEquals(9, $product->fresh()->stock);
         $this->assertEquals(9, $product->stockAllocation->fresh()->tiktok);
         $this->assertEquals(170, $sale->fresh()->netTikTokPayout());
+        $this->assertDatabaseHas('inventory_transactions', [
+            'type' => 'return',
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+        ]);
+        $this->get(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'return']))
+            ->assertOk()
+            ->assertSee('Return order '.$sale->order_number)
+            ->assertSee($sale->customer_name);
         $data['refund_status'] = 'completed';
         $this->patch($url, $data)->assertSessionHasNoErrors();
         $this->assertEquals(9, $product->fresh()->stock);
@@ -129,6 +138,27 @@ class TikTokReturnsTest extends TestCase
         $this->getJson($route.'?'.http_build_query([...$base, 'customer' => 'Customer']))
             ->assertOk()
             ->assertJsonPath('orders.0.id', $sale->id);
+    }
+
+    public function test_legacy_tiktok_returns_show_customer_name_using_order_reference(): void
+    {
+        [$hub, $product, $sale] = $this->order();
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'channel' => 'tiktok',
+            'quantity' => 1,
+            'condition' => 'good',
+            'occurred_on' => '2026-09-09',
+            'created_by' => auth()->id(),
+        ]);
+
+        $this->get(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'return']))
+            ->assertOk()
+            ->assertSee('Return order '.$sale->order_number)
+            ->assertSee($sale->customer_name);
     }
 
     public function test_large_order_keeps_items_and_editors_inside_the_order_window(): void

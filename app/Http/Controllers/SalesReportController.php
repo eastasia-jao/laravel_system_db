@@ -647,6 +647,8 @@ class SalesReportController extends Controller
                     'reference' => $salesTransaction->order_number,
                     'store_hub_id' => $storeHub->id,
                     'product_id' => $product->id,
+                    'sales_transaction_id' => $salesTransaction->id,
+                    'transaction_item_id' => $transactionItem->id,
                     'channel' => 'tiktok',
                     'source' => 'TikTok customer return',
                     'condition' => $condition,
