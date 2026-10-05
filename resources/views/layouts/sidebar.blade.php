@@ -10,17 +10,19 @@
        $sidebarContextHub = $sidebarHubs->firstWhere('id', (int) $sidebarContextHubId);
     @endphp
     
-    <div class="d-flex align-items-center justify-content-between gap-2 mb-4 pb-3 border-bottom text-primary fw-bold fs-5">
-       <button id="sidebarToggle" type="button" class="btn btn-sm btn-light text-primary border-0" title="Hide sidebar" aria-label="Hide sidebar">
+    <div class="d-flex align-items-center gap-2 mb-4 pb-3 border-bottom text-primary fw-bold">
+       <button id="sidebarToggle" type="button" class="btn btn-sm btn-light text-primary border-0 flex-shrink-0" title="Hide sidebar" aria-label="Hide sidebar">
            <i class="fa-solid fa-bars"></i>
        </button>
-       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-           <path d="M20 7H4C2.89543 7 2 7.89543 2 9V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19V9C22 7.89543 21.1046 7 20 7Z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-           <path d="M16 21V5C16 4.46957 15.7893 3.96086 15.4142 3.58579C15.0391 3.21071 14.5304 3 14 3H10C9.46957 3 8.96086 3.21071 8.58579 3.58579C8.21071 3.96086 8 4.46957 8 5V21" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-       </svg>
-       <span class="text-truncate">Art Caravan PH</span>
+       <div class="d-flex align-items-center gap-2 flex-shrink-0">
+           <svg width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+               <path d="M20 7H4C2.89543 7 2 7.89543 2 9V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19V9C22 7.89543 21.1046 7 20 7Z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+               <path d="M16 21V5C16 4.46957 15.7893 3.96086 15.4142 3.58579C15.0391 3.21071 14.5304 3 14 3H10C9.46957 3 8.96086 3.21071 8.58579 3.58579C8.21071 3.96086 8 4.46957 8 5V21" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+           </svg>
+           <span style="font-size: 1rem; white-space: nowrap;">Art Caravan PH</span>
+       </div>
 
-       <div class="dropdown">
+       <div class="dropdown ms-auto flex-shrink-0">
            <button id="notificationToggle" type="button" class="btn btn-link p-0 border-0 text-primary position-relative" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
                <i class="fa-solid fa-bell"></i>
                <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {{ $unreadNotificationCount ? '' : 'd-none' }}">
