@@ -7,7 +7,6 @@ use App\Models\Product;
 use App\Models\ProductReplacement;
 use App\Models\StoreHub;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -36,15 +35,6 @@ class DashboardController extends Controller
         $products = collect();
         $pendingSalesCount = PendingSale::where('store_hub_id', $id)->where('status', 'pending')->count()
             + ProductReplacement::where('status', 'pending')->whereHas('transaction', fn ($query) => $query->where('store_hub_id', $id))->count();
-        $soldItemCount = (int) DB::table('transaction_items')
-            ->join('sales_transactions', 'sales_transactions.id', '=', 'transaction_items.transaction_id')
-            ->where('sales_transactions.store_hub_id', $id)
-            ->where('transaction_items.quantity', '>', 0)
-            ->where(function ($query) {
-                $query->whereNull('sales_transactions.status')
-                    ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
-            })
-            ->sum('transaction_items.quantity');
 
         // Monthly filter handling for Top 10 Products
         $selectedMonth = $request->input('month', now()->format('Y-m'));
@@ -72,7 +62,6 @@ class DashboardController extends Controller
             'products', 
             'walkInHubs',
             'pendingSalesCount',
-            'soldItemCount',
             'selectedMonth'
         ));
     }

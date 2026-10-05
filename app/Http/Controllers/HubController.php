@@ -386,6 +386,7 @@ class HubController extends Controller
             'name' => $topNames->get($productId)?->name ?? 'Unavailable product',
             'units' => (int) $units,
         ])->values();
+        $soldItemCount = (int) $soldUnits->sum();
         $slowProducts = Product::whereIn('store_hub_id', $scopeIds)
             ->where('status', 'active')
             ->where('stock', '>', 0)
@@ -431,7 +432,7 @@ class HubController extends Controller
         $isBranchDashboard = $scopedDashboardHubs->count() === 1
             && ! $scopedDashboardHubs->first()->is_head_office;
 
-        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'slowProducts', 'alerts', 'alertCount', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
+        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'alerts', 'alertCount', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
     }
 
     public function destroy($id)

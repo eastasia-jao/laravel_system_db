@@ -14,7 +14,7 @@ class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_each_hub_dashboard_displays_its_own_total_sold_item_count(): void
+    public function test_main_dashboard_displays_the_selected_store_sold_item_count(): void
     {
         $headOffice = StoreHub::create(['name' => 'Main Office', 'code' => 'MAIN-SOLD', 'status' => 'active', 'is_head_office' => true]);
         $branch = StoreHub::create(['name' => 'Branch Office', 'code' => 'BRANCH-SOLD', 'status' => 'active', 'is_head_office' => false]);
@@ -31,13 +31,23 @@ class DashboardTest extends TestCase
             $sale->items()->create(['product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => 100, 'line_total' => $quantity * 100]);
         }
 
-        $headOfficeResponse = $this->actingAs($admin)->get(route('hub.dashboard', $headOffice->id));
-        $headOfficeResponse->assertOk()->assertSee('Total Sold Items')->assertSee('All Head Office sales channels');
+        $headOfficeResponse = $this->actingAs($admin)->get(route('dashboard', [
+            'hub_id' => $headOffice->id,
+            'from' => '2026-10-02',
+            'to' => '2026-10-02',
+        ]));
+        $headOfficeResponse->assertOk()->assertSee('Total sold items');
         $this->assertSame(3, $headOfficeResponse->viewData('soldItemCount'));
+        $this->assertSame($headOffice->name, $headOfficeResponse->viewData('scopeName'));
 
-        $branchResponse = $this->get(route('hub.dashboard', $branch->id));
-        $branchResponse->assertOk()->assertSee('Total Sold Items')->assertSee('This branch sales');
+        $branchResponse = $this->get(route('dashboard', [
+            'hub_id' => $branch->id,
+            'from' => '2026-10-02',
+            'to' => '2026-10-02',
+        ]));
+        $branchResponse->assertOk()->assertSee('Total sold items');
         $this->assertSame(5, $branchResponse->viewData('soldItemCount'));
+        $this->assertSame($branch->name, $branchResponse->viewData('scopeName'));
     }
 
     public function test_marketing_staff_can_scope_every_dashboard_widget_to_shopee_or_lazada(): void

@@ -21,6 +21,10 @@
     .sales-dashboard .filter-title { font-size: .78rem; font-weight: 700; color: #334155; }
     .sales-dashboard .filter-help { font-size: .75rem; color: #64748b; }
     .sales-dashboard .filter-actions { white-space: nowrap; }
+    .sales-dashboard .sold-items-summary { min-width: 190px; padding: .55rem .75rem; border: 1px solid #bfdbfe; border-radius: 10px; background: #eff6ff; color: #17345d; }
+    .sales-dashboard .sold-items-summary-label { color: #475569; font-size: .65rem; font-weight: 750; letter-spacing: .03em; text-transform: uppercase; }
+    .sales-dashboard .sold-items-summary-value { color: #2563eb; font-size: 1.3rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .sales-dashboard .sold-items-summary-help { color: #64748b; font-size: .65rem; }
     .sales-dashboard .marketplace-mop-panel { background: linear-gradient(145deg, #ffffff, #f7faff); }
     .sales-dashboard .marketplace-mop-total { min-width: 155px; padding: .75rem 1rem; border-radius: 12px; background: #eff6ff; color: #1d4ed8; text-align: right; }
     .sales-dashboard .marketplace-mop-card { padding: .85rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; min-height: 92px; }
@@ -166,6 +170,16 @@
             <div class="col-12 col-md-auto filter-actions d-flex gap-2">
                 <button class="btn btn-primary px-3"><i class="fa-solid fa-filter me-1"></i>Apply</button>
                 <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary px-3">Reset</a>
+            </div>
+            <div class="col-12 col-xl d-flex justify-content-xl-end">
+                <div class="sold-items-summary d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-cart-flatbed fs-5 text-primary"></i>
+                    <div>
+                        <div class="sold-items-summary-label">Total sold items</div>
+                        <div class="sold-items-summary-value">{{ number_format($soldItemCount) }}</div>
+                        <div class="sold-items-summary-help">{{ $scopeName }} · selected range</div>
+                    </div>
+                </div>
             </div>
         </form>
     </div>

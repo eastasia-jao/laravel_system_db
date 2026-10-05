@@ -37,17 +37,6 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body d-flex align-items-center gap-3">
-            <span class="hub-action-icon"><i class="fa-solid fa-cart-flatbed"></i></span>
-            <div>
-                <div class="small text-uppercase text-muted fw-bold">Total Sold Items</div>
-                <div class="fs-3 fw-bold text-primary">{{ number_format($soldItemCount) }}</div>
-                <div class="small text-muted">{{ $hub->is_head_office ? 'All Head Office sales channels' : 'This branch sales' }}</div>
-            </div>
-        </div>
-    </div>
-
     {{-- Success and Error Flash Messages --}}
 
     <div class="hub-section-title mb-2">Quick actions</div>
