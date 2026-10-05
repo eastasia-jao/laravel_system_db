@@ -43,7 +43,7 @@ class SalesOrderAttachmentTest extends TestCase
             ->assertSee('Online order details')
             ->assertSee('Payment reconciliation')
             ->assertSee('Proof / Received Amount (Total Amount)')
-            ->assertSee('received total − sub total')
+            ->assertSee('id="onlineDifference"', false)
             ->assertSee('id="onlineProofAmount" class="form-control bg-white fw-bold online-input" value="0.00" readonly disabled', false)
             ->assertDontSee('name="grand_total" id="onlineGrandTotal" class="form-control', false)
             ->assertSee('name="delivery_fee" id="onlineDeliveryFee"', false)
