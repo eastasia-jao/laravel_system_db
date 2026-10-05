@@ -58,120 +58,67 @@ class DashboardTest extends TestCase
         $this->assertSame($branch->name, $branchResponse->viewData('scopeName'));
     }
 
-    public function test_marketing_staff_can_scope_every_dashboard_widget_to_shopee_or_lazada(): void
+    public function test_dashboard_excludes_shopee_lazada_and_tiktok_sales(): void
     {
         $hub = StoreHub::create(['name' => 'Marketplace Dashboard', 'code' => 'MKT-D', 'status' => 'active', 'is_head_office' => true]);
-        $staff = User::factory()->create(['role' => 'sales_marketing_staff', 'hub_id' => $hub->id, 'sales_channels' => ['shopee', 'lazada']]);
-        $shopeeProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'SH-D', 'name' => 'Shopee Dashboard Product', 'stock' => 10, 'status' => 'active']);
-        $lazadaProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'LZ-D', 'name' => 'Lazada Dashboard Product', 'stock' => 10, 'status' => 'active']);
-        SalesTransaction::create([
-            'user_id' => $staff->id, 'store_hub_id' => $hub->id, 'customer_name' => 'Earlier Shopee Customer',
-            'contact_number' => '+63 917 123 4567', 'channel_type' => 'shopee', 'order_number' => 'SP-OLD',
-            'order_date' => '2025-09-28', 'grand_total' => 75, 'status' => 'completed',
-        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $staff = User::factory()->create(['role' => 'sales_marketing_staff', 'hub_id' => $hub->id, 'sales_channels' => ['shopee', 'lazada', 'tiktok']]);
+        $marketplaceProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'MKT-D', 'name' => 'Marketplace Dashboard Product', 'stock' => 10, 'status' => 'active']);
+        $onlineProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ON-D', 'name' => 'Online Dashboard Product', 'stock' => 10, 'status' => 'active']);
 
         foreach ([
-            ['shopee', 'SPAYLATER', 120, $shopeeProduct],
-            ['lazada', 'PAYLATER', 230, $lazadaProduct],
+            ['shopee', 'SPAYLATER', 120, $marketplaceProduct],
+            ['lazada', 'PAYLATER', 230, $marketplaceProduct],
+            ['tiktok', 'GCASH', 340, $marketplaceProduct],
+            ['online', 'GCASH', 450, $onlineProduct],
         ] as [$channel, $mop, $total, $product]) {
             $sale = SalesTransaction::create([
-                'user_id' => $staff->id, 'store_hub_id' => $hub->id, 'customer_name' => ucfirst($channel).' Customer',
-                'contact_number' => $channel === 'shopee' ? '09171234567' : '09170000002',
+                'user_id' => $admin->id, 'store_hub_id' => $hub->id, 'customer_name' => ucfirst($channel).' Customer',
+                'contact_number' => '09170000002',
                 'channel_type' => $channel, 'order_number' => strtoupper($channel).'-DASH', 'order_date' => '2026-09-28',
                 'grand_total' => $total, 'status' => 'completed', 'mode_of_payment' => $mop,
             ]);
             $sale->items()->create(['product_id' => $product->id, 'quantity' => 1, 'unit_price' => $total, 'line_total' => $total]);
         }
 
-        $shopee = $this->actingAs($staff)->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28', 'channel' => 'shopee']));
-        $shopee->assertOk()->assertSee('Sales channel')->assertSee('Shopee Payment Overview')->assertSee('Total collected')->assertSee('1 transaction')->assertSee('Shopee Dashboard Product')->assertDontSee('Lazada Dashboard Product')
-            ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false)
-            ->assertSee('row g-4 align-items-stretch mb-4', false)
-            ->assertSee('col-xl-6', false)
-            ->assertSee('Shopee');
-        $this->assertEquals(120, $shopee->viewData('salesTotals')['Daily']);
-        $this->assertContains('SPayLater', $shopee->viewData('paymentColumns'));
-        $this->assertNotContains('PayLater', $shopee->viewData('paymentColumns'));
-        $this->assertSame(75.0, $shopee->viewData('marketplaceSalesComparison')['shopee']['last_year']);
-        $this->assertSame(120.0, $shopee->viewData('marketplaceSalesComparison')['shopee']['this_year']);
-        $this->assertSame(1, $shopee->viewData('marketplaceCustomerComparison')['shopee']['last_year']);
-        $this->assertSame(1, $shopee->viewData('marketplaceCustomerComparison')['shopee']['this_year']);
-        $this->assertSame(['shopee'], $shopee->viewData('channelSummaries')->pluck('key')->all());
-        $this->assertSame(1, substr_count($shopee->getContent(), 'Shopee Payment Overview'));
-        $shopeeSummary = $shopee->viewData('channelSummaries')->first();
-        $this->assertSame(1, $shopeeSummary['total_customers']);
-        $this->assertSame(0, $shopeeSummary['new_customers']);
-
-        $lazada = $this->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28', 'channel' => 'lazada']));
-        $lazada->assertOk()->assertSee('Lazada Payment Overview')->assertSee('Total collected')->assertSee('1 transaction')->assertSee('Lazada Dashboard Product')->assertDontSee('Shopee Dashboard Product')
-            ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false)
-            ->assertSee('row g-4 align-items-stretch mb-4', false)
-            ->assertSee('col-xl-6', false)
-            ->assertSee('Lazada');
-        $this->assertEquals(230, $lazada->viewData('salesTotals')['Daily']);
-        $this->assertContains('PayLater', $lazada->viewData('paymentColumns'));
-        $this->assertNotContains('SPayLater', $lazada->viewData('paymentColumns'));
-        $this->assertSame(1, substr_count($lazada->getContent(), 'Lazada Payment Overview'));
-        $this->assertSame(1, $lazada->viewData('channelSummaries')->first()['total_customers']);
-        $this->assertSame(1, $lazada->viewData('channelSummaries')->first()['new_customers']);
-        $this->assertSame(0, $lazada->viewData('marketplaceCustomerComparison')['lazada']['last_year']);
-        $this->assertSame(1, $lazada->viewData('marketplaceCustomerComparison')['lazada']['this_year']);
-
-        $allAssigned = $this->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28']));
-        $allAssigned->assertOk()
-            ->assertSee('onchange="submitDashboardFilters(this.form)"', false)
-            ->assertDontSee('All assigned channels')
-            ->assertDontSee('Select a sales channel')
-            ->assertSee('value="shopee" selected', false)
-            ->assertSee('Shopee Payment Overview')
+        $adminDashboard = $this->actingAs($admin)->get(route('dashboard', [
+            'hub_id' => $hub->id,
+            'date' => '2026-09-28',
+        ]));
+        $adminDashboard->assertOk()
+            ->assertDontSee('Shopee Payment Overview')
             ->assertDontSee('Lazada Payment Overview')
+            ->assertDontSee('TikTok Settlement Overview')
             ->assertDontSee('Shopee &amp; Lazada Sales')
             ->assertDontSee('marketplace-dual-chart', false)
-            ->assertSee('Shopee Dashboard Product')
-            ->assertDontSee('Lazada Dashboard Product')
-            ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false)
-            ->assertSee('Sales · selected range');
-        $this->assertEquals(120, $allAssigned->viewData('salesTotals')['Daily']);
-        $this->assertSame(['shopee'], $allAssigned->viewData('marketplaceOverviews')->pluck('channel')->all());
-        $this->assertSame(75.0, $allAssigned->viewData('marketplaceSalesComparison')['shopee']['last_year']);
-        $this->assertSame(120.0, $allAssigned->viewData('marketplaceSalesComparison')['shopee']['this_year']);
-
-        $this->actingAs($staff)->get(route('dashboard', [
-            'hub_id' => $hub->id,
-            'date' => '2026-09-28',
-            'channel' => 'tiktok',
-        ]))->assertForbidden();
-
-        $staff->sales_channels = ['shopee', 'lazada', 'tiktok'];
-        $staff->save();
-        $threeChannels = $this->get(route('dashboard', [
-            'hub_id' => $hub->id,
-            'date' => '2026-09-28',
-        ]));
-        $threeChannels->assertOk()
-            ->assertSee('Sales channel')
-            ->assertDontSee('All assigned channels')
-            ->assertSee('value="shopee" selected', false)
+            ->assertDontSee('Sales Report')
             ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false);
-        $this->assertSame(['shopee'], $threeChannels->viewData('channelSummaries')->pluck('key')->all());
+        $this->assertEquals(450, $adminDashboard->viewData('salesTotals')['Daily']);
+        $this->assertSame(['online', 'wholesale', 'walk_in'], $adminDashboard->viewData('channelSummaries')->pluck('key')->all());
+        $this->assertSame(['Online Dashboard Product'], $adminDashboard->viewData('topProducts')->pluck('name')->all());
 
-        $staff->sales_channels = ['shopee', 'lazada', 'tiktok', 'online', 'wholesale'];
-        $staff->save();
-        $fiveChannels = $this->get(route('dashboard', [
+        $staffDashboard = $this->actingAs($staff)->get(route('dashboard', [
             'hub_id' => $hub->id,
-            'date' => '2026-10-01',
+            'date' => '2026-09-28',
         ]));
-        $fiveChannels->assertOk()
-            ->assertDontSee('Shopee &amp; Lazada Sales')
-            ->assertSee('Shopee Payment Overview')
+        $staffDashboard->assertOk()
+            ->assertDontSee('Sales channel')
+            ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false)
+            ->assertDontSee('Shopee Payment Overview')
             ->assertDontSee('Lazada Payment Overview')
-            ->assertSee('Sales channel')
-            ->assertDontSee('All assigned channels')
-            ->assertSee('value="shopee" selected', false)
-            ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false);
-        $this->assertSame(['shopee'], $fiveChannels->viewData('channelSummaries')->pluck('key')->all());
-    }
+            ->assertDontSee('TikTok Settlement Overview');
+        $this->assertSame([], $staffDashboard->viewData('channelSummaries')->all());
+        $this->assertSame([], $staffDashboard->viewData('dashboardChannelOptions')->all());
+        $this->assertSame([], $staffDashboard->viewData('marketplaceOverviews')->all());
+        $this->assertEquals(0, $staffDashboard->viewData('salesTotals')['Daily']);
+        $this->assertSame([], $staffDashboard->viewData('topProducts')->all());
 
+        $this->actingAs($admin)->get(route('dashboard', [
+            'hub_id' => $hub->id,
+            'date' => '2026-09-28',
+            'channel' => 'shopee',
+        ]))->assertSessionHasErrors('channel');
+    }
     public function test_sales_channel_filter_is_locked_for_one_channel_and_selectable_for_multiple(): void
     {
         $hub = StoreHub::create([
@@ -183,19 +130,19 @@ class DashboardTest extends TestCase
         $staff = User::factory()->create([
             'role' => 'sales_marketing_staff',
             'hub_id' => $hub->id,
-            'sales_channels' => ['tiktok'],
+            'sales_channels' => ['online'],
         ]);
 
         $singleChannelResponse = $this->actingAs($staff)->get(route('dashboard', ['hub_id' => $hub->id]));
         $singleChannelResponse->assertOk()
             ->assertSee('id="dashboardChannel"', false)
-            ->assertSee('value="tiktok" selected', false);
+            ->assertSee('value="online" selected', false);
         $this->assertMatchesRegularExpression(
             '/<select name="channel" id="dashboardChannel"[^>]*\sdisabled(?:\s|>)/',
             $singleChannelResponse->getContent()
         );
 
-        $staff->sales_channels = ['tiktok', 'shopee'];
+        $staff->sales_channels = ['online', 'wholesale'];
         $staff->save();
 
         $multipleChannelResponse = $this->get(route('dashboard', ['hub_id' => $hub->id]));
@@ -264,7 +211,7 @@ class DashboardTest extends TestCase
             'hub_id' => $hub->id,
             'date' => '2026-09-28',
             'channel' => 'shopee',
-        ]))->assertForbidden();
+        ]))->assertSessionHasErrors('channel');
     }
 
     public function test_online_and_walk_in_sales_channels_compare_last_year_with_this_year(): void
@@ -574,7 +521,7 @@ class DashboardTest extends TestCase
         $product = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'RET-ITEM', 'name' => 'Returned Dashboard Item', 'stock' => 10, 'status' => 'active']);
         $sale = SalesTransaction::create([
             'user_id' => $user->id, 'store_hub_id' => $hub->id, 'customer_name' => 'Return Customer',
-            'contact_number' => '09170000003', 'channel_type' => 'shopee', 'order_number' => 'RET-ORDER',
+            'contact_number' => '09170000003', 'channel_type' => 'online', 'order_number' => 'RET-ORDER',
             'order_date' => '2026-09-28', 'date_of_arrangement' => '2026-09-28',
             'grand_total' => 270, 'sub_total' => 270,
             'status' => 'completed', 'mode_of_payment' => 'GCASH',
@@ -585,17 +532,17 @@ class DashboardTest extends TestCase
         ]);
         \App\Models\InventoryTransaction::create([
             'type' => 'return', 'store_hub_id' => $hub->id, 'product_id' => $product->id,
-            'sales_transaction_id' => $sale->id, 'transaction_item_id' => $item->id, 'channel' => 'shopee',
+            'sales_transaction_id' => $sale->id, 'transaction_item_id' => $item->id, 'channel' => 'online',
             'quantity' => 1, 'refund_amount' => 90, 'occurred_on' => '2026-09-28', 'created_by' => $user->id,
         ]);
 
-        $dashboard = $this->actingAs($user)->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28', 'channel' => 'shopee']));
+        $dashboard = $this->actingAs($user)->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28', 'channel' => 'online']));
         $dashboard->assertOk()->assertSee('Refund cost');
         $this->assertEquals(180, $dashboard->viewData('salesTotals')['Daily']);
         $this->assertEquals(180, $dashboard->viewData('channelSummaries')->first()['total']);
         $this->assertEquals(90, $dashboard->viewData('channelSummaries')->first()['refund_total']);
 
-        $report = $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'shopee']));
+        $report = $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'online']));
         $report->assertOk()
             ->assertSee('Total Refund Cost')
             ->assertSee('New Customers')
@@ -697,7 +644,7 @@ class DashboardTest extends TestCase
         );
         $this->assertSame([300.0, 175.0], $response->viewData('storeSalesOverview')->pluck('total')->all());
         $this->assertSame(
-            ['shopee', 'lazada', 'tiktok', 'online', 'wholesale', 'walk_in'],
+            ['online', 'wholesale', 'walk_in'],
             $response->viewData('channelSummaries')->pluck('key')->all()
         );
         $this->assertEquals(475, $response->viewData('salesTotals')['Monthly']);
@@ -814,51 +761,41 @@ class DashboardTest extends TestCase
             ->assertDontSee('TikTok Settlement Overview');
     }
 
-    public function test_dashboard_uses_final_tiktok_payouts_and_excludes_fully_returned_or_awaiting_orders(): void
+    public function test_dashboard_excludes_tiktok_sales_from_totals_and_widgets(): void
     {
         $hub = StoreHub::create(['name' => 'TikTok Dashboard', 'code' => 'TTD', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
         $product = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'TT-1', 'name' => 'TikTok Product', 'stock' => 10, 'status' => 'active']);
 
-        $makeSale = function (string $number, ?float $payout, int $quantity, int $returned, ?float $recalculated = null) use ($hub, $user, $product) {
+        foreach ([
+            ['TT-NORMAL', 100, 1, 0],
+            ['TT-PARTIAL', 90, 2, 1],
+            ['TT-RETURNED', 80, 1, 1],
+        ] as [$number, $payout, $quantity, $returned]) {
             $sale = SalesTransaction::create([
                 'user_id' => $user->id, 'store_hub_id' => $hub->id, 'customer_name' => 'TikTok Customer',
                 'channel_type' => 'tiktok', 'order_number' => $number, 'order_date' => '2026-09-28',
                 'grand_total' => 999, 'status' => 'confirmed', 'mode_of_payment' => 'GCASH',
                 'sales_after_transaction_fee' => $payout,
-                'tiktok_recalculated_payout' => $recalculated,
-                'tiktok_recalculated_payout_entered' => $recalculated !== null,
             ]);
             $sale->items()->create([
                 'product_id' => $product->id, 'quantity' => $quantity, 'returned_quantity' => $returned,
                 'unit_price' => 100, 'line_total' => 100 * $quantity,
             ]);
-
-            return $sale;
-        };
-
-        $makeSale('TT-NORMAL', 100, 1, 0);
-        $makeSale('TT-PARTIAL', 90, 2, 1, 60);
-        $makeSale('TT-RETURNED', 80, 1, 1);
-        $makeSale('TT-AWAITING', null, 1, 0);
+        }
 
         $response = $this->actingAs($user)->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28']));
-        $response->assertOk();
+        $response->assertOk()
+            ->assertDontSee('TikTok Settlement Overview');
 
         foreach (['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly'] as $period) {
-            $this->assertEquals(160, $response->viewData('salesTotals')[$period]);
+            $this->assertEquals(0, $response->viewData('salesTotals')[$period]);
         }
-        $tiktok = $response->viewData('channelSummaries')->firstWhere('key', 'tiktok');
-        $this->assertSame(2, (int) $tiktok['transactions']);
-        $this->assertEquals(160, $tiktok['total']);
-        $this->assertEquals(0, $response->viewData('matrix')->first()['amounts']['GCash']);
-        $this->assertSame(2, $response->viewData('topProducts')->first()['units']);
-        $this->assertSame(4, $response->viewData('tiktokOverview')['orders']);
-        $this->assertSame(2, $response->viewData('tiktokOverview')['payout_entered']);
-        $this->assertSame(1, $response->viewData('tiktokOverview')['recalculated']);
-        $this->assertSame(1, $response->viewData('tiktokOverview')['awaiting']);
-        $this->assertSame(1, $response->viewData('tiktokOverview')['fully_returned']);
-        $this->assertEquals(160, $response->viewData('tiktokOverview')['final_payout']);
+        $this->assertSame(['online', 'wholesale', 'walk_in'], $response->viewData('channelSummaries')->pluck('key')->all());
+        $this->assertNull($response->viewData('channelSummaries')->firstWhere('key', 'tiktok'));
+        $this->assertSame(0, $response->viewData('tiktokOverview')['orders']);
+        $this->assertSame([], $response->viewData('topProducts')->all());
+        $this->assertSame(0, $response->viewData('soldItemCount'));
 
         $tiktokStaff = User::factory()->create([
             'role' => 'sales_marketing_staff',
@@ -868,19 +805,10 @@ class DashboardTest extends TestCase
         $tiktokDashboard = $this->actingAs($tiktokStaff)
             ->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28']))
             ->assertOk()
-            ->assertSee('TikTok Settlement Overview')
-            ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false)
-            ->assertSee('row g-4 align-items-stretch mb-4', false)
-            ->assertSee('col-xl-6', false)
-            ->assertDontSee('Head Office channels and store walk-in sales')
-            ->assertDontSee('Selected date range · Entered and recalculated TikTok payouts.')
-            ->assertDontSee('Sales data is shown for the selected date range.')
-            ->assertDontSee('Confirmed sales from')
-            ->assertDontSee('Sales by reporting period')
-            ->assertDontSee('Preview / Save PNG')
-            ->assertDontSee('Branch Transaction Matrix');
-        $tiktokDashboard->assertSee('TikTok Product')
-            ->assertDontSee('marketplace-dual-chart', false);
-        $this->assertSame(1, substr_count($tiktokDashboard->getContent(), 'TikTok Settlement Overview'));
+            ->assertDontSee('TikTok Settlement Overview')
+            ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false);
+        $this->assertSame([], $tiktokDashboard->viewData('dashboardChannelOptions')->all());
+        $this->assertSame([], $tiktokDashboard->viewData('channelSummaries')->all());
+        $this->assertSame([], $tiktokDashboard->viewData('topProducts')->all());
     }
 }

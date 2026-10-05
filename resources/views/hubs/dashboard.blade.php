@@ -1,13 +1,6 @@
 @extends('layouts.app')
 
 @section('content')
-@php
-    $reportChannel = auth()->user()?->role === 'sales_associate' && ! $hub->is_head_office
-        ? 'walk_in'
-        : (in_array(auth()->user()?->role, ['sales_associate', 'sales_marketing_staff'], true)
-        ? (auth()->user()->sales_channels ?? [])[0] ?? 'all'
-        : 'all');
-@endphp
 <style>
     .hub-page { max-width: 1500px; }
     .hub-hero { position: relative; overflow: hidden; border-radius: 24px; padding: 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 60%, #38bdf8); box-shadow: 0 16px 36px rgba(37, 99, 235, .2); }
@@ -73,15 +66,6 @@
             </a>
         </div>
         @endif
-
-        <!-- Sales Report -->
-        @can('view-sales-reports')
-        <div class="col">
-            <a href="{{ route('hub.report', ['hub' => $hub->id, 'channel' => $reportChannel]) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
-                <span class="hub-action-icon"><i class="fa-solid fa-chart-line"></i></span><span class="hub-action-label">Sales Report</span>
-            </a>
-        </div>
-        @endcan
 
         <!-- Inventory -->
         <div class="col">

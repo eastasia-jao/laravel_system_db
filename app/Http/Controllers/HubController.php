@@ -33,7 +33,9 @@ class HubController extends Controller
             + ProductReplacement::where('status', 'pending')->whereHas('transaction', fn ($query) => $query->where('store_hub_id', $id))->count();
 
         $totalProducts = Product::where('store_hub_id', $id)->count();
-        $totalSales = SalesTransaction::where('store_hub_id', $id)->sum('grand_total');
+        $totalSales = SalesTransaction::where('store_hub_id', $id)
+            ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) NOT IN ('shopee', 'lazada', 'tiktok')")
+            ->sum('grand_total');
         $latestImport = ProductFileRequest::query()
             ->where('store_hub_id', $id)
             ->where('type', 'import')
@@ -57,7 +59,7 @@ class HubController extends Controller
             'date' => ['nullable', 'date_format:Y-m-d'],
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'channel' => ['nullable', 'in:shopee,lazada,tiktok,online,wholesale,walk_in'],
+            'channel' => ['nullable', 'in:online,wholesale,walk_in'],
         ]);
         $endDateInput = $filters['to'] ?? $filters['date'] ?? now()->toDateString();
         if (isset($filters['from']) && $filters['from'] > $endDateInput) {
@@ -88,6 +90,7 @@ class HubController extends Controller
         ];
         $salesQuery = SalesTransaction::whereIn('store_hub_id', $scopeIds)
             ->whereIn('status', ['completed', 'confirmed'])
+            ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) NOT IN ('shopee', 'lazada', 'tiktok')")
             ->where(function ($query) {
                 $query->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) <> 'wholesale'")
                     ->orWhere('payment_status', 'paid')
@@ -98,7 +101,7 @@ class HubController extends Controller
         $assignedChannels = $user?->role === 'sales_marketing_staff'
             ? collect($user->sales_channels ?? [])->map(fn ($channel) => strtolower(str_replace(['-', ' '], '_', (string) $channel)))->values()
             : collect();
-        $dashboardChannelOptions = $assignedChannels->filter(fn ($channel) => in_array($channel, ['shopee', 'lazada', 'tiktok', 'online', 'wholesale', 'walk_in'], true))->values();
+        $dashboardChannelOptions = $assignedChannels->filter(fn ($channel) => in_array($channel, ['online', 'wholesale', 'walk_in'], true))->values();
         $dashboardChannel = $filters['channel'] ?? null;
         if ($dashboardChannel && $user?->role === 'sales_marketing_staff' && ! $assignedChannels->contains($dashboardChannel)) {
             abort(403, 'You are not assigned to view this sales channel.');
@@ -113,7 +116,7 @@ class HubController extends Controller
         if ($dashboardChannel) {
             $salesQuery->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) = ?", [$dashboardChannel]);
         }
-        $channelComparisonKeys = ['shopee', 'lazada', 'tiktok', 'online', 'wholesale', 'walk_in'];
+        $channelComparisonKeys = ['online', 'wholesale', 'walk_in'];
         $marketplaceComparisonChannels = $dashboardHubs->whereIn('id', $scopeIds)->contains('is_head_office', true)
             ? ($dashboardChannel
                 ? collect([$dashboardChannel])->filter(fn ($channel) => in_array($channel, $channelComparisonKeys, true))
@@ -201,15 +204,12 @@ class HubController extends Controller
             ->sortByDesc('total')
             ->values();
         $channelDefinitions = [
-            'shopee' => ['label' => 'Shopee', 'icon' => 'fa-bag-shopping', 'color' => 'warning'],
-            'lazada' => ['label' => 'Lazada', 'icon' => 'fa-store', 'color' => 'info'],
-            'tiktok' => ['label' => 'TikTok', 'icon' => 'fa-music', 'color' => 'dark'],
             'online' => ['label' => 'Online', 'icon' => 'fa-globe', 'color' => 'primary'],
             'wholesale' => ['label' => 'Wholesale', 'icon' => 'fa-building', 'color' => 'success'],
             'walk_in' => ['label' => 'Walk-In', 'icon' => 'fa-cash-register', 'color' => 'secondary'],
         ];
         $availableChannels = $scopedHubs->contains('is_head_office', true)
-            ? ['shopee', 'lazada', 'tiktok', 'online', 'wholesale', 'walk_in']
+            ? ['online', 'wholesale', 'walk_in']
             : ['walk_in'];
         if ($user?->role === 'sales_marketing_staff') {
             $availableChannels = array_values(array_intersect($availableChannels, $assignedChannels->all()));
@@ -408,12 +408,6 @@ class HubController extends Controller
         $slowProducts = Product::whereIn('store_hub_id', $scopeIds)
             ->where('status', 'active')
             ->where('stock', '>', 0)
-            ->when(in_array($dashboardChannel, ['shopee', 'lazada'], true), function ($query) use ($dashboardChannel, $soldUnits) {
-                $query->where(function ($query) use ($dashboardChannel, $soldUnits) {
-                    $query->whereIn('products.id', $soldUnits->keys())
-                        ->orWhereHas('stockAllocation', fn ($allocation) => $allocation->where($dashboardChannel, '>', 0));
-                });
-            })
             ->get()
             ->map(fn ($product) => [
                 'id' => $product->id,
