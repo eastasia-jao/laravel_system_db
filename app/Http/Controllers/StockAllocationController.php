@@ -16,6 +16,13 @@ class StockAllocationController extends Controller
 
     public function index(Request $request)
     {
+        $filters = $request->validate([
+            'sold_from' => ['nullable', 'date_format:Y-m-d', 'required_with:sold_to'],
+            'sold_to' => ['nullable', 'date_format:Y-m-d', 'required_with:sold_from', 'after_or_equal:sold_from'],
+        ]);
+        $soldFrom = $filters['sold_from'] ?? null;
+        $soldTo = $filters['sold_to'] ?? null;
+        $hasSoldDateRange = $soldFrom !== null && $soldTo !== null;
         $user = auth()->user();
         $assignedHub = $user?->store_hub_id ? StoreHub::find($user->store_hub_id) : null;
         abort_if($assignedHub && ! $assignedHub->is_head_office, 403, 'Stock allocations are only available for head office stores.');
@@ -49,10 +56,26 @@ class StockAllocationController extends Controller
                     });
                 });
             })
+            ->when($hasSoldDateRange, function ($builder) use ($soldFrom, $soldTo) {
+                $builder->whereIn('products.id', DB::table('transaction_items')
+                    ->join('sales_transactions', 'sales_transactions.id', '=', 'transaction_items.transaction_id')
+                    ->where('transaction_items.quantity', '>', 0)
+                    ->whereDate('sales_transactions.order_date', '>=', $soldFrom)
+                    ->whereDate('sales_transactions.order_date', '<=', $soldTo)
+                    ->where(function ($query) {
+                        $query->whereNull('sales_transactions.status')
+                            ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
+                    })
+                    ->select('transaction_items.product_id'));
+            })
             ->orderByCatalog('item_id');
 
         $products = $query->paginate(25)->withQueryString();
-        $soldByProduct = $this->soldByProduct($products->getCollection()->pluck('id'));
+        $soldByProduct = $this->soldByProduct(
+            $products->getCollection()->pluck('id'),
+            $soldFrom,
+            $soldTo
+        );
 
         $products->getCollection()->transform(function (Product $product) use ($soldByProduct) {
             $allocation = $product->stockAllocation;
@@ -77,6 +100,9 @@ class StockAllocationController extends Controller
             'allocationHubs',
             'hub',
             'assignedChannels',
+            'soldFrom',
+            'soldTo',
+            'hasSoldDateRange',
         ));
     }
 
@@ -88,6 +114,8 @@ class StockAllocationController extends Controller
             'return_hub_id' => ['nullable', 'integer', 'exists:store_hubs,id'],
             'product_id' => ['nullable', 'integer', 'exists:products,id'],
             'search' => ['nullable', 'string', 'max:255'],
+            'sold_from' => ['nullable', 'date_format:Y-m-d', 'required_with:sold_to'],
+            'sold_to' => ['nullable', 'date_format:Y-m-d', 'required_with:sold_from', 'after_or_equal:sold_from'],
             'allocations' => ['required', 'array'],
             'allocations.*.online' => ['required', 'integer', 'min:0'],
             'allocations.*.wholesale' => ['required', 'integer', 'min:0'],
@@ -150,6 +178,8 @@ class StockAllocationController extends Controller
             'hub_id' => $validated['hub_id'],
             'product_id' => $validated['product_id'] ?? null,
             'search' => $validated['search'] ?? null,
+            'sold_from' => $validated['sold_from'] ?? null,
+            'sold_to' => $validated['sold_to'] ?? null,
             'return_to' => $validated['return_to'] ?? null,
             'return_hub_id' => $validated['return_hub_id'] ?? null,
         ];
@@ -158,11 +188,14 @@ class StockAllocationController extends Controller
             ->with('success', 'Stock allocations updated successfully.');
     }
 
-    private function soldByProduct($productIds)
+    private function soldByProduct($productIds, ?string $soldFrom = null, ?string $soldTo = null)
     {
         $sales = DB::table('transaction_items')
             ->join('sales_transactions', 'sales_transactions.id', '=', 'transaction_items.transaction_id')
             ->whereIn('transaction_items.product_id', $productIds)
+            ->when($soldFrom && $soldTo, fn ($query) => $query
+                ->whereDate('sales_transactions.order_date', '>=', $soldFrom)
+                ->whereDate('sales_transactions.order_date', '<=', $soldTo))
             ->where(function ($query) {
                 $query->whereNull('sales_transactions.status')
                     ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
@@ -182,6 +215,9 @@ class StockAllocationController extends Controller
 
         $movements = DB::table('inventory_transactions')
             ->whereIn('product_id', $productIds)
+            ->when($soldFrom && $soldTo, fn ($query) => $query
+                ->whereDate('occurred_on', '>=', $soldFrom)
+                ->whereDate('occurred_on', '<=', $soldTo))
             ->whereIn('type', ['return', 'replacement_return', 'replacement_out'])
             ->whereNotNull('channel')
             ->select('product_id', 'channel', 'type')

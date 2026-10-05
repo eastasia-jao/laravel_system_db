@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -68,5 +69,41 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
                 ],
             ])
             ->assertForbidden();
+    }
+
+    public function test_head_office_can_filter_stock_allocations_to_items_sold_in_a_date_range(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-DATES', 'status' => 'active', 'is_head_office' => true]);
+        $soldProduct = Product::create(['store_hub_id' => $headOffice->id, 'item_id' => 'SOLD-ITEM', 'name' => 'Sold During Range', 'stock' => 10, 'status' => 'active']);
+        $outsideRangeProduct = Product::create(['store_hub_id' => $headOffice->id, 'item_id' => 'OLD-ITEM', 'name' => 'Sold Outside Range', 'stock' => 10, 'status' => 'active']);
+        Product::create(['store_hub_id' => $headOffice->id, 'item_id' => 'NONE-ITEM', 'name' => 'Never Sold', 'stock' => 10, 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $inRangeSale = SalesTransaction::create([
+            'user_id' => $admin->id, 'store_hub_id' => $headOffice->id, 'channel_type' => 'shopee',
+            'customer_name' => 'Range Customer', 'order_number' => 'RANGE-001', 'order_date' => '2026-10-02',
+            'grand_total' => 300, 'status' => 'completed',
+        ]);
+        $inRangeSale->items()->create(['product_id' => $soldProduct->id, 'quantity' => 3, 'unit_price' => 100, 'line_total' => 300]);
+
+        $outsideRangeSale = SalesTransaction::create([
+            'user_id' => $admin->id, 'store_hub_id' => $headOffice->id, 'channel_type' => 'shopee',
+            'customer_name' => 'Older Customer', 'order_number' => 'OLD-001', 'order_date' => '2026-09-30',
+            'grand_total' => 100, 'status' => 'completed',
+        ]);
+        $outsideRangeSale->items()->create(['product_id' => $outsideRangeProduct->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100]);
+
+        $response = $this->actingAs($admin)->get(route('stock-allocation.index', [
+            'hub_id' => $headOffice->id,
+            'sold_from' => '2026-10-02',
+            'sold_to' => '2026-10-02',
+        ]));
+
+        $response->assertOk()
+            ->assertSee('Sold During Range')
+            ->assertDontSee('Sold Outside Range')
+            ->assertDontSee('Never Sold')
+            ->assertSee('2026-10-02 to 2026-10-02');
+        $this->assertSame([$soldProduct->id], $response->viewData('products')->getCollection()->pluck('id')->all());
     }
 }

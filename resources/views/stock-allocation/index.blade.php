@@ -72,7 +72,7 @@
         <div class="col-sm-6 col-xl-3"><div class="card allocation-stat h-100 p-3"><div class="d-flex align-items-center gap-3"><span class="stat-icon"><i class="fa-solid fa-boxes-stacked"></i></span><div><div class="small text-muted">Products shown</div><div class="fs-5 fw-bold">{{ number_format($products->total()) }}</div></div></div></div></div>
         <div class="col-sm-6 col-xl-3"><div class="card allocation-stat h-100 p-3"><div class="d-flex align-items-center gap-3"><span class="stat-icon"><i class="fa-solid fa-store"></i></span><div><div class="small text-muted">Store scope</div><div class="fs-6 fw-bold">{{ $hub?->name ?? 'All stores' }}</div></div></div></div></div>
         <div class="col-sm-6 col-xl-3"><div class="card allocation-stat h-100 p-3"><div class="d-flex align-items-center gap-3"><span class="stat-icon"><i class="fa-solid fa-arrows-up-down"></i></span><div><div class="small text-muted">Allocation mode</div><div class="fs-6 fw-bold">{{ $canEditAllocations ? 'Editable' : 'View only' }}</div></div></div></div></div>
-        <div class="col-sm-6 col-xl-3"><div class="card allocation-stat h-100 p-3"><div class="d-flex align-items-center gap-3"><span class="stat-icon"><i class="fa-solid fa-circle-info"></i></span><div><div class="small text-muted">Page</div><div class="fs-5 fw-bold">{{ $products->currentPage() }} / {{ max(1, $products->lastPage()) }}</div></div></div></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="card allocation-stat h-100 p-3"><div class="d-flex align-items-center gap-3"><span class="stat-icon"><i class="fa-solid {{ $hasSoldDateRange ? 'fa-calendar-check' : 'fa-circle-info' }}"></i></span><div><div class="small text-muted">{{ $hasSoldDateRange ? 'Sold-items range' : 'Page' }}</div><div class="fs-6 fw-bold">{{ $hasSoldDateRange ? $soldFrom.' to '.$soldTo : $products->currentPage().' / '.max(1, $products->lastPage()) }}</div></div></div></div></div>
     </div>
 
     <div class="card workspace-card p-3 mb-4">
@@ -88,14 +88,23 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-5">
+            <div class="col-md-3">
                 <label class="small text-muted fw-bold"><i class="fa-solid fa-magnifying-glass me-1"></i>SEARCH PRODUCTS</label>
                 <input name="search" value="{{ request('search') }}" class="form-control" placeholder="Product name, item ID, or barcode">
+            </div>
+            <div class="col-md-2">
+                <label class="small text-muted fw-bold"><i class="fa-solid fa-calendar-day me-1"></i>SOLD FROM</label>
+                <input type="date" name="sold_from" value="{{ $soldFrom }}" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <label class="small text-muted fw-bold"><i class="fa-solid fa-calendar-day me-1"></i>SOLD TO</label>
+                <input type="date" name="sold_to" value="{{ $soldTo }}" class="form-control">
             </div>
             <div class="col-md-2">
                 <button class="btn btn-primary w-100"><i class="fa-solid fa-filter me-1"></i>Apply Filters</button>
             </div>
         </form>
+        <p class="small text-muted mb-0 mt-3"><i class="fa-solid fa-circle-info me-1"></i>When both sold dates are selected, this Head Office view shows only product items sold during that date range.</p>
     </div>
 
     <form id="allocation-form" method="POST" action="{{ route('stock-allocation.update') }}">
@@ -106,6 +115,12 @@
         @endif
         @if(request('search'))
             <input type="hidden" name="search" value="{{ request('search') }}">
+        @endif
+        @if($soldFrom)
+            <input type="hidden" name="sold_from" value="{{ $soldFrom }}">
+        @endif
+        @if($soldTo)
+            <input type="hidden" name="sold_to" value="{{ $soldTo }}">
         @endif
         @if($returnToQueue)
             <input type="hidden" name="return_to" value="verification-queue">
