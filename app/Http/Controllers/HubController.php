@@ -358,35 +358,47 @@ class HubController extends Controller
 
             return ['channel' => $channel, 'rows' => $rows, 'total' => $rows->sum(fn ($row) => array_sum($row['amounts']))];
         })->values();
-        $soldUnits = collect();
-        foreach ($monthlySales as $sale) {
+        $buildSoldUnits = function ($sales) use ($normalizeChannel) {
+            $units = collect();
+            foreach ($sales as $sale) {
             $isTikTok = $normalizeChannel($sale->channel_type) === 'tiktok';
             foreach ($sale->items as $item) {
                 if (! $isTikTok) {
-                    $soldUnits[$item->product_id] = ($soldUnits[$item->product_id] ?? 0) + (int) $item->quantity;
+                    $units[$item->product_id] = ($units[$item->product_id] ?? 0) + (int) $item->quantity;
                     continue;
                 }
 
                 $approvedReplacements = $item->replacements->where('status', 'approved');
                 $returnedQuantity = max((int) ($item->returned_quantity ?? 0), (int) $item->inventoryReturns->sum('quantity'));
                 $originalRemaining = max(0, (int) $item->quantity - $returnedQuantity - (int) $approvedReplacements->sum('quantity'));
-                $soldUnits[$item->product_id] = ($soldUnits[$item->product_id] ?? 0) + $originalRemaining;
+                $units[$item->product_id] = ($units[$item->product_id] ?? 0) + $originalRemaining;
                 foreach ($approvedReplacements as $replacement) {
                     $replacementRemaining = max(0,
                         (int) ($replacement->replacement_quantity ?: $replacement->quantity)
                         - (int) $replacement->inventoryReturns->sum('quantity')
                     );
-                    $soldUnits[$replacement->replacement_product_id] = ($soldUnits[$replacement->replacement_product_id] ?? 0) + $replacementRemaining;
+                    $units[$replacement->replacement_product_id] = ($units[$replacement->replacement_product_id] ?? 0) + $replacementRemaining;
                 }
             }
-        }
+            }
+
+            return $units;
+        };
+        $soldUnits = $buildSoldUnits($monthlySales);
         $topUnits = $soldUnits->sortDesc()->take(10);
         $topNames = Product::whereIn('id', $topUnits->keys())->get()->keyBy('id');
         $topProducts = $topUnits->map(fn ($units, $productId) => [
             'name' => $topNames->get($productId)?->name ?? 'Unavailable product',
             'units' => (int) $units,
         ])->values();
-        $soldItemCount = (int) $soldUnits->sum();
+        $yearToDateSales = (clone $salesQuery)
+            ->whereBetween('order_date', [$asOf->copy()->startOfYear(), $asOf->copy()->endOfDay()])
+            ->with($dashboardRelations)
+            ->get()
+            ->reject(fn ($sale) => $normalizeChannel($sale->channel_type) === 'tiktok'
+                && ($sale->sales_after_transaction_fee === null || $sale->isTikTokFullyReturned()))
+            ->values();
+        $soldItemCount = (int) $buildSoldUnits($yearToDateSales)->sum();
         $slowProducts = Product::whereIn('store_hub_id', $scopeIds)
             ->where('status', 'active')
             ->where('stock', '>', 0)

@@ -25,6 +25,10 @@
     .sales-dashboard .sold-items-summary-label { color: #475569; font-size: .65rem; font-weight: 750; letter-spacing: .03em; text-transform: uppercase; }
     .sales-dashboard .sold-items-summary-value { color: #2563eb; font-size: 1.3rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
     .sales-dashboard .sold-items-summary-help { display: block; max-width: 174px; overflow: hidden; color: #64748b; font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+    .sales-dashboard .sold-items-summary-compact { width: 150px; min-width: 150px; min-height: 58px; padding: .35rem .45rem; }
+    .sales-dashboard .sold-items-summary-compact .sold-items-summary-label { font-size: .56rem; }
+    .sales-dashboard .sold-items-summary-compact .sold-items-summary-value { font-size: 1.05rem; }
+    .sales-dashboard .sold-items-summary-compact .sold-items-summary-help { max-width: 88px; font-size: .56rem; }
     .sales-dashboard .marketplace-mop-panel { background: linear-gradient(145deg, #ffffff, #f7faff); }
     .sales-dashboard .marketplace-mop-total { min-width: 155px; padding: .75rem 1rem; border-radius: 12px; background: #eff6ff; color: #1d4ed8; text-align: right; }
     .sales-dashboard .marketplace-mop-card { padding: .85rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; min-height: 92px; }
@@ -151,7 +155,7 @@
                 @endif
             </div>
             @if(auth()->user()?->role === 'sales_marketing_staff' && $dashboardChannelOptions->isNotEmpty())
-            <div class="col-12 col-md-4 col-xl-3">
+            <div class="col-12 col-md-4 {{ $isMarketingDashboard ? 'col-xl-2' : 'col-xl-3' }}">
                 <label for="dashboardChannel" class="form-label filter-title mb-1">Sales channel</label>
                 <select name="channel" id="dashboardChannel" class="form-select" @disabled($dashboardChannelOptions->count() === 1) onchange="submitDashboardFilters(this.form)">
                     @foreach($dashboardChannelOptions as $channelOption)
@@ -168,9 +172,12 @@
                 <label for="dashboardTo" class="form-label filter-title mb-1">To</label>
                 <input type="date" id="dashboardTo" name="to" value="{{ $asOf->toDateString() }}" min="{{ $fromDate->toDateString() }}" class="form-control" onchange="updateDashboardDateBounds(this.form)" required>
             </div>
+            <div class="{{ $isMarketingDashboard ? 'col-12 col-xl-auto' : 'col-12 col-md-auto' }} filter-actions d-flex gap-2">
+                <button class="btn btn-primary px-3"><i class="fa-solid fa-filter me-1"></i>Apply</button>
+            </div>
             @if($isMarketingDashboard)
-            <div class="col-12 col-xl-2 d-flex justify-content-xl-end">
-                <div class="sold-items-summary d-flex align-items-center gap-2">
+            <div class="col-12 col-xl d-flex justify-content-xl-end">
+                <div class="sold-items-summary sold-items-summary-compact d-flex align-items-center gap-1">
                     <i class="fa-solid fa-cart-flatbed fs-5 text-primary"></i>
                     <div>
                         <div class="sold-items-summary-label">Total sold items</div>
@@ -180,10 +187,6 @@
                 </div>
             </div>
             @endif
-            <div class="{{ $isMarketingDashboard ? 'col-12' : 'col-12 col-md-auto' }} filter-actions d-flex gap-2">
-                <button class="btn btn-primary px-3"><i class="fa-solid fa-filter me-1"></i>Apply</button>
-                <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary px-3">Reset</a>
-            </div>
             @unless($isMarketingDashboard)
             <div class="col-12 col-xl d-flex justify-content-xl-end">
                 <div class="sold-items-summary d-flex align-items-center gap-2">

@@ -30,6 +30,14 @@ class DashboardTest extends TestCase
             ]);
             $sale->items()->create(['product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => 100, 'line_total' => $quantity * 100]);
         }
+        foreach ([['2026-01-12', 2, 'HO-YTD-001'], ['2025-12-31', 4, 'HO-OLD-001']] as [$orderDate, $quantity, $orderNumber]) {
+            $sale = SalesTransaction::create([
+                'user_id' => $admin->id, 'store_hub_id' => $headOffice->id, 'channel_type' => 'walk_in',
+                'customer_name' => 'Earlier Head Office Customer', 'order_number' => $orderNumber, 'order_date' => $orderDate,
+                'grand_total' => $quantity * 100, 'status' => 'completed',
+            ]);
+            $sale->items()->create(['product_id' => $headOfficeProduct->id, 'quantity' => $quantity, 'unit_price' => 100, 'line_total' => $quantity * 100]);
+        }
 
         $headOfficeResponse = $this->actingAs($admin)->get(route('dashboard', [
             'hub_id' => $headOffice->id,
@@ -37,7 +45,7 @@ class DashboardTest extends TestCase
             'to' => '2026-10-02',
         ]));
         $headOfficeResponse->assertOk()->assertSee('Total sold items');
-        $this->assertSame(3, $headOfficeResponse->viewData('soldItemCount'));
+        $this->assertSame(5, $headOfficeResponse->viewData('soldItemCount'));
         $this->assertSame($headOffice->name, $headOfficeResponse->viewData('scopeName'));
 
         $branchResponse = $this->get(route('dashboard', [

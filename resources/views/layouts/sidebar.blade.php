@@ -217,13 +217,13 @@
         @endcan
     </ul>
 
-    <div class="pt-3 border-top d-flex align-items-center justify-content-between">
-        <div class="d-flex flex-column text-truncate" style="max-width: 150px;">
+    <div class="pt-3 border-top d-flex align-items-center gap-2">
+        <div class="d-flex flex-column text-truncate" style="min-width: 0; flex: 1 1 auto;">
             <span class="fw-semibold text-dark small text-truncate">{{ Auth::user()->name }}</span>
             <span class="text-muted text-truncate" style="font-size: 11px;">@<span>{{ Auth::user()->username }}</span></span>
         </div>
-        <span id="sidebarClock" class="text-muted small me-2" aria-label="Current time"></span>
-        <form method="POST" action="{{ route('logout') }}" class="m-0">
+        <span id="sidebarClock" class="text-muted small text-center" style="flex: 0 0 78px; font-size: 11px; white-space: nowrap;" aria-label="Current time"></span>
+        <form method="POST" action="{{ route('logout') }}" class="m-0 flex-shrink-0">
             @csrf
             <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle p-2 shadow-2" title="Log Out">
                 <i class="fa-solid fa-right-from-bracket"></i>
