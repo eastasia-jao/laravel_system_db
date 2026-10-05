@@ -357,6 +357,7 @@ class ProductController extends Controller
                 'processing_status' => 'queued',
                 'reviewed_by' => auth()->id(),
                 'reviewed_at' => now(),
+                'total_rows' => $this->countCsvDataRows($csv),
             ]);
             $record->storeCsv($csv);
 
@@ -373,6 +374,43 @@ class ProductController extends Controller
             'success',
             'Import queued and will be applied automatically in the background.'
         );
+    }
+
+    /**
+     * Return the latest import state for the status panel. The CSV itself is
+     * deliberately never exposed by this endpoint.
+     */
+    public function importStatus($hub_id)
+    {
+        abort_unless(auth()->user()?->can('manage-inventory'), 403);
+        $hub = StoreHub::findOrFail($hub_id);
+        $record = ProductFileRequest::query()
+            ->where('store_hub_id', $hub->id)
+            ->where('type', 'import')
+            ->latest('id')
+            ->first();
+
+        if (! $record) {
+            return response()->json(['import' => null]);
+        }
+
+        $status = $record->processing_status ?: match ($record->status) {
+            'approved' => 'completed',
+            'rejected' => 'failed',
+            default => 'queued',
+        };
+
+        return response()->json(['import' => [
+            'id' => $record->id,
+            'status' => $status,
+            'file_name' => $record->file_name,
+            'total_rows' => $record->total_rows,
+            'created_count' => $record->created_count,
+            'updated_count' => $record->updated_count,
+            'skipped_count' => $record->skipped_count,
+            'error' => $record->processing_error,
+            'updated_at' => optional($record->updated_at)->toIso8601String(),
+        ]]);
     }
 
     public function applyImportCsv(Request $request, $hub_id)
@@ -572,15 +610,27 @@ class ProductController extends Controller
             ])->all());
         });
 
-        return redirect()->route('hub.dashboard', $hub_id)->with(
-            'success',
-            sprintf(
-                'Import completed successfully. %d product item(s) processed: %d created and %d updated.',
-                count($logItems),
-                $createdCount,
-                $updatedCount
-            )
-        );
+        return [
+            'total_rows' => count($logItems) + $skippedCount,
+            'created_count' => $createdCount,
+            'updated_count' => $updatedCount,
+            'skipped_count' => $skippedCount,
+        ];
+    }
+
+    private function countCsvDataRows(string $csv): int
+    {
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, $csv);
+        rewind($stream);
+        fgetcsv($stream); // Header
+        $count = 0;
+        while (fgetcsv($stream) !== false) {
+            $count++;
+        }
+        fclose($stream);
+
+        return $count;
     }
 
     public function export(Request $request, $hubId)

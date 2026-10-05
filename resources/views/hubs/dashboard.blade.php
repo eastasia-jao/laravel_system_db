@@ -37,6 +37,10 @@
         </div>
     </div>
 
+    @can('manage-inventory')
+    @include('hubs.import-status-panel')
+    @endcan
+
     {{-- Success and Error Flash Messages --}}
 
     <div class="hub-section-title mb-2">Quick actions</div>

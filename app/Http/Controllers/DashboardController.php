@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PendingSale;
 use App\Models\Product;
+use App\Models\ProductFileRequest;
 use App\Models\ProductReplacement;
 use App\Models\StoreHub;
 use Illuminate\Http\Request;
@@ -35,6 +36,11 @@ class DashboardController extends Controller
         $products = collect();
         $pendingSalesCount = PendingSale::where('store_hub_id', $id)->where('status', 'pending')->count()
             + ProductReplacement::where('status', 'pending')->whereHas('transaction', fn ($query) => $query->where('store_hub_id', $id))->count();
+        $latestImport = ProductFileRequest::query()
+            ->where('store_hub_id', $id)
+            ->where('type', 'import')
+            ->latest('id')
+            ->first();
 
         // Monthly filter handling for Top 10 Products
         $selectedMonth = $request->input('month', now()->format('Y-m'));
@@ -62,6 +68,7 @@ class DashboardController extends Controller
             'products', 
             'walkInHubs',
             'pendingSalesCount',
+            'latestImport',
             'selectedMonth'
         ));
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PendingSale;
 use App\Models\Product;
+use App\Models\ProductFileRequest;
 use App\Models\ProductReplacement;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
@@ -33,8 +34,13 @@ class HubController extends Controller
 
         $totalProducts = Product::where('store_hub_id', $id)->count();
         $totalSales = SalesTransaction::where('store_hub_id', $id)->sum('grand_total');
+        $latestImport = ProductFileRequest::query()
+            ->where('store_hub_id', $id)
+            ->where('type', 'import')
+            ->latest('id')
+            ->first();
 
-        return view('hubs.dashboard', compact('hub', 'totalProducts', 'totalSales', 'pendingSalesCount'));
+        return view('hubs.dashboard', compact('hub', 'totalProducts', 'totalSales', 'pendingSalesCount', 'latestImport'));
     }
 
     public function index(Request $request)

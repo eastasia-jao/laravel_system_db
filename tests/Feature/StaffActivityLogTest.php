@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessProductFileRequest;
 use App\Models\Product;
+use App\Models\ProductFileRequest;
 use App\Models\ProductStockAllocation;
 use App\Models\PendingSale;
 use App\Models\StaffActivityLog;
@@ -64,6 +66,9 @@ class StaffActivityLogTest extends TestCase
                 'file' => UploadedFile::fake()->createWithContent('products.csv', $csv),
             ])
             ->assertSessionHasNoErrors()->assertRedirect();
+
+        $importRequest = ProductFileRequest::sole();
+        (new ProcessProductFileRequest($importRequest->id, $staff->id, '127.0.0.1'))->handle();
 
         $product = Product::whereCatalog('item_id', 'SKU-001')->sole();
         $importLog = StaffActivityLog::where('action_type', 'product_import')->sole();

@@ -179,6 +179,7 @@ class ProductFileRequestController extends Controller
             if ($data['decision'] === 'rejected') {
                 abort_if(in_array($record->processing_status, ['queued', 'processing'], true), 409, 'This request is already being processed.');
             }
+            $importSummary = null;
             if ($data['decision'] === 'approved') {
                 $controller = app(ProductController::class);
                 if ($record->type === 'import') {
@@ -189,7 +190,7 @@ class ProductFileRequestController extends Controller
                         fwrite($temp, $csv);
                         $upload = new UploadedFile(stream_get_meta_data($temp)['uri'], $record->file_name, 'text/csv', null, true);
                         $operation = Request::create('/', 'POST', [], [], ['file' => $upload], $request->server->all());
-                        $controller->applyImportCsv($operation, $record->store_hub_id);
+                        $importSummary = $controller->applyImportCsv($operation, $record->store_hub_id);
                     } finally {
                         fclose($temp);
                     }
@@ -214,6 +215,10 @@ class ProductFileRequestController extends Controller
                 'processing_status' => $data['decision'] === 'approved' ? 'completed' : null,
                 'status' => $data['decision'], 'reviewed_by' => auth()->id(), 'reviewed_at' => now(),
                 'rejection_reason' => $data['decision'] === 'rejected' ? $data['rejection_reason'] : null,
+                'total_rows' => $importSummary['total_rows'] ?? $record->total_rows,
+                'created_count' => $importSummary['created_count'] ?? null,
+                'updated_count' => $importSummary['updated_count'] ?? null,
+                'skipped_count' => $importSummary['skipped_count'] ?? null,
             ])->save();
             $record->submitter->notify(new InventoryWorkflowNotification(
                 'product_file_reviewed',
