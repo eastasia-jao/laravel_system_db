@@ -33,6 +33,7 @@
         #appSidebar, #appMain { transition: transform .25s ease, margin-left .25s ease, width .25s ease; }
         body.sidebar-collapsed #appSidebar { transform: translateX(-100%); }
         body.sidebar-collapsed #appMain { margin-left: 0 !important; width: 100% !important; }
+        body.sidebar-collapsed #appMain > .workspace-page { max-width: none; padding: 1rem !important; }
         #sidebarRestore { display: none; position: fixed; top: 12px; left: 12px; z-index: 1100; }
         body.sidebar-collapsed #sidebarRestore { display: inline-flex; }
         @media (max-width: 991.98px) {
