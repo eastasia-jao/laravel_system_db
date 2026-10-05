@@ -53,6 +53,17 @@ Route::middleware(['auth'])->group(function () {
         return view('notifications.index', compact('notifications', 'notificationHubs'));
     })->name('notifications.index');
 
+    Route::get('/notifications/feed', function () {
+        $notifications = auth()->user()->notifications()->latest()->limit(10)->get();
+        $notificationHubIds = $notifications->pluck('data.hub_id')->filter()->unique()->values();
+        $notificationHubs = \App\Models\StoreHub::whereIn('id', $notificationHubIds)->get()->keyBy('id');
+
+        return response()->json([
+            'unread_count' => auth()->user()->unreadNotifications()->count(),
+            'html' => view('layouts.notification-feed', compact('notifications', 'notificationHubs'))->render(),
+        ]);
+    })->name('notifications.feed');
+
     Route::get('/notifications/{notification}/read', function (string $notification) {
         $record = auth()->user()->notifications()->whereKey($notification)->firstOrFail();
         $record->markAsRead();

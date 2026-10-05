@@ -30,9 +30,13 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <style>
-        /* Optional: Smooth transition for content if sidebar ever expands/collapses */
-        main {
-            transition: margin-left 0.3s ease;
+        #appSidebar, #appMain { transition: transform .25s ease, margin-left .25s ease, width .25s ease; }
+        body.sidebar-collapsed #appSidebar { transform: translateX(-100%); }
+        body.sidebar-collapsed #appMain { margin-left: 0 !important; width: 100% !important; }
+        #sidebarRestore { display: none; position: fixed; top: 12px; left: 12px; z-index: 1100; }
+        body.sidebar-collapsed #sidebarRestore { display: inline-flex; }
+        @media (max-width: 991.98px) {
+            #appMain { margin-left: 0 !important; width: 100% !important; }
         }
     </style>
 <link rel="stylesheet" href="{{ asset('app-alert.css') }}?v=20260929-branch-transfer-popup2">
@@ -40,8 +44,11 @@
 <body class="bg-light">
     <div class="d-flex">
         @include('layouts.sidebar')
+        <button id="sidebarRestore" type="button" class="btn btn-primary btn-sm shadow" title="Show sidebar" aria-label="Show sidebar">
+            <i class="fa-solid fa-bars"></i>
+        </button>
 
-        <main class="flex-grow-1 p-4" style="margin-left: 280px; width: calc(100% - 280px);">
+        <main id="appMain" class="flex-grow-1 p-4" style="margin-left: 280px; width: calc(100% - 280px);">
             @yield('content')
         </main>
     </div>
@@ -50,5 +57,28 @@
      @stack('scripts')
 <script src="{{ asset('js/app-alert.js') }}?v=20260929-branch-transfer-popup2"></script>
 @include('layouts.popup-messages')
+<script>
+    (() => {
+        const toggle = document.getElementById('sidebarToggle');
+        const restore = document.getElementById('sidebarRestore');
+        const preferenceKey = 'art-caravan-sidebar-collapsed';
+        const isMobile = () => window.matchMedia('(max-width: 991.98px)').matches;
+        const setCollapsed = (collapsed, persist = true) => {
+            document.body.classList.toggle('sidebar-collapsed', collapsed);
+            if (persist) localStorage.setItem(preferenceKey, collapsed ? '1' : '0');
+            if (toggle) {
+                toggle.title = collapsed ? 'Show sidebar' : 'Hide sidebar';
+                toggle.setAttribute('aria-label', toggle.title);
+            }
+        };
+
+        setCollapsed(isMobile() || localStorage.getItem(preferenceKey) === '1', false);
+        toggle?.addEventListener('click', () => setCollapsed(!document.body.classList.contains('sidebar-collapsed')));
+        restore?.addEventListener('click', () => setCollapsed(false));
+        window.addEventListener('resize', () => {
+            if (isMobile()) setCollapsed(true, false);
+        });
+    })();
+</script>
 </body>
 </html>

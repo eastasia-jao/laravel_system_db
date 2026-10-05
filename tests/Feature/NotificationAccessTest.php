@@ -62,6 +62,20 @@ class NotificationAccessTest extends TestCase
         $this->assertNotNull($user->notifications()->first()->read_at);
     }
 
+    public function test_notification_feed_returns_only_the_signed_in_users_notifications(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $user->notify(new InventoryWorkflowNotification('inventory_verification', 'Your live notification.'));
+        $otherUser->notify(new InventoryWorkflowNotification('inventory_verification', 'Another users notification.'));
+
+        $response = $this->actingAs($user)->getJson(route('notifications.feed'));
+
+        $response->assertOk()->assertJsonPath('unread_count', 1);
+        $this->assertStringContainsString('Your live notification.', $response->json('html'));
+        $this->assertStringNotContainsString('Another users notification.', $response->json('html'));
+    }
+
     public function test_branch_walk_in_replacement_notifications_use_walk_in_label_icon_and_reference(): void
     {
         $hub = StoreHub::create(['name' => 'Branch', 'code' => 'BRANCH', 'status' => 'active', 'is_head_office' => false]);

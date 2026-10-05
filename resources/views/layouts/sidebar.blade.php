@@ -1,4 +1,4 @@
-<div class="sidebar d-flex flex-column flex-shrink-0 p-4 bg-white border-end" 
+<div id="appSidebar" class="sidebar d-flex flex-column flex-shrink-0 p-4 bg-white border-end"
      style="width: 280px; height: 100vh; position: fixed; top: 0; left: 0; z-index: 1000;">
     @php
        $notifications = auth()->user()->notifications()->latest()->limit(10)->get();
@@ -11,6 +11,9 @@
     @endphp
     
     <div class="d-flex align-items-center justify-content-between gap-2 mb-4 pb-3 border-bottom text-primary fw-bold fs-5">
+       <button id="sidebarToggle" type="button" class="btn btn-sm btn-light text-primary border-0" title="Hide sidebar" aria-label="Hide sidebar">
+           <i class="fa-solid fa-bars"></i>
+       </button>
        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
            <path d="M20 7H4C2.89543 7 2 7.89543 2 9V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19V9C22 7.89543 21.1046 7 20 7Z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
            <path d="M16 21V5C16 4.46957 15.7893 3.96086 15.4142 3.58579C15.0391 3.21071 14.5304 3 14 3H10C9.46957 3 8.96086 3.21071 8.58579 3.58579C8.21071 3.96086 8 4.46957 8 5V21" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -18,13 +21,11 @@
        <span class="text-truncate">Art Caravan PH</span>
 
        <div class="dropdown">
-           <button type="button" class="btn btn-link p-0 border-0 text-primary position-relative" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
+           <button id="notificationToggle" type="button" class="btn btn-link p-0 border-0 text-primary position-relative" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
                <i class="fa-solid fa-bell"></i>
-               @if($unreadNotificationCount)
-                   <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                       {{ $unreadNotificationCount }}
-                   </span>
-               @endif
+               <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {{ $unreadNotificationCount ? '' : 'd-none' }}">
+                   {{ $unreadNotificationCount }}
+               </span>
            </button>
 
            <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 p-0" style="width: min(340px, calc(100vw - 1rem)); max-height: 420px; overflow-y: auto;">
@@ -35,7 +36,7 @@
                        <button type="submit" class="btn btn-link p-0 small text-primary text-decoration-none text-nowrap">Mark all read</button>
                    </form>
                </div>
-               <div>
+               <div id="sidebarNotificationItems"><div>
 
                    @forelse($notifications as $notification)
                    @php
@@ -104,6 +105,7 @@
                            <a href="{{ route('notifications.index') }}" class="btn btn-link p-0 small fw-semibold text-primary text-decoration-none">See more notifications <i class="fa-solid fa-arrow-right ms-1"></i></a>
                        </div>
                    @endif
+               </div>
                </div>
            </div>
        </div>
@@ -218,8 +220,8 @@
     </ul>
 
     <div class="pt-3 border-top d-flex align-items-center gap-2">
-        <div class="d-flex flex-column text-truncate" style="min-width: 0; flex: 1 1 auto;">
-            <span class="fw-semibold text-dark small text-truncate">{{ Auth::user()->name }}</span>
+        <div class="d-flex flex-column" style="min-width: 0; flex: 1 1 auto;">
+            <span class="fw-semibold text-dark small" style="overflow-wrap: anywhere; line-height: 1.2;">{{ Auth::user()->name }}</span>
             <span class="text-muted text-truncate" style="font-size: 11px;">@<span>{{ Auth::user()->username }}</span></span>
         </div>
         <span id="sidebarClock" class="text-muted small text-center" style="flex: 0 0 78px; font-size: 11px; white-space: nowrap;" aria-label="Current time"></span>
@@ -245,5 +247,39 @@
         };
         updateClock();
         setInterval(updateClock, 1000);
+    })();
+    (() => {
+        const items = document.getElementById('sidebarNotificationItems');
+        const badge = document.getElementById('notificationBadge');
+        const feedUrl = @json(route('notifications.feed'));
+        if (!items || !badge) return;
+
+        let refreshing = false;
+        const refreshNotifications = async () => {
+            if (refreshing || document.hidden) return;
+            refreshing = true;
+            try {
+                const response = await fetch(feedUrl, {
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) return;
+                const payload = await response.json();
+                items.innerHTML = payload.html || '';
+                const unread = Number(payload.unread_count || 0);
+                badge.textContent = unread;
+                badge.classList.toggle('d-none', unread === 0);
+            } catch (error) {
+                console.warn('Notification refresh failed.', error);
+            } finally {
+                refreshing = false;
+            }
+        };
+
+        setInterval(refreshNotifications, 20000);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) refreshNotifications();
+        });
     })();
 </script>
