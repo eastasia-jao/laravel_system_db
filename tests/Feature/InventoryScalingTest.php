@@ -56,6 +56,29 @@ class InventoryScalingTest extends TestCase
         $this->assertSame(['1', '2', '3', '10', '20'], $response->viewData('catalog')->getCollection()->pluck('item_id')->all());
     }
 
+    public function test_product_list_sorts_item_ids_numerically_before_paginating(): void
+    {
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO', 'is_head_office' => true, 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        foreach (['3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '1', '2'] as $itemId) {
+            Product::create([
+                'store_hub_id' => $hub->id,
+                'item_id' => $itemId,
+                'name' => "Product {$itemId}",
+                'stock' => 10,
+            ]);
+        }
+
+        $response = $this->actingAs($admin)->get(route('products.index', ['hub_id' => $hub->id]));
+
+        $response->assertOk();
+        $this->assertSame(
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+            $response->viewData('products')->getCollection()->pluck('item_id')->all()
+        );
+    }
+
     public function test_shared_catalog_requires_head_office_context_and_only_lists_regular_branches(): void
     {
         $office = StoreHub::create(['name' => 'Head Office', 'code' => 'HO', 'is_head_office' => true, 'status' => 'active']);

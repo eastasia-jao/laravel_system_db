@@ -114,7 +114,7 @@ class ProductController extends Controller
             }
         }
 
-        $products = $query->paginate(10)->appends($request->query());
+        $products = $query->orderByCatalog('item_id')->paginate(10)->appends($request->query());
         $productIds = $products->getCollection()->pluck('id');
         $channelAliases = $displayChannel ? $this->salesChannelAliases($displayChannel) : [];
         $soldByProduct = DB::table('transaction_items')
