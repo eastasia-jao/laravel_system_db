@@ -234,7 +234,7 @@
                 <div class="col-6 col-lg-3"><div class="all-store-stat h-100"><div class="all-store-stat-label">Transactions</div><div class="all-store-stat-value">{{ number_format($allStoreTransactionTotal) }}</div></div></div>
             </div>
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <div><h3 class="mb-1">Sales by store</h3><p class="small text-muted mb-0">Net sales across all channels, ranked by sales volume.</p></div>
+                <div><h3 class="mb-1">Sales by store</h3><p class="small text-muted mb-0">Net sales across Online, Wholesale, and Walk-In, ranked by sales volume.</p></div>
                 <div class="small text-muted"><span class="badge me-1" style="background:#2563eb"> </span>Head Office <span class="badge ms-2 me-1" style="background:#059669"> </span>Branch</div>
             </div>
             @if($storeSalesOverview->isEmpty())

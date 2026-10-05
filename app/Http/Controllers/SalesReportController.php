@@ -19,6 +19,8 @@ use Illuminate\Support\Str;
 
 class SalesReportController extends Controller
 {
+    private const REPORT_CHANNELS = ['online', 'wholesale', 'walk_in'];
+
     public function report(Request $request, int $hub)
     {
         $user = auth()->user();
@@ -43,13 +45,17 @@ class SalesReportController extends Controller
         if (! $hub->is_head_office) {
             $channel = 'walk_in';
         } elseif (in_array($user?->role, ['sales_associate', 'sales_marketing_staff'], true)) {
-            $assignedChannels = auth()->user()->sales_channels ?? [];
+            $assignedChannels = collect(auth()->user()->sales_channels ?? [])
+                ->map(fn ($assignedChannel) => $this->normalizeChannel($assignedChannel))
+                ->filter(fn ($assignedChannel) => in_array($assignedChannel, self::REPORT_CHANNELS, true))
+                ->values()
+                ->all();
 
             if ($channel === 'all') {
                 $channel = $this->normalizeChannel($assignedChannels[0] ?? null);
             }
 
-            if ($channel === 'all' || ! auth()->user()->hasSalesChannel($channel)) {
+            if ($channel === 'all' || ! in_array($channel, $assignedChannels, true)) {
                 abort(403, 'You are not assigned to view this sales channel.');
             }
         }
@@ -77,6 +83,8 @@ class SalesReportController extends Controller
                     ->orWhereRaw('LOWER(channel_type) = ?', [str_replace('_', '-', $channel)])
                     ->orWhereRaw('LOWER(channel_type) = ?', [str_replace('_', ' ', $channel)]);
             });
+        } else {
+            $query->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) IN ('online', 'wholesale', 'walk_in')");
         }
 
         $reportDateColumn = in_array($channel, ['shopee', 'lazada'], true)
@@ -149,7 +157,7 @@ class SalesReportController extends Controller
         $returnRefunds = $returnRecords = InventoryTransaction::query()
             ->where('store_hub_id', $hub->id)
             ->where('type', 'return')
-            ->whereRaw('LOWER(channel) = ?', [$channel])
+            ->when($channel !== 'all', fn ($builder) => $builder->whereRaw('LOWER(channel) = ?', [$channel]), fn ($builder) => $builder->whereRaw("LOWER(REPLACE(REPLACE(channel, '-', '_'), ' ', '_')) IN ('online', 'wholesale', 'walk_in')"))
             ->when($dateFrom, fn ($builder) => $builder->where('occurred_on', '>=', $dateFrom))
             ->when($dateTo, fn ($builder) => $builder->where('occurred_on', '<', Carbon::parse($dateTo)->addDay()->toDateString()))
             ->get();
@@ -191,6 +199,8 @@ class SalesReportController extends Controller
                         ->orWhereRaw('LOWER(channel_type) = ?', [str_replace('_', '-', $channel)])
                         ->orWhereRaw('LOWER(channel_type) = ?', [str_replace('_', ' ', $channel)]);
                 });
+            }, function ($builder) {
+                $builder->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) IN ('online', 'wholesale', 'walk_in')");
             })
             ->when($dateTo, function ($builder) use ($reportDateColumn, $dateTo) {
                 if ($reportDateColumn === 'date_of_arrangement') {
@@ -433,6 +443,7 @@ class SalesReportController extends Controller
             ->sortKeys();
 
         $salesByChannel = SalesTransaction::where('store_hub_id', $hub->id)
+            ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) IN ('online', 'wholesale', 'walk_in')")
             ->when($dateFrom, fn ($builder) => $builder->where('order_date', '>=', $dateFrom))
             ->when($dateTo, fn ($builder) => $builder->where('order_date', '<', Carbon::parse($dateTo)->addDay()->toDateString()))
             ->with('items')

@@ -1,6 +1,19 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $reportableChannels = ['online', 'wholesale', 'walk_in'];
+    $currentUser = auth()->user();
+    $assignedReportChannels = collect($currentUser?->sales_channels ?? [])
+        ->map(fn ($channel) => strtolower(str_replace(['-', ' '], '_', (string) $channel)))
+        ->filter(fn ($channel) => in_array($channel, $reportableChannels, true))
+        ->values();
+    $reportChannel = $hub->is_head_office
+        ? (in_array($currentUser?->role, ['sales_associate', 'sales_marketing_staff'], true)
+            ? $assignedReportChannels->first()
+            : 'all')
+        : 'walk_in';
+@endphp
 <style>
     .hub-page { max-width: 1500px; }
     .hub-hero { position: relative; overflow: hidden; border-radius: 24px; padding: 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 60%, #38bdf8); box-shadow: 0 16px 36px rgba(37, 99, 235, .2); }
@@ -55,6 +68,17 @@
                     <span class="hub-action-label">Record Walk-In</span>
                 </button>
             @endif
+        </div>
+        @endif
+        @endcan
+
+        <!-- Sales Report -->
+        @can('view-sales-reports')
+        @if($reportChannel)
+        <div class="col">
+            <a href="{{ route('hub.report', ['hub' => $hub->id, 'channel' => $reportChannel]) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
+                <span class="hub-action-icon"><i class="fa-solid fa-chart-line"></i></span><span class="hub-action-label">Sales Report</span>
+            </a>
         </div>
         @endif
         @endcan

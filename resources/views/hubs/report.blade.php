@@ -11,6 +11,12 @@
         'wholesale' => 'Wholesale',
         'walk_in' => 'Walk-In',
     ];
+    $reportChannelLabels = [
+        'all' => 'All Channels',
+        'online' => 'Online',
+        'wholesale' => 'Wholesale',
+        'walk_in' => 'Walk-In',
+    ];
     $activeLabel = $channelLabels[$channel] ?? 'All Channels';
     $filterParams = array_filter([
         'date_from' => $dateFrom,
@@ -19,10 +25,10 @@
         'search' => $search ?? null,
     ]);
     $visibleChannels = ! $hub->is_head_office
-        ? ['walk_in' => $channelLabels['walk_in']]
+        ? ['walk_in' => $reportChannelLabels['walk_in']]
         : (in_array(auth()->user()?->role, ['sales_associate', 'sales_marketing_staff'], true)
-        ? collect($channelLabels)->filter(fn ($label, $value) => $value !== 'all' && auth()->user()->hasSalesChannel($value))->all()
-        : $channelLabels);
+        ? collect($reportChannelLabels)->filter(fn ($label, $value) => $value !== 'all' && auth()->user()->hasSalesChannel($value))->all()
+        : $reportChannelLabels);
 @endphp
 
 <style>
@@ -562,7 +568,7 @@
                             </div>
                             <section class="sales-summary-panel mb-4">
                                 <div class="sales-summary-heading">
-                                    <div><h5>Activity overview</h5><p>Combined sales performance across all channels for the selected period</p></div>
+                                    <div><h5>Activity overview</h5><p>Combined sales performance across Online, Wholesale, and Walk-In for the selected period</p></div>
                                     <span class="badge rounded-pill text-bg-success">Verified sales</span>
                                 </div>
                                 <div class="sales-summary-grid">

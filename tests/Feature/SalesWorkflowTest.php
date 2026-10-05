@@ -551,6 +551,7 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('TIKTOK-REPORT-001');
         $this->assertSame(9.0, (float) $tiktokReport->viewData('metrics')['shipping_service_fees']);
         $this->assertSame(150.0, (float) $tiktokReport->viewData('metrics')['actual_platform_payout']);
+        $this->assertFalse($tiktokReport->viewData('salesByChannel')->pluck('channel_type')->contains('tiktok'));
 
         $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
             'store_hub_id' => $hub->id,

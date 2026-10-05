@@ -10,8 +10,10 @@ class BranchSalesReportTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_shopee_and_lazada_reports_show_invoice_and_returned_item_status(): void
+    private function legacy_shopee_and_lazada_reports_show_invoice_and_returned_item_status(): void
     {
+        $this->markTestSkipped('Shopee and Lazada sales reports are intentionally hidden from the sales report area.');
+
         $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-MKT', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
         $product = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'MKT-RET-1', 'name' => 'Returned Marketplace Item', 'stock' => 10, 'status' => 'active']);
@@ -77,6 +79,57 @@ class BranchSalesReportTest extends TestCase
                 ->assertSee('No '.ucfirst($channel).' sales found.')
                 ->assertDontSee($invoice);
         }
+    }
+
+    public function test_marketplace_channels_are_excluded_from_sales_reports(): void
+    {
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-MKT', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $product = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'MKT-RET-1', 'name' => 'Reportable Item', 'stock' => 10, 'status' => 'active']);
+
+        foreach (['shopee', 'lazada', 'tiktok'] as $channel) {
+            $sale = SalesTransaction::create([
+                'store_hub_id' => $hub->id,
+                'channel_type' => $channel,
+                'order_date' => '2026-09-28',
+                'order_number' => strtoupper($channel).'-000001',
+                'customer_name' => ucfirst($channel).' Customer',
+                'status' => 'completed',
+                'grand_total' => 200,
+            ]);
+            $sale->items()->create(['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 200, 'line_total' => 200]);
+        }
+
+        $onlineSale = SalesTransaction::create([
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'online',
+            'order_date' => '2026-09-28',
+            'order_number' => 'ONLINE-REPORTABLE',
+            'customer_name' => 'Online Customer',
+            'status' => 'completed',
+            'grand_total' => 125,
+        ]);
+        $onlineSale->items()->create(['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 125, 'line_total' => 125]);
+
+        $response = $this->actingAs($user)->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'all',
+            'date_from' => '2026-09-28',
+            'date_to' => '2026-09-28',
+        ]));
+
+        $response->assertOk()
+            ->assertSee('All Channels Sales Report')
+            ->assertSee('ONLINE')
+            ->assertSee('125.00')
+            ->assertDontSee('SHOPEE-000001')
+            ->assertDontSee('LAZADA-000001')
+            ->assertDontSee('TIKTOK-000001')
+            ->assertDontSee('channel=shopee', false)
+            ->assertDontSee('channel=lazada', false)
+            ->assertDontSee('channel=tiktok', false);
+        $this->assertSame('all', $response->viewData('channel'));
+        $this->assertSame(['online'], $response->viewData('salesByChannel')->pluck('channel_type')->all());
     }
 
     public function test_branch_report_only_shows_walk_in_orders_with_view_buttons(): void
@@ -191,12 +244,12 @@ class BranchSalesReportTest extends TestCase
         $hub = StoreHub::create(['name' => 'All Channel Hub', 'code' => 'ALL-CHANNELS', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
 
-        foreach (['shopee', 'lazada', 'tiktok', 'online', 'wholesale', 'walk_in'] as $channel) {
+        foreach (['online', 'wholesale', 'walk_in'] as $channel) {
             $sale = SalesTransaction::create([
                 'store_hub_id' => $hub->id,
                 'channel_type' => $channel,
                 'order_date' => '2026-09-28',
-                'date_of_arrangement' => in_array($channel, ['shopee', 'lazada'], true) ? '2026-09-28' : null,
+                'date_of_arrangement' => null,
                 'order_number' => strtoupper($channel).'-NEW',
                 'customer_name' => ucfirst($channel).' First Customer',
                 'contact_number' => '0917000000'.(string) (strlen($channel) % 10),
@@ -215,20 +268,7 @@ class BranchSalesReportTest extends TestCase
                 ->assertSee('>NEW</span>', false)
                 ->assertSee('sales-metric-icon', false);
 
-            if ($channel === 'tiktok') {
-                $response
-                    ->assertSee('Activity overview')
-                    ->assertSee('Operations summary')
-                    ->assertSee('tiktokReportPreviewCanvas', false)
-                    ->assertSee('tiktok-overview-card is-danger', false)
-                    ->assertSee('Approved item replacements');
-            } elseif (in_array($channel, ['shopee', 'lazada'], true)) {
-                $response
-                    ->assertSee('Activity overview')
-                    ->assertSee('marketplaceReportPreviewCanvas', false)
-                    ->assertSee('sales-summary-card is-danger', false)
-                    ->assertSee('sales-summary-icon', false);
-            } elseif ($channel === 'online') {
+            if ($channel === 'online') {
                 $response
                     ->assertSee('Activity overview')
                     ->assertSee('onlineReportPreviewCanvas', false)
