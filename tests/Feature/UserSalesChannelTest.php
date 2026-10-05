@@ -110,4 +110,16 @@ class UserSalesChannelTest extends TestCase
             'email' => 'updated@example.com',
         ]);
     }
+
+    public function test_staff_registration_and_edit_forms_include_email_fields(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(route('users.index'))
+            ->assertOk()
+            ->assertSee('id="create_email"', false)
+            ->assertSee('id="edit_email"', false)
+            ->assertSee("document.getElementById('edit_email').value = data.user.email", false);
+    }
 }

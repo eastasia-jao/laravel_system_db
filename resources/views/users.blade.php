@@ -161,6 +161,10 @@
                                 <label for="create_mobile" class="form-label">Mobile Number</label>
                                 <input id="create_mobile" type="tel" name="mobile_number" class="form-control" value="{{ old('mobile_number') }}" placeholder="09XXXXXXXXX" maxlength="11" required autocomplete="tel">
                             </div>
+                            <div class="col-md-6">
+                                <label for="create_email" class="form-label">Email Address <span class="text-muted fw-normal">(optional)</span></label>
+                                <input id="create_email" type="email" name="email" class="form-control" value="{{ old('email') }}" placeholder="staff@company.com" autocomplete="email">
+                            </div>
                         </div>
                     </div>
 
@@ -274,6 +278,10 @@
                             <div class="col-md-6">
                                 <label for="edit_mobile" class="form-label">Mobile Number</label>
                                 <input type="tel" name="mobile_number" id="edit_mobile" class="form-control" placeholder="09XXXXXXXXX" maxlength="11" required autocomplete="tel">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="edit_email" class="form-label">Email Address <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="email" name="email" id="edit_email" class="form-control" placeholder="staff@company.com" autocomplete="email">
                             </div>
                         </div>
                     </div>
@@ -424,6 +432,7 @@
                     document.getElementById('edit_first_name').value = data.user.first_name;
                     document.getElementById('edit_last_name').value = data.user.last_name;
                     document.getElementById('edit_mobile').value = data.user.mobile_number || '';
+                    document.getElementById('edit_email').value = data.user.email || '';
                     document.getElementById('edit_hub').value = data.user.hub_id;
                     document.getElementById('edit_role').value = data.user.role;
                     filterPrimaryHubOptions('edit');
