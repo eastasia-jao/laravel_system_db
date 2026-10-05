@@ -415,7 +415,9 @@
     "quote": "Creativity takes courage.",
     "author": "Henri Matisse"
   },
-  {"quote": "If I could say it in words there would be no reason to paint.", "author": "Edward Hopper"},
+  {"quote": "If I could say it in words there would be no reason to paint.", 
+  "author": "Edward Hopper"
+  },
   {"quote": "They always say time changes things, but you actually have to change them yourself.", "author": "Andy Warhol"},
   {"quote": "Art washes away from the soul the dust of everyday life.", "author": "Pablo Picasso"},
   {"quote": "Great art picks up where nature ends.", "author": "Marc Chagall"},
