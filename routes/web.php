@@ -11,6 +11,7 @@ use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\StockAllocationController;
 use App\Http\Controllers\InventoryTransactionController;
 use App\Http\Controllers\FullyBookedOrderController;
+use App\Http\Controllers\PrivateApiController;
 use App\Http\Controllers\StaffActivityLogController;
 use App\Http\Controllers\UnitTypeController;
 use App\Http\Controllers\UserController;
@@ -25,6 +26,16 @@ require __DIR__.'/auth.php';
 
 // 2. Protected Routes
 Route::middleware(['auth', 'idle-timeout'])->group(function () {
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/me', [PrivateApiController::class, 'me'])->name('me');
+        Route::get('/products', [PrivateApiController::class, 'products'])->middleware('can:view-products')->name('products.index');
+        Route::get('/products/search', [PrivateApiController::class, 'productSearch'])->middleware('can:view-products')->name('products.search');
+        Route::get('/hubs/{hubId}/products/import-status', [PrivateApiController::class, 'importStatus'])->middleware(['hub.access', 'can:manage-inventory'])->name('hubs.products.import-status');
+        Route::get('/notifications', [PrivateApiController::class, 'notifications'])->name('notifications.index');
+        Route::post('/notifications/read-all', [PrivateApiController::class, 'readAllNotifications'])->name('notifications.read-all');
+        Route::post('/notifications/{notification}/read', [PrivateApiController::class, 'readNotification'])->name('notifications.read');
+    });
+
     Route::get('/product-catalog', [\App\Http\Controllers\CatalogController::class, 'index'])->middleware('can:manage-shared-catalog')->name('catalog.index');
     Route::post('/product-catalog/assign', [\App\Http\Controllers\CatalogController::class, 'assign'])->middleware('can:manage-shared-catalog')->name('catalog.assign');
     Route::get('/sales/order-number-preview', [\App\Http\Controllers\SalesController::class, 'previewOrderNumber'])->middleware('can:access-sales')->name('sales.order-number-preview');
