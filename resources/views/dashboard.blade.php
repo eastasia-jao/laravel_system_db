@@ -177,7 +177,7 @@
                     <div>
                         <div class="sold-items-summary-label">Total sold items</div>
                         <div class="sold-items-summary-value">{{ number_format($soldItemCount) }}</div>
-                        <div class="sold-items-summary-help" title="{{ $scopeName }} · selected range">{{ $scopeName }} · selected range</div>
+                        <div class="sold-items-summary-help" title="{{ $scopeName }}">{{ $scopeName }}</div>
                     </div>
                 </div>
             </div>
