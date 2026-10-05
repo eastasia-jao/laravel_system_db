@@ -108,6 +108,7 @@
 <div class="sales-dashboard">
     @php
         $isInventoryStaffDashboard = auth()->user()?->role === 'inventory_staff';
+        $isMarketingDashboard = auth()->user()?->role === 'sales_marketing_staff';
         $selectedDashboardHub = $hubId ? $dashboardHubs->firstWhere('id', (int) $hubId) : null;
         $isHeadOfficeAdminDashboard = auth()->user()?->role === 'admin' && $selectedDashboardHub?->is_head_office;
         $channelCardColumns = ($isAllStoresAdminDashboard || $isHeadOfficeAdminDashboard) ? '3' : ($channelSummaries->count() > 1 ? '2' : '1');
@@ -134,7 +135,7 @@
     </div>
     <div class="panel filter-panel mb-4">
         <form method="GET" action="{{ route('dashboard') }}" class="row g-3 align-items-end" id="dashboardFilters">
-            <div class="col-12 col-md-5 col-xl-4">
+            <div class="col-12 col-md-5 {{ $isMarketingDashboard ? 'col-xl-3' : 'col-xl-4' }}">
                 @if($dashboardHubs->count() === 1)
                     <span class="form-label filter-title mb-1 d-block">Store location</span>
                     <div class="form-control bg-light">{{ $dashboardHubs->first()->name }}</div>
@@ -167,10 +168,23 @@
                 <label for="dashboardTo" class="form-label filter-title mb-1">To</label>
                 <input type="date" id="dashboardTo" name="to" value="{{ $asOf->toDateString() }}" min="{{ $fromDate->toDateString() }}" class="form-control" onchange="updateDashboardDateBounds(this.form)" required>
             </div>
-            <div class="col-12 col-md-auto filter-actions d-flex gap-2">
+            @if($isMarketingDashboard)
+            <div class="col-12 col-xl-2 d-flex justify-content-xl-end">
+                <div class="sold-items-summary d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-cart-flatbed fs-5 text-primary"></i>
+                    <div>
+                        <div class="sold-items-summary-label">Total sold items</div>
+                        <div class="sold-items-summary-value">{{ number_format($soldItemCount) }}</div>
+                        <div class="sold-items-summary-help" title="{{ $scopeName }}">{{ $scopeName }}</div>
+                    </div>
+                </div>
+            </div>
+            @endif
+            <div class="{{ $isMarketingDashboard ? 'col-12' : 'col-12 col-md-auto' }} filter-actions d-flex gap-2">
                 <button class="btn btn-primary px-3"><i class="fa-solid fa-filter me-1"></i>Apply</button>
                 <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary px-3">Reset</a>
             </div>
+            @unless($isMarketingDashboard)
             <div class="col-12 col-xl d-flex justify-content-xl-end">
                 <div class="sold-items-summary d-flex align-items-center gap-2">
                     <i class="fa-solid fa-cart-flatbed fs-5 text-primary"></i>
@@ -181,6 +195,7 @@
                     </div>
                 </div>
             </div>
+            @endunless
         </form>
     </div>
     
