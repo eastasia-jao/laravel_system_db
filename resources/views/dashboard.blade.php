@@ -203,11 +203,13 @@
     </div>
     
     @unless($isInventoryStaffDashboard)
+    @if($showSalesTotals)
     <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-3 mb-3">
         @foreach($salesTotals as $period => $amount)
             <div class="col"><div class="panel metric h-100" style="--accent: {{ ['Daily'=>'#6366f1','Weekly'=>'#64748b','Monthly'=>'#10b981','Quarterly'=>'#f59e0b','Yearly'=>'#06b6d4'][$period] }}"><div class="metric-label">{{ $period }} Sales</div><div class="metric-value">₱{{ number_format($amount, 2) }}</div></div></div>
         @endforeach
     </div>
+    @endif
     @unless($isTikTokDashboard)
     <p class="small text-muted mb-4">{{ $isBranchDashboard ? 'Branch Walk-In sales from '.$fromDate->format('M d, Y').' through '.$asOf->format('M d, Y').'. Payment totals are grouped by the recorded payment method.' : 'Confirmed sales from '.$fromDate->format('M d, Y').' through '.$asOf->format('M d, Y').'; weeks start Monday. Wholesale uses the collected amount for partial payments, excludes unpaid orders, and counts an order as completed only when it is paid and delivered.' }}</p>
     @endunless

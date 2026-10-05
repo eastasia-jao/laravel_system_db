@@ -92,7 +92,12 @@ class DashboardTest extends TestCase
             ->assertDontSee('Shopee &amp; Lazada Sales')
             ->assertDontSee('marketplace-dual-chart', false)
             ->assertDontSee('Sales Report')
-            ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false);
+            ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false)
+            ->assertSee('Daily Sales')
+            ->assertSee('Weekly Sales')
+            ->assertSee('Monthly Sales')
+            ->assertSee('Quarterly Sales')
+            ->assertSee('Yearly Sales');
         $this->assertEquals(450, $adminDashboard->viewData('salesTotals')['Daily']);
         $this->assertSame(['online', 'wholesale', 'walk_in'], $adminDashboard->viewData('channelSummaries')->pluck('key')->all());
         $this->assertSame(['Online Dashboard Product'], $adminDashboard->viewData('topProducts')->pluck('name')->all());
@@ -104,12 +109,18 @@ class DashboardTest extends TestCase
         $staffDashboard->assertOk()
             ->assertDontSee('Sales channel')
             ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false)
+            ->assertDontSee('Daily Sales')
+            ->assertDontSee('Weekly Sales')
+            ->assertDontSee('Monthly Sales')
+            ->assertDontSee('Quarterly Sales')
+            ->assertDontSee('Yearly Sales')
             ->assertDontSee('Shopee Payment Overview')
             ->assertDontSee('Lazada Payment Overview')
             ->assertDontSee('TikTok Settlement Overview');
         $this->assertSame([], $staffDashboard->viewData('channelSummaries')->all());
         $this->assertSame([], $staffDashboard->viewData('dashboardChannelOptions')->all());
         $this->assertSame([], $staffDashboard->viewData('marketplaceOverviews')->all());
+        $this->assertFalse($staffDashboard->viewData('showSalesTotals'));
         $this->assertEquals(0, $staffDashboard->viewData('salesTotals')['Daily']);
         $this->assertSame([], $staffDashboard->viewData('topProducts')->all());
 
@@ -806,9 +817,15 @@ class DashboardTest extends TestCase
             ->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28']))
             ->assertOk()
             ->assertDontSee('TikTok Settlement Overview')
-            ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false);
+            ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false)
+            ->assertDontSee('Daily Sales')
+            ->assertDontSee('Weekly Sales')
+            ->assertDontSee('Monthly Sales')
+            ->assertDontSee('Quarterly Sales')
+            ->assertDontSee('Yearly Sales');
         $this->assertSame([], $tiktokDashboard->viewData('dashboardChannelOptions')->all());
         $this->assertSame([], $tiktokDashboard->viewData('channelSummaries')->all());
         $this->assertSame([], $tiktokDashboard->viewData('topProducts')->all());
+        $this->assertFalse($tiktokDashboard->viewData('showSalesTotals'));
     }
 }

@@ -102,6 +102,7 @@ class HubController extends Controller
             ? collect($user->sales_channels ?? [])->map(fn ($channel) => strtolower(str_replace(['-', ' '], '_', (string) $channel)))->values()
             : collect();
         $dashboardChannelOptions = $assignedChannels->filter(fn ($channel) => in_array($channel, ['online', 'wholesale', 'walk_in'], true))->values();
+        $showSalesTotals = $user?->role !== 'sales_marketing_staff' || $dashboardChannelOptions->isNotEmpty();
         $dashboardChannel = $filters['channel'] ?? null;
         if ($dashboardChannel && $user?->role === 'sales_marketing_staff' && ! $assignedChannels->contains($dashboardChannel)) {
             abort(403, 'You are not assigned to view this sales channel.');
@@ -444,7 +445,7 @@ class HubController extends Controller
         $isBranchDashboard = $scopedDashboardHubs->count() === 1
             && ! $scopedDashboardHubs->first()->is_head_office;
 
-        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'alerts', 'alertCount', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
+        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'showSalesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'alerts', 'alertCount', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
     }
 
     public function destroy($id)
