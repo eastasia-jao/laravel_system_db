@@ -221,10 +221,12 @@
 
     <div class="pt-3 border-top d-flex align-items-center gap-2">
         <div class="d-flex flex-column" style="min-width: 0; flex: 1 1 auto;">
-            <span class="fw-semibold text-dark small" style="overflow-wrap: anywhere; line-height: 1.2;">{{ Auth::user()->name }}</span>
-            <span class="text-muted text-truncate" style="font-size: 11px;">@<span>{{ Auth::user()->username }}</span></span>
+            <span class="fw-semibold text-dark" style="font-size: .78rem; line-height: 1.2; white-space: nowrap;">{{ Auth::user()->name }}</span>
+            <div class="d-flex align-items-center justify-content-between gap-2 mt-1">
+                <span class="text-muted text-truncate" style="font-size: 11px; min-width: 0;">@<span>{{ Auth::user()->username }}</span></span>
+                <span id="sidebarClock" class="text-muted text-end" style="flex: 0 0 78px; font-size: 11px; white-space: nowrap;" aria-label="Current time"></span>
+            </div>
         </div>
-        <span id="sidebarClock" class="text-muted small text-center" style="flex: 0 0 78px; font-size: 11px; white-space: nowrap;" aria-label="Current time"></span>
         <form method="POST" action="{{ route('logout') }}" class="m-0 flex-shrink-0">
             @csrf
             <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle p-2 shadow-2" title="Log Out">
