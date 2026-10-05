@@ -874,7 +874,7 @@ class SalesController extends Controller
 
         $customers = SalesTransaction::query()
             ->where('store_hub_id', $hubId)
-            ->whereRaw('LOWER(REPLACE(REPLACE(channel_type, "-", "_"), " ", "_")) = ?', [$channel])
+            ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) = ?", [$channel])
             ->whereNotNull('customer_name')
             ->when($search !== '', fn ($query) => $query->where('customer_name', 'like', "%{$search}%"))
             ->orderByDesc('order_date')
