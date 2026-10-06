@@ -346,7 +346,7 @@ class BranchTransferTest extends TestCase
             ->assertViewHas('transferSourceHubs', fn ($hubs) => $hubs->modelKeys() === [$source->id]);
     }
 
-    public function test_only_sales_associates_can_submit_branch_to_branch_transfers(): void
+    public function test_admin_and_inventory_staff_can_transfer_directly_without_approval(): void
     {
         [$source, $target, $product] = $this->fixtures();
         foreach (['admin', 'inventory_staff'] as $role) {
@@ -356,21 +356,26 @@ class BranchTransferTest extends TestCase
                 ->get(route('inventory-transactions.branch-transfer.create', ['hub_id' => $source->id]))
                 ->assertOk()
                 ->assertSee('Stock Transfer (BRANCH to BRANCH)')
+                ->assertSee('Transfer Now')
                 ->assertDontSee('Submit for Approval')
                 ->assertSee('Cancel');
 
             $this->post(route('inventory-transactions.branch-transfer.store'), $this->payload($source, $target, $product))
-                ->assertForbidden();
+                ->assertSessionHasNoErrors()
+                ->assertRedirect(route('inventory-transactions.index', [
+                    'hub_id' => $source->id,
+                    'stock_transfer_saved' => 1,
+                    'reference' => \App\Models\InventoryTransaction::latest('id')->value('reference'),
+                ]));
 
-            $this->post(route('inventory-transactions.store'), $this->payload($source, $target, $product))
-                ->assertForbidden();
-
-            $this->assertSame(10, $product->fresh()->stock);
-            $this->assertDatabaseMissing('inventory_transactions', [
+            $this->assertSame(7, $product->fresh()->stock);
+            $this->assertDatabaseHas('inventory_transactions', [
                 'type' => 'branch_transfer',
                 'source_hub_id' => $source->id,
                 'target_hub_id' => $target->id,
                 'created_by' => $staff->id,
+                'status' => 'approved',
+                'reviewed_by' => $staff->id,
             ]);
 
             $this->get(route('inventory-transactions.index'))
@@ -381,6 +386,13 @@ class BranchTransferTest extends TestCase
             $this->get(route('hub.dashboard', $source->id))
                 ->assertOk()
                 ->assertDontSee('href="'.route('inventory-transactions.branch-transfer.create').'"', false);
+
+            $source->refresh();
+            $target->refresh();
+            $product->refresh();
+            $product->update(['stock' => 10]);
+            $targetProduct = \App\Models\Product::where('store_hub_id', $target->id)->first();
+            $targetProduct?->update(['stock' => 2]);
         }
     }
 

@@ -260,7 +260,10 @@ class InventoryTransactionController extends Controller
             'productReplacement.originalProduct', 'productReplacement.replacementProduct',
             'productReplacement.reviewer', 'productReplacement.transaction', 'reviewer',
         ])
-            ->where('type', '!=', 'branch_transfer')
+            ->where(function ($query) {
+                $query->where('type', '!=', 'branch_transfer')
+                    ->orWhere('status', 'approved');
+            })
             ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
             ->when($request->filled('type') && $user?->role !== 'sales_associate', function ($query) use ($request) {
                 if ($request->input('type') === 'branch_transfer') {
@@ -668,8 +671,11 @@ class InventoryTransactionController extends Controller
 
     private function storeStockTransfer(Request $request)
     {
+        $user = auth()->user();
+        $isImmediateBranchTransfer = $request->input('type') === 'branch_transfer'
+            && $user?->can('manage-inventory');
         if ($request->input('type') === 'branch_transfer') {
-            abort_unless(auth()->user()?->can('submit-branch-transfers'), 403);
+            abort_unless($isImmediateBranchTransfer || $user?->can('submit-branch-transfers'), 403);
         }
         if ($request->input('type') === 'stock_transfer' && ! $request->exists('transfer_direction')) {
             $request->merge(['transfer_direction' => 'ho_to_branch']);
@@ -698,13 +704,12 @@ class InventoryTransactionController extends Controller
             ? $submittedReference
             : $this->newTransferReference($sourceHub->code);
 
-        $user = auth()->user();
         if ($user?->role !== 'admin' && $user?->role !== 'inventory_staff' && ! $user?->canAccessHub((int) $validated['store_hub_id'])) {
             abort(403, 'Unauthorized action for this store hub.');
         }
 
         $transferBatchId = $validated['type'] === 'branch_transfer' ? (string) Str::uuid() : null;
-        DB::transaction(function () use ($validated, $transferBatchId) {
+        DB::transaction(function () use ($validated, $transferBatchId, $isImmediateBranchTransfer) {
             if ($validated['type'] === 'stock_transfer') {
                 $sourceIsHeadOffice = $validated['transfer_direction'] === 'ho_to_branch';
                 if (! StoreHub::whereKey($validated['store_hub_id'])->where('status', 'active')->where('is_head_office', $sourceIsHeadOffice)->exists()) {
@@ -761,15 +766,18 @@ class InventoryTransactionController extends Controller
                     ]);
                 }
 
-                if ($validated['type'] === 'stock_transfer') {
+                if ($validated['type'] === 'stock_transfer' || $isImmediateBranchTransfer) {
                     $product->decrement('stock', $quantity);
                     $targetProduct->increment('stock', $quantity);
                 }
+                $isApproved = $validated['type'] === 'stock_transfer' || $isImmediateBranchTransfer;
                 InventoryTransaction::create([
                     'type' => $validated['type'],
                     'reference' => $validated['reference'] ?? null,
                     'transfer_batch_id' => $transferBatchId,
-                    'status' => $validated['type'] === 'branch_transfer' ? 'pending' : 'approved',
+                    'status' => $isApproved ? 'approved' : 'pending',
+                    'reviewed_by' => $isImmediateBranchTransfer ? auth()->id() : null,
+                    'reviewed_at' => $isImmediateBranchTransfer ? now() : null,
                     'store_hub_id' => $product->store_hub_id,
                     'product_id' => $product->id,
                     'source_hub_id' => $validated['store_hub_id'],
@@ -783,12 +791,22 @@ class InventoryTransactionController extends Controller
         });
 
         if ($validated['type'] === 'branch_transfer') {
-            $this->notifyBranchTransferReview($validated, $transferBatchId);
+            if (! $isImmediateBranchTransfer) {
+                $this->notifyBranchTransferReview($validated, $transferBatchId);
+            }
         } else {
             $this->notifyInventoryStaff($validated);
         }
 
         if ($validated['type'] === 'branch_transfer') {
+            if ($isImmediateBranchTransfer) {
+                return redirect()->route('inventory-transactions.index', [
+                    'hub_id' => $validated['store_hub_id'],
+                    'stock_transfer_saved' => 1,
+                    'reference' => $validated['reference'],
+                ]);
+            }
+
             $redirectRoute = auth()->user()?->role === 'sales_associate'
                 ? route('hub.dashboard', [
                     'id' => $validated['store_hub_id'],

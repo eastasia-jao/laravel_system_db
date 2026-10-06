@@ -163,8 +163,8 @@
             <div class="col-md-8"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
         </div>
         <div class="mt-4">
-            @if(! $branchTransfer || auth()->user()?->can('submit-branch-transfers'))
-                <button class="btn btn-primary">{{ $branchTransfer ? 'Submit for Approval' : 'Save Transfer' }}</button>
+            @if(! $branchTransfer || auth()->user()?->can('submit-branch-transfers') || auth()->user()?->can('manage-inventory'))
+                <button class="btn btn-primary">{{ $branchTransfer ? (auth()->user()?->can('manage-inventory') ? 'Transfer Now' : 'Submit for Approval') : 'Save Transfer' }}</button>
             @endif
             <a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a>
         </div>

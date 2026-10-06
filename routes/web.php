@@ -230,7 +230,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         ->defaults('type', 'branch_transfer')
         ->name('inventory-transactions.branch-transfer.create');
     Route::post('/inventory-transactions/branch-transfer', [InventoryTransactionController::class, 'store'])
-        ->middleware('can:submit-branch-transfers')
+        ->middleware('can:view-inventory')
         ->name('inventory-transactions.branch-transfer.store');
 
     Route::post('/inventory-transactions/branch-transfer/{batch}/review', [InventoryTransactionController::class, 'reviewBranchTransfer'])
