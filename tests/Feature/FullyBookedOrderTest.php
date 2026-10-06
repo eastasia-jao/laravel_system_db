@@ -162,13 +162,17 @@ class FullyBookedOrderTest extends TestCase
             ]);
         }
 
-        $this->actingAs($admin)
+        $transactionLogsResponse = $this->actingAs($admin)
             ->get(route('inventory-transactions.index', ['hub_id' => $branch->id]))
             ->assertOk()
             ->assertSee('Transaction Logs')
-            ->assertSee('aria-label="2 inventory item(s) awaiting verification"', false)
             ->assertSee('aria-label="1 inventory item(s) awaiting verification"', false)
-            ->assertSee('BRANCH STORE');
+            ->assertSee('BRANCH STORE')
+            ->getContent();
+        preg_match('~<a href="[^"]*inventory-transactions[^"]*"[^>]*>(.*?)</a>~s', $transactionLogsResponse, $transactionLogsLink);
+        $this->assertNotEmpty($transactionLogsLink);
+        $this->assertStringNotContainsString('bg-danger', $transactionLogsLink[1]);
+        $this->assertStringContainsString('aria-label="2 inventory item(s) awaiting verification"', $transactionLogsResponse);
 
         $this->get(route('hub.dashboard', $branch->id))
             ->assertOk()

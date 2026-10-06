@@ -150,9 +150,6 @@
         <li>
             <a href="{{ route('inventory-transactions.index', $sidebarContextHubId ? ['hub_id' => $sidebarContextHubId] : []) }}" class="nav-link {{ request()->routeIs('inventory-transactions.index') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-clipboard-list"></i> Transaction Logs
-                @if($sidebarPendingVerificationCount > 0)
-                    <span class="badge rounded-pill bg-danger ms-auto" aria-label="{{ $sidebarPendingVerificationCount }} inventory item(s) awaiting verification">{{ $sidebarPendingVerificationCount }}</span>
-                @endif
             </a>
         </li>
         @endcan
