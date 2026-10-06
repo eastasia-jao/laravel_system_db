@@ -7,6 +7,7 @@ use App\Models\ProductStockAllocation;
 use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Services\StockAllocationSales;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -71,7 +72,7 @@ class StockAllocationController extends Controller
             ->orderByCatalog('item_id');
 
         $products = $query->paginate(25)->withQueryString();
-        $soldByProduct = $this->soldByProduct(
+        $soldByProduct = app(StockAllocationSales::class)->soldByProduct(
             $products->getCollection()->pluck('id'),
             $soldFrom,
             $soldTo
@@ -188,71 +189,4 @@ class StockAllocationController extends Controller
             ->with('success', 'Stock allocations updated successfully.');
     }
 
-    private function soldByProduct($productIds, ?string $soldFrom = null, ?string $soldTo = null)
-    {
-        $sales = DB::table('transaction_items')
-            ->join('sales_transactions', 'sales_transactions.id', '=', 'transaction_items.transaction_id')
-            ->whereIn('transaction_items.product_id', $productIds)
-            ->when($soldFrom && $soldTo, fn ($query) => $query
-                ->whereDate('sales_transactions.order_date', '>=', $soldFrom)
-                ->whereDate('sales_transactions.order_date', '<=', $soldTo))
-            ->where(function ($query) {
-                $query->whereNull('sales_transactions.status')
-                    ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
-            })
-            ->select('transaction_items.product_id', 'sales_transactions.channel_type', DB::raw('SUM(transaction_items.quantity) as quantity'))
-            ->groupBy('transaction_items.product_id', 'sales_transactions.channel_type')
-            ->get()
-            ->groupBy('product_id')
-            ->map(function ($rows) {
-                return $rows->reduce(function ($totals, $row) {
-                    $channel = $this->normalizeChannel($row->channel_type);
-                    $totals[$channel] = ($totals[$channel] ?? 0) + (int) $row->quantity;
-
-                    return $totals;
-                }, collect());
-            });
-
-        $movements = DB::table('inventory_transactions')
-            ->whereIn('product_id', $productIds)
-            ->when($soldFrom && $soldTo, fn ($query) => $query
-                ->whereDate('occurred_on', '>=', $soldFrom)
-                ->whereDate('occurred_on', '<=', $soldTo))
-            ->whereIn('type', ['return', 'replacement_return', 'replacement_out'])
-            ->whereNotNull('channel')
-            ->select('product_id', 'channel', 'type')
-            ->selectRaw('SUM(quantity) AS quantity')
-            ->groupBy('product_id', 'channel', 'type')
-            ->get();
-
-        foreach ($movements as $movement) {
-            $productTotals = $sales->get($movement->product_id, collect());
-            $channel = $this->normalizeChannel($movement->channel);
-            $quantity = (int) $movement->quantity;
-            $current = (int) $productTotals->get($channel, 0);
-
-            $productTotals[$channel] = match ($movement->type) {
-                'replacement_out' => $current + $quantity,
-                default => max(0, $current - $quantity),
-            };
-            $sales->put($movement->product_id, $productTotals);
-        }
-
-        return $sales;
-    }
-
-    private function normalizeChannel(?string $channel): string
-    {
-        $normalized = str_replace(['-', ' '], '_', strtolower(trim((string) $channel)));
-
-        return match ($normalized) {
-            'online_order', 'online_sales', 'event', 'fully_booked' => 'online',
-            'walk_in', 'walkin' => 'walk_in',
-            'wholesale' => 'wholesale',
-            'shopee' => 'shopee',
-            'lazada' => 'lazada',
-            'tiktok' => 'tiktok',
-            default => 'online',
-        };
-    }
 }

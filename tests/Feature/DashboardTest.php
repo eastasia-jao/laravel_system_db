@@ -130,6 +130,63 @@ class DashboardTest extends TestCase
             'channel' => 'shopee',
         ]))->assertSessionHasErrors('channel');
     }
+
+    public function test_inventory_staff_sold_items_and_top_products_use_all_stock_allocation_channels(): void
+    {
+        $hub = StoreHub::create(['name' => 'Inventory Main Office', 'code' => 'INV-MAIN', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
+        $onlineProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'INV-ONLINE', 'name' => 'Online Item', 'stock' => 10, 'status' => 'active']);
+        $marketplaceProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'INV-MARKET', 'name' => 'Marketplace Item', 'stock' => 10, 'status' => 'active']);
+        ProductStockAllocation::create(['product_id' => $onlineProduct->id, 'online' => 5]);
+        ProductStockAllocation::create(['product_id' => $marketplaceProduct->id, 'tiktok' => 6, 'shopee' => 4]);
+
+        foreach ([
+            [$onlineProduct, 'online', 3, 'INV-ONLINE-1'],
+            [$marketplaceProduct, 'tiktok', 6, 'INV-TIKTOK-1'],
+            [$marketplaceProduct, 'shopee', 4, 'INV-SHOPEE-1'],
+        ] as [$product, $channel, $quantity, $orderNumber]) {
+            $sale = SalesTransaction::create([
+                'user_id' => $admin->id,
+                'store_hub_id' => $hub->id,
+                'channel_type' => $channel,
+                'customer_name' => 'Inventory Customer',
+                'order_number' => $orderNumber,
+                'order_date' => '2026-10-03',
+                'grand_total' => $quantity * 100,
+                'status' => 'completed',
+            ]);
+            $sale->items()->create([
+                'product_id' => $product->id,
+                'quantity' => $quantity,
+                'unit_price' => 100,
+                'line_total' => $quantity * 100,
+            ]);
+        }
+
+        \App\Models\InventoryTransaction::create([
+            'type' => 'return',
+            'store_hub_id' => $hub->id,
+            'product_id' => $marketplaceProduct->id,
+            'channel' => 'tiktok',
+            'quantity' => 1,
+            'occurred_on' => '2026-10-04',
+            'created_by' => $inventoryStaff->id,
+        ]);
+
+        $response = $this->actingAs($inventoryStaff)->get(route('dashboard', [
+            'hub_id' => $hub->id,
+            'from' => '2026-10-01',
+            'to' => '2026-10-06',
+        ]));
+
+        $response->assertOk();
+        $this->assertSame(12, $response->viewData('soldItemCount'));
+        $this->assertSame([
+            ['name' => 'Marketplace Item', 'units' => 9],
+            ['name' => 'Online Item', 'units' => 3],
+        ], $response->viewData('topProducts')->all());
+    }
     public function test_sales_channel_filter_is_locked_for_one_channel_and_selectable_for_multiple(): void
     {
         $hub = StoreHub::create([

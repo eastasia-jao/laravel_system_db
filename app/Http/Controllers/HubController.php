@@ -8,6 +8,7 @@ use App\Models\ProductFileRequest;
 use App\Models\ProductReplacement;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
+use App\Services\StockAllocationSales;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
@@ -406,6 +407,25 @@ class HubController extends Controller
                 && ($sale->sales_after_transaction_fee === null || $sale->isTikTokFullyReturned()))
             ->values();
         $soldItemCount = (int) $buildSoldUnits($yearToDateSales)->sum();
+        if ($user?->role === 'inventory_staff') {
+            $productIds = Product::whereIn('store_hub_id', $scopeIds)->pluck('id');
+            $allocationSales = app(StockAllocationSales::class);
+            $rangeUnits = $allocationSales->soldByProduct($productIds, $fromDate->toDateString(), $asOf->toDateString())
+                ->map(fn ($channelUnits) => (int) $channelUnits->sum());
+            $topUnits = $rangeUnits->sortDesc()->take(10);
+            $topNames = Product::whereIn('id', $topUnits->keys())->get()->keyBy('id');
+            $topProducts = $topUnits->map(fn ($units, $productId) => [
+                'name' => $topNames->get($productId)?->name ?? 'Unavailable product',
+                'units' => (int) $units,
+            ])->values();
+
+            $yearToDateUnits = $allocationSales->soldByProduct(
+                $productIds,
+                $asOf->copy()->startOfYear()->toDateString(),
+                $asOf->toDateString()
+            );
+            $soldItemCount = (int) $yearToDateUnits->sum(fn ($channelUnits) => $channelUnits->sum());
+        }
         $slowProducts = Product::whereIn('store_hub_id', $scopeIds)
             ->where('status', 'active')
             ->where('stock', '>', 0)
