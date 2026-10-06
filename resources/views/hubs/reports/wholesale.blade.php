@@ -350,10 +350,7 @@
     <div class="sales-report-print-only" id="wholesaleReportImageSource">
             @php
                 $kpiOrderValue = $allTransactions->sum(fn ($transaction) => (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total')));
-                $kpiCollected = $allTransactions->sum(fn ($transaction) => min(
-                    (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total')),
-                    max(0, (float) ($transaction->amount_paid ?? 0))
-                ));
+                $kpiCollected = $wholesaleCollectedSales;
                 $kpiOutstanding = max(0, $kpiOrderValue - $kpiCollected);
                 $kpiCollectionRate = $kpiOrderValue > 0 ? ($kpiCollected / $kpiOrderValue) * 100 : 0;
                 $kpiPaidOrders = $allTransactions->where('payment_status', 'paid')->count();
@@ -377,9 +374,8 @@
                 </div>
                 <div class="sales-summary-grid">
                 @foreach([
-                    ['label' => 'Gross Sales', 'value' => $metrics['gross_sales'], 'class' => 'text-primary', 'accent' => '#2563eb', 'icon' => 'fa-chart-line'],
                     ['label' => 'Discounts', 'value' => $metrics['discounts'], 'class' => 'text-danger', 'accent' => '#dc2626', 'icon' => 'fa-tag'],
-                    ['label' => 'Collected', 'value' => $kpiCollected, 'class' => 'text-success', 'accent' => '#059669', 'icon' => 'fa-credit-card'],
+                    ['label' => 'Total Sales', 'value' => $kpiCollected, 'class' => 'text-success', 'accent' => '#059669', 'icon' => 'fa-credit-card'],
                     ['label' => 'Outstanding', 'value' => $kpiOutstanding, 'class' => 'text-warning-emphasis', 'accent' => '#d97706', 'icon' => 'fa-hourglass-half'],
                     ['label' => 'Refund Cost', 'value' => $metrics['refund_total'], 'class' => 'text-danger', 'accent' => '#dc2626', 'icon' => 'fa-money-bill-transfer'],
                     ['label' => 'Total Customers', 'value' => $customerMetrics['total'], 'class' => 'text-primary', 'accent' => '#2563eb', 'money' => false, 'icon' => 'fa-users'],

@@ -232,6 +232,17 @@ class SalesReportController extends Controller
             ->reject(fn ($return) => $matchedReturnIds->contains($return->id))
             ->sum('refund_amount');
         $totalSales = $allTransactions->sum($currentNet);
+        $wholesaleCollectedSales = $channel === 'wholesale'
+            ? $allTransactions->sum(function ($transaction) {
+                if (! in_array(strtolower((string) $transaction->payment_status), ['paid', 'partial'], true)) {
+                    return 0;
+                }
+
+                $orderTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
+
+                return min($orderTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+            })
+            : 0;
         $totalTransactions = $allTransactions->count();
         $totalPurchasedItems = $allTransactions->sum(fn ($transaction) => $transaction->items->sum(
             fn ($item) => max(0, (int) $item->quantity - $item->returnedQuantity())
@@ -512,6 +523,7 @@ class SalesReportController extends Controller
             'transactions',
             'allTransactions',
             'totalSales',
+            'wholesaleCollectedSales',
             'totalTransactions',
             'totalPurchasedItems',
             'metrics',

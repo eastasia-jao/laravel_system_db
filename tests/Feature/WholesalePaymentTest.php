@@ -120,8 +120,8 @@ class WholesalePaymentTest extends TestCase
             ->assertSee('Replacement Item')
             ->assertSee('Replaced/returned:')
             ->assertSee('APPROVED')
-            ->assertSee('Value of items kept after returns and approved exchanges, before discounts.')
-            ->assertSee('Order value after recorded return and refund deductions.');
+            ->assertSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
+            ->assertDontSee('Gross Sales');
     }
 
     public function test_wholesale_replacement_can_be_requested_after_inventory_recorded_the_return(): void
@@ -287,5 +287,41 @@ class WholesalePaymentTest extends TestCase
             ->assertOk()->assertSee('OPEN-ORDER')->assertDontSee('COMPLETED-ORDER');
         $this->get(route('hub.report', $base + ['transaction_state' => 'completed']))
             ->assertOk()->assertSee('COMPLETED-ORDER')->assertDontSee('OPEN-ORDER');
+    }
+
+    public function test_wholesale_total_sales_shows_collected_paid_and_partial_amounts_only(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-COLLECT', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+
+        foreach ([
+            ['PAID-ORDER', 'paid', 100, 100],
+            ['PARTIAL-ORDER', 'partial', 200, 50],
+            ['UNPAID-ORDER', 'unpaid', 300, 25],
+        ] as [$orderNumber, $paymentStatus, $orderTotal, $amountPaid]) {
+            SalesTransaction::create([
+                'user_id' => $user->id,
+                'store_hub_id' => $hub->id,
+                'channel_type' => 'wholesale',
+                'customer_name' => 'Customer',
+                'order_number' => $orderNumber,
+                'order_date' => '2026-10-06',
+                'grand_total' => $orderTotal,
+                'amount_paid' => $amountPaid,
+                'status' => 'confirmed',
+                'payment_status' => $paymentStatus,
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'wholesale',
+        ]));
+
+        $response->assertOk()
+            ->assertSee('Total Sales')
+            ->assertSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
+            ->assertDontSee('Gross Sales');
+        $this->assertSame(150.0, $response->viewData('wholesaleCollectedSales'));
     }
 }
