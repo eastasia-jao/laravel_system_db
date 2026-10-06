@@ -1,3 +1,5 @@
+let fullyBookedSearchPanelIndex = 0;
+
 window.exportFullyBookedCsv = (items, filename) => {
     if (!items.length) {
         window.AppAlert?.show('Select at least one product before exporting.', 'warning');
@@ -32,6 +34,7 @@ window.exportFullyBookedCsv = (items, filename) => {
 document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
     const rows = form.querySelector('.fully-booked-pullout-rows');
     const endpoint = form.dataset.endpoint;
+    const resultPanels = new WeakMap();
     let nextIndex = 1;
 
     const updateRemoveButtons = () => {
@@ -45,6 +48,10 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
         const input = row.querySelector('.product-search');
         const hidden = row.querySelector('.product-id');
         const results = row.querySelector('.product-search-results');
+        resultPanels.set(row, results);
+        results.id = `fully-booked-search-results-${++fullyBookedSearchPanelIndex}`;
+        input.setAttribute('aria-controls', results.id);
+        document.body.append(results);
         let timer;
         let controller;
         let requestVersion = 0;
@@ -187,7 +194,9 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
     rows.addEventListener('click', event => {
         const button = event.target.closest('.remove-fully-booked-row');
         if (button && !button.disabled) {
-            button.closest('.fully-booked-pullout-row').remove();
+            const row = button.closest('.fully-booked-pullout-row');
+            resultPanels.get(row)?.remove();
+            row.remove();
             updateRemoveButtons();
         }
     });

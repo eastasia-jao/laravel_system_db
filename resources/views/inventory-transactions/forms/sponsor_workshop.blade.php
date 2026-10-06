@@ -26,7 +26,7 @@
     .transaction-form-card { border: 1px solid #e2e8f0 !important; }
     .fully-booked-review-card { border: 1px solid #e2e8f0; }
     .fully-booked-request-remarks { max-width: 34rem; }
-    .fully-booked-product-search .product-search-results {
+    .product-search-results {
         position: fixed;
         z-index: 1080;
         max-height: 260px;
