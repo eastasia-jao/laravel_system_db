@@ -131,7 +131,6 @@ class InventoryTransactionController extends Controller
             ->when($validated['date'] ?? null, fn ($query, $date) => $query
                 ->where('order_date', '>=', $date)
                 ->where('order_date', '<', Carbon::parse($date)->addDay()->toDateString()))
-            ->when($normalizedChannel === 'tiktok', fn ($query) => $query->whereNotNull('sales_after_transaction_fee'))
             ->with(['items.product', 'items.inventoryReturns', 'replacements.replacementProduct', 'replacements.inventoryReturns']);
 
         if ($request->filled('transaction_id')) {

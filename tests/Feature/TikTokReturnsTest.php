@@ -115,7 +115,7 @@ class TikTokReturnsTest extends TestCase
         $this->assertEquals(0, $report->viewData('metrics')['actual_platform_payout']);
     }
 
-    public function test_return_items_hide_tiktok_orders_until_sales_total_is_entered(): void
+    public function test_return_items_show_tiktok_orders_even_before_sales_total_is_entered(): void
     {
         [$hub, $product, $sale] = $this->order();
         $route = route('inventory-transactions.return.sales');
@@ -129,9 +129,10 @@ class TikTokReturnsTest extends TestCase
 
         $this->getJson($route.'?'.http_build_query($base))
             ->assertOk()
-            ->assertJsonCount(0, 'customers');
+            ->assertJsonPath('customers.0', 'Customer');
         $this->getJson($route.'?'.http_build_query([...$base, 'transaction_id' => $sale->id]))
-            ->assertNotFound();
+            ->assertOk()
+            ->assertJsonPath('transaction.customer_name', 'Customer');
 
         $sale->update(['sales_after_transaction_fee' => 450]);
 
