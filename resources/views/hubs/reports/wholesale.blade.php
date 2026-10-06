@@ -516,6 +516,8 @@
             if (paymentSelect.value === 'partial') {
                 const remaining = Math.max(0, total - paid);
                 help.textContent = `Remaining balance after this payment: ₱${remaining.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
+            } else if (paymentSelect.value === 'paid' && amountInput.readOnly) {
+                help.textContent = 'Paid selected. Amount is set to the full order total.';
             } else if (paymentSelect.value === 'unpaid') {
                 help.textContent = `For Unpaid, the amount paid must be ₱0.00.`;
             }
@@ -525,7 +527,22 @@
 
         document.addEventListener('change', event => {
             if (event.target.matches('.status-update-form [name="payment_status"]')) {
-                updatePaymentAmountState(event.target.form);
+                const form = event.target.form;
+                const amountInput = form.querySelector('.amount-paid-input');
+                if (amountInput && !amountInput.disabled) {
+                    if (event.target.value === 'paid') {
+                        if (!amountInput.readOnly) {
+                            amountInput.dataset.previousPartialAmount = amountInput.value;
+                        }
+                        amountInput.value = Number(amountInput.dataset.orderTotal || 0).toFixed(2);
+                        amountInput.readOnly = true;
+                    } else if (amountInput.readOnly) {
+                        amountInput.readOnly = false;
+                        amountInput.value = amountInput.dataset.previousPartialAmount || '';
+                        delete amountInput.dataset.previousPartialAmount;
+                    }
+                }
+                updatePaymentAmountState(form);
             }
         });
         document.addEventListener('input', event => {

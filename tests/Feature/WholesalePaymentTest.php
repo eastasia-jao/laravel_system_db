@@ -33,6 +33,8 @@ class WholesalePaymentTest extends TestCase
         @$document->loadHTML($html);
         $xpath = new \DOMXPath($document);
         $this->assertSame(1, $xpath->query('//form[contains(@class,"status-update-form")]//select[@name="payment_status" and not(@disabled)]')->length);
+        $this->assertSame('547.2', $xpath->query('//form[contains(@class,"status-update-form")]//input[@name="amount_paid"]')->item(0)->getAttribute('max'));
+        $this->assertStringContainsString('amountInput.value = Number(amountInput.dataset.orderTotal || 0).toFixed(2);', $html);
         $this->assertStringContainsString('Preview / Save PNG', $html);
         $this->assertStringNotContainsString('Print / Save PDF', $html);
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
@@ -48,6 +50,12 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame('partial', $sale->fresh()->payment_status);
         $this->assertSame('47.20', $sale->fresh()->amount_paid);
         $this->get($report)->assertOk()->assertSee('PARTIAL')->assertViewHas('totalSales', 47.20);
+
+        $this->from($report)->patch(route('sales.status.update', $sale->id), [
+            'payment_status' => 'paid', 'amount_paid' => '47.20', 'delivery_status' => 'pending',
+        ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->assertSame('paid', $sale->fresh()->payment_status);
+        $this->assertSame('547.20', $sale->fresh()->amount_paid);
     }
 
     public function test_wholesale_item_can_be_replaced_and_inventory_is_moved_once(): void
