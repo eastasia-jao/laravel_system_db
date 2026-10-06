@@ -225,13 +225,13 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         ->middleware('can:manage-branch-transfers')
         ->name('inventory-transactions.product-worksheet');
 
-    Route::middleware(['can:submit-branch-transfers'])->group(function () {
-        Route::get('/inventory-transactions/branch-transfer/create', [InventoryTransactionController::class, 'create'])
-            ->defaults('type', 'branch_transfer')
-            ->name('inventory-transactions.branch-transfer.create');
-        Route::post('/inventory-transactions/branch-transfer', [InventoryTransactionController::class, 'store'])
-            ->name('inventory-transactions.branch-transfer.store');
-    });
+    Route::get('/inventory-transactions/branch-transfer/create', [InventoryTransactionController::class, 'create'])
+        ->middleware('can:view-inventory')
+        ->defaults('type', 'branch_transfer')
+        ->name('inventory-transactions.branch-transfer.create');
+    Route::post('/inventory-transactions/branch-transfer', [InventoryTransactionController::class, 'store'])
+        ->middleware('can:submit-branch-transfers')
+        ->name('inventory-transactions.branch-transfer.store');
 
     Route::post('/inventory-transactions/branch-transfer/{batch}/review', [InventoryTransactionController::class, 'reviewBranchTransfer'])
         ->middleware('can:review-branch-transfers')

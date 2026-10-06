@@ -466,6 +466,12 @@ class InventoryTransactionController extends Controller
         if ($type === 'sponsor_workshop' && $user?->role === 'sales_marketing_staff') {
             abort_unless($user->hasSalesChannel('fully_booked'), 403);
         }
+        if ($type === 'branch_transfer') {
+            abort_unless(
+                $user?->can('manage-inventory') || $user?->can('submit-branch-transfers'),
+                403
+            );
+        }
         $hubId = $request->integer('hub_id') ?: $user?->store_hub_id;
         if ($type === 'return' && ! in_array($user?->role, ['admin', 'inventory_staff'], true)) {
             abort_unless(
@@ -662,6 +668,9 @@ class InventoryTransactionController extends Controller
 
     private function storeStockTransfer(Request $request)
     {
+        if ($request->input('type') === 'branch_transfer') {
+            abort_unless(auth()->user()?->can('submit-branch-transfers'), 403);
+        }
         if ($request->input('type') === 'stock_transfer' && ! $request->exists('transfer_direction')) {
             $request->merge(['transfer_direction' => 'ho_to_branch']);
         }

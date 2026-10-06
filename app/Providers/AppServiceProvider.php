@@ -102,7 +102,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::define('submit-branch-transfers', function ($user) {
-            return in_array($user->role, ['admin', 'inventory_staff', 'sales_associate'], true);
+            return $user->role === 'sales_associate';
         });
 
         Gate::define('manage-branch-returns', function ($user) {

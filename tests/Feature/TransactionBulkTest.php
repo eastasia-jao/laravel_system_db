@@ -735,6 +735,7 @@ class TransactionBulkTest extends TestCase
         $this->get(route('inventory-transactions.branch-transfer.create'))
             ->assertOk()
             ->assertSee('remove-transfer-item" aria-label="Remove item" disabled', false)
+            ->assertDontSee('Submit for Approval')
             ->assertSee('transfer-items-header', false)
             ->assertSee('aria-label="Product"', false)
             ->assertSee('aria-label="Quantity"', false)

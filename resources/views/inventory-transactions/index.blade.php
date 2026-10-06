@@ -120,7 +120,7 @@
                 ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock / Added from Request (Warehouse HO)', 'text' => 'Warehouse request'],
                 ['route' => 'inventory-transactions.return.create', 'icon' => 'fa-rotate-left', 'title' => 'Return Items', 'text' => 'Good or damaged'],
             ];
-            if (auth()->user()->can('submit-branch-transfers')) {
+            if (auth()->user()->can('manage-inventory') || auth()->user()->can('submit-branch-transfers')) {
                 array_splice($inventoryActions, 1, 0, [[
                     'route' => 'inventory-transactions.branch-transfer.create',
                     'icon' => 'fa-right-left',
