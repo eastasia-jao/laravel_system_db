@@ -39,17 +39,18 @@
                             <th>Customer name</th>
                             <th>Order date</th>
                             <th>Items</th>
-                            <th>Return status</th>
+                            <th>Notes</th>
                             <th class="text-end pe-3">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($transactions as $transaction)
                             @php
-                                $returnStatuses = $transaction->items
-                                    ->map(fn ($item) => $item->return_status ?? 'none')
-                                    ->filter(fn ($status) => $status !== 'none')
-                                    ->unique();
+                                $returnNotes = $transaction->items
+                                    ->pluck('return_reason')
+                                    ->filter()
+                                    ->unique()
+                                    ->values();
                             @endphp
                             <tr>
                                 <td class="ps-3 fw-semibold">{{ $transaction->order_number }}</td>
@@ -57,45 +58,19 @@
                                 <td>{{ optional($transaction->order_date)->format('M d, Y') ?: '—' }}</td>
                                 <td>{{ $transaction->items->count() }}</td>
                                 <td>
-                                    @if($returnStatuses->isEmpty())
-                                        <span class="badge text-bg-secondary">No return reported</span>
+                                    @if($returnNotes->isEmpty())
+                                        <span class="text-muted">—</span>
                                     @else
-                                        @foreach($returnStatuses as $status)
-                                            <span class="badge {{ $status === 'received' ? 'text-bg-success' : ($status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') }} me-1">
-                                                {{ ucfirst(str_replace('_', ' ', $status)) }}
-                                            </span>
-                                        @endforeach
+                                        {{ $returnNotes->implode('; ') }}
                                     @endif
                                 </td>
                                 <td class="text-end pe-3">
                                     <button class="btn btn-sm btn-outline-primary text-nowrap"
                                         type="button"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#return-items-{{ $transaction->id }}"
-                                        aria-expanded="false"
-                                        aria-controls="return-items-{{ $transaction->id }}">
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#return-items-modal-{{ $transaction->id }}">
                                         <i class="fa-solid fa-eye me-1"></i>View return items
                                     </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colspan="6" class="p-0 border-0">
-                                    <div class="collapse" id="return-items-{{ $transaction->id }}">
-                                        <div class="p-3 bg-light border-top">
-                                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-                                                <div>
-                                                    <h6 class="fw-bold mb-1">TikTok Order #{{ $transaction->order_number }}</h6>
-                                                    <div class="small text-muted">{{ $transaction->customer_name ?: 'TikTok Customer' }} · Report items customers say they are returning.</div>
-                                                </div>
-                                                <span class="small text-muted">Mark items received only after they physically arrive.</span>
-                                            </div>
-                                            @forelse($transaction->items as $item)
-                                                @include('hubs.reports.tiktok-return-form', ['hub' => $hub, 'transaction' => $transaction, 'item' => $item])
-                                            @empty
-                                                <div class="alert alert-light border mb-0">This order has no items.</div>
-                                            @endforelse
-                                        </div>
-                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -103,6 +78,32 @@
                 </table>
             </div>
         </div>
+        @foreach($transactions as $transaction)
+            <div class="modal fade" id="return-items-modal-{{ $transaction->id }}" tabindex="-1" aria-labelledby="return-items-title-{{ $transaction->id }}" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <div>
+                                <h5 class="modal-title fw-bold" id="return-items-title-{{ $transaction->id }}">TikTok Order #{{ $transaction->order_number }}</h5>
+                                <div class="small text-muted">{{ $transaction->customer_name ?: 'TikTok Customer' }} · {{ optional($transaction->order_date)->format('M d, Y') }}</div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="small text-muted">Select the returned quantity, mark each item Good or Bad, and add notes if needed. Saving marks the item received and updates stock.</p>
+                            @forelse($transaction->items as $item)
+                                @include('hubs.reports.tiktok-return-entry', ['hub' => $hub, 'transaction' => $transaction, 'item' => $item])
+                            @empty
+                                <div class="alert alert-light border mb-0">This order has no items.</div>
+                            @endforelse
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
     @else
         <div class="alert alert-info">No TikTok orders found for this Hub and date range.</div>
     @endif
