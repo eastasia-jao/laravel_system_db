@@ -10,6 +10,7 @@ class FullyBookedOrder extends Model
     protected $fillable = [
         'order_number',
         'store_hub_id',
+        'store_name',
         'sales_staff_id',
         'submitted_by',
         'reviewed_by',

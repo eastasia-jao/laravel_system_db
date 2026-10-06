@@ -131,6 +131,24 @@ class NotificationAccessTest extends TestCase
         $this->assertStringNotContainsString('fa-bell', $response->json('html'));
     }
 
+    public function test_fully_booked_order_notification_uses_a_book_icon_in_sidebar_and_live_feed(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $user->notify(new InventoryWorkflowNotification(
+            'fully_booked_order',
+            'A Fully Booked order is awaiting review.'
+        ));
+
+        $feed = $this->actingAs($user)->getJson(route('notifications.feed'));
+        $feed->assertOk();
+        $this->assertStringContainsString('fa-book-open', $feed->json('html'));
+        $this->assertStringNotContainsString('fa-bell', $feed->json('html'));
+
+        $this->get(route('notifications.index'))
+            ->assertOk()
+            ->assertSee('fa-book-open');
+    }
+
     public function test_branch_walk_in_replacement_notifications_use_walk_in_label_icon_and_reference(): void
     {
         $hub = StoreHub::create(['name' => 'Branch', 'code' => 'BRANCH', 'status' => 'active', 'is_head_office' => false]);

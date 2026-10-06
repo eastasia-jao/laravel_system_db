@@ -64,6 +64,7 @@
                     'export' => ['icon' => 'fa-file-export', 'color' => 'text-primary', 'background' => 'bg-primary'],
                     'stock_allocation' => ['icon' => 'fa-layer-group', 'color' => 'text-primary', 'background' => 'bg-primary'],
                     'transaction_log' => ['icon' => 'fa-clipboard-list', 'color' => 'text-warning', 'background' => 'bg-warning'],
+                    'fully_booked_order' => ['icon' => 'fa-book-open', 'color' => 'text-primary', 'background' => 'bg-primary'],
                     'replacement_request' => ['icon' => 'fa-box-open', 'color' => 'text-warning', 'background' => 'bg-warning'],
                     'branch_transfer_request' => ['icon' => 'fa-right-left', 'color' => 'text-warning', 'background' => 'bg-warning'],
                     'replacement_approved' => ['icon' => 'fa-boxes-stacked', 'color' => 'text-success', 'background' => 'bg-success'],

@@ -76,19 +76,21 @@
     
     <form id="eventFullyBookedForm" method="POST" action="{{ $activityType === 'fully_booked' ? route('fully-booked-orders.store') : route('inventory-transactions.store') }}" enctype="multipart/form-data" data-event-action="{{ route('inventory-transactions.store') }}" data-fully-booked-action="{{ route('fully-booked-orders.store') }}" data-can-manage-event="{{ $canManageEvent ? '1' : '0' }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf
-        <div class="row g-3 mb-4">
-            <div class="col-md-6 col-lg-4">
-                <label class="form-label fw-semibold" for="activityType">Type</label>
-                <select id="activityType" name="activity_type" class="form-select" required>
-                    @if($canManageEvent)
+        @if($canManageEvent && $activityType !== 'fully_booked')
+            <div class="row g-3 mb-4">
+                <div class="col-md-6 col-lg-4">
+                    <label class="form-label fw-semibold" for="activityType">Type</label>
+                    <select id="activityType" name="activity_type" class="form-select" required>
                         <option value="event" @selected(old('activity_type', $activityType) === 'event')>Event</option>
-                    @endif
-                    @if($canUseFullyBookedForm)
-                        <option value="fully_booked" @selected(old('activity_type', $activityType) === 'fully_booked')>Fully Booked</option>
-                    @endif
-                </select>
+                        @if($canUseFullyBookedForm)
+                            <option value="fully_booked" @selected(old('activity_type', $activityType) === 'fully_booked')>Fully Booked</option>
+                        @endif
+                    </select>
+                </div>
             </div>
-        </div>
+        @else
+            <input type="hidden" id="activityType" name="activity_type" value="fully_booked">
+        @endif
         <section id="eventFields" @if(!$canManageEvent || old('activity_type', $activityType) !== 'event') hidden @endif>
             @if($canManageEvent)
                 @include('inventory-transactions.forms.bulk-items')
@@ -139,6 +141,20 @@
                     <label class="form-label fw-semibold" for="fullyBookedStaff">Sales / Marketing Staff</label>
                     <input id="fullyBookedStaff" class="form-control" value="{{ auth()->user()->name }}{{ auth()->user()->storeHub ? ' — '.auth()->user()->storeHub->name : '' }}" readonly>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="fullyBookedStore">Store</label>
+                    <select id="fullyBookedStore" name="store_selection" class="form-select" required>
+                        <option value="">Select a store</option>
+                        @foreach($fullyBookedStores as $store)
+                            <option value="{{ $store->id }}" @selected(old('store_selection', (string) auth()->user()->hub_id) === (string) $store->id)>{{ $store->name }}</option>
+                        @endforeach
+                        <option value="other" @selected(old('store_selection') === 'other')>Other</option>
+                    </select>
+                </div>
+                <div class="col-md-6" id="fullyBookedOtherStoreField" @if(old('store_selection') !== 'other') hidden @endif>
+                    <label class="form-label fw-semibold" for="fullyBookedOtherStore">Specify store</label>
+                    <input id="fullyBookedOtherStore" name="other_store_name" class="form-control" value="{{ old('other_store_name') }}" maxlength="255" @required(old('store_selection') === 'other')>
+                </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold" for="fullyBookedAttachment">Order Attachment</label>
                     <input id="fullyBookedAttachment" name="attachment" type="file" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" required>
@@ -186,7 +202,7 @@
                             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                                 <div>
                                     <strong>{{ $order->order_number }}</strong>
-                                    <div class="small text-muted">Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
+                                    <div class="small text-muted">Store: {{ $order->store_name ?? '—' }} · Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
                                 </div>
                                 <span class="badge rounded-pill {{ $order->pulled_out_at ? 'text-bg-success' : 'text-bg-warning' }}">
                                     {{ $order->pulled_out_at ? 'Stock updated' : 'Pending inventory pull-out' }}
@@ -238,7 +254,7 @@
                                     <h6 class="fw-bold mb-0">{{ $order->order_number }}</h6>
                                     <span class="badge rounded-pill text-bg-warning">Awaiting stock update</span>
                                 </div>
-                                <div class="small text-muted mt-1">{{ $order->salesStaff?->name ?? 'Deleted staff' }} · {{ $order->storeHub?->name ?? '—' }} · Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
+                                <div class="small text-muted mt-1">{{ $order->salesStaff?->name ?? 'Deleted staff' }} · {{ $order->storeHub?->name ?? '—' }} · Order store: {{ $order->store_name ?? '—' }} · Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
                             </div>
                         </div>
                     </div>
@@ -399,6 +415,20 @@
         }
     });
     updateActivityType();
+
+    const storeSelection = document.getElementById('fullyBookedStore');
+    const otherStoreField = document.getElementById('fullyBookedOtherStoreField');
+    const otherStoreInput = document.getElementById('fullyBookedOtherStore');
+    const updateOtherStore = () => {
+        const isOther = storeSelection?.value === 'other';
+        if (otherStoreField) otherStoreField.hidden = !isOther;
+        if (otherStoreInput) {
+            otherStoreInput.required = Boolean(isOther);
+            otherStoreInput.disabled = !isOther;
+        }
+    };
+    storeSelection?.addEventListener('change', updateOtherStore);
+    updateOtherStore();
 
     const fileInput = document.getElementById('fullyBookedAttachment');
     const preview = document.getElementById('fullyBookedPreview');

@@ -533,6 +533,9 @@ class InventoryTransactionController extends Controller
             ? User::with('storeHub')->where('role', 'sales_marketing_staff')->where('status', 'active')->orderBy('name')->get()
                 ->filter(fn (User $staff) => $staff->hasSalesChannel('fully_booked'))->values()
             : collect();
+        $fullyBookedStores = $type === 'sponsor_workshop'
+            ? StoreHub::where('status', 'active')->orderByDesc('is_head_office')->orderBy('name')->get()
+            : collect();
         $canManageEvent = $user?->can('manage-inventory') ?? false;
         $canSubmitFullyBooked = $user?->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked');
         $canUseFullyBookedForm = $canManageEvent || $canSubmitFullyBooked;
@@ -557,7 +560,7 @@ class InventoryTransactionController extends Controller
             'hubs', 'allHubs', 'headOffices', 'products', 'hubId', 'type', 'transferSourceHubs',
             'selectedHub', 'transferReference', 'sponsorReference', 'restockReference',
             'transferDirection', 'fullyBookedStaff', 'canManageEvent', 'canSubmitFullyBooked',
-            'canUseFullyBookedForm', 'activityType', 'fullyBookedOrders'
+            'canUseFullyBookedForm', 'activityType', 'fullyBookedOrders', 'fullyBookedStores'
         ));
     }
 

@@ -46,10 +46,13 @@ class FullyBookedOrderTest extends TestCase
         $this->actingAs($designated)
             ->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
             ->assertOk()
-            ->assertSee('value="fully_booked" selected', false)
+            ->assertSee('type="hidden" id="activityType" name="activity_type" value="fully_booked"', false)
+            ->assertDontSee('<select id="activityType"', false)
             ->assertDontSee('value="event"', false)
             ->assertDontSee('id="sponsorItems"', false)
             ->assertSee('id="fullyBookedAttachment"', false)
+            ->assertSee('id="fullyBookedStore"', false)
+            ->assertSee('Other')
             ->assertSee('value="Designated Staff — HEAD OFFICE"', false)
             ->assertDontSee('name="sales_staff_id"', false)
             ->assertSee('Generated automatically when submitted')
@@ -162,7 +165,8 @@ class FullyBookedOrderTest extends TestCase
                 'activity_type' => 'fully_booked',
             ]))
             ->assertOk()
-            ->assertSee('value="fully_booked" selected', false)
+            ->assertSee('type="hidden" id="activityType" name="activity_type" value="fully_booked"', false)
+            ->assertDontSee('<select id="activityType"', false)
             ->assertSee('Orders Awaiting Inventory Pull-Out')
             ->assertSee('FB-FORM-001')
             ->assertSee('Preview Attachment')
@@ -241,6 +245,32 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('class="fully-booked-pdf"', false);
     }
 
+    public function test_other_fully_booked_store_requires_and_saves_a_specified_name(): void
+    {
+        Storage::fake('local');
+        $hub = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['fully_booked'],
+        ]);
+
+        $this->actingAs($staff)->post(route('fully-booked-orders.store'), [
+            'store_selection' => 'other',
+            'attachment' => $this->fakePdf(),
+        ])->assertSessionHasErrors('other_store_name');
+
+        $this->post(route('fully-booked-orders.store'), [
+            'store_selection' => 'other',
+            'other_store_name' => 'Downtown Bookshop',
+            'attachment' => $this->fakePdf(),
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('Downtown Bookshop', FullyBookedOrder::sole()->store_name);
+    }
+
     public function test_designated_staff_can_submit_an_attachment_for_private_inventory_review(): void
     {
         Storage::fake('local');
@@ -270,6 +300,7 @@ class FullyBookedOrderTest extends TestCase
         ]);
         $response = $this->actingAs($staff)->post(route('fully-booked-orders.store'), [
             'sales_staff_id' => $otherStaff->id,
+            'store_selection' => (string) $hub->id,
             'attachment' => $this->fakePdf(),
             'remarks' => 'Please prioritize this order.',
         ])->assertSessionHasNoErrors();
@@ -280,6 +311,7 @@ class FullyBookedOrderTest extends TestCase
         Storage::disk('local')->assertExists($order->attachment_path);
         $this->assertSame($staff->id, $order->sales_staff_id);
         $this->assertSame($staff->id, $order->submitted_by);
+        $this->assertSame('HEAD OFFICE', $order->store_name);
         $this->assertSame('Please prioritize this order.', $order->remarks);
         $this->assertSame('pending', $order->status);
         $this->assertSame(12, $product->fresh()->stock);
@@ -304,6 +336,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('id="fullyBookedRemarks"', false)
             ->assertSee('My Fully Booked Orders')
             ->assertSee('Pending inventory pull-out')
+            ->assertSee('Store: HEAD OFFICE')
             ->assertSee('Please prioritize this order.')
             ->assertSee($orderNumber);
 
@@ -432,6 +465,7 @@ class FullyBookedOrderTest extends TestCase
 
         $this->actingAs($authorizedStaff)->post(route('fully-booked-orders.store'), [
             'sales_staff_id' => $unauthorizedStaff->id,
+            'store_selection' => (string) $hub->id,
             'attachment' => $this->fakePdf(),
         ])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('fully_booked_orders', [

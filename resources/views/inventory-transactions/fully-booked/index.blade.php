@@ -49,7 +49,7 @@
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-light"><tr><th>Order Number</th><th>Sales / Marketing Staff</th><th>Submitted By</th><th>Store Hub</th><th>Submitted</th><th>Status / Review</th></tr></thead>
+                <thead class="table-light"><tr><th>Order Number</th><th>Sales / Marketing Staff</th><th>Submitted By</th><th>Store Hub</th><th>Order Store</th><th>Submitted</th><th>Status / Review</th></tr></thead>
                 <tbody>
                     @forelse($orders as $order)
                         <tr class="fully-booked-order-row">
@@ -57,6 +57,7 @@
                             <td>{{ $order->salesStaff?->name ?? 'Deleted staff' }}</td>
                             <td>{{ $order->submitter?->name ?? 'Deleted user' }}</td>
                             <td>{{ $order->storeHub?->name ?? '—' }}</td>
+                            <td>{{ $order->store_name ?? '—' }}</td>
                             <td>{{ $order->created_at?->format('M d, Y h:i A') }}</td>
                             <td>
                                 @if($order->status === 'reviewed')
@@ -75,7 +76,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="6" class="bg-light">
+                            <td colspan="7" class="bg-light">
                                 <details>
                                     <summary class="text-primary fw-semibold" role="button"><i class="fa-solid fa-eye me-1"></i>Preview attachment</summary>
                                     @if(str_starts_with($order->mime_type, 'image/'))
@@ -88,7 +89,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="text-center text-muted py-5">No Fully Booked orders found.</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-5">No Fully Booked orders found.</td></tr>
                     @endforelse
                 </tbody>
             </table>

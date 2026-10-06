@@ -7,12 +7,14 @@ use App\Models\FullyBookedOrderItem;
 use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\SalesTransaction;
+use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class FullyBookedOrderController extends Controller
@@ -37,10 +39,16 @@ class FullyBookedOrderController extends Controller
             403,
             'Fully Booked order submission is only available to active Sales/Marketing staff designated for this channel.'
         );
+        $activeStoreIds = StoreHub::where('status', 'active')->pluck('id')->map(fn ($id) => (string) $id);
         $validated = $request->validate([
             'attachment' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'store_selection' => ['required', Rule::in($activeStoreIds->push('other')->all())],
+            'other_store_name' => ['nullable', 'required_if:store_selection,other', 'string', 'max:255'],
             'remarks' => ['nullable', 'string', 'max:2000'],
         ]);
+        $storeName = $validated['store_selection'] === 'other'
+            ? trim($validated['other_store_name'])
+            : StoreHub::whereKey($validated['store_selection'])->where('status', 'active')->value('name');
         $salesStaff = $user;
 
         $file = $validated['attachment'];
@@ -50,10 +58,11 @@ class FullyBookedOrderController extends Controller
         }
 
         try {
-            $order = DB::transaction(function () use ($salesStaff, $user, $path, $file, $validated) {
+            $order = DB::transaction(function () use ($salesStaff, $user, $path, $file, $validated, $storeName) {
                 $order = FullyBookedOrder::create([
                     'order_number' => 'PENDING-'.Str::uuid(),
                     'store_hub_id' => $salesStaff->hub_id,
+                    'store_name' => $storeName,
                     'sales_staff_id' => $salesStaff->id,
                     'submitted_by' => $user->id,
                     'attachment_path' => $path,
