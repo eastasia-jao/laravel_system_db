@@ -105,13 +105,16 @@ class InventoryTransactionController extends Controller
         $user = auth()->user();
         abort_unless(
             $user?->role === 'admin'
-                || ($user?->role === 'inventory_staff' && (int) $user->store_hub_id === (int) $validated['hub_id'])
+                || ($user?->role === 'inventory_staff' && StoreHub::whereKey($validated['hub_id'])->where('status', 'active')->exists())
                 || ($user?->role === 'sales_associate' && $user->canAccessHub((int) $validated['hub_id'])),
             403
         );
 
         $normalizedChannel = $this->normalizeChannel($validated['channel']);
         $lookupHub = StoreHub::findOrFail((int) $validated['hub_id']);
+        if ($user?->role === 'inventory_staff') {
+            abort_unless($lookupHub->status === 'active', 403);
+        }
         if (! $lookupHub->is_head_office && $normalizedChannel !== 'walk_in') {
             throw ValidationException::withMessages([
                 'channel' => 'Only Walk-In sales can be selected for a branch store.',
@@ -226,11 +229,6 @@ class InventoryTransactionController extends Controller
     {
         $user = auth()->user();
         $hubId = $request->integer('hub_id') ?: $user?->store_hub_id;
-        $returnLogForAssignedHub = $request->input('type') === 'return'
-            && $user?->role === 'inventory_staff';
-        if ($returnLogForAssignedHub) {
-            $hubId = $user->store_hub_id;
-        }
         if ($user?->role === 'sales_associate') {
             $hubId = $request->integer('hub_id') ?: $user->store_hub_id;
             abort_unless($hubId && $user->canAccessHub((int) $hubId), 403);
@@ -452,13 +450,9 @@ class InventoryTransactionController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        $hubs = $returnLogForAssignedHub && $user->store_hub_id
-            ? StoreHub::whereKey($user->store_hub_id)->where('status', 'active')->get()
-            : ($returnLogForAssignedHub
-            ? collect()
-            : (in_array($user?->role, ['admin', 'inventory_staff'], true)
+        $hubs = in_array($user?->role, ['admin', 'inventory_staff'], true)
             ? StoreHub::where('status', 'active')->orderBy('name')->get()
-            : StoreHub::whereIn('id', $user?->accessibleStoreHubIds() ?? [])->where('status', 'active')->get()));
+            : StoreHub::whereIn('id', $user?->accessibleStoreHubIds() ?? [])->where('status', 'active')->get();
 
         return view('inventory-transactions.index', compact('transactions', 'hubs', 'hubId'));
     }
@@ -472,30 +466,8 @@ class InventoryTransactionController extends Controller
         if ($type === 'sponsor_workshop' && $user?->role === 'sales_marketing_staff') {
             abort_unless($user->hasSalesChannel('fully_booked'), 403);
         }
-        if ($type === 'return' && $user?->role === 'inventory_staff') {
-            abort_unless($user->store_hub_id, 403, 'Your account has no designated store.');
-
-            $hubId = (int) $user->store_hub_id;
-            $hubs = StoreHub::whereKey($hubId)->where('status', 'active')->get();
-            $allHubs = $hubs;
-            $headOffices = $hubs->where('is_head_office', true)->values();
-            $products = Product::where('store_hub_id', $hubId)
-                ->where('status', 'active')
-                ->orderByCatalog()
-                ->limit(100)
-                ->get();
-            $form = 'return';
-            $transferSourceHubs = $hubs;
-            $selectedHub = $hubs->first();
-
-            return view('inventory-transactions.forms.'.$form, compact(
-                'hubs', 'allHubs', 'headOffices', 'products', 'hubId', 'type', 'transferSourceHubs',
-                'selectedHub'
-            ));
-        }
-
         $hubId = $request->integer('hub_id') ?: $user?->store_hub_id;
-        if ($type === 'return' && $user?->role !== 'admin') {
+        if ($type === 'return' && ! in_array($user?->role, ['admin', 'inventory_staff'], true)) {
             abort_unless(
                 $hubId && in_array((int) $hubId, $user?->accessibleStoreHubIds() ?? [], true),
                 403,
@@ -505,12 +477,6 @@ class InventoryTransactionController extends Controller
         $hubs = in_array($user?->role, ['admin', 'inventory_staff'], true)
             ? StoreHub::where('status', 'active')->orderBy('name')->get()
             : StoreHub::whereIn('id', $user?->accessibleStoreHubIds() ?? [])->where('status', 'active')->orderBy('name')->get();
-        if ($type === 'return' && $user?->role === 'inventory_staff') {
-            $hubs = $user->store_hub_id
-                ? StoreHub::whereKey($user->store_hub_id)->where('status', 'active')->get()
-                : collect();
-            $hubId = $hubs->first()?->id;
-        }
         $hubs = $hubs->filter(fn (StoreHub $hub) => $hub->status === 'active')->values();
         $allHubs = StoreHub::where('status', 'active')->orderBy('name')->get();
         $allHubs = $allHubs->filter(fn (StoreHub $hub) => $hub->status === 'active')->values();
@@ -520,7 +486,7 @@ class InventoryTransactionController extends Controller
             : 'ho_to_branch';
         if ($type === 'branch_transfer') {
             $hubs = $hubs->filter(fn (StoreHub $hub) => ! $hub->is_head_office)->values();
-            if ($user?->store_hub_id && $user?->role !== 'sales_associate') {
+            if ($user?->store_hub_id && ! in_array($user?->role, ['sales_associate', 'inventory_staff'], true)) {
                 $hubs = $hubs->filter(fn (StoreHub $hub) => (int) $hub->id === (int) $user->store_hub_id)->values();
             }
                 $allHubs = $allHubs->filter(fn (StoreHub $hub) => ! $hub->is_head_office)->values();
@@ -1212,8 +1178,8 @@ class InventoryTransactionController extends Controller
         }
 
         $user = auth()->user();
-        if ($user?->role === 'inventory_staff' && (! $user->store_hub_id || (int) $user->store_hub_id !== (int) $validated['store_hub_id'])) {
-            abort(403, 'Inventory staff can only record returns for their designated store.');
+        if ($user?->role === 'inventory_staff' && ! StoreHub::whereKey($validated['store_hub_id'])->where('status', 'active')->exists()) {
+            abort(403, 'Inventory staff can only record returns for an active store.');
         }
         if ($user?->role !== 'admin' && $user?->role !== 'inventory_staff' && ! $user?->canAccessHub((int) $validated['store_hub_id'])) {
             abort(403, 'Unauthorized action for this store hub.');

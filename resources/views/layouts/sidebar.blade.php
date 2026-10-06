@@ -146,7 +146,7 @@
         </li>
         @endcan
         @can('manage-branch-returns')
-        @if($sidebarContextHub && ! $sidebarContextHub->is_head_office)
+        @if(auth()->user()?->role !== 'inventory_staff' && $sidebarContextHub && ! $sidebarContextHub->is_head_office)
         <li>
             <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $sidebarContextHub->id]) }}" class="nav-link {{ request()->routeIs('inventory-transactions.return.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-rotate-left"></i> Return Items
@@ -155,7 +155,7 @@
         @endif
         @endcan
         @can('submit-branch-transfers')
-        @if(auth()->user()?->role === 'sales_associate')
+        @if(in_array(auth()->user()?->role, ['sales_associate', 'inventory_staff'], true))
         <li>
             <a href="{{ route('inventory-transactions.branch-transfer.create') }}" class="nav-link {{ request()->routeIs('inventory-transactions.branch-transfer.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-right-left"></i> Stock Transfer (Branch to Branch)

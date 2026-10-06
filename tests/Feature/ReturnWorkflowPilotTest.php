@@ -139,6 +139,84 @@ class ReturnWorkflowPilotTest extends TestCase
             ->sum('quantity'));
     }
 
+    public function test_inventory_staff_can_select_any_active_store_when_recording_returns_without_sidebar_return_link(): void
+    {
+        $assignedBranch = StoreHub::create([
+            'name' => 'Assigned Inventory Branch',
+            'code' => 'INV-ASSIGNED',
+            'status' => 'active',
+            'is_head_office' => false,
+        ]);
+        $otherBranch = StoreHub::create([
+            'name' => 'Other Inventory Branch',
+            'code' => 'INV-OTHER',
+            'status' => 'active',
+            'is_head_office' => false,
+        ]);
+        $staff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $assignedBranch->id]);
+        $product = Product::create([
+            'name' => 'Other Branch Return Product',
+            'item_id' => 'INV-OTHER-RETURN',
+            'store_hub_id' => $otherBranch->id,
+            'stock' => 4,
+            'status' => 'active',
+        ]);
+        $sale = SalesTransaction::create([
+            'store_hub_id' => $otherBranch->id,
+            'channel_type' => 'walk_in',
+            'order_date' => '2026-10-06',
+            'order_number' => 'INV-OTHER-RETURN-001',
+            'customer_name' => 'Other Branch Customer',
+            'status' => 'confirmed',
+        ]);
+        $item = $sale->items()->create([
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'unit_price' => 100,
+            'line_total' => 100,
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('inventory-transactions.return.create', ['hub_id' => $otherBranch->id]))
+            ->assertOk()
+            ->assertSee('<select name="store_hub_id" class="form-select" required', false)
+            ->assertSee('value="'.$assignedBranch->id.'"', false)
+            ->assertSee('value="'.$otherBranch->id.'"', false)
+            ->assertDontSee('href="'.route('inventory-transactions.return.create', ['hub_id' => $otherBranch->id]).'"', false);
+
+        $this->getJson(route('inventory-transactions.return.sales', [
+            'hub_id' => $otherBranch->id,
+            'channel' => 'walk_in',
+            'transaction_id' => $sale->id,
+        ]))->assertOk()
+            ->assertJsonPath('transaction.id', $sale->id);
+
+        $this->post(route('inventory-transactions.return.store'), [
+            'type' => 'return',
+            'store_hub_id' => $otherBranch->id,
+            'occurred_on' => '2026-10-06',
+            'channel' => 'walk_in',
+            'sales_transaction_id' => $sale->id,
+            'items' => [[
+                'product_id' => $product->id,
+                'transaction_item_id' => $item->id,
+                'good_quantity' => 1,
+                'damaged_quantity' => 0,
+            ]],
+        ])->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Return items recorded successfully.');
+
+        $this->assertSame(5, (int) $product->fresh()->stock);
+        $this->assertDatabaseHas('inventory_transactions', [
+            'type' => 'return',
+            'store_hub_id' => $otherBranch->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'created_by' => $staff->id,
+            'quantity' => 1,
+        ]);
+    }
+
     public function test_return_actions_are_limited_to_authorized_roles_hubs_and_channels(): void
     {
         $assignedBranch = StoreHub::create([
@@ -266,7 +344,7 @@ class ReturnWorkflowPilotTest extends TestCase
                 'good_quantity' => 1,
                 'damaged_quantity' => 0,
             ]],
-        ]))->assertForbidden();
+        ]))->assertNotFound();
 
         $this->actingAs($salesMarketingStaff)
             ->get(route('inventory-transactions.return.create', ['hub_id' => $assignedBranch->id]))

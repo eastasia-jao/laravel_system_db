@@ -3,10 +3,10 @@
 @section('content')
 @php
     $currentUser = auth()->user();
-    $visibleHubs = $currentUser?->role === 'admin'
+    $visibleHubs = in_array($currentUser?->role, ['admin', 'inventory_staff'], true)
         ? $hubs
         : $hubs->whereIn('id', $currentUser?->accessibleStoreHubIds() ?? [])->values();
-    $hubSelectionLocked = $currentUser?->role !== 'admin' && $visibleHubs->count() <= 1;
+    $hubSelectionLocked = ! in_array($currentUser?->role, ['admin', 'inventory_staff'], true) && $visibleHubs->count() <= 1;
     $channelSelectionLocked = $currentUser?->role === 'sales_associate'
         || ($selectedHub && ! $selectedHub->is_head_office);
 @endphp
