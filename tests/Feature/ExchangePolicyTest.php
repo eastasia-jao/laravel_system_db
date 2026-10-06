@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\ProductReplacement;
 use App\Models\ProductStockAllocation;
+use App\Models\InventoryTransaction;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -63,6 +64,23 @@ class ExchangePolicyTest extends TestCase
             $this->assertSame('1100.00', $exchange->first()->exchange_total);
             $this->assertSame('100.00', $exchange->first()->additional_payment_due);
 
+            $original->increment('stock');
+            if ($channel !== 'walk_in') {
+                $original->stockAllocation->increment($channel);
+            }
+            InventoryTransaction::create([
+                'type' => 'return',
+                'reference' => $sale->order_number,
+                'store_hub_id' => $hub->id,
+                'product_id' => $original->id,
+                'sales_transaction_id' => $sale->id,
+                'transaction_item_id' => $item->id,
+                'channel' => $channel,
+                'condition' => 'good',
+                'quantity' => 1,
+                'occurred_on' => '2026-09-26',
+                'created_by' => $admin->id,
+            ]);
             $this->post(route('wholesale-replacements.approve', $exchange->first()))
                 ->assertSessionHasNoErrors()->assertSessionHas('success');
             $this->assertSame(11, $original->fresh()->stock);

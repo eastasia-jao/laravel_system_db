@@ -984,7 +984,8 @@ class SalesController extends Controller
         $pendingSales = $query->orderBy('created_at', 'desc')->paginate(10);
 
         $replacementRequests = ProductReplacement::with([
-            'transaction.storeHub', 'transactionItem.product', 'originalProduct.stockAllocation', 'replacementProduct.stockAllocation', 'creator',
+            'transaction.storeHub', 'transactionItem.product', 'transactionItem.replacements', 'transactionItem.inventoryReturns',
+            'originalProduct.stockAllocation', 'replacementProduct.stockAllocation', 'creator',
         ])->where('status', 'pending')
             ->when($hubId, fn ($builder) => $builder->whereHas('transaction', fn ($transaction) => $transaction->where('store_hub_id', $hubId)))
             ->latest()->get()
@@ -1009,6 +1010,14 @@ class SalesController extends Controller
             $replacement->setAttribute('exchange_stock_ready', $lines->every(
                 fn ($line) => (int) $line->replacement_available_stock >= (int) ($line->replacement_quantity ?: $line->quantity)
             ));
+            $approvedReturnQuantity = (int) ($replacement->transactionItem?->replacements
+                ->where('status', 'approved')
+                ->sum('quantity') ?? 0);
+            $receivedReturnQuantity = $replacement->transactionItem?->returnedQuantity() ?? 0;
+            $replacement->setAttribute(
+                'exchange_return_ready',
+                $receivedReturnQuantity >= $approvedReturnQuantity + (int) $lines->sum('quantity')
+            );
         });
 
         $pendingSales->getCollection()->each(function (PendingSale $sale) {

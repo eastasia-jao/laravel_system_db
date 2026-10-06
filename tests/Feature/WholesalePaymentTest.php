@@ -84,11 +84,25 @@ class WholesalePaymentTest extends TestCase
         $this->actingAs($user)->get(route('sales.pending'))
             ->assertOk()->assertSee('EXCHANGE AWAITING VERIFICATION')->assertSee('Replacement Item');
 
+        $original->increment('stock');
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'wholesale',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-19',
+            'created_by' => $user->id,
+        ]);
         $this->actingAs($user)->post(route('wholesale-replacements.approve', $request->id))
             ->assertSessionHasNoErrors()->assertSessionHas('success');
         $this->assertSame(4, $original->fresh()->stock);
         $this->assertSame(3, $replacement->fresh()->stock);
-        $this->assertSame(1, InventoryTransaction::where('type', 'replacement_return')->count());
+        $this->assertSame(0, InventoryTransaction::where('type', 'replacement_return')->count());
         $this->assertSame(1, InventoryTransaction::where('type', 'replacement_out')->count());
         $this->assertSame('340.00', $sale->fresh()->grand_total);
         $this->assertSame('paid', $sale->fresh()->payment_status);

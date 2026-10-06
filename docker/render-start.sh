@@ -12,6 +12,9 @@ if [ -n "${PUBLIC_STORAGE_PATH:-}" ]; then
     chown -R www-data:www-data "$PUBLIC_STORAGE_PATH"
 fi
 
+# Point Laravel's public storage URL at the same disk used for uploads.
+php artisan storage:link --force --no-interaction
+
 # Render assigns PORT at runtime. Apache's default configuration listens on 80.
 sed -ri "s/^Listen 80$/Listen ${PORT}/" /etc/apache2/ports.conf
 sed -ri "s/<VirtualHost \*:10000>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf

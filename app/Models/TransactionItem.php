@@ -35,7 +35,8 @@ class TransactionItem extends Model
     public function inventoryReturns(): HasMany
     {
         return $this->hasMany(InventoryTransaction::class, 'transaction_item_id')
-            ->where('type', 'return');
+            ->where('type', 'return')
+            ->whereNull('product_replacement_id');
     }
 
     public function getRemainingReplaceableQuantityAttribute(): int

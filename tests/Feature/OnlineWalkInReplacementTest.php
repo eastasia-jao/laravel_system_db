@@ -40,6 +40,26 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->assertSame('120.00', $request->replacement_unit_price);
 
         $this->post(route('wholesale-replacements.approve', $request))
+            ->assertSessionHasErrors('replacement');
+        $this->assertSame('pending', $request->fresh()->status);
+        $this->assertSame(5, $replacement->fresh()->stock);
+
+        $original->increment('stock');
+        $original->stockAllocation->increment('online');
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'online',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-23',
+            'created_by' => $admin->id,
+        ]);
+        $this->post(route('wholesale-replacements.approve', $request))
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $this->assertSame('approved', $request->fresh()->status);
@@ -110,7 +130,23 @@ class OnlineWalkInReplacementTest extends TestCase
         Storage::disk('public')->assertExists($request->replacement_order_slip);
         $this->actingAs($admin)->get(route('hub.sales.pending', $hub->id))
             ->assertOk()
-            ->assertSee('Open replacement order slip');
+            ->assertSee('Open replacement order slip')
+            ->assertSee('Inventory must record the original item as received');
+        $this->assertSame(9, $original->fresh()->stock);
+        $original->increment('stock');
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'walk_in',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-23',
+            'created_by' => $admin->id,
+        ]);
         $this->actingAs($admin)->post(route('wholesale-replacements.approve', $request))
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
@@ -221,6 +257,21 @@ class OnlineWalkInReplacementTest extends TestCase
                 'exchange_payment_method' => 'CASH',
             ])->assertSessionHasNoErrors();
             $request = ProductReplacement::where('transaction_id', $sale->id)->sole();
+            $original->increment('stock');
+            $original->stockAllocation->increment($channel);
+            InventoryTransaction::create([
+                'type' => 'return',
+                'reference' => $sale->order_number,
+                'store_hub_id' => $hub->id,
+                'product_id' => $original->id,
+                'sales_transaction_id' => $sale->id,
+                'transaction_item_id' => $item->id,
+                'channel' => $channel,
+                'condition' => 'good',
+                'quantity' => 1,
+                'occurred_on' => '2026-09-26',
+                'created_by' => $admin->id,
+            ]);
             $this->post(route('wholesale-replacements.approve', $request))->assertSessionHasNoErrors();
 
             $this->assertSame(10, (int) $original->stockAllocation->fresh()->{$channel});

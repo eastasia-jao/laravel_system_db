@@ -86,6 +86,7 @@
                         $difference = $charge - $credit;
                         $replacementChannel = $replacement->replacement_channel ?: 'wholesale';
                         $exchangeStockReady = (bool) ($replacement->exchange_stock_ready ?? false);
+                        $exchangeReturnReady = (bool) ($replacement->exchange_return_ready ?? false);
                     @endphp
                     <div class="verification-card">
                         <div class="d-flex flex-wrap justify-content-between gap-3">
@@ -120,10 +121,15 @@
                         @endif
                         <div class="d-flex justify-content-end gap-2 mt-3">
                             <form method="POST" action="{{ route('wholesale-replacements.approve', $replacement->id) }}">@csrf
-                                <button class="btn btn-sm btn-success" @disabled(!$exchangeStockReady)><i class="fa-solid fa-check me-1"></i>Verify & Apply</button>
+                                <button class="btn btn-sm btn-success" @disabled(!$exchangeStockReady || !$exchangeReturnReady)><i class="fa-solid fa-check me-1"></i>Verify & Apply</button>
                             </form>
                             <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectReplacement{{ $replacement->id }}">Reject</button>
                         </div>
+                        @if(!$exchangeReturnReady)
+                            <div class="alert alert-warning small mt-3 mb-0">
+                                Inventory must record the original item as received before this replacement can be approved or released.
+                            </div>
+                        @endif
                         @if(!$exchangeStockReady)
                             <div class="alert alert-warning small mt-3 mb-0">
                                 One or more exchange products do not have enough {{ $replacementChannel === 'walk_in' ? 'unallocated physical' : 'allocated '.ucfirst(str_replace('_', ' ', $replacementChannel)) }} stock.

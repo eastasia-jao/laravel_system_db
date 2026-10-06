@@ -1052,6 +1052,21 @@ class SalesReportController extends Controller
             }
 
             $returnedQuantity = (int) $records->sum('quantity');
+            $transactionItem = $record->transaction_item_id
+                ? $sale->items()->whereKey($record->transaction_item_id)->lockForUpdate()->first()
+                : null;
+            $previouslyApprovedQuantity = $transactionItem
+                ? (int) ProductReplacement::where('transaction_item_id', $transactionItem->id)
+                    ->where('status', 'approved')
+                    ->sum('quantity')
+                : 0;
+            $receivedReturnQuantity = $transactionItem?->returnedQuantity() ?? 0;
+            if (! $transactionItem || $receivedReturnQuantity < $previouslyApprovedQuantity + $returnedQuantity) {
+                throw ValidationException::withMessages([
+                    'replacement' => 'Inventory must record the original item as received before approving or releasing its replacement.',
+                ]);
+            }
+
             $previouslyReturnedQuantity = $record->transaction_item_id
                 ? (int) InventoryTransaction::query()
                     ->where('transaction_item_id', $record->transaction_item_id)
