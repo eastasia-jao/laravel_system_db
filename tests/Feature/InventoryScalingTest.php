@@ -79,7 +79,7 @@ class InventoryScalingTest extends TestCase
         );
     }
 
-    public function test_inventory_staff_sees_store_name_only_when_all_stores_are_selected(): void
+    public function test_inventory_staff_store_filter_excludes_all_stores_and_defaults_to_assigned_head_office(): void
     {
         $office = StoreHub::create(['name' => 'Main Warehouse', 'code' => 'HO-STORE', 'is_head_office' => true, 'status' => 'active']);
         $branch = StoreHub::create(['name' => 'Branch Store', 'code' => 'BR-STORE', 'status' => 'active']);
@@ -87,23 +87,23 @@ class InventoryScalingTest extends TestCase
         Product::create(['store_hub_id' => $branch->id, 'item_id' => 'STORE-2', 'name' => 'Branch Product', 'stock' => 10]);
         $staff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $office->id]);
 
-        $allStores = $this->actingAs($staff)->get(route('products.index'));
-        $allStores->assertOk()
-            ->assertSee('<th>Store Name</th>', false)
-            ->assertSee('MAIN WAREHOUSE')
-            ->assertSee('BRANCH STORE');
+        $defaultStore = $this->actingAs($staff)->get(route('products.index'));
+        $defaultStore->assertOk()
+            ->assertSee('<option value="'.$office->id.'" selected>', false)
+            ->assertSee('<option value="'.$branch->id.'"', false)
+            ->assertDontSee('All stores')
+            ->assertSee('Office Product')
+            ->assertDontSee('Branch Product');
 
         $this->get(route('products.index', ['hub_id' => $branch->id]))
             ->assertOk()
-            ->assertDontSee('<th>Store Name</th>', false)
             ->assertSee('Branch Product')
-            ->assertDontSee('<td>MAIN WAREHOUSE</td>', false);
+            ->assertDontSee('Office Product');
 
         $this->get(route('products.index', ['hub_id' => $office->id]))
             ->assertOk()
-            ->assertDontSee('<th>Store Name</th>', false)
             ->assertSee('Office Product')
-            ->assertDontSee('<td>MAIN WAREHOUSE</td>', false);
+            ->assertDontSee('Branch Product');
     }
 
     public function test_shared_catalog_requires_head_office_context_and_only_lists_regular_branches(): void

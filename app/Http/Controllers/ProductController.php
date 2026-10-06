@@ -44,6 +44,11 @@ class ProductController extends Controller
         $salesAssociateHubs = $isSalesAssociate
             ? StoreHub::whereIn('id', $user->accessibleStoreHubIds())->orderBy('name')->get()
             : collect();
+        $productHubs = $isSalesAssociate
+            ? $salesAssociateHubs
+            : (($user && ! in_array($user->role, ['admin', 'inventory_staff'], true))
+                ? StoreHub::whereKey($user->store_hub_id)->get()
+                : StoreHub::orderByDesc('is_head_office')->orderBy('name')->get());
         $selectedHubId = $request->query('hub_id');
         $displayChannelOptions = $user?->role === 'sales_marketing_staff'
             ? collect($user->sales_channels ?? [])
@@ -75,14 +80,17 @@ class ProductController extends Controller
                 : $user->store_hub_id;
         } elseif ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
             $selectedHubId = $user->store_hub_id;
+        } else {
+            $defaultHub = $user?->role === 'inventory_staff'
+                ? $productHubs->firstWhere('id', (int) $user->hub_id)
+                : null;
+            $selectedHubId = $productHubs->firstWhere('id', (int) $selectedHubId)?->id
+                ?? $defaultHub?->id
+                ?? $productHubs->first()?->id;
         }
 
         $selectedHub = $selectedHubId ? StoreHub::find($selectedHubId) : null;
         $query = Product::query()->with('stockAllocation');
-        $showProductStoreName = $user?->role === 'inventory_staff' && ! $selectedHubId;
-        if ($showProductStoreName) {
-            $query->with('storeHub');
-        }
         if (! in_array($user->role, ['admin', 'inventory_staff'], true) && ! $selectedHubId) {
             $query->whereRaw('1 = 0');
         }
@@ -168,12 +176,6 @@ class ProductController extends Controller
             );
         });
 
-        $productHubs = $isSalesAssociate
-            ? $salesAssociateHubs
-            : (($user && ! in_array($user->role, ['admin', 'inventory_staff'], true))
-                ? StoreHub::whereKey($user->store_hub_id)->get()
-                : StoreHub::all());
-
         $brands = Brand::all();
         $groups = DB::table('groups')->get();
         $departments = DB::table('departments')->get();
@@ -182,7 +184,7 @@ class ProductController extends Controller
 
         return view('products.index', compact(
             'products', 'productHubs', 'selectedHub', 'brands', 'groups', 'departments', 'unitTypes', 'baseUnits',
-            'displayChannel', 'displayChannelLabel', 'displayChannelOptions', 'isSalesAssociate', 'showProductStoreName'
+            'displayChannel', 'displayChannelLabel', 'displayChannelOptions', 'isSalesAssociate'
         ));
     }
 
