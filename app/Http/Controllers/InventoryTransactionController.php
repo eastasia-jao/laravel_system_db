@@ -1421,22 +1421,30 @@ class InventoryTransactionController extends Controller
         }
 
         $channel = $this->normalizeChannel($sale->channel_type);
-        $url = $channel === 'tiktok'
-            ? route('hub.tiktok-returns', ['hub' => $sale->store_hub_id])
-            : route('hub.report', ['hub' => $sale->store_hub_id, 'channel' => $channel ?: 'all']);
+        $url = match ($channel) {
+            'tiktok' => route('hub.tiktok-returns', ['hub' => $sale->store_hub_id]),
+            'fully_booked' => route('hub.fully-booked-returns', ['hub' => $sale->store_hub_id]),
+            default => route('hub.report', ['hub' => $sale->store_hub_id, 'channel' => $channel ?: 'all']),
+        };
         $orderNumber = $sale->order_number ?: $sale->id;
         $actorName = auth()->user()?->name ?? 'Inventory staff';
-        $message = $channel === 'tiktok'
-            ? sprintf(
+        $message = match ($channel) {
+            'tiktok' => sprintf(
                 'Return items for order %s were recorded by %s. Returned quantities and conditions are now visible in TikTok Returns.',
                 $orderNumber,
                 $actorName
-            )
-            : sprintf(
+            ),
+            'fully_booked' => sprintf(
+                'Return items for Fully Booked order %s were recorded by %s. Returned quantities and conditions are now visible in Fully Booked Returns.',
+                $orderNumber,
+                $actorName
+            ),
+            default => sprintf(
                 'Return items were recorded for order %s by %s. Good and damaged quantities are now reflected in the sales report.',
                 $orderNumber,
                 $actorName
-            );
+            ),
+        };
 
         $submitter->notify(new InventoryWorkflowNotification(
             'return_recorded',

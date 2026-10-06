@@ -14,6 +14,7 @@
             'product-file-requests.index' => 'Stock Transfer Review Requests',
             'hub.dashboard' => 'Store Hub Dashboard',
             'hub.report' => 'Sales Report',
+            'hub.fully-booked-returns' => 'Fully Booked Returns',
             'hub.wholesale.report' => 'Wholesale Report',
             'configuration' => 'Configuration',
         ];

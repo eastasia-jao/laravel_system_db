@@ -65,6 +65,47 @@ class SalesReportController extends Controller
         ]);
     }
 
+    public function fullyBookedReturns(Request $request, int $hub)
+    {
+        $user = auth()->user();
+        $storeHub = StoreHub::findOrFail($hub);
+
+        abort_unless($user && $user->canAccessHub($storeHub->id), 403);
+        abort_unless(
+            $user->role === 'admin'
+                || ($user->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked')),
+            403
+        );
+
+        $filters = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $transactions = SalesTransaction::query()
+            ->where('store_hub_id', $storeHub->id)
+            ->whereRaw('LOWER(REPLACE(REPLACE(channel_type, \'-\', \'_\'), \' \', \'_\')) = ?', ['fully_booked'])
+            ->whereHas('inventoryReturns', fn ($query) => $query
+                ->when($filters['date_from'] ?? null, fn ($returns, $date) => $returns->where('occurred_on', '>=', $date))
+                ->when($filters['date_to'] ?? null, fn ($returns, $date) => $returns->where('occurred_on', '<=', $date)))
+            ->with([
+                'inventoryReturns.product',
+                'inventoryReturns.transactionItem.product',
+                'inventoryReturns.productReplacement.replacementProduct',
+            ])
+            ->orderByDesc('order_date')
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('hubs.fully-booked-returns', [
+            'hub' => $storeHub,
+            'transactions' => $transactions,
+            'dateFrom' => $filters['date_from'] ?? null,
+            'dateTo' => $filters['date_to'] ?? null,
+        ]);
+    }
+
     public function report(Request $request, int $hub)
     {
         $user = auth()->user();

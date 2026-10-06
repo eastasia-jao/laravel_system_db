@@ -114,6 +114,11 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
                 $destination = route('hub.tiktok-returns', ['hub' => $record->data['hub_id']]);
             }
         }
+        if (($record->data['event'] ?? null) === 'return_recorded'
+            && ($record->data['channel'] ?? null) === 'fully_booked'
+            && ! empty($record->data['hub_id'])) {
+            $destination = route('hub.fully-booked-returns', ['hub' => $record->data['hub_id']]);
+        }
         if (! in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)
             && str_contains($destination, '/pending-sales')) {
             return redirect()->route('dashboard')->with('notification_error',
@@ -245,6 +250,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             Route::get('/products/import-status', [ProductController::class, 'importStatus'])->middleware('can:manage-inventory')->name('products.import-status');
             Route::get('/report', [SalesReportController::class, 'report'])->middleware('can:view-sales-reports')->name('report');
             Route::get('/tiktok-returns', [SalesReportController::class, 'tiktokReturns'])->middleware('can:view-sales-reports')->name('tiktok-returns');
+            Route::get('/fully-booked-returns', [SalesReportController::class, 'fullyBookedReturns'])->middleware('can:view-sales-reports')->name('fully-booked-returns');
             Route::get('/report/replacements/{replacement}/attachments/{type}/{index}', [SalesReportController::class, 'replacementAttachment'])
                 ->whereIn('type', ['payment-proof', 'replacement-slip'])
                 ->whereNumber('index')

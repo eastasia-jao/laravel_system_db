@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
+use App\Models\TransactionItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -386,6 +387,112 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee(route('inventory-transactions.fully-booked.attachment', $order), false)
             ->assertSee('fully-booked-return.pdf')
             ->assertSee('class="fully-booked-pdf"', false);
+    }
+
+    public function test_fully_booked_returns_are_visible_to_designated_staff_and_return_notification_opens_them(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Fully Booked Returns Hub',
+            'code' => 'FB-RETURNS',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['fully_booked'],
+        ]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff']);
+        $otherStaff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['online'],
+        ]);
+        $sale = SalesTransaction::create([
+            'store_hub_id' => $hub->id,
+            'user_id' => $staff->id,
+            'channel_type' => 'fully_booked',
+            'status' => 'confirmed',
+            'order_date' => '2026-10-01',
+            'order_number' => 'FB-RETURN-VIEW-001',
+            'customer_name' => 'Fully Booked Customer',
+        ]);
+        $product = Product::create([
+            'name' => 'Returned Fully Booked Product',
+            'item_id' => 'FB-RETURN-VIEW-ITEM',
+            'store_hub_id' => $hub->id,
+            'stock' => 4,
+            'status' => 'active',
+        ]);
+        $item = TransactionItem::create([
+            'transaction_id' => $sale->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit_price' => 25,
+            'discount_percentage' => 0,
+            'line_total' => 50,
+        ]);
+        InventoryTransaction::create([
+            'reference' => $sale->order_number,
+            'type' => 'return',
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'transaction_item_id' => $item->id,
+            'sales_transaction_id' => $sale->id,
+            'channel' => 'fully_booked',
+            'quantity' => 1,
+            'condition' => 'good',
+            'occurred_on' => '2026-10-02',
+            'created_by' => $inventoryStaff->id,
+        ]);
+
+        $returnsUrl = route('hub.fully-booked-returns', ['hub' => $hub->id]);
+        $this->actingAs($staff)
+            ->get($returnsUrl)
+            ->assertOk()
+            ->assertSee('Fully Booked Returns')
+            ->assertSee('FB-RETURN-VIEW-001')
+            ->assertSee('Returned Fully Booked Product')
+            ->assertSee('Good: 1')
+            ->assertViewHas('transactions', fn ($transactions) => $transactions->total() === 1);
+
+        $this->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('Fully Booked Returns')
+            ->assertSee($returnsUrl, false);
+        $this->actingAs($otherStaff)->get($returnsUrl)->assertForbidden();
+
+        $this->actingAs($inventoryStaff)->post(route('inventory-transactions.return.store'), [
+            'type' => 'return',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-03',
+            'channel' => 'fully_booked',
+            'sales_transaction_id' => $sale->id,
+            'reference' => $sale->order_number,
+            'items' => [[
+                'product_id' => $product->id,
+                'transaction_item_id' => $item->id,
+                'good_quantity' => 0,
+                'damaged_quantity' => 1,
+            ]],
+        ])->assertRedirect();
+
+        $notification = $staff->notifications()->where('data->event', 'return_recorded')->sole();
+        $this->assertSame($returnsUrl, $notification->data['url']);
+        $this->assertStringContainsString('Fully Booked Returns', $notification->data['message']);
+
+        $legacyNotification = $staff->notifications()->create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'type' => \App\Notifications\InventoryWorkflowNotification::class,
+            'data' => [
+                'event' => 'return_recorded',
+                'channel' => 'fully_booked',
+                'hub_id' => $hub->id,
+                'url' => route('hub.report', ['hub' => $hub->id, 'channel' => 'fully_booked']),
+            ],
+        ]);
+        $this->actingAs($staff)->get(route('notifications.read', $legacyNotification->id))
+            ->assertRedirect($returnsUrl);
     }
 
     public function test_other_fully_booked_store_requires_and_saves_a_specified_name(): void
