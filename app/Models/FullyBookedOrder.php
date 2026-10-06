@@ -19,6 +19,7 @@ class FullyBookedOrder extends Model
         'mime_type',
         'remarks',
         'status',
+        'rejection_reason',
         'reviewed_at',
         'pulled_out_by',
         'pulled_out_at',

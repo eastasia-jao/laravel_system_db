@@ -15,6 +15,7 @@
             'hub.dashboard' => 'Store Hub Dashboard',
             'hub.report' => 'Sales Report',
             'hub.fully-booked-returns' => 'Fully Booked Returns',
+            'hub.fully-booked-rejected' => 'Rejected Fully Booked Orders',
             'hub.wholesale.report' => 'Wholesale Report',
             'configuration' => 'Configuration',
         ];

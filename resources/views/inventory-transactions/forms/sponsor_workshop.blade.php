@@ -318,12 +318,38 @@
                                         <button type="button" class="btn btn-sm btn-outline-primary add-fully-booked-row"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
                                         <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-csv"><i class="fa-solid fa-file-csv me-1"></i>Export CSV</button>
                                     </div>
-                                    <button class="btn btn-success"><i class="fa-solid fa-circle-check me-1"></i>Complete Order & Update Stock</button>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectFullyBookedOrder{{ $order->id }}"><i class="fa-solid fa-circle-xmark me-1"></i>Reject Order</button>
+                                        <button class="btn btn-success"><i class="fa-solid fa-circle-check me-1"></i>Complete Order & Update Stock</button>
+                                    </div>
                                 </div>
                             </form>
                         </div>
                     </div>
                 </article>
+                <div class="modal fade" id="rejectFullyBookedOrder{{ $order->id }}" tabindex="-1" aria-labelledby="rejectFullyBookedOrderTitle{{ $order->id }}" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <form method="POST" action="{{ route('inventory-transactions.fully-booked.reject', $order) }}">
+                                @csrf
+                                @method('PATCH')
+                                <div class="modal-header">
+                                    <h5 class="modal-title fw-bold" id="rejectFullyBookedOrderTitle{{ $order->id }}">Reject Fully Booked Order</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="small text-muted">Reject order <strong>{{ $order->order_number }}</strong>? The submitting staff member will be notified.</p>
+                                    <label class="form-label fw-semibold" for="rejectionReason{{ $order->id }}">Reason for rejection</label>
+                                    <textarea id="rejectionReason{{ $order->id }}" name="rejection_reason" class="form-control" rows="4" maxlength="2000" required placeholder="Explain why this order is being rejected"></textarea>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-danger"><i class="fa-solid fa-circle-xmark me-1"></i>Reject Order</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             @empty
                 <div class="alert alert-info mb-0">There are no Fully Booked attachments awaiting pull-out.</div>
             @endforelse

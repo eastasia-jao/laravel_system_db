@@ -240,7 +240,7 @@ class InventoryTransactionController extends Controller
             && (! $request->filled('type') || $request->input('type') === 'fully_booked')
             && (! in_array($request->input('status'), ['approved', 'rejected'], true))
             ? FullyBookedOrder::with(['storeHub', 'salesStaff', 'submitter', 'reviewer', 'pullOutBy', 'items.product'])
-                ->where('status', '!=', 'pending')
+                ->where('status', 'reviewed')
                 ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
                 ->when($request->filled('month'), fn ($query) => $query->whereBetween('created_at', [
                     $request->input('month').'-01 00:00:00',
@@ -559,6 +559,7 @@ class InventoryTransactionController extends Controller
         $fullyBookedOrders = $canManageEvent
             ? FullyBookedOrder::with(['storeHub', 'salesStaff'])
                 ->whereNull('pulled_out_at')
+                ->where('status', '!=', 'rejected')
                 ->latest()
                 ->get()
             : ($canSubmitFullyBooked

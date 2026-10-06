@@ -31,6 +31,31 @@ class FullyBookedOrderController extends Controller
         ));
     }
 
+    public function rejected(Request $request, int $hub)
+    {
+        $user = $request->user();
+        abort_unless(
+            $user->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked'),
+            403
+        );
+
+        $storeHub = StoreHub::findOrFail($hub);
+        abort_unless($user->canAccessHub($storeHub->id), 403);
+
+        $orders = FullyBookedOrder::query()
+            ->where('store_hub_id', $storeHub->id)
+            ->where('submitted_by', $user->id)
+            ->where('status', 'rejected')
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('hubs.fully-booked-rejected', [
+            'hub' => $storeHub,
+            'orders' => $orders,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $user = $request->user();
@@ -253,6 +278,46 @@ class FullyBookedOrderController extends Controller
         });
 
         return back()->with('success', 'Fully Booked attachment marked as reviewed.');
+    }
+
+    public function reject(Request $request, FullyBookedOrder $fullyBookedOrder)
+    {
+        abort_unless(in_array($request->user()->role, ['admin', 'inventory_staff'], true), 403);
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'max:2000'],
+        ]);
+
+        DB::transaction(function () use ($request, $fullyBookedOrder, $validated) {
+            $order = FullyBookedOrder::whereKey($fullyBookedOrder->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array($order->status, ['pending', 'reviewed'], true), 409, 'Only pending Fully Booked orders can be rejected.');
+            abort_unless(is_null($order->pulled_out_at), 409, 'An order that has been pulled out cannot be rejected.');
+            $order->update([
+                'status' => 'rejected',
+                'reviewed_by' => $request->user()->id,
+                'reviewed_at' => now(),
+                'rejection_reason' => trim($validated['rejection_reason']),
+            ]);
+        });
+
+        $submitter = $fullyBookedOrder->submitter;
+        if ($submitter) {
+            $submitter->notify(new InventoryWorkflowNotification(
+                'fully_booked_rejected',
+                sprintf(
+                    'Your Fully Booked order %s was rejected. Reason: %s',
+                    $fullyBookedOrder->order_number,
+                    trim($validated['rejection_reason'])
+                ),
+                $fullyBookedOrder->store_hub_id,
+                route('hub.fully-booked-rejected', ['hub' => $fullyBookedOrder->store_hub_id]),
+                reference: $fullyBookedOrder->order_number
+            ));
+        }
+
+        return redirect()->route('inventory-transactions.sponsor.create', [
+            'hub_id' => $fullyBookedOrder->store_hub_id,
+            'activity_type' => 'fully_booked',
+        ])->with('success', 'Fully Booked order rejected and the submitter was notified.');
     }
 
     private function canViewOrders(User $user): bool

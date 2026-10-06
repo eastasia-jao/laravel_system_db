@@ -188,6 +188,9 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::patch('/inventory-transactions/fully-booked/{fullyBookedOrder}/review', [FullyBookedOrderController::class, 'review'])
             ->middleware('can:manage-fully-booked-orders')
             ->name('inventory-transactions.fully-booked.review');
+        Route::patch('/inventory-transactions/fully-booked/{fullyBookedOrder}/reject', [FullyBookedOrderController::class, 'reject'])
+            ->middleware('can:manage-fully-booked-orders')
+            ->name('inventory-transactions.fully-booked.reject');
         Route::post('/inventory-transactions/fully-booked/{fullyBookedOrder}/pull-out', [FullyBookedOrderController::class, 'pullOut'])
             ->middleware('can:manage-fully-booked-orders')
             ->name('inventory-transactions.fully-booked.pull-out');
@@ -251,6 +254,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             Route::get('/report', [SalesReportController::class, 'report'])->middleware('can:view-sales-reports')->name('report');
             Route::get('/tiktok-returns', [SalesReportController::class, 'tiktokReturns'])->middleware('can:view-sales-reports')->name('tiktok-returns');
             Route::get('/fully-booked-returns', [SalesReportController::class, 'fullyBookedReturns'])->middleware('can:view-sales-reports')->name('fully-booked-returns');
+            Route::get('/fully-booked-rejected', [FullyBookedOrderController::class, 'rejected'])->name('fully-booked-rejected');
             Route::get('/report/replacements/{replacement}/attachments/{type}/{index}', [SalesReportController::class, 'replacementAttachment'])
                 ->whereIn('type', ['payment-proof', 'replacement-slip'])
                 ->whereNumber('index')

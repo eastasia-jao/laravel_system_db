@@ -48,7 +48,7 @@
                         $notificationMessage
                     );
                 }
-                $isRejectedNotification = in_array($notificationData['event'] ?? null, ['rejected', 'replacement_rejected', 'branch_transfer_rejected'], true);
+                $isRejectedNotification = in_array($notificationData['event'] ?? null, ['rejected', 'replacement_rejected', 'branch_transfer_rejected', 'fully_booked_rejected'], true);
                 $isSuccessfulVerification = in_array($notificationData['event'] ?? null, ['confirmed', 'inventory_verification', 'replacement_approved', 'branch_transfer_approved', 'fully_booked_completed'], true);
                 $notificationVisuals = $isRejectedNotification
                     ? ['icon' => 'fa-circle-xmark', 'color' => 'text-danger', 'background' => 'bg-danger']

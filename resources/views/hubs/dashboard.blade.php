@@ -102,6 +102,11 @@
                 <span class="hub-action-icon"><i class="fa-solid fa-rotate-left"></i></span><span class="hub-action-label">Fully Booked Returns</span>
             </a>
         </div>
+        <div class="col">
+            <a href="{{ route('hub.fully-booked-rejected', ['hub' => $hub->id]) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
+                <span class="hub-action-icon"><i class="fa-solid fa-circle-xmark"></i></span><span class="hub-action-label">Rejected Fully Booked</span>
+            </a>
+        </div>
         @endif
 
         <!-- Inventory -->

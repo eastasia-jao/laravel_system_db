@@ -74,6 +74,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSeeInOrder([
                 '<span class="hub-action-label">Fully Booked Order</span>',
                 '<span class="hub-action-label">Fully Booked Returns</span>',
+                '<span class="hub-action-label">Rejected Fully Booked</span>',
+                '<span class="hub-action-label">Inventory</span>',
             ], false)
             ->assertDontSee('My Fully Booked Orders')
             ->assertDontSee('Fully Booked Orders')
@@ -505,6 +507,98 @@ class FullyBookedOrderTest extends TestCase
         ]);
         $this->actingAs($staff)->get(route('notifications.read', $legacyNotification->id))
             ->assertRedirect($returnsUrl);
+    }
+
+    public function test_inventory_staff_can_reject_fully_booked_order_with_reason_and_notify_submitter(): void
+    {
+        Storage::fake('local');
+        $hub = StoreHub::create([
+            'name' => 'Head Office',
+            'code' => 'HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['fully_booked'],
+        ]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff']);
+        $otherStaff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['fully_booked'],
+        ]);
+        $path = $this->fakePdf('rejection-order.pdf')->store('fully-booked-orders', 'local');
+        $order = FullyBookedOrder::create([
+            'order_number' => 'FB-REJECT-001',
+            'store_hub_id' => $hub->id,
+            'sales_staff_id' => $staff->id,
+            'submitted_by' => $staff->id,
+            'attachment_path' => $path,
+            'original_filename' => 'rejection-order.pdf',
+            'mime_type' => 'application/pdf',
+            'status' => 'reviewed',
+        ]);
+
+        $pullOutPage = $this->actingAs($inventoryStaff)
+            ->get(route('inventory-transactions.sponsor.create', [
+                'hub_id' => $hub->id,
+                'activity_type' => 'fully_booked',
+            ]));
+        $pullOutPage->assertOk()
+            ->assertSee('Reject Order')
+            ->assertSee('name="rejection_reason"', false)
+            ->assertSee(route('inventory-transactions.fully-booked.reject', $order), false);
+
+        $this->patch(route('inventory-transactions.fully-booked.reject', $order), [])
+            ->assertSessionHasErrors('rejection_reason');
+        $this->patch(route('inventory-transactions.fully-booked.reject', $order), [
+            'rejection_reason' => 'The attachment is missing the requested quantities.',
+        ])->assertRedirect(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'fully_booked',
+        ]))->assertSessionHas('success');
+
+        $this->assertDatabaseHas('fully_booked_orders', [
+            'id' => $order->id,
+            'status' => 'rejected',
+            'reviewed_by' => $inventoryStaff->id,
+            'rejection_reason' => 'The attachment is missing the requested quantities.',
+            'pulled_out_at' => null,
+        ]);
+        $this->get(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'fully_booked',
+        ]))->assertOk()->assertViewHas('fullyBookedOrders', fn ($orders) => ! $orders->contains('id', $order->id));
+
+        $rejectedUrl = route('hub.fully-booked-rejected', ['hub' => $hub->id]);
+        $notification = $staff->notifications()->where('data->event', 'fully_booked_rejected')->sole();
+        $this->assertSame($rejectedUrl, $notification->data['url']);
+        $this->assertSame('FB-REJECT-001', $notification->data['reference']);
+        $this->assertStringContainsString('The attachment is missing the requested quantities.', $notification->data['message']);
+
+        $this->actingAs($staff)->get($rejectedUrl)
+            ->assertOk()
+            ->assertSee('FB-REJECT-001')
+            ->assertSee('The attachment is missing the requested quantities.')
+            ->assertSee(route('inventory-transactions.fully-booked.attachment', $order), false);
+        $this->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSeeInOrder([
+                '<span class="hub-action-label">Fully Booked Returns</span>',
+                '<span class="hub-action-label">Rejected Fully Booked</span>',
+                '<span class="hub-action-label">Inventory</span>',
+            ], false);
+        $this->actingAs($otherStaff)->get($rejectedUrl)
+            ->assertOk()
+            ->assertDontSee('FB-REJECT-001')
+            ->assertSee('You do not have any rejected Fully Booked orders.');
+        $this->actingAs($staff)->get(route('notifications.read', $notification->id))
+            ->assertRedirect($rejectedUrl);
+        $this->get(route('notifications.index'))
+            ->assertOk()
+            ->assertSee('fa-circle-xmark');
     }
 
     public function test_other_fully_booked_store_requires_and_saves_a_specified_name(): void

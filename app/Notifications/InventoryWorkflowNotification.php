@@ -45,6 +45,7 @@ class InventoryWorkflowNotification extends Notification
             'branch_transfer_rejected' => 'Branch transfer rejected',
             'fully_booked_order' => 'Fully Booked order attachment to review',
             'fully_booked_completed' => 'Fully Booked order completed',
+            'fully_booked_rejected' => 'Fully Booked order rejected',
         ];
 
         $data = [

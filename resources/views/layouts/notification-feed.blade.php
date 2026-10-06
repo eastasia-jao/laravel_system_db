@@ -5,7 +5,7 @@
         $notificationHub = $notificationHubs->get($notificationData['hub_id'] ?? null);
         $event = $notificationData['event'] ?? null;
         $isReplacement = in_array($event, ['replacement_request', 'replacement_approved', 'replacement_rejected'], true);
-        $isRejected = in_array($event, ['rejected', 'replacement_rejected', 'branch_transfer_rejected'], true);
+        $isRejected = in_array($event, ['rejected', 'replacement_rejected', 'branch_transfer_rejected', 'fully_booked_rejected'], true);
         $isSuccessful = in_array($event, ['confirmed', 'inventory_verification', 'replacement_approved', 'branch_transfer_approved', 'fully_booked_completed'], true);
         $isWalkIn = ($notificationData['channel'] ?? null) === 'walk_in'
             || str_starts_with($notificationData['title'] ?? '', 'Walk-In ')
