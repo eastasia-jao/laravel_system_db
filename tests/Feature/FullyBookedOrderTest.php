@@ -71,6 +71,10 @@ class FullyBookedOrderTest extends TestCase
         $this->actingAs($designated)->get(route('hub.dashboard', $hub->id))
             ->assertOk()
             ->assertSee('Fully Booked Order')
+            ->assertSeeInOrder([
+                '<span class="hub-action-label">Fully Booked Order</span>',
+                '<span class="hub-action-label">Fully Booked Returns</span>',
+            ], false)
             ->assertDontSee('My Fully Booked Orders')
             ->assertDontSee('Fully Booked Orders')
             ->assertDontSee(route('inventory-transactions.fully-booked.index'), false)
@@ -443,6 +447,7 @@ class FullyBookedOrderTest extends TestCase
             'quantity' => 1,
             'condition' => 'good',
             'occurred_on' => '2026-10-02',
+            'notes' => 'Keep packaging intact',
             'created_by' => $inventoryStaff->id,
         ]);
 
@@ -454,6 +459,13 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('FB-RETURN-VIEW-001')
             ->assertSee('Returned Fully Booked Product')
             ->assertSee('Good: 1')
+            ->assertSee('Keep packaging intact')
+            ->assertDontSee('>Clear</a>', false)
+            ->assertSeeInOrder([
+                '<th>Condition summary</th>',
+                '<th>Notes</th>',
+                '<th class="text-end pe-3">Action</th>',
+            ], false)
             ->assertViewHas('transactions', fn ($transactions) => $transactions->total() === 1);
 
         $this->get(route('hub.dashboard', $hub->id))

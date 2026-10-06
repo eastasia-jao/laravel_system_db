@@ -80,14 +80,6 @@
         </div>
         @endif
 
-        @if(auth()->user()?->role === 'sales_marketing_staff' && auth()->user()->hasSalesChannel('fully_booked'))
-        <div class="col">
-            <a href="{{ route('hub.fully-booked-returns', ['hub' => $hub->id]) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
-                <span class="hub-action-icon"><i class="fa-solid fa-rotate-left"></i></span><span class="hub-action-label">Fully Booked Returns</span>
-            </a>
-        </div>
-        @endif
-
         <!-- Sales Report -->
         @can('view-sales-reports')
         @if($reportChannel)
@@ -103,6 +95,11 @@
         <div class="col">
             <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id, 'activity_type' => 'fully_booked']) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
                 <span class="hub-action-icon"><i class="fa-solid fa-file-arrow-up"></i></span><span class="hub-action-label">Fully Booked Order</span>
+            </a>
+        </div>
+        <div class="col">
+            <a href="{{ route('hub.fully-booked-returns', ['hub' => $hub->id]) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
+                <span class="hub-action-icon"><i class="fa-solid fa-rotate-left"></i></span><span class="hub-action-label">Fully Booked Returns</span>
             </a>
         </div>
         @endif

@@ -24,7 +24,6 @@
             </div>
             <div class="col-md-4 d-flex gap-2">
                 <button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter me-1"></i>Filter returns</button>
-                <a class="btn btn-outline-secondary" href="{{ route('hub.fully-booked-returns', $hub->id) }}">Clear</a>
             </div>
         </div>
     </form>
@@ -41,6 +40,7 @@
                             <th>Returned lines</th>
                             <th>Returned quantity</th>
                             <th>Condition summary</th>
+                            <th>Notes</th>
                             <th class="text-end pe-3">Action</th>
                         </tr>
                     </thead>
@@ -50,6 +50,7 @@
                                 $returnRecords = $transaction->inventoryReturns;
                                 $goodReturned = (int) $returnRecords->where('condition', 'good')->sum('quantity');
                                 $badReturned = (int) $returnRecords->where('condition', 'damaged')->sum('quantity');
+                                $returnNotes = $returnRecords->pluck('notes')->filter()->unique()->implode(' · ');
                             @endphp
                             <tr>
                                 <td class="ps-3 fw-semibold">{{ $transaction->order_number ?: '—' }}</td>
@@ -61,6 +62,7 @@
                                     @if($goodReturned > 0)<span class="badge text-bg-success me-1">Good: {{ $goodReturned }}</span>@endif
                                     @if($badReturned > 0)<span class="badge text-bg-danger me-1">Damaged: {{ $badReturned }}</span>@endif
                                 </td>
+                                <td>{{ $returnNotes ?: '—' }}</td>
                                 <td class="text-end pe-3">
                                     <button class="btn btn-sm btn-outline-primary text-nowrap" type="button" data-bs-toggle="modal" data-bs-target="#fully-booked-return-{{ $transaction->id }}">
                                         <i class="fa-solid fa-eye me-1"></i>View return items
@@ -95,7 +97,6 @@
                                             <th class="text-center">Quantity</th>
                                             <th>Condition</th>
                                             <th>Return date</th>
-                                            <th>Notes</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -120,7 +121,6 @@
                                                     @endif
                                                 </td>
                                                 <td>{{ optional($return->occurred_on)->format('M d, Y') ?: '—' }}</td>
-                                                <td>{{ $return->notes ?: '—' }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
