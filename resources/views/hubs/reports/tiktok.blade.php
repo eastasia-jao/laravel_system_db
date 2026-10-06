@@ -1,5 +1,6 @@
 @php
     $canEditDetails = auth()->user()->role === 'admin' || (in_array(auth()->user()->role, ['sales_associate', 'sales_marketing_staff']) && auth()->user()->hasSalesChannel('tiktok'));
+    $canReportReturns = $canEditDetails;
     $remainingQuantity = static function ($item): int {
         $returnedQuantity = max(
             (int) ($item->returned_quantity ?? 0),
@@ -86,7 +87,14 @@
                 <td>
                     <span class="badge {{ $hasReturn && $transaction->tiktok_recalculated_payout_entered ? 'bg-success' : ($hasReturn ? 'bg-info text-dark' : ($transaction->sales_after_transaction_fee === null ? 'bg-warning text-dark' : 'bg-success')) }}">{{ $hasReturn ? ($transaction->tiktok_recalculated_payout_entered ? 'Recalculated payout recorded' : 'Return recalculated') : ($transaction->sales_after_transaction_fee === null ? 'Awaiting sales total' : 'Sales total recorded') }}</span>
                 </td>
-                <td class="text-end pe-3"><button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#tiktok-order-{{ $transaction->id }}">View order</button></td>
+                <td class="text-end pe-3">
+                    @if($canReportReturns)
+                        <button type="button" class="btn btn-sm btn-outline-warning text-nowrap mb-1" data-bs-toggle="modal" data-bs-target="#tiktok-order-{{ $transaction->id }}">
+                            <i class="fa-solid fa-rotate-left me-1"></i>Return items
+                        </button>
+                    @endif
+                    <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#tiktok-order-{{ $transaction->id }}">View order</button>
+                </td>
             </tr>
         @empty
             <tr><td colspan="7" class="text-center text-muted p-5">No TikTok orders found. Try a different date range.</td></tr>
@@ -237,6 +245,17 @@
                     </tbody>
                 </table>
             </div>
+            @if($canReportReturns)
+                <section class="card border-warning-subtle mt-3" aria-label="TikTok return items">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-1"><i class="fa-solid fa-rotate-left text-warning me-2"></i>Report returned items</h6>
+                        <p class="small text-muted mb-3">Record which items the customer says they are returning. Mark an item as received only after it physically arrives at the hub.</p>
+                        @foreach($transaction->items as $item)
+                            @include('hubs.reports.tiktok-return-form', ['hub' => $hub, 'transaction' => $transaction, 'item' => $item])
+                        @endforeach
+                    </div>
+                </section>
+            @endif
             @if($transaction->replacements->where('status', 'approved')->isNotEmpty())
                 <div class="alert alert-info small mt-3 mb-0">
                     The item rows preserve the original sale for audit history. The <strong>Adjusted order total</strong> above includes approved replacement price adjustments.

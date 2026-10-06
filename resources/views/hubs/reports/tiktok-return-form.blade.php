@@ -3,8 +3,21 @@
                     $locked = $item->return_status === 'received';
                     $editing = old('editing_item') == $item->id;
                     $fieldValue = fn ($field, $default = null) => $editing ? old($field, $item->$field ?? $default) : ($item->$field ?? $default);
+                    $returnLabels = [
+                        'none' => 'No return reported',
+                        'requested' => 'Return requested',
+                        'received' => 'Item received',
+                        'rejected' => 'Return rejected',
+                        'refund_only' => 'Refund only',
+                    ];
+                    $refundLabels = [
+                        'none' => 'No refund',
+                        'pending' => 'Refund pending',
+                        'completed' => 'Refund completed',
+                        'rejected' => 'Refund rejected',
+                    ];
                 @endphp
-                <form data-return-form method="POST" action="{{ route('hub.report.tiktok.return.update', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="border rounded p-3 mt-3">
+                <form data-return-form method="POST" action="{{ route('hub.report.tiktok.return.update', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="border rounded p-3 mt-3" id="tiktok-return-item-{{ $item->id }}">
                     @csrf @method('PATCH')
                     <input type="hidden" name="editing_order" value="{{ $transaction->id }}"><input type="hidden" name="editing_item" value="{{ $item->id }}">
                     <h6 class="fw-bold mb-3">{{ $item->product?->name ?? 'Product #'.$item->product_id }}</h6>
@@ -17,7 +30,7 @@
                         <div class="col-md-4"><label class="form-label small" for="refund-{{ $item->id }}">Customer refund (₱)</label><input id="refund-{{ $item->id }}" class="form-control tiktok-refund-amount" type="number" step="0.01" name="customer_refund_amount" min="0" max="{{ $item->line_total }}" value="{{ $fieldValue('customer_refund_amount', 0) }}" data-unit-price="{{ $item->unit_price }}" data-discount="{{ $item->discount_percentage ?? 0 }}" data-quantity="#qty-{{ $item->id }}"><div class="form-text">For received returns, this is calculated from the discounted price × returned quantity.</div></div>
                         <div class="col-md-4"><label class="form-label small" for="reason-{{ $item->id }}">Reason (optional)</label><textarea id="reason-{{ $item->id }}" class="form-control" name="return_reason" maxlength="2000" rows="2">{{ $fieldValue('return_reason') }}</textarea></div>
                     </div>
-                    <p class="small text-muted mt-3">{{ $locked ? 'Item received. You can still update the refund.' : 'Only good items received back will be added to stock.' }}</p>
+                    <p class="small text-muted mt-3">{{ $locked ? 'Item received. You can still update the refund.' : 'Use Return requested to notify the team. Stock is adjusted only after the item is marked received.' }}</p>
                     <button class="btn btn-outline-primary" type="submit">Save changes</button>
                 </form>
                 <script>

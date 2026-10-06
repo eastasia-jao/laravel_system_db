@@ -45,17 +45,18 @@ class SalesReportController extends Controller
         if (! $hub->is_head_office) {
             $channel = 'walk_in';
         } elseif (in_array($user?->role, ['sales_associate', 'sales_marketing_staff'], true)) {
-            $assignedChannels = collect(auth()->user()->sales_channels ?? [])
+            $userChannels = collect($user->sales_channels ?? [])
                 ->map(fn ($assignedChannel) => $this->normalizeChannel($assignedChannel))
-                ->filter(fn ($assignedChannel) => in_array($assignedChannel, self::REPORT_CHANNELS, true))
                 ->values()
                 ->all();
+            $assignedChannels = array_values(array_intersect(self::REPORT_CHANNELS, $userChannels));
 
             if ($channel === 'all') {
                 $channel = $this->normalizeChannel($assignedChannels[0] ?? null);
             }
 
-            if ($channel === 'all' || ! in_array($channel, $assignedChannels, true)) {
+            $isAssignedTikTokReturnView = $channel === 'tiktok' && in_array('tiktok', $userChannels, true);
+            if ($channel === 'all' || (! in_array($channel, $assignedChannels, true) && ! $isAssignedTikTokReturnView)) {
                 abort(403, 'You are not assigned to view this sales channel.');
             }
         }

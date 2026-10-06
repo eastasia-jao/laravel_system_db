@@ -141,6 +141,36 @@ class TikTokReturnsTest extends TestCase
             ->assertJsonPath('orders.0.id', $sale->id);
     }
 
+    public function test_tiktok_sales_marketing_staff_can_open_and_report_returned_items(): void
+    {
+        [$hub, $product, $sale, $item] = $this->order();
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['tiktok'],
+        ]);
+
+        $report = $this->actingAs($staff)->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']));
+        $report->assertOk()
+            ->assertSee('Return items')
+            ->assertSee('Report returned items')
+            ->assertSee('Return requested')
+            ->assertSee('RETURN-1');
+
+        $this->patch(route('hub.report.tiktok.return.update', [$hub->id, $sale->id, $item->id]), [
+            'return_status' => 'requested',
+            'returned_quantity' => 1,
+            'refund_status' => 'none',
+            'customer_refund_amount' => 0,
+            'return_reason' => 'Customer reported a damaged item.',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('requested', $item->fresh()->return_status);
+        $this->assertSame('Customer reported a damaged item.', $item->fresh()->return_reason);
+        $this->assertSame(8, $product->fresh()->stock);
+        $this->assertDatabaseCount('inventory_transactions', 0);
+    }
+
     public function test_legacy_tiktok_returns_show_customer_name_using_order_reference(): void
     {
         [$hub, $product, $sale] = $this->order();
@@ -177,7 +207,8 @@ class TikTokReturnsTest extends TestCase
         $orderModalId = 'tiktok-order-'.$sale->id;
         $this->assertSame(25, $xpath->query('//div[@id="tiktok-order-'.$sale->id.'"]//tr[@data-order-item]')->length);
         $this->assertSame(0, $xpath->query('//tr[@data-order-item and not(ancestor::div[contains(@class,"modal")])]')->length);
-        $this->assertSame(1, $xpath->query('//div[@id="'.$orderModalId.'"]//form[contains(@action, "/report/tiktok/")]')->length);
+        $this->assertSame(1, $xpath->query('//div[@id="'.$orderModalId.'"]//form[contains(@action, "/report/tiktok/") and not(contains(@action, "/returns/"))]')->length);
+        $this->assertSame(25, $xpath->query('//div[@id="'.$orderModalId.'"]//form[contains(@action, "/returns/")]')->length);
         $this->assertSame(0, $xpath->query('//form[contains(@action, "/report/tiktok/") and not(ancestor::div[@id="'.$orderModalId.'"])]')->length);
         $this->assertSame(1, $xpath->query('//div[@data-reopen-order]')->length);
     }
