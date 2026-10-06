@@ -5,6 +5,13 @@ set -eu
 # to an ephemeral container file. Send runtime diagnostics to Render Logs.
 export LOG_CHANNEL=stderr
 
+# Render mounts persistent disks before starting the container. Make the
+# configured upload directory writable by Apache's www-data user.
+if [ -n "${PUBLIC_STORAGE_PATH:-}" ]; then
+    mkdir -p "$PUBLIC_STORAGE_PATH"
+    chown -R www-data:www-data "$PUBLIC_STORAGE_PATH"
+fi
+
 # Render assigns PORT at runtime. Apache's default configuration listens on 80.
 sed -ri "s/^Listen 80$/Listen ${PORT}/" /etc/apache2/ports.conf
 sed -ri "s/<VirtualHost \*:10000>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf
