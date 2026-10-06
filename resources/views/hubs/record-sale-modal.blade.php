@@ -651,6 +651,8 @@ document.addEventListener('DOMContentLoaded', function () {
     let shippingContainer = document.getElementById('wholesaleShippingFeeContainer');
     const customerInput = document.getElementById('saleCustomerName');
     const customerOptions = document.getElementById('existingSaleCustomers');
+    let customerLookupTimeout;
+    let customerLookupSequence = 0;
     const walkInProofInputs = [...document.querySelectorAll('#walkInExtraFields input[type="file"]')];
     walkInProofInputs.forEach(input => input.addEventListener('change', () => {
         const total = walkInProofInputs.reduce((count, field) => count + field.files.length, 0);
@@ -722,16 +724,20 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize Tom Select on the Channel Select dropdown if applicable, or bind events cleanly
     if (channelSelect) {
         channelSelect.addEventListener('change', handleChannelChange);
-        channelSelect.addEventListener('change', async () => {
+        const loadCustomerOptions = async (search = '') => {
             customerOptions.replaceChildren();
-            customerInput.value = '';
             if (!channelSelect.value) return;
+            const lookupSequence = ++customerLookupSequence;
             try {
                 const url = new URL(@json(route('hub.sales.customers', $hub->id)), window.location.origin);
                 url.searchParams.set('channel', channelSelect.value);
+                if (search.trim()) url.searchParams.set('q', search.trim());
                 const response = await fetch(url, { headers: { Accept: 'application/json' } });
                 if (!response.ok) throw new Error('Customer lookup unavailable');
                 const customers = await response.json();
+                if (lookupSequence !== customerLookupSequence
+                    || channelSelect.value !== url.searchParams.get('channel')
+                    || customerInput.value.trim() !== search.trim()) return;
                 customers.forEach(customer => {
                     const option = document.createElement('option');
                     option.value = customer.name;
@@ -741,12 +747,24 @@ document.addEventListener('DOMContentLoaded', function () {
             } catch (error) {
                 window.AppAlert?.show('Existing customers could not be loaded. You can still type a new customer.', 'warning');
             }
+        };
+        channelSelect.addEventListener('change', () => {
+            customerInput.value = '';
+            loadCustomerOptions();
+        });
+        customerInput.addEventListener('input', () => {
+            window.clearTimeout(customerLookupTimeout);
+            customerLookupTimeout = window.setTimeout(
+                () => loadCustomerOptions(customerInput.value),
+                250
+            );
         });
         customerInput.addEventListener('change', () => {
             const selected = [...customerOptions.options].find(option => option.value === customerInput.value);
         });
         if (channelSelect.value) {
             handleChannelChange();
+            loadCustomerOptions(customerInput.value);
         }
     }
 

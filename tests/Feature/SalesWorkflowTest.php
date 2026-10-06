@@ -16,6 +16,49 @@ class SalesWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_tiktok_customer_lookup_searches_existing_customers_by_name(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Customer Lookup Head Office',
+            'code' => 'CUSTOMER-LOOKUP',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
+
+        foreach (range(1, 35) as $index) {
+            SalesTransaction::create([
+                'store_hub_id' => $hub->id,
+                'channel_type' => 'tiktok',
+                'order_date' => now()->subDays($index)->toDateString(),
+                'order_number' => 'TIKTOK-CUSTOMER-'.$index,
+                'customer_name' => $index === 35 ? 'Older TikTok Customer' : 'Recent TikTok Customer '.$index,
+            ]);
+        }
+        SalesTransaction::create([
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'online',
+            'order_date' => now()->toDateString(),
+            'order_number' => 'ONLINE-CUSTOMER-1',
+            'customer_name' => 'Older Online Customer',
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('hub.sales.customers', [
+                'hubId' => $hub->id,
+                'channel' => 'tiktok',
+                'q' => 'Older TikTok',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonFragment(['name' => 'Older TikTok Customer']);
+
+        $dashboard = $this->get(route('hub.dashboard', $hub->id))->assertOk();
+        $dashboard->assertSee('loadCustomerOptions(customerInput.value)', false)
+            ->assertSee('setTimeout(', false)
+            ->assertSee("url.searchParams.set('q', search.trim())", false);
+    }
+
     public function test_shopee_and_lazada_generate_invoice_numbers_when_left_blank(): void
     {
         $hub = StoreHub::create([
