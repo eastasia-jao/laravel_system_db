@@ -134,7 +134,7 @@
                 <div class="col"><a href="{{ route($action['route'], ['hub_id' => $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100 position-relative">
                     <i class="fa-solid {{ $action['icon'] }} text-primary fs-4 mb-2"></i><strong class="text-dark">{{ $action['title'] }}</strong><small class="text-muted">{{ $action['text'] }}</small>
                     @if(($action['pending'] ?? 0) > 0)
-                        <span class="badge rounded-pill text-bg-danger position-absolute top-0 end-0 m-3" aria-label="{{ $action['pending'] }} Fully Booked {{ $action['pending'] === 1 ? 'order' : 'orders' }} awaiting pull-out">{{ $action['pending'] }}</span>
+                        <span class="badge rounded-pill text-bg-danger position-absolute top-0 end-0 m-3" aria-label="{{ $action['pending'] }} Fully Booked {{ $action['pending'] === 1 ? 'order' : 'orders' }} not yet processed">{{ $action['pending'] }}</span>
                     @endif
                 </a></div>
             @endforeach

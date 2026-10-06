@@ -98,7 +98,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertDontSee('href="'.route('inventory-transactions.fully-booked.index').'" class="card', false);
     }
 
-    public function test_transaction_log_event_fully_booked_shortcut_shows_reviewed_orders_awaiting_pullout(): void
+    public function test_transaction_log_event_fully_booked_shortcut_counts_unprocessed_orders(): void
     {
         $hub = StoreHub::create([
             'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
@@ -127,8 +127,8 @@ class FullyBookedOrderTest extends TestCase
         $this->actingAs($admin)
             ->get(route('inventory-transactions.index', ['hub_id' => $hub->id]))
             ->assertOk()
-            ->assertSee('1 Fully Booked order awaiting pull-out')
-            ->assertViewHas('fullyBookedPulloutCount', 1);
+            ->assertSee('2 Fully Booked orders not yet processed')
+            ->assertViewHas('fullyBookedPulloutCount', 2);
     }
 
     public function test_sales_staff_fully_booked_order_tracking_is_paginated_six_per_page(): void

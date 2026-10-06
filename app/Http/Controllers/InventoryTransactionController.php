@@ -465,7 +465,7 @@ class InventoryTransactionController extends Controller
             : StoreHub::whereIn('id', $user?->accessibleStoreHubIds() ?? [])->where('status', 'active')->get();
 
         $fullyBookedPulloutCount = in_array($user?->role, ['admin', 'inventory_staff'], true)
-            ? FullyBookedOrder::where('status', 'reviewed')
+            ? FullyBookedOrder::whereIn('status', ['pending', 'reviewed'])
                 ->whereNull('pulled_out_at')
                 ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
                 ->count()
