@@ -797,7 +797,6 @@ class SalesReportController extends Controller
 
             $alreadyReplaced = (int) ProductReplacement::where('transaction_item_id', $transactionItem->id)
                 ->whereIn('status', ['pending', 'approved'])
-                ->lockForUpdate()
                 ->sum('quantity');
             $quantity = (int) $validated['quantity'];
             if ($quantity > ((int) $transactionItem->quantity - $alreadyReplaced)) {
