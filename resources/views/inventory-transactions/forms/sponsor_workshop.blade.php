@@ -27,9 +27,11 @@
     .fully-booked-review-card { border: 1px solid #e2e8f0; }
     .fully-booked-request-remarks { max-width: 34rem; }
     .fully-booked-product-search .product-search-results {
-        z-index: 20;
+        position: fixed;
+        z-index: 1080;
         max-height: 260px;
         overflow-y: auto;
+        box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .15);
     }
     .fully-booked-pullout-rows {
         max-height: 320px;
@@ -83,8 +85,8 @@
     <header class="transaction-page-heading mb-4">
         <span class="transaction-page-heading-icon" aria-hidden="true"><i id="activityHeadingIcon" class="fa-solid {{ $isFullyBookedPage ? 'fa-book-open' : 'fa-people-group' }}"></i></span>
         <div>
-            <div id="activityHeadingLabel" class="small text-uppercase fw-bold mb-1" style="color:#7c3aed">{{ $isFullyBookedPage ? 'Event / Fully Booked' : 'Event' }}</div>
-            <h3 id="activityHeadingTitle" class="fw-bold mb-1">{{ $isFullyBookedPage ? 'Event / Fully Booked' : 'Event' }}</h3>
+            <div id="activityHeadingLabel" class="small text-uppercase fw-bold mb-1" style="color:#7c3aed">Event / Fully Booked</div>
+            <h3 id="activityHeadingTitle" class="fw-bold mb-1">{{ $isFullyBookedPage ? 'Fully Booked' : 'Event' }}</h3>
             <p id="activityHeadingDescription" class="text-muted small mb-0">{{ $isFullyBookedPage ? 'Review Fully Booked orders and update the selected store inventory.' : 'Record event inventory usage or submit a Fully Booked order attachment for review.' }}</p>
         </div>
     </header>
@@ -303,7 +305,7 @@
                                         <div class="col-md-8">
                                             <div class="position-relative fully-booked-product-search">
                                                 <input type="search" class="form-control product-search" placeholder="Type product name, item code, or barcode" autocomplete="off" aria-label="Search products" aria-autocomplete="list" aria-expanded="false" required>
-                                                <div class="product-search-results list-group position-absolute top-100 start-0 end-0 shadow-sm" role="listbox" hidden></div>
+                                                <div class="product-search-results list-group" role="listbox" hidden></div>
                                             </div>
                                             <input type="hidden" name="items[0][product_id]" class="product-id">
                                         </div>
@@ -424,8 +426,8 @@
         setSectionState(eventFields, !isFullyBooked);
         setSectionState(fullyBookedFields, isFullyBooked);
         if (fullyBookedOrders) fullyBookedOrders.hidden = !isFullyBooked;
-        if (headingLabel) headingLabel.textContent = isFullyBooked ? 'Event / Fully Booked' : 'Event';
-        if (headingTitle) headingTitle.textContent = isFullyBooked ? 'Event / Fully Booked' : 'Event';
+        if (headingLabel) headingLabel.textContent = 'Event / Fully Booked';
+        if (headingTitle) headingTitle.textContent = isFullyBooked ? 'Fully Booked' : 'Event';
         if (headingDescription) {
             headingDescription.textContent = isFullyBooked
                 ? 'Review Fully Booked orders and update the selected store inventory.'

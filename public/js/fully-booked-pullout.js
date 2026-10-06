@@ -49,6 +49,22 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
         let controller;
         let requestVersion = 0;
 
+        const positionResults = () => {
+            if (results.hidden) return;
+            const bounds = input.getBoundingClientRect();
+            const below = window.innerHeight - bounds.bottom;
+            const above = bounds.top;
+            const openAbove = below < 160 && above > below;
+            const availableHeight = Math.max(80, Math.min(260, openAbove ? above : below));
+
+            results.style.left = `${bounds.left}px`;
+            results.style.width = `${bounds.width}px`;
+            results.style.maxHeight = `${availableHeight}px`;
+            results.style.top = openAbove
+                ? `${Math.max(0, bounds.top - availableHeight)}px`
+                : `${bounds.bottom}px`;
+        };
+
         const closeResults = () => {
             results.hidden = true;
             input.setAttribute('aria-expanded', 'false');
@@ -69,6 +85,7 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
 
             results.hidden = false;
             input.setAttribute('aria-expanded', 'true');
+            positionResults();
             const loading = document.createElement('div');
             loading.className = 'list-group-item small text-muted';
             loading.textContent = 'Searching products…';
@@ -116,6 +133,7 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
                         });
                         results.append(option);
                     });
+                    positionResults();
                 } catch (error) {
                     if (error.name === 'AbortError' || version !== requestVersion) return;
                     results.replaceChildren();
@@ -132,6 +150,9 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
             if (event.key === 'Escape') closeResults();
         });
         input.addEventListener('blur', () => window.setTimeout(closeResults, 150));
+        window.addEventListener('resize', positionResults);
+        window.addEventListener('scroll', positionResults, true);
+        rows.addEventListener('scroll', positionResults);
     };
 
     rows.querySelectorAll('.fully-booked-pullout-row').forEach(bindSearch);
@@ -139,7 +160,7 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
     form.querySelector('.add-fully-booked-row').addEventListener('click', () => {
         const row = document.createElement('div');
         row.className = 'row g-2 align-items-center fully-booked-pullout-row mb-2';
-        row.innerHTML = `<div class="col-md-8"><div class="position-relative fully-booked-product-search"><input type="search" class="form-control product-search" placeholder="Type product name, item code, or barcode" autocomplete="off" aria-label="Search products" aria-autocomplete="list" aria-expanded="false" required><div class="product-search-results list-group position-absolute top-100 start-0 end-0 shadow-sm" role="listbox" hidden></div></div><input type="hidden" name="items[${nextIndex}][product_id]" class="product-id"></div><div class="col-md-3"><input type="number" name="items[${nextIndex}][quantity]" min="1" class="form-control" placeholder="Quantity" aria-label="Quantity" required></div><div class="col-md-1"><button type="button" class="btn btn-outline-danger remove-fully-booked-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div>`;
+        row.innerHTML = `<div class="col-md-8"><div class="position-relative fully-booked-product-search"><input type="search" class="form-control product-search" placeholder="Type product name, item code, or barcode" autocomplete="off" aria-label="Search products" aria-autocomplete="list" aria-expanded="false" required><div class="product-search-results list-group" role="listbox" hidden></div></div><input type="hidden" name="items[${nextIndex}][product_id]" class="product-id"></div><div class="col-md-3"><input type="number" name="items[${nextIndex}][quantity]" min="1" class="form-control" placeholder="Quantity" aria-label="Quantity" required></div><div class="col-md-1"><button type="button" class="btn btn-outline-danger remove-fully-booked-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div>`;
         rows.appendChild(row);
         bindSearch(row);
         nextIndex++;
