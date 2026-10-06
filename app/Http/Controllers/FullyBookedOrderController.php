@@ -6,6 +6,7 @@ use App\Models\FullyBookedOrder;
 use App\Models\FullyBookedOrderItem;
 use App\Models\InventoryTransaction;
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -171,6 +172,13 @@ class FullyBookedOrderController extends Controller
                 }
 
                 $product->decrement('stock', $quantity);
+                $allocation = ProductStockAllocation::where('product_id', $product->id)
+                    ->lockForUpdate()
+                    ->first();
+                if ($allocation) {
+                    $allocation->online = max(0, (int) $allocation->online - $quantity);
+                    $allocation->save();
+                }
                 $transaction = InventoryTransaction::create([
                     'reference' => $order->order_number,
                     'type' => 'sponsor_workshop',

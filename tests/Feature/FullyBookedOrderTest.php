@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\FullyBookedOrder;
 use App\Models\InventoryTransaction;
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -219,6 +220,60 @@ class FullyBookedOrderTest extends TestCase
             ->assertJsonPath('0.id', $matchingProduct->id)
             ->assertJsonPath('0.name', 'Cadmium Red')
             ->assertJsonPath('0.barcode', '123456789');
+    }
+
+    public function test_fully_booked_pull_out_reduces_online_allocation_and_physical_stock(): void
+    {
+        Storage::fake('local');
+        $hub = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['fully_booked'],
+        ]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'FB-ALLOC-1',
+            'name' => 'Fully Booked Allocated Product',
+            'stock' => 20,
+            'status' => 'active',
+        ]);
+        ProductStockAllocation::create([
+            'product_id' => $product->id,
+            'online' => 8,
+            'wholesale' => 2,
+            'shopee' => 1,
+            'lazada' => 1,
+            'tiktok' => 1,
+        ]);
+        $order = FullyBookedOrder::create([
+            'order_number' => 'FB-ALLOC-001',
+            'store_hub_id' => $hub->id,
+            'store_name' => 'Head Office',
+            'sales_staff_id' => $staff->id,
+            'submitted_by' => $staff->id,
+            'attachment_path' => 'fully-booked-orders/order.pdf',
+            'original_filename' => 'order.pdf',
+            'mime_type' => 'application/pdf',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($inventoryStaff)->post(route('inventory-transactions.fully-booked.pull-out', $order), [
+            'items' => [['product_id' => $product->id, 'quantity' => 3]],
+        ])->assertRedirect();
+
+        $this->assertSame(17, (int) $product->fresh()->stock);
+        $this->assertSame(5, (int) $product->stockAllocation()->value('online'));
+        $listedProduct = $this->get(route('stock-allocation.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->viewData('products')
+            ->getCollection()
+            ->firstWhere('id', $product->id);
+        $this->assertSame(5, $listedProduct->allocation_values['online']);
+        $this->assertSame(3, $listedProduct->sold_values->get('online'));
     }
 
     public function test_fully_booked_return_log_displays_its_source_attachment(): void

@@ -71,7 +71,7 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
                         option.type = 'button';
                         option.className = 'list-group-item list-group-item-action text-start';
                         option.setAttribute('role', 'option');
-                        option.textContent = `${window.transactionProductLabel(product)}${product.barcode ? ` · Barcode: ${product.barcode}` : ''}`;
+                        option.textContent = window.transactionProductLabel(product);
                         option.addEventListener('mousedown', event => event.preventDefault());
                         option.addEventListener('click', () => {
                             input.value = window.transactionProductLabel(product);
