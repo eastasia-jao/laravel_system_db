@@ -74,8 +74,8 @@
     <header class="transaction-page-heading mb-4">
         <span class="transaction-page-heading-icon" aria-hidden="true"><i id="activityHeadingIcon" class="fa-solid {{ $isFullyBookedPage ? 'fa-book-open' : 'fa-people-group' }}"></i></span>
         <div>
-            <div id="activityHeadingLabel" class="small text-uppercase fw-bold mb-1" style="color:#7c3aed">{{ $isFullyBookedPage ? 'Fully Booked' : 'Event / Fully Booked' }}</div>
-            <h3 id="activityHeadingTitle" class="fw-bold mb-1">{{ $isFullyBookedPage ? 'Fully Booked' : 'Event / Fully Booked' }}</h3>
+            <div id="activityHeadingLabel" class="small text-uppercase fw-bold mb-1" style="color:#7c3aed">{{ $isFullyBookedPage ? 'Event / Fully Booked' : 'Event' }}</div>
+            <h3 id="activityHeadingTitle" class="fw-bold mb-1">{{ $isFullyBookedPage ? 'Event / Fully Booked' : 'Event' }}</h3>
             <p id="activityHeadingDescription" class="text-muted small mb-0">{{ $isFullyBookedPage ? 'Review Fully Booked orders and update the selected store inventory.' : 'Record event inventory usage or submit a Fully Booked order attachment for review.' }}</p>
         </div>
     </header>
@@ -279,7 +279,13 @@
                             </div>
                         </div>
                         <div class="col-lg-7">
-                            <form method="POST" action="{{ route('inventory-transactions.fully-booked.pull-out', $order) }}" class="fully-booked-pullout-form" data-endpoint="{{ route('hub.products.search.ajax', $order->store_hub_id) }}">
+                            @if($order->remarks)
+                                <div class="alert alert-light border small mb-3">
+                                    <strong>Request remarks:</strong>
+                                    <div class="mt-1" style="white-space:pre-wrap">{{ $order->remarks }}</div>
+                                </div>
+                            @endif
+                            <form method="POST" action="{{ route('inventory-transactions.fully-booked.pull-out', $order) }}" class="fully-booked-pullout-form" data-order-number="{{ $order->order_number }}" data-endpoint="{{ route('hub.products.search.ajax', $order->store_hub_id) }}">
                                 @csrf
                                 <h6 class="fw-bold mb-1">Items for this order</h6>
                                 <p class="small text-muted mb-3">Choose the products and quantities from {{ $order->storeHub?->name ?? 'this hub' }}. Stock will be updated when you complete the order.</p>
@@ -297,7 +303,10 @@
                                     </div>
                                 </div>
                                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                                    <button type="button" class="btn btn-sm btn-outline-primary add-fully-booked-row"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-sm btn-outline-primary add-fully-booked-row"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
+                                        <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-csv"><i class="fa-solid fa-file-csv me-1"></i>Export CSV</button>
+                                    </div>
                                     <button class="btn btn-success"><i class="fa-solid fa-circle-check me-1"></i>Complete Order & Update Stock</button>
                                 </div>
                             </form>
@@ -406,8 +415,8 @@
         setSectionState(eventFields, !isFullyBooked);
         setSectionState(fullyBookedFields, isFullyBooked);
         if (fullyBookedOrders) fullyBookedOrders.hidden = !isFullyBooked;
-        if (headingLabel) headingLabel.textContent = isFullyBooked ? 'Fully Booked' : 'Event / Fully Booked';
-        if (headingTitle) headingTitle.textContent = isFullyBooked ? 'Fully Booked' : 'Event / Fully Booked';
+        if (headingLabel) headingLabel.textContent = isFullyBooked ? 'Event / Fully Booked' : 'Event';
+        if (headingTitle) headingTitle.textContent = isFullyBooked ? 'Event / Fully Booked' : 'Event';
         if (headingDescription) {
             headingDescription.textContent = isFullyBooked
                 ? 'Review Fully Booked orders and update the selected store inventory.'

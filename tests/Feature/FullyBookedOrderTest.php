@@ -40,6 +40,7 @@ class FullyBookedOrderTest extends TestCase
         $this->actingAs($admin)->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
             ->assertOk()
             ->assertSee('Event / Fully Booked')
+            ->assertSee('<h3 id="activityHeadingTitle" class="fw-bold mb-1">Event</h3>', false)
             ->assertSee('value="event"', false)
             ->assertSee('value="fully_booked"', false)
             ->assertDontSee('id="fullyBookedAttachment"', false);
@@ -47,7 +48,7 @@ class FullyBookedOrderTest extends TestCase
         $this->actingAs($designated)
             ->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
             ->assertOk()
-            ->assertSee('<h3 id="activityHeadingTitle" class="fw-bold mb-1">Fully Booked</h3>', false)
+            ->assertSee('<h3 id="activityHeadingTitle" class="fw-bold mb-1">Event / Fully Booked</h3>', false)
             ->assertSee('type="hidden" id="activityType" name="activity_type" value="fully_booked"', false)
             ->assertDontSee('<select id="activityType"', false)
             ->assertDontSee('value="event"', false)
@@ -158,6 +159,7 @@ class FullyBookedOrderTest extends TestCase
             'attachment_path' => $path,
             'original_filename' => 'order-attachment.pdf',
             'mime_type' => 'application/pdf',
+            'remarks' => 'Please pull these items carefully.',
             'status' => 'pending',
         ]);
 
@@ -167,7 +169,7 @@ class FullyBookedOrderTest extends TestCase
                 'activity_type' => 'fully_booked',
             ]))
             ->assertOk()
-            ->assertSee('<h3 id="activityHeadingTitle" class="fw-bold mb-1">Fully Booked</h3>', false)
+            ->assertSee('<h3 id="activityHeadingTitle" class="fw-bold mb-1">Event / Fully Booked</h3>', false)
             ->assertSee('type="hidden" id="activityType" name="activity_type" value="fully_booked"', false)
             ->assertDontSee('<select id="activityType"', false)
             ->assertSee('Type product name, item code, or barcode')
@@ -175,6 +177,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertDontSee('<datalist id="fullyBookedProducts', false)
             ->assertSee('Orders Awaiting Inventory Pull-Out')
             ->assertSee('FB-FORM-001')
+            ->assertSee('Request remarks:')
+            ->assertSee('Please pull these items carefully.')
             ->assertSee('Preview Attachment')
             ->assertSee('Download')
             ->assertSee(route('inventory-transactions.fully-booked.attachment', $order), false)
@@ -182,8 +186,13 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee(route('inventory-transactions.index', ['hub_id' => $hub->id]), false)
             ->assertSee('id="fullyBookedPageCancel"', false)
             ->assertSee('Complete Order & Update Stock', false)
+            ->assertSee('Export CSV')
             ->assertSee('name="items[0][product_id]"', false)
             ->assertDontSee('id="fullyBookedAttachment"', false);
+
+        $csvScript = file_get_contents(public_path('js/fully-booked-pullout.js'));
+        $this->assertIsString($csvScript);
+        $this->assertStringContainsString("'Item Id', 'Description', 'Barcode', 'Physical Stock Remaining', 'Actual Pull Out', 'Actual Physical Pullout'", $csvScript);
     }
 
     public function test_fully_booked_product_search_returns_matching_active_store_products(): void

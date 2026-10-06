@@ -76,6 +76,10 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
                         option.addEventListener('click', () => {
                             input.value = window.transactionProductLabel(product);
                             hidden.value = product.id;
+                            hidden.dataset.itemId = product.item_id || '';
+                            hidden.dataset.description = product.description || product.name || '';
+                            hidden.dataset.barcode = product.barcode || '';
+                            hidden.dataset.stock = product.stock ?? '';
                             input.setCustomValidity('');
                             closeResults();
                         });
@@ -109,6 +113,42 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
         bindSearch(row);
         nextIndex++;
         updateRemoveButtons();
+    });
+
+    form.querySelector('.export-fully-booked-csv').addEventListener('click', () => {
+        const selectedItems = Array.from(rows.querySelectorAll('.product-id'))
+            .filter(input => input.value)
+            .map(input => [
+                input.dataset.itemId || '',
+                input.dataset.description || '',
+                input.dataset.barcode || '',
+                input.dataset.stock || '',
+                '',
+                '',
+            ]);
+        if (!selectedItems.length) {
+            window.AppAlert?.show('Select at least one product before exporting.', 'warning');
+            return;
+        }
+
+        const escapeCsv = value => {
+            let text = String(value ?? '');
+            if (/^[\s]*[=+\-@]/.test(text)) text = `'${text}`;
+            return `"${text.replaceAll('"', '""')}"`;
+        };
+        const data = [
+            ['Item Id', 'Description', 'Barcode', 'Physical Stock Remaining', 'Actual Pull Out', 'Actual Physical Pullout'],
+            ...selectedItems,
+        ].map(row => row.map(escapeCsv).join(',')).join('\r\n');
+        const blob = new Blob(['\uFEFF', data], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${form.dataset.orderNumber || 'fully-booked-order'}-pullout.csv`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
     });
 
     rows.addEventListener('click', event => {
