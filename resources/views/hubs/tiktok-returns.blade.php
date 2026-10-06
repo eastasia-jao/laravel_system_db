@@ -39,18 +39,17 @@
                             <th>Customer name</th>
                             <th>Order date</th>
                             <th>Items</th>
-                            <th>Notes</th>
+                            <th>Return summary</th>
                             <th class="text-end pe-3">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($transactions as $transaction)
                             @php
-                                $returnNotes = $transaction->items
-                                    ->pluck('return_reason')
-                                    ->filter()
-                                    ->unique()
-                                    ->values();
+                                $returnRecords = $transaction->items->flatMap->inventoryReturns;
+                                $goodReturned = (int) $returnRecords->where('condition', 'good')->sum('quantity');
+                                $badReturned = (int) $returnRecords->where('condition', 'damaged')->sum('quantity');
+                                $totalReturned = (int) $returnRecords->sum('quantity');
                             @endphp
                             <tr>
                                 <td class="ps-3 fw-semibold">{{ $transaction->order_number }}</td>
@@ -58,10 +57,11 @@
                                 <td>{{ optional($transaction->order_date)->format('M d, Y') ?: '—' }}</td>
                                 <td>{{ $transaction->items->count() }}</td>
                                 <td>
-                                    @if($returnNotes->isEmpty())
-                                        <span class="text-muted">—</span>
+                                    @if($totalReturned === 0)
+                                        <span class="badge text-bg-secondary">No items recorded</span>
                                     @else
-                                        {{ $returnNotes->implode('; ') }}
+                                        @if($goodReturned > 0)<span class="badge text-bg-success me-1">Good: {{ $goodReturned }}</span>@endif
+                                        @if($badReturned > 0)<span class="badge text-bg-danger me-1">Bad: {{ $badReturned }}</span>@endif
                                     @endif
                                 </td>
                                 <td class="text-end pe-3">
@@ -90,12 +90,46 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <p class="small text-muted">Select the returned quantity, mark each item Good or Bad, and add notes if needed. Saving marks the item received and updates stock.</p>
-                            @forelse($transaction->items as $item)
-                                @include('hubs.reports.tiktok-return-entry', ['hub' => $hub, 'transaction' => $transaction, 'item' => $item])
-                            @empty
+                            <p class="small text-muted">Return quantities and item conditions below are recorded by inventory staff.</p>
+                            @if($transaction->items->isEmpty())
                                 <div class="alert alert-light border mb-0">This order has no items.</div>
-                            @endforelse
+                            @else
+                                <div class="table-responsive">
+                                    <table class="table table-bordered align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Item</th>
+                                                <th class="text-center">Sold quantity</th>
+                                                <th class="text-center">Return quantity</th>
+                                                <th>Item status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($transaction->items as $item)
+                                                @php
+                                                    $itemReturns = $item->inventoryReturns;
+                                                    $goodQuantity = (int) $itemReturns->where('condition', 'good')->sum('quantity');
+                                                    $badQuantity = (int) $itemReturns->where('condition', 'damaged')->sum('quantity');
+                                                    $returnedQuantity = (int) $itemReturns->sum('quantity');
+                                                @endphp
+                                                <tr>
+                                                    <td>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</td>
+                                                    <td class="text-center">{{ $item->quantity }}</td>
+                                                    <td class="text-center">{{ $returnedQuantity }}</td>
+                                                    <td>
+                                                        @if($returnedQuantity === 0)
+                                                            <span class="text-muted">Not recorded by inventory staff</span>
+                                                        @else
+                                                            @if($goodQuantity > 0)<span class="badge text-bg-success me-1">Good: {{ $goodQuantity }}</span>@endif
+                                                            @if($badQuantity > 0)<span class="badge text-bg-danger me-1">Bad: {{ $badQuantity }}</span>@endif
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>

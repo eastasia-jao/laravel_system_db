@@ -174,6 +174,19 @@ class TikTokReturnsTest extends TestCase
     public function test_tiktok_sales_marketing_staff_can_open_returns_from_the_hub_dashboard(): void
     {
         [$hub, $product, $sale, $item] = $this->order();
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'tiktok',
+            'quantity' => 1,
+            'condition' => 'good',
+            'occurred_on' => '2026-09-09',
+            'created_by' => auth()->id(),
+        ]);
         $staff = User::factory()->create([
             'role' => 'sales_marketing_staff',
             'hub_id' => $hub->id,
@@ -193,15 +206,19 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('Customer')
             ->assertSee('TikTok Order #')
             ->assertSee('Customer name')
-            ->assertSee('Notes')
+            ->assertSee('Return summary')
             ->assertSee('View return items')
             ->assertSee('data-bs-target="#return-items-modal-'.$sale->id.'"', false)
             ->assertSee('id="return-items-modal-'.$sale->id.'"', false)
             ->assertDontSee('class="collapse"', false)
             ->assertSee('Item status')
-            ->assertSee('Bad / damaged')
-            ->assertSee('name="return_reason"', false)
+            ->assertSee('Good: 1')
+            ->assertSee('Return quantity')
+            ->assertSee('1</td>', false)
+            ->assertSee('Return quantities and item conditions below are recorded by inventory staff.')
+            ->assertDontSee('name="return_reason"', false)
             ->assertDontSee('What happened?')
+            ->assertDontSee('Save returned item')
             ->assertDontSee('Sales Report');
 
         $this->get(route('hub.tiktok-returns', ['hub' => $hub->id, 'date_from' => '2026-09-09']))
