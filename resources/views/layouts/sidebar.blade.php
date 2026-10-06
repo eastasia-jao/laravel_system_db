@@ -155,7 +155,7 @@
         @endif
         @endcan
         @can('submit-branch-transfers')
-        @if(in_array(auth()->user()?->role, ['sales_associate', 'inventory_staff'], true))
+        @if(auth()->user()?->role === 'sales_associate')
         <li>
             <a href="{{ route('inventory-transactions.branch-transfer.create') }}" class="nav-link {{ request()->routeIs('inventory-transactions.branch-transfer.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-right-left"></i> Stock Transfer (Branch to Branch)

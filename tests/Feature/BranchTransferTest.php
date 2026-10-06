@@ -21,7 +21,7 @@ class BranchTransferTest extends TestCase
             ->get(route('inventory-transactions.index'))
             ->assertOk()
             ->assertDontSee('<option value="branch_transfer"', false)
-            ->assertSee('BRANCH to BRANCH')
+            ->assertDontSee('Stock Transfer (BRANCH to BRANCH)')
             ->assertSee('HO ↔ Branch');
 
         $this->actingAs(User::factory()->create(['role' => 'admin']))
@@ -114,8 +114,7 @@ class BranchTransferTest extends TestCase
             ->assertSee('Transfer Test Product')
             ->assertSee('Approve and transfer stock');
         $this->get(route('inventory-transactions.branch-transfer.create'))
-            ->assertOk()
-            ->assertSee('Stock Transfer (BRANCH to BRANCH)');
+            ->assertForbidden();
         $this->get(route('inventory-transactions.index', ['hub_id' => $source->id, 'type' => 'branch_transfer', 'status' => 'pending']))
             ->assertOk()
             ->assertViewHas('transactions', fn ($transactions) => $transactions->total() === 0)
@@ -346,34 +345,30 @@ class BranchTransferTest extends TestCase
             ->assertViewHas('transferSourceHubs', fn ($hubs) => $hubs->modelKeys() === [$source->id]);
     }
 
-    public function test_inventory_staff_can_submit_branch_to_branch_transfers_between_active_branches(): void
+    public function test_inventory_staff_cannot_submit_branch_to_branch_transfers(): void
     {
         [$source, $target, $product] = $this->fixtures();
         $staff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $source->id]);
 
         $this->actingAs($staff)
             ->get(route('inventory-transactions.branch-transfer.create', ['hub_id' => $source->id]))
-            ->assertOk()
-            ->assertSee('Stock Transfer (BRANCH to BRANCH)')
-            ->assertSee('<select name="store_hub_id" id="sourceHub"', false)
-            ->assertViewHas('transferSourceHubs', fn ($hubs) => $hubs->count() === 2)
-            ->assertSee('Stock Transfer (Branch to Branch)');
+            ->assertForbidden();
 
         $this->post(route('inventory-transactions.branch-transfer.store'), $this->payload($source, $target, $product))
-            ->assertSessionHasNoErrors()
-            ->assertRedirect(route('inventory-transactions.index', [
-                'hub_id' => $source->id,
-                'branch_transfer_submitted' => 1,
-            ]));
+            ->assertForbidden();
 
         $this->assertSame(10, $product->fresh()->stock);
-        $this->assertDatabaseHas('inventory_transactions', [
+        $this->assertDatabaseMissing('inventory_transactions', [
             'type' => 'branch_transfer',
             'source_hub_id' => $source->id,
             'target_hub_id' => $target->id,
             'created_by' => $staff->id,
-            'status' => 'pending',
         ]);
+
+        $this->get(route('inventory-transactions.index'))
+            ->assertOk()
+            ->assertDontSee('Stock Transfer (Branch to Branch)')
+            ->assertDontSee('Stock Transfer (BRANCH to BRANCH)');
     }
 
     public function test_multiple_designated_branches_allow_source_selection(): void
