@@ -516,6 +516,13 @@ class InventoryTransactionController extends Controller
             $hubId = ($hubs->firstWhere('id', $hubId) ?: $hubs->first())?->id;
         }
         $products = Product::where('store_hub_id', $hubId)->where('status', 'active')->orderByCatalog()->limit(100)->get();
+        $sponsorProductOptions = $products->map(fn (Product $product) => [
+            'id' => $product->id,
+            'item_id' => $product->item_id,
+            'barcode' => $product->barcode,
+            'description' => $product->description ?: $product->name,
+            'label' => $product->item_id.' — '.($product->name ?: $product->description).($product->description && strcasecmp(trim($product->description), trim($product->name)) !== 0 && $product->name ? ' / '.$product->description : '').($product->barcode ? ' · '.$product->barcode : '').' (stock: '.$product->stock.')',
+        ])->values();
 
         $form = $type === 'branch_transfer' ? 'stock_transfer' : $type;
         $transferSourceHubs = $hubs;
@@ -560,7 +567,8 @@ class InventoryTransactionController extends Controller
             'hubs', 'allHubs', 'headOffices', 'products', 'hubId', 'type', 'transferSourceHubs',
             'selectedHub', 'transferReference', 'sponsorReference', 'restockReference',
             'transferDirection', 'fullyBookedStaff', 'canManageEvent', 'canSubmitFullyBooked',
-            'canUseFullyBookedForm', 'activityType', 'fullyBookedOrders', 'fullyBookedStores'
+            'canUseFullyBookedForm', 'activityType', 'fullyBookedOrders', 'fullyBookedStores',
+            'sponsorProductOptions'
         ));
     }
 

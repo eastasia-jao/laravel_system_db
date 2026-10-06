@@ -25,6 +25,11 @@
     .transaction-page-heading h3 { font-size: clamp(1.15rem, 2vw, 1.5rem); }
     .transaction-form-card { border: 1px solid #e2e8f0 !important; }
     .fully-booked-review-card { border: 1px solid #e2e8f0; }
+    .fully-booked-product-search .product-search-results {
+        z-index: 20;
+        max-height: 260px;
+        overflow-y: auto;
+    }
     .fully-booked-attachment-preview {
         min-height: 220px;
         display: flex;
@@ -65,12 +70,13 @@
     }
 </style>
 <div class="p-5">
+    @php($isFullyBookedPage = $activityType === 'fully_booked')
     <header class="transaction-page-heading mb-4">
-        <span class="transaction-page-heading-icon" aria-hidden="true"><i class="fa-solid fa-people-group"></i></span>
+        <span class="transaction-page-heading-icon" aria-hidden="true"><i id="activityHeadingIcon" class="fa-solid {{ $isFullyBookedPage ? 'fa-book-open' : 'fa-people-group' }}"></i></span>
         <div>
-            <div class="small text-uppercase fw-bold mb-1" style="color:#7c3aed">Event / Fully Booked</div>
-            <h3 class="fw-bold mb-1">Event / Fully Booked</h3>
-            <p class="text-muted small mb-0">Record event inventory usage or submit a Fully Booked order attachment for review.</p>
+            <div id="activityHeadingLabel" class="small text-uppercase fw-bold mb-1" style="color:#7c3aed">{{ $isFullyBookedPage ? 'Fully Booked' : 'Event / Fully Booked' }}</div>
+            <h3 id="activityHeadingTitle" class="fw-bold mb-1">{{ $isFullyBookedPage ? 'Fully Booked' : 'Event / Fully Booked' }}</h3>
+            <p id="activityHeadingDescription" class="text-muted small mb-0">{{ $isFullyBookedPage ? 'Review Fully Booked orders and update the selected store inventory.' : 'Record event inventory usage or submit a Fully Booked order attachment for review.' }}</p>
         </div>
     </header>
     
@@ -280,9 +286,11 @@
                                 <div class="fully-booked-pullout-rows">
                                     <div class="row g-2 align-items-center fully-booked-pullout-row mb-2">
                                         <div class="col-md-8">
-                                            <input type="search" class="form-control product-search" list="fullyBookedProducts{{ $order->id }}" placeholder="Search item code, barcode, or description" autocomplete="off" required>
+                                            <div class="position-relative fully-booked-product-search">
+                                                <input type="search" class="form-control product-search" placeholder="Type product name, item code, or barcode" autocomplete="off" aria-label="Search products" aria-autocomplete="list" aria-expanded="false" required>
+                                                <div class="product-search-results list-group position-absolute top-100 start-0 end-0 shadow-sm" role="listbox" hidden></div>
+                                            </div>
                                             <input type="hidden" name="items[0][product_id]" class="product-id">
-                                            <datalist id="fullyBookedProducts{{ $order->id }}"></datalist>
                                         </div>
                                         <div class="col-md-3"><input type="number" name="items[0][quantity]" min="1" class="form-control" placeholder="Quantity" aria-label="Quantity" required></div>
                                         <div class="col-md-1"><button type="button" class="btn btn-outline-danger remove-fully-booked-row" disabled aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div>
@@ -304,26 +312,15 @@
 </div>
 @endsection
 
-@if($canManageEvent)
 @push('scripts')
 <script src="{{ asset('js/product-suggestions.js') }}"></script>
 <script src="{{ asset('js/fully-booked-pullout.js') }}"></script>
-@php
-    $productOptions = $products->map(function ($product) {
-        return [
-            'id' => $product->id,
-            'item_id' => $product->item_id,
-            'barcode' => $product->barcode,
-            'description' => $product->description ?: $product->name,
-            'label' => $product->item_id.' — '.($product->name ?: $product->description).($product->description && strcasecmp(trim($product->description), trim($product->name)) !== 0 && $product->name ? ' / '.$product->description : '').($product->barcode ? ' · '.$product->barcode : '').' (stock: '.$product->stock.')',
-        ];
-    })->values();
-@endphp
 <script>
 (() => {
     const container = document.getElementById('sponsorItems');
     const addButton = document.getElementById('addSponsorItem');
-    const productOptions = @json($productOptions);
+    if (!container || !addButton) return;
+    const productOptions = @json($sponsorProductOptions);
     const dataList = document.createElement('datalist');
     dataList.id = 'sponsorProductOptions';
     productOptions.forEach(product => {
@@ -378,7 +375,6 @@
 })();
 </script>
 @endpush
-@endif
 @push('scripts')
 <script>
 (() => {
@@ -387,6 +383,10 @@
     const eventFields = document.getElementById('eventFields');
     const fullyBookedFields = document.getElementById('fullyBookedFields');
     const fullyBookedOrders = document.getElementById('fullyBookedOrders');
+    const headingLabel = document.getElementById('activityHeadingLabel');
+    const headingTitle = document.getElementById('activityHeadingTitle');
+    const headingDescription = document.getElementById('activityHeadingDescription');
+    const headingIcon = document.getElementById('activityHeadingIcon');
     if (!form || !selector) return;
 
     const setSectionState = (section, active) => {
@@ -406,6 +406,17 @@
         setSectionState(eventFields, !isFullyBooked);
         setSectionState(fullyBookedFields, isFullyBooked);
         if (fullyBookedOrders) fullyBookedOrders.hidden = !isFullyBooked;
+        if (headingLabel) headingLabel.textContent = isFullyBooked ? 'Fully Booked' : 'Event / Fully Booked';
+        if (headingTitle) headingTitle.textContent = isFullyBooked ? 'Fully Booked' : 'Event / Fully Booked';
+        if (headingDescription) {
+            headingDescription.textContent = isFullyBooked
+                ? 'Review Fully Booked orders and update the selected store inventory.'
+                : 'Record event inventory usage or submit a Fully Booked order attachment for review.';
+        }
+        if (headingIcon) {
+            headingIcon.classList.toggle('fa-book-open', isFullyBooked);
+            headingIcon.classList.toggle('fa-people-group', !isFullyBooked);
+        }
     };
 
     selector.addEventListener('change', updateActivityType);

@@ -46,6 +46,7 @@ class FullyBookedOrderTest extends TestCase
         $this->actingAs($designated)
             ->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
             ->assertOk()
+            ->assertSee('<h3 id="activityHeadingTitle" class="fw-bold mb-1">Fully Booked</h3>', false)
             ->assertSee('type="hidden" id="activityType" name="activity_type" value="fully_booked"', false)
             ->assertDontSee('<select id="activityType"', false)
             ->assertDontSee('value="event"', false)
@@ -165,8 +166,12 @@ class FullyBookedOrderTest extends TestCase
                 'activity_type' => 'fully_booked',
             ]))
             ->assertOk()
+            ->assertSee('<h3 id="activityHeadingTitle" class="fw-bold mb-1">Fully Booked</h3>', false)
             ->assertSee('type="hidden" id="activityType" name="activity_type" value="fully_booked"', false)
             ->assertDontSee('<select id="activityType"', false)
+            ->assertSee('Type product name, item code, or barcode')
+            ->assertSee('role="listbox"', false)
+            ->assertDontSee('<datalist id="fullyBookedProducts', false)
             ->assertSee('Orders Awaiting Inventory Pull-Out')
             ->assertSee('FB-FORM-001')
             ->assertSee('Preview Attachment')
@@ -178,6 +183,42 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('Complete Order & Update Stock', false)
             ->assertSee('name="items[0][product_id]"', false)
             ->assertDontSee('id="fullyBookedAttachment"', false);
+    }
+
+    public function test_fully_booked_product_search_returns_matching_active_store_products(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
+        $matchingProduct = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'CAD-001',
+            'name' => 'Cadmium Red',
+            'barcode' => '123456789',
+            'stock' => 15,
+            'status' => 'active',
+        ]);
+        Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'BLUE-001',
+            'name' => 'Cobalt Blue',
+            'stock' => 7,
+            'status' => 'inactive',
+        ]);
+
+        $this->actingAs($staff)
+            ->getJson(route('hub.products.search.ajax', [
+                'hubId' => $hub->id,
+                'q' => 'cadmium',
+                'active_only' => 1,
+                'sort' => 'item_id',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $matchingProduct->id)
+            ->assertJsonPath('0.name', 'Cadmium Red')
+            ->assertJsonPath('0.barcode', '123456789');
     }
 
     public function test_fully_booked_return_log_displays_its_source_attachment(): void
