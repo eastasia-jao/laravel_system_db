@@ -1014,9 +1014,21 @@ class SalesReportController extends Controller
             }
 
             $returnedQuantity = (int) $records->sum('quantity');
-            $original->increment('stock', $returnedQuantity);
-            if ($channel !== 'walk_in') {
-                ProductStockAllocation::where('product_id', $original->id)->lockForUpdate()->first()?->increment($channel, $returnedQuantity);
+            $previouslyReturnedQuantity = $record->transaction_item_id
+                ? (int) InventoryTransaction::query()
+                    ->where('transaction_item_id', $record->transaction_item_id)
+                    ->where('type', 'return')
+                    ->whereNull('product_replacement_id')
+                    ->sum('quantity')
+                : 0;
+            $additionalReturnQuantity = max(0, $returnedQuantity - $previouslyReturnedQuantity);
+            if ($additionalReturnQuantity > 0) {
+                $original->increment('stock', $additionalReturnQuantity);
+                if ($channel !== 'walk_in') {
+                    ProductStockAllocation::where('product_id', $original->id)
+                        ->lockForUpdate()
+                        ->first()?->increment($channel, $additionalReturnQuantity);
+                }
             }
             foreach ($requestedByProduct as $productId => $requestedQuantity) {
                 $replacementProduct = $products->get((int) $productId);
@@ -1075,7 +1087,10 @@ class SalesReportController extends Controller
                 'status' => 'approved', 'reviewed_by' => auth()->id(), 'reviewed_at' => now(),
             ]);
 
-            $movements = collect([[$original, 'replacement_return', $returnedQuantity, 'Wholesale replacement: original item returned', $record]]);
+            $movements = collect();
+            if ($additionalReturnQuantity > 0) {
+                $movements->push([$original, 'replacement_return', $additionalReturnQuantity, 'Wholesale replacement: original item returned', $record]);
+            }
             foreach ($records as $line) {
                 $movements->push([
                     $products->get($line->replacement_product_id), 'replacement_out',

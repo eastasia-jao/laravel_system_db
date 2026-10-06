@@ -118,6 +118,96 @@ class WholesalePaymentTest extends TestCase
             ->assertOk()->assertSee('Replacement Item')->assertSee('Replaced/returned:')->assertSee('APPROVED');
     }
 
+    public function test_wholesale_replacement_can_be_requested_after_inventory_recorded_the_return(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Returned Hub', 'code' => 'WH-RET', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
+        $original = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'WH-RET-ORIG',
+            'name' => 'Returned Wholesale Item',
+            'stock' => 4,
+            'status' => 'active',
+            'wholesale_price' => 100,
+        ]);
+        $replacement = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'WH-RET-REPL',
+            'name' => 'Replacement Wholesale Item',
+            'stock' => 3,
+            'status' => 'active',
+            'wholesale_price' => 100,
+        ]);
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'customer_name' => 'Returned Customer',
+            'order_number' => 'WH-RET-001',
+            'order_date' => '2026-10-05',
+            'sub_total' => 100,
+            'grand_total' => 100,
+            'status' => 'confirmed',
+            'payment_status' => 'paid',
+        ]);
+        $item = $sale->items()->create([
+            'product_id' => $original->id,
+            'quantity' => 1,
+            'returned_quantity' => 1,
+            'return_status' => 'received',
+            'return_condition' => 'good',
+            'unit_price' => 100,
+            'line_total' => 100,
+        ]);
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'wholesale',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-10-06',
+            'created_by' => $inventoryStaff->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('hub.report.wholesale.replace', [$hub->id, $sale->id, $item->id]), [
+                'replacement_product_id' => $replacement->id,
+                'quantity' => 1,
+                'replacement_quantity' => 1,
+                'exchange_payment_amount' => 0,
+                'reason' => 'Replace the returned item.',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $replacementRequest = ProductReplacement::where('transaction_item_id', $item->id)->sole();
+        $this->assertSame('pending', $replacementRequest->status);
+        $this->assertSame(4, (int) $original->fresh()->stock);
+        $this->assertSame(3, (int) $replacement->fresh()->stock);
+
+        ProductStockAllocation::create(['product_id' => $original->id, 'wholesale' => 2]);
+        ProductStockAllocation::create(['product_id' => $replacement->id, 'wholesale' => 3]);
+        $this->actingAs($inventoryStaff)
+            ->post(route('wholesale-replacements.approve', $replacementRequest))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertSame(4, $original->fresh()->stock);
+        $this->assertSame(2, (int) $original->stockAllocation->fresh()->wholesale);
+        $this->assertSame(2, $replacement->fresh()->stock);
+        $this->assertSame(2, (int) $replacement->stockAllocation->fresh()->wholesale);
+        $this->assertSame(1, InventoryTransaction::where('type', 'return')
+            ->where('transaction_item_id', $item->id)
+            ->count());
+        $this->assertSame(0, InventoryTransaction::where('type', 'replacement_return')->count());
+        $this->assertSame(1, InventoryTransaction::where('type', 'replacement_out')->count());
+    }
+
     public function test_wholesale_report_filters_open_and_completed_transactions(): void
     {
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
