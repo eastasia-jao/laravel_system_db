@@ -285,7 +285,14 @@ class SalesWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('ORDER-001')
             ->assertSee('READY')
-            ->assertSee('Test Product');
+            ->assertSee('Test Product')
+            ->assertSee('Review Inventory (1)')
+            ->assertSee('data-bs-target="#itemsModal'.$pendingSale->id.'"', false)
+            ->assertSee('Order Items')
+            ->assertSee('ORDER-001')
+            ->assertSee('Available<br>(Wholesale)', false)
+            ->assertSee('Verify')
+            ->assertSee('Deduct Stock');
 
         $this->assertSame('partial', $pendingSale->fresh()->payment_status);
         $this->assertSame('50.00', $pendingSale->fresh()->amount_paid);
