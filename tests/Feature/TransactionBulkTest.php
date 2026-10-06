@@ -274,6 +274,77 @@ class TransactionBulkTest extends TestCase
         }
     }
 
+    public function test_tiktok_returns_do_not_create_automatic_refunds(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
+        $hub = StoreHub::create(['name' => 'TikTok Returns', 'code' => 'TT-RET', 'status' => 'active', 'is_head_office' => true]);
+        $product = Product::create([
+            'name' => 'TikTok Return Product',
+            'item_id' => 'TT-RETURN-1',
+            'store_hub_id' => $hub->id,
+            'stock' => 0,
+            'status' => 'active',
+        ]);
+        $sale = SalesTransaction::create([
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'tiktok',
+            'status' => 'confirmed',
+            'order_date' => '2026-09-23',
+            'order_number' => 'TT-RETURN-ORDER',
+            'customer_name' => 'TikTok Customer',
+        ]);
+        $item = $sale->items()->create([
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit_price' => 100,
+            'discount_percentage' => 10,
+            'line_total' => 180,
+        ]);
+
+        $this->post(route('inventory-transactions.store'), [
+            'type' => 'return',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-09-23',
+            'channel' => 'tiktok',
+            'reference' => $sale->order_number,
+            'sales_transaction_id' => $sale->id,
+            'items' => [[
+                'product_id' => $product->id,
+                'transaction_item_id' => $item->id,
+                'good_quantity' => 0,
+                'damaged_quantity' => 1,
+                'refund_amount' => 90,
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('inventory_transactions', [
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'tiktok',
+            'condition' => 'damaged',
+            'quantity' => 1,
+            'refund_amount' => 0,
+        ]);
+        $this->assertSame(1, (int) $product->fresh()->stock);
+
+        $this->post(route('inventory-transactions.store'), [
+            'type' => 'return',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-09-23',
+            'channel' => 'tiktok',
+            'reference' => $sale->order_number,
+            'sales_transaction_id' => $sale->id,
+            'items' => [[
+                'product_id' => $product->id,
+                'transaction_item_id' => $item->id,
+                'good_quantity' => 0,
+                'damaged_quantity' => 0,
+                'refund_amount' => 50,
+            ]],
+        ])->assertSessionHasErrors('items');
+    }
+
     public function test_automatic_refund_is_limited_to_items_with_returned_quantities(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));

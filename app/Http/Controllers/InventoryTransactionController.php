@@ -1202,10 +1202,10 @@ class InventoryTransactionController extends Controller
             'items.*.replacement_id' => ['nullable', 'integer', 'exists:product_replacements,id'],
         ]);
         $hasReturnQuantity = collect($validated['items'])->sum(fn ($item) => (int) ($item['good_quantity'] ?? 0) + (int) ($item['damaged_quantity'] ?? 0)) >= 1;
-        if (! $hasReturnQuantity && ($validated['channel'] === 'fully_booked'
+        if (! $hasReturnQuantity && (in_array($validated['channel'], ['fully_booked', 'tiktok'], true)
             || collect($validated['items'])->sum(fn ($item) => (float) ($item['refund_amount'] ?? 0)) <= 0)) {
             throw ValidationException::withMessages([
-                'items' => $validated['channel'] === 'fully_booked'
+                'items' => in_array($validated['channel'], ['fully_booked', 'tiktok'], true)
                     ? 'Enter at least one good or damaged return quantity.'
                     : 'Enter at least one good or damaged return quantity, or a refund amount.',
             ]);
@@ -1277,7 +1277,7 @@ class InventoryTransactionController extends Controller
                 $effectiveUnitPrice = round($unitPrice * (1 - ($discount / 100)), 2);
                 $refundQuantity = $quantity > 0 ? $quantity : $orderedQuantity;
                 $refundCap = round($effectiveUnitPrice * $refundQuantity, 2);
-                $refundAmount = $returnChannel === 'fully_booked' ? 0 : ($quantity > 0
+                $refundAmount = in_array($returnChannel, ['fully_booked', 'tiktok'], true) ? 0 : ($quantity > 0
                     ? $refundCap
                     : min((float) ($item['refund_amount'] ?? 0), $refundCap));
                 $alreadyReturned = InventoryTransaction::query()
