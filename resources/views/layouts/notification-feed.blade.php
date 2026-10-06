@@ -25,7 +25,10 @@
                     ? ['icon' => 'fa-cash-register', 'color' => 'text-warning', 'background' => 'bg-warning']
                     : match ($event) {
                         'submitted' => ['icon' => 'fa-file-circle-plus', 'color' => 'text-info', 'background' => 'bg-info'],
-                        'import' => ['icon' => 'fa-file-import', 'color' => 'text-success', 'background' => 'bg-success'],
+                        'import', 'product_file_request' => ['icon' => 'fa-file-import', 'color' => 'text-success', 'background' => 'bg-success'],
+                        'product_file_reviewed' => ($notificationData['file_type'] ?? 'import') === 'export'
+                            ? ['icon' => 'fa-file-export', 'color' => 'text-primary', 'background' => 'bg-primary']
+                            : ['icon' => 'fa-file-import', 'color' => 'text-success', 'background' => 'bg-success'],
                         'export' => ['icon' => 'fa-file-export', 'color' => 'text-primary', 'background' => 'bg-primary'],
                         'stock_allocation' => ['icon' => 'fa-layer-group', 'color' => 'text-primary', 'background' => 'bg-primary'],
                         'transaction_log' => ['icon' => 'fa-clipboard-list', 'color' => 'text-warning', 'background' => 'bg-warning'],

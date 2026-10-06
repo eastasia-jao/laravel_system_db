@@ -89,6 +89,39 @@ class FullyBookedOrderTest extends TestCase
             ->assertDontSee('href="'.route('inventory-transactions.fully-booked.index').'" class="card', false);
     }
 
+    public function test_transaction_log_event_fully_booked_shortcut_shows_reviewed_orders_awaiting_pullout(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $staff = User::factory()->create(['role' => 'sales_marketing_staff', 'hub_id' => $hub->id]);
+
+        foreach ([
+            ['number' => 'FB-BADGE-REVIEWED', 'status' => 'reviewed', 'pulled_out_at' => null],
+            ['number' => 'FB-BADGE-PENDING', 'status' => 'pending', 'pulled_out_at' => null],
+            ['number' => 'FB-BADGE-COMPLETE', 'status' => 'reviewed', 'pulled_out_at' => now()],
+        ] as $orderData) {
+            FullyBookedOrder::create([
+                'order_number' => $orderData['number'],
+                'store_hub_id' => $hub->id,
+                'sales_staff_id' => $staff->id,
+                'submitted_by' => $staff->id,
+                'attachment_path' => 'fully-booked-orders/order.pdf',
+                'original_filename' => 'order.pdf',
+                'mime_type' => 'application/pdf',
+                'status' => $orderData['status'],
+                'pulled_out_at' => $orderData['pulled_out_at'],
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('1 Fully Booked order awaiting pull-out')
+            ->assertViewHas('fullyBookedPulloutCount', 1);
+    }
+
     public function test_sales_staff_fully_booked_order_tracking_is_paginated_six_per_page(): void
     {
         $hub = StoreHub::create([
@@ -175,6 +208,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('Type product name, item code, or barcode')
             ->assertSee('role="listbox"', false)
             ->assertDontSee('<datalist id="fullyBookedProducts', false)
+            ->assertSee('<div class="alert alert-light border small mb-0 fully-booked-request-remarks">', false)
+            ->assertSee('.fully-booked-pullout-rows', false)
             ->assertSee('Orders Awaiting Inventory Pull-Out')
             ->assertSee('FB-FORM-001')
             ->assertSee('Request remarks:')
@@ -393,6 +428,8 @@ class FullyBookedOrderTest extends TestCase
         $product = Product::create([
             'name' => 'Unaffected Product',
             'item_id' => 'FB-1',
+            'description' => 'Fully Booked product description',
+            'barcode' => '00123456789012345678',
             'store_hub_id' => $hub->id,
             'stock' => 12,
             'status' => 'active',
@@ -518,6 +555,9 @@ class FullyBookedOrderTest extends TestCase
         $this->get(route('inventory-transactions.index', ['type' => 'fully_booked']))
             ->assertOk()
             ->assertSee('Items Pulled Out')
+            ->assertSee('export-fully-booked-details-csv', false)
+            ->assertSee('data-barcode="00123456789012345678"', false)
+            ->assertSee('data-stock="9"', false)
             ->assertSee('Unaffected Product')
             ->assertSee('Please prioritize this order.')
             ->assertDontSee('PENDING PULL-OUT')

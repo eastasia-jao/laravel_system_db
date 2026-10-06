@@ -116,7 +116,7 @@
         @php
             $inventoryActions = [
                 ['route' => 'inventory-transactions.transfer.create', 'icon' => 'fa-truck-ramp-box', 'title' => 'Stock Transfer', 'text' => 'HO ↔ Branch'],
-                ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-people-group', 'title' => 'Event / Fully Booked', 'text' => 'Events and orders'],
+                ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-people-group', 'title' => 'Event / Fully Booked', 'text' => 'Events and orders', 'pending' => $fullyBookedPulloutCount],
                 ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock / Added from Request (Warehouse HO)', 'text' => 'Warehouse request'],
                 ['route' => 'inventory-transactions.return.create', 'icon' => 'fa-rotate-left', 'title' => 'Return Items', 'text' => 'Good or damaged'],
             ];
@@ -131,8 +131,11 @@
         @endphp
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-{{ count($inventoryActions) }} g-3 mb-4">
             @foreach($inventoryActions as $action)
-                <div class="col"><a href="{{ route($action['route'], ['hub_id' => $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100">
+                <div class="col"><a href="{{ route($action['route'], ['hub_id' => $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100 position-relative">
                     <i class="fa-solid {{ $action['icon'] }} text-primary fs-4 mb-2"></i><strong class="text-dark">{{ $action['title'] }}</strong><small class="text-muted">{{ $action['text'] }}</small>
+                    @if(($action['pending'] ?? 0) > 0)
+                        <span class="badge rounded-pill text-bg-danger position-absolute top-0 end-0 m-3" aria-label="{{ $action['pending'] }} Fully Booked {{ $action['pending'] === 1 ? 'order' : 'orders' }} awaiting pull-out">{{ $action['pending'] }}</span>
+                    @endif
                 </a></div>
             @endforeach
         </div>
@@ -301,13 +304,21 @@
                                 </div>
                                 @if($fullyBookedOrder?->pulled_out_at)
                                     <div class="col-12">
-                                        <strong class="d-block mb-2">Items Pulled Out</strong>
-                                        <div class="list-group">
-                                            @foreach($fullyBookedOrder->items as $item)
-                                                <div class="list-group-item d-flex justify-content-between gap-3">
-                                                    <span>{{ $item->product_name }} <small class="text-muted">({{ $item->item_id ?? '—' }})</small></span>
-                                                    <strong>Qty {{ $item->quantity }}</strong>
-                                                </div>
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                        <strong>Items Pulled Out</strong>
+                                        <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-details-csv" data-order-number="{{ $fullyBookedOrder->order_number }}"><i class="fa-solid fa-file-csv me-1"></i>Export CSV</button>
+                                    </div>
+                                    <div class="list-group">
+                                        @foreach($fullyBookedOrder->items as $item)
+                                            <div class="list-group-item d-flex justify-content-between gap-3 fully-booked-export-item"
+                                                data-item-id="{{ $item->item_id }}"
+                                                data-description="{{ $item->product?->description ?: $item->product_name }}"
+                                                data-barcode="{{ $item->product?->barcode ?? '' }}"
+                                                data-stock="{{ $item->product?->stock ?? '' }}"
+                                                data-quantity="{{ $item->quantity }}">
+                                                <span>{{ $item->product_name }} <small class="text-muted">({{ $item->item_id ?? '—' }})</small></span>
+                                                <strong>Qty {{ $item->quantity }}</strong>
+                                            </div>
                                             @endforeach
                                         </div>
                                         <div class="small text-muted mt-2">Recorded by {{ $fullyBookedOrder->pullOutBy?->name ?? 'Inventory staff' }} · {{ $fullyBookedOrder->pulled_out_at->format('M d, Y h:i A') }}</div>
@@ -623,3 +634,7 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/fully-booked-pullout.js') }}"></script>
+@endpush

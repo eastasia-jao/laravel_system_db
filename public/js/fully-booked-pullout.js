@@ -1,3 +1,34 @@
+window.exportFullyBookedCsv = (items, filename) => {
+    if (!items.length) {
+        window.AppAlert?.show('Select at least one product before exporting.', 'warning');
+        return;
+    }
+
+    const escapeCsv = (value, preserveText = false) => {
+        let text = String(value ?? '');
+        if (preserveText) {
+            text = `="${text.replace(/[\u0000-\u001f\u007f]/g, '').replaceAll('"', '""')}"`;
+        } else if (/^[\s]*[=+\-@]/.test(text)) {
+            text = `'${text}`;
+        }
+        return `"${text.replaceAll('"', '""')}"`;
+    };
+    const headers = ['Item Id', 'Description', 'Barcode', 'Physical Stock Remaining', 'Actual Pull Out', 'Actual Physical Pullout'];
+    const data = [
+        headers.map(value => escapeCsv(value)).join(','),
+        ...items.map(row => row.map((value, index) => escapeCsv(value, index === 2)).join(',')),
+    ].join('\r\n');
+    const blob = new Blob(['\uFEFF', data], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
     const rows = form.querySelector('.fully-booked-pullout-rows');
     const endpoint = form.dataset.endpoint;
@@ -126,29 +157,10 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
                 '',
                 '',
             ]);
-        if (!selectedItems.length) {
-            window.AppAlert?.show('Select at least one product before exporting.', 'warning');
-            return;
-        }
-
-        const escapeCsv = value => {
-            let text = String(value ?? '');
-            if (/^[\s]*[=+\-@]/.test(text)) text = `'${text}`;
-            return `"${text.replaceAll('"', '""')}"`;
-        };
-        const data = [
-            ['Item Id', 'Description', 'Barcode', 'Physical Stock Remaining', 'Actual Pull Out', 'Actual Physical Pullout'],
-            ...selectedItems,
-        ].map(row => row.map(escapeCsv).join(',')).join('\r\n');
-        const blob = new Blob(['\uFEFF', data], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${form.dataset.orderNumber || 'fully-booked-order'}-pullout.csv`;
-        document.body.append(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        window.exportFullyBookedCsv(
+            selectedItems,
+            `${form.dataset.orderNumber || 'fully-booked-order'}-pullout.csv`
+        );
     });
 
     rows.addEventListener('click', event => {
@@ -157,5 +169,21 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
             button.closest('.fully-booked-pullout-row').remove();
             updateRemoveButtons();
         }
+    });
+});
+
+document.querySelectorAll('.export-fully-booked-details-csv').forEach(button => {
+    button.addEventListener('click', () => {
+        const modal = button.closest('.modal');
+        const items = Array.from(modal.querySelectorAll('.fully-booked-export-item'))
+            .map(item => [
+                item.dataset.itemId || '',
+                item.dataset.description || '',
+                item.dataset.barcode || '',
+                item.dataset.stock || '',
+                item.dataset.quantity || '',
+                '',
+            ]);
+        window.exportFullyBookedCsv(items, `${button.dataset.orderNumber}-pullout.csv`);
     });
 });

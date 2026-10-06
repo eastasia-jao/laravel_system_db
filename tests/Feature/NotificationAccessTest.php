@@ -131,6 +131,37 @@ class NotificationAccessTest extends TestCase
         $this->assertStringNotContainsString('fa-bell', $response->json('html'));
     }
 
+    public function test_product_file_review_notifications_use_import_icon_across_notification_surfaces(): void
+    {
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin', 'hub_id' => $hub->id]);
+        $user->notify(new InventoryWorkflowNotification(
+            'product_file_reviewed',
+            'Your product import was approved.'
+        ));
+        $user->notify(new InventoryWorkflowNotification(
+            'product_file_reviewed',
+            'Your product export was approved.',
+            fileType: 'export'
+        ));
+
+        $feed = $this->actingAs($user)->getJson(route('notifications.feed'));
+        $feed->assertOk();
+        $this->assertStringContainsString('fa-file-import', $feed->json('html'));
+        $this->assertStringContainsString('fa-file-export', $feed->json('html'));
+        $this->assertStringNotContainsString('fa-bell', $feed->json('html'));
+
+        $this->get(route('notifications.index'))
+            ->assertOk()
+            ->assertSee('fa-file-import')
+            ->assertSee('fa-file-export');
+
+        $this->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('fa-file-import')
+            ->assertSee('fa-file-export');
+    }
+
     public function test_fully_booked_order_notification_uses_a_book_icon_in_sidebar_and_live_feed(): void
     {
         $user = User::factory()->create(['role' => 'admin']);

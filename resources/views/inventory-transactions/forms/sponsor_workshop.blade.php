@@ -25,10 +25,19 @@
     .transaction-page-heading h3 { font-size: clamp(1.15rem, 2vw, 1.5rem); }
     .transaction-form-card { border: 1px solid #e2e8f0 !important; }
     .fully-booked-review-card { border: 1px solid #e2e8f0; }
+    .fully-booked-request-remarks { max-width: 34rem; }
     .fully-booked-product-search .product-search-results {
         z-index: 20;
         max-height: 260px;
         overflow-y: auto;
+    }
+    .fully-booked-pullout-rows {
+        max-height: 320px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: .5rem;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
     }
     .fully-booked-attachment-preview {
         min-height: 220px;
@@ -263,6 +272,12 @@
                                 <div class="small text-muted mt-1">{{ $order->salesStaff?->name ?? 'Deleted staff' }} · {{ $order->storeHub?->name ?? '—' }} · Order store: {{ $order->store_name ?? '—' }} · Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
                             </div>
                         </div>
+                        @if($order->remarks)
+                            <div class="alert alert-light border small mb-0 fully-booked-request-remarks">
+                                <strong>Request remarks:</strong>
+                                <div class="mt-1" style="white-space:pre-wrap">{{ $order->remarks }}</div>
+                            </div>
+                        @endif
                     </div>
                     <div class="row g-3 align-items-stretch">
                         <div class="col-lg-5">
@@ -279,12 +294,6 @@
                             </div>
                         </div>
                         <div class="col-lg-7">
-                            @if($order->remarks)
-                                <div class="alert alert-light border small mb-3">
-                                    <strong>Request remarks:</strong>
-                                    <div class="mt-1" style="white-space:pre-wrap">{{ $order->remarks }}</div>
-                                </div>
-                            @endif
                             <form method="POST" action="{{ route('inventory-transactions.fully-booked.pull-out', $order) }}" class="fully-booked-pullout-form" data-order-number="{{ $order->order_number }}" data-endpoint="{{ route('hub.products.search.ajax', $order->store_hub_id) }}">
                                 @csrf
                                 <h6 class="fw-bold mb-1">Items for this order</h6>

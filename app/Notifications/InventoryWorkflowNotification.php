@@ -18,6 +18,7 @@ class InventoryWorkflowNotification extends Notification
         private readonly ?string $title = null,
         private readonly ?string $channel = null,
         private readonly ?string $reference = null,
+        private readonly ?string $fileType = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -46,7 +47,7 @@ class InventoryWorkflowNotification extends Notification
             'fully_booked_completed' => 'Fully Booked order completed',
         ];
 
-        return new DatabaseMessage([
+        $data = [
             'event' => $this->event,
             'title' => $this->title ?? $titles[$this->event] ?? 'Inventory workflow updated',
             'message' => $this->message.' ('.$this->createdAtLabel().')',
@@ -54,7 +55,12 @@ class InventoryWorkflowNotification extends Notification
             'hub_id' => $this->hubId,
             'channel' => $this->channel,
             'reference' => $this->reference,
-        ]);
+        ];
+        if ($this->fileType !== null) {
+            $data['file_type'] = $this->fileType;
+        }
+
+        return new DatabaseMessage($data);
     }
 
     private function createdAtLabel(): string

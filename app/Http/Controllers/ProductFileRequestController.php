@@ -224,7 +224,8 @@ class ProductFileRequestController extends Controller
                 'product_file_reviewed',
                 "Your product {$record->type} was {$record->status}.",
                 $record->store_hub_id,
-                route('products.index', ['hub_id' => $record->store_hub_id])
+                route('products.index', ['hub_id' => $record->store_hub_id]),
+                fileType: $record->type
             ));
         });
 

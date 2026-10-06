@@ -457,7 +457,14 @@ class InventoryTransactionController extends Controller
             ? StoreHub::where('status', 'active')->orderBy('name')->get()
             : StoreHub::whereIn('id', $user?->accessibleStoreHubIds() ?? [])->where('status', 'active')->get();
 
-        return view('inventory-transactions.index', compact('transactions', 'hubs', 'hubId'));
+        $fullyBookedPulloutCount = in_array($user?->role, ['admin', 'inventory_staff'], true)
+            ? FullyBookedOrder::where('status', 'reviewed')
+                ->whereNull('pulled_out_at')
+                ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
+                ->count()
+            : 0;
+
+        return view('inventory-transactions.index', compact('transactions', 'hubs', 'hubId', 'fullyBookedPulloutCount'));
     }
 
     public function create(Request $request)
