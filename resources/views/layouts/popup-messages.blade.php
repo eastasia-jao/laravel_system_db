@@ -6,7 +6,10 @@
             'profile-updated' => 'Profile updated successfully.',
             'verification-link-sent' => 'A new verification link has been sent to your email address.',
             default => session($key),
-        }, 'type' => $kind];
+        }, 'type' => $kind, 'title' => $key === 'success'
+            && str_starts_with((string) session($key), 'Replacement request submitted')
+                ? 'Replacement request submitted'
+                : null];
     }
     $popupErrors = collect($errors->getBags())->flatMap(fn ($bag) => $bag->all())->unique()->values()->all();
     if ($popupErrors) $popupMessages[] = ['text' => implode("\n", $popupErrors), 'type' => 'error'];
@@ -182,10 +185,10 @@
         const showMessages = async () => {
             for (const message of messages) {
                 await window.AppAlert.show(message.text, message.type, {
-                    title: message.type === 'success' ? 'All done'
+                    title: message.title || (message.type === 'success' ? 'All done'
                         : message.type === 'error' ? 'Something needs attention'
                         : message.type === 'warning' ? 'Before you continue'
-                        : 'Good to know',
+                        : 'Good to know'),
                 });
             }
         };

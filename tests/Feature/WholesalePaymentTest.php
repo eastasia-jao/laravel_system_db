@@ -65,14 +65,19 @@ class WholesalePaymentTest extends TestCase
         $item = $sale->items()->create(['product_id' => $original->id, 'quantity' => 2, 'unit_price' => 100, 'line_total' => 200]);
 
         $url = route('hub.report.wholesale.replace', [$hub->id, $sale->id, $item->id]);
-        $this->actingAs($user)->post($url, [
+        $reportUrl = route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']);
+        $this->actingAs($user)->from($reportUrl)->post($url, [
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
             'replacement_quantity' => 2,
             'exchange_payment_amount' => 140,
             'exchange_payment_method' => 'CASH',
             'reason' => 'Customer requested a different item.',
-        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+        ])->assertRedirect($reportUrl)->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->get($reportUrl)
+            ->assertOk()
+            ->assertSee('Replacement request submitted', false)
+            ->assertSee('No stock or order total has changed yet.', false);
 
         $this->assertSame(3, $original->fresh()->stock);
         $this->assertSame(5, $replacement->fresh()->stock);
