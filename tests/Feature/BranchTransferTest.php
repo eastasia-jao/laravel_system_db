@@ -319,18 +319,20 @@ class BranchTransferTest extends TestCase
             ]);
         }
 
-        $this->actingAs($associate)
+        $firstPage = $this->actingAs($associate)
             ->get(route('staff-logs.index', ['search' => 'TRF-PAGE']))
             ->assertOk()
-            ->assertSee('Showing 1 to 10 of 12 entries')
             ->assertSee('search=TRF-PAGE', false)
             ->assertSee('page=2', false)
             ->assertViewHas('logs', fn ($logs) => $logs->count() === 10 && $logs->currentPage() === 1);
+        $firstPageText = preg_replace('/\s+/', ' ', strip_tags($firstPage->getContent()));
+        $this->assertSame(1, substr_count($firstPageText, 'Showing 1 to 10 of 12 results'));
 
-        $this->get(route('staff-logs.index', ['search' => 'TRF-PAGE', 'page' => 2]))
+        $secondPage = $this->get(route('staff-logs.index', ['search' => 'TRF-PAGE', 'page' => 2]))
             ->assertOk()
-            ->assertSee('Showing 11 to 12 of 12 entries')
             ->assertViewHas('logs', fn ($logs) => $logs->count() === 2 && $logs->currentPage() === 2);
+        $secondPageText = preg_replace('/\s+/', ' ', strip_tags($secondPage->getContent()));
+        $this->assertSame(1, substr_count($secondPageText, 'Showing 11 to 12 of 12 results'));
     }
 
     public function test_single_designated_branch_is_locked_for_sales_associate(): void

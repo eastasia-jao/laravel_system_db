@@ -60,12 +60,6 @@
         </div>
     </div>
     <div class="mt-4" data-online-preview-remove>
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <div class="small text-muted">Showing {{ $transactions->firstItem() ?: 0 }}–{{ $transactions->lastItem() ?: 0 }} of {{ number_format($transactions->total()) }} online orders</div>
-            @if($transactions->hasPages())
-                <div class="small text-muted">Page {{ $transactions->currentPage() }} of {{ $transactions->lastPage() }}</div>
-            @endif
-        </div>
         <div class="row g-3">
             @forelse($transactions as $transaction)
                     @php

@@ -210,7 +210,6 @@
                     <div class="small text-uppercase fw-bold text-primary">Order tracking</div>
                     <h5 class="fw-bold mb-0">My Fully Booked Orders</h5>
                 </div>
-                <span class="small text-muted">Showing {{ $fullyBookedOrders->firstItem() ?? 0 }}–{{ $fullyBookedOrders->lastItem() ?? 0 }} of {{ $fullyBookedOrders->total() }} submission(s)</span>
             </div>
             <div class="row g-3">
                 @foreach($fullyBookedOrders as $order)

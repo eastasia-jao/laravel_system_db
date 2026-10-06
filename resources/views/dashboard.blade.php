@@ -461,7 +461,6 @@
                 <div>@forelse($slowProducts as $product)<div class="d-flex align-items-center gap-2 py-2 border-bottom small"><span class="rank">{{ $slowProducts->firstItem() + $loop->index }}</span><span class="flex-grow-1">{{ $product['name'] }}</span><span class="text-muted text-nowrap">{{ number_format($product['stock']) }} pcs in stock · {{ number_format($product['units']) }} sold</span></div>@empty<div class="empty-state">No active products with stock.</div>@endforelse</div>
                 @if($slowProducts->hasPages())
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                        <small class="text-muted">Showing {{ $slowProducts->firstItem() }}–{{ $slowProducts->lastItem() }} of {{ $slowProducts->total() }} products</small>
                         {{ $slowProducts->onEachSide(1)->links() }}
                     </div>
                 @endif

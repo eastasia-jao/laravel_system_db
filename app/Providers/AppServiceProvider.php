@@ -21,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+        Paginator::defaultView('vendor.pagination.bootstrap-5');
+        Paginator::defaultSimpleView('vendor.pagination.simple-bootstrap-5');
         $isBuiltInRole = static fn ($user): bool => $user->hasBuiltInRole();
 
         View::composer('layouts.sidebar', function ($view) {

@@ -225,9 +225,6 @@
             </div>
         </div>
         <div class="staff-log-pagination">
-            <div class="text-muted small">
-                Showing {{ $logs->firstItem() ?? 0 }} to {{ $logs->lastItem() ?? 0 }} of {{ $logs->total() }} entries
-            </div>
             <div>
                 {{ $logs->appends(request()->query())->links() }}
             </div>

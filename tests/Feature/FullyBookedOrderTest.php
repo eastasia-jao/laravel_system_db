@@ -206,28 +206,30 @@ class FullyBookedOrderTest extends TestCase
             ]);
         }
 
-        $this->actingAs($staff)
+        $firstPage = $this->actingAs($staff)
             ->get(route('inventory-transactions.sponsor.create', [
                 'hub_id' => $hub->id,
                 'activity_type' => 'fully_booked',
             ]))
             ->assertOk()
             ->assertViewHas('fullyBookedOrders', fn ($orders) => $orders->total() === 7 && $orders->perPage() === 6)
-            ->assertSee('Showing 1–6 of 7 submission(s)')
             ->assertSee('FB-PAGE-007')
             ->assertSee('FB-PAGE-002')
             ->assertDontSee('FB-PAGE-001')
             ->assertSee('page=2');
+        $firstPageText = preg_replace('/\s+/', ' ', strip_tags($firstPage->getContent()));
+        $this->assertSame(1, substr_count($firstPageText, 'Showing 1 to 6 of 7 results'));
 
-        $this->get(route('inventory-transactions.sponsor.create', [
+        $secondPage = $this->get(route('inventory-transactions.sponsor.create', [
             'hub_id' => $hub->id,
             'activity_type' => 'fully_booked',
             'page' => 2,
         ]))
             ->assertOk()
-            ->assertSee('Showing 7–7 of 7 submission(s)')
             ->assertSee('FB-PAGE-001')
             ->assertDontSee('FB-PAGE-002');
+        $secondPageText = preg_replace('/\s+/', ' ', strip_tags($secondPage->getContent()));
+        $this->assertSame(1, substr_count($secondPageText, 'Showing 7 to 7 of 7 results'));
     }
 
     public function test_inventory_staff_selecting_fully_booked_can_preview_and_download_pending_attachments(): void

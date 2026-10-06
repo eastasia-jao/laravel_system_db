@@ -89,11 +89,6 @@
             justify-content: center;
             width: 14px;
         }
-        .pagination-wrapper nav .text-muted,
-        .pagination-wrapper nav div > p,
-        .pagination-wrapper .small {
-            display: none !important;
-        }
     </style>
 </head>
 <body>
@@ -197,14 +192,7 @@
                     </div>
 
                     <!-- Pagination Footer & Links -->
-                    <div class="mt-auto pt-4 d-flex justify-content-between align-items-center border-top">
-                        <div class="text-muted small">
-                            @if(method_exists($hubs, 'firstItem') && $hubs->firstItem())
-                                Showing {{ $hubs->firstItem() }} to {{ $hubs->lastItem() }} of {{ $hubs->total() }} results
-                            @else
-                                Showing 1 to {{ count($sortedHubs) }} of {{ count($sortedHubs) }} results
-                            @endif
-                        </div>
+                    <div class="mt-auto pt-4 border-top">
                         <div>
                             @if(method_exists($hubs, 'appends'))
                                 {{ $hubs->appends(['tab' => 'hubs'])->onEachSide(1)->links() }}
@@ -262,14 +250,7 @@
                     </div>
 
                     <!-- Pagination Links & Info Section -->
-                    <div class="mt-auto pt-4 d-flex justify-content-between align-items-center border-top">
-                        <div class="text-muted small">
-                            @if(method_exists($brands, 'firstItem') && $brands->firstItem())
-                                Showing {{ $brands->firstItem() }} to {{ $brands->lastItem() }} of {{ $brands->total() }} results
-                            @else
-                                Showing 1 to {{ count($sortedBrands) }} of {{ count($sortedBrands) }} results
-                            @endif
-                        </div>
+                    <div class="mt-auto pt-4 border-top">
                         <div>
                             @if(method_exists($brands, 'appends'))
                                 {{ $brands->appends(['tab' => 'brands'])->onEachSide(1)->links() }}
@@ -316,14 +297,7 @@
                                     @endforelse
                                 </ul>
                             </div>
-                            <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
-                                <div class="text-muted small">
-                                    @if(method_exists($departments, 'firstItem') && $departments->firstItem())
-                                        Showing {{ $departments->firstItem() }} to {{ $departments->lastItem() }} of {{ $departments->total() }} results
-                                    @else
-                                        Showing 1 to {{ count($sortedDepartments) }} of {{ count($sortedDepartments) }} results
-                                    @endif
-                                </div>
+                            <div class="mt-auto pt-3 border-top">
                                 <div class="pagination-wrapper">
                                     @if(method_exists($departments, 'appends'))
                                         {{ $departments->appends(['tab' => 'retail'])->onEachSide(0)->links() }}
@@ -367,14 +341,7 @@
                                     @endforelse
                                 </ul>
                             </div>
-                            <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
-                                <div class="text-muted small">
-                                    @if(method_exists($groups, 'firstItem') && $groups->firstItem())
-                                        Showing {{ $groups->firstItem() }} to {{ $groups->lastItem() }} of {{ $groups->total() }} results
-                                    @else
-                                        Showing 1 to {{ count($sortedGroups) }} of {{ count($sortedGroups) }} results
-                                    @endif
-                                </div>
+                            <div class="mt-auto pt-3 border-top">
                                 <div class="pagination-wrapper">
                                     @if(method_exists($groups, 'appends'))
                                         {{ $groups->appends(['tab' => 'retail'])->onEachSide(0)->links() }}
@@ -427,14 +394,7 @@
                     </div>
 
                     <!-- Pagination Footer & Links -->
-                    <div class="mt-auto pt-4 d-flex justify-content-between align-items-center border-top">
-                        <div class="text-muted small">
-                            @if(method_exists($unitTypes, 'firstItem') && $unitTypes->firstItem())
-                                Showing {{ $unitTypes->firstItem() }} to {{ $unitTypes->lastItem() }} of {{ $unitTypes->total() }} results
-                            @else
-                                Showing 1 to {{ count($sortedUnits) }} of {{ count($sortedUnits) }} results
-                            @endif
-                        </div>
+                    <div class="mt-auto pt-4 border-top">
                         <div>
                             @if(method_exists($unitTypes, 'appends'))
                                 {{ $unitTypes->appends(['tab' => 'units'])->onEachSide(1)->links() }}
