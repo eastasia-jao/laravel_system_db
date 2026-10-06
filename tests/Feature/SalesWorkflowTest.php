@@ -533,6 +533,11 @@ class SalesWorkflowTest extends TestCase
 
         $tiktokPending = PendingSale::where('invoice_number', 'TIKTOK-REPORT-001')->sole();
         $this->assertSame('10.80', $tiktokPending->shipping_service_fee);
+        $this->actingAs($admin)
+            ->get(route('sales.pending'))
+            ->assertOk()
+            ->assertSee('TIKTOK-REPORT-001')
+            ->assertDontSee('Order Summary');
 
         $this->actingAs($admin)
             ->post(route('sales.confirmPending', $tiktokPending))

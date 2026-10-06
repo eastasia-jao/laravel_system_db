@@ -403,31 +403,33 @@
                             </table>
                         </div>
 
-                        @php
-                            $finalGrandTotal = $isTiktok && $sale->sales_after_transaction_fee !== null
-                                ? (float) $sale->sales_after_transaction_fee
-                                : (($sale->grand_total > 0) ? $sale->grand_total : (($subtotal - $orderDiscount) + $deliveryFee));
-                        @endphp
-                        <div class="row justify-content-end">
-                            <div class="col-md-7 col-lg-6">
-                                <div class="order-summary-panel">
-                                    <div class="order-summary-title">Order Summary</div>
-                                    @if(!$isMarketplace)
-                                        <div class="order-summary-line"><span class="text-muted">Subtotal</span><strong>₱{{ number_format($subtotal, 2) }}</strong></div>
-                                    @endif
-                                    @if($orderDiscount > 0)
-                                        <div class="order-summary-line text-danger"><span>Discount</span><strong>-₱{{ number_format($orderDiscount, 2) }}</strong></div>
-                                    @endif
-                                    @if($deliveryFee > 0)
-                                        <div class="order-summary-line"><span class="text-muted">Delivery Fee</span><strong>₱{{ number_format($deliveryFee, 2) }}</strong></div>
-                                    @endif
-                                    <div class="order-summary-total">
-                                        <span class="fw-bold">{{ $isTiktok ? 'Sales After Transaction' : 'Total Amount' }}</span>
-                                        <strong>₱{{ number_format($finalGrandTotal, 2) }}</strong>
+                        @if(!$isTiktok)
+                            @php
+                                $finalGrandTotal = ($sale->grand_total > 0)
+                                    ? $sale->grand_total
+                                    : (($subtotal - $orderDiscount) + $deliveryFee);
+                            @endphp
+                            <div class="row justify-content-end">
+                                <div class="col-md-7 col-lg-6">
+                                    <div class="order-summary-panel">
+                                        <div class="order-summary-title">Order Summary</div>
+                                        @if(!$isMarketplace)
+                                            <div class="order-summary-line"><span class="text-muted">Subtotal</span><strong>₱{{ number_format($subtotal, 2) }}</strong></div>
+                                        @endif
+                                        @if($orderDiscount > 0)
+                                            <div class="order-summary-line text-danger"><span>Discount</span><strong>-₱{{ number_format($orderDiscount, 2) }}</strong></div>
+                                        @endif
+                                        @if($deliveryFee > 0)
+                                            <div class="order-summary-line"><span class="text-muted">Delivery Fee</span><strong>₱{{ number_format($deliveryFee, 2) }}</strong></div>
+                                        @endif
+                                        <div class="order-summary-total">
+                                            <span class="fw-bold">Total Amount</span>
+                                            <strong>₱{{ number_format($finalGrandTotal, 2) }}</strong>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        @endif
 
                     </div>
                     <div class="modal-footer">
