@@ -24,6 +24,9 @@
                 <div class="fs-4 fw-bold text-{{ $color ?? 'dark' }}">
                     {{ $money ? '₱'.number_format((float) $value, 2) : number_format((int) $value) }}
                 </div>
+                @if(!empty($description))
+                    <div class="small text-muted mt-1">{{ $description }}</div>
+                @endif
             </div>
         </div>
     </div>

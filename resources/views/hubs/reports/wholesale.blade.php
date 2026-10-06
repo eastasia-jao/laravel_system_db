@@ -171,8 +171,11 @@
                                                         @if($replacement->exchange_payment_proofs)
                                                             <span class="d-block text-muted">Payment proof attachments:</span>
                                                             @foreach($replacement->exchange_payment_proofs as $proofIndex => $proof)
-                                                                <a href="{{ asset('storage/'.ltrim($proof, '/')) }}" target="_blank" rel="noopener" class="d-block">Open attachment {{ $proofIndex + 1 }}</a>
+                                                                <a href="{{ route('hub.report.replacement-attachment', ['hub' => $hub->id, 'replacement' => $replacement->id, 'type' => 'payment-proof', 'index' => $proofIndex]) }}" target="_blank" rel="noopener" class="d-block">Open attachment {{ $proofIndex + 1 }}</a>
                                                             @endforeach
+                                                        @endif
+                                                        @if($replacement->replacement_order_slip)
+                                                            <a href="{{ route('hub.report.replacement-attachment', ['hub' => $hub->id, 'replacement' => $replacement->id, 'type' => 'replacement-slip', 'index' => 0]) }}" target="_blank" rel="noopener" class="d-block">Open replacement order slip</a>
                                                         @endif
                                                     @endif
                                                     @if($replacement->inventoryReturns->isNotEmpty())

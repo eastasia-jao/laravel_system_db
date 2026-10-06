@@ -468,8 +468,8 @@
             </div>
         @elseif($channel === 'wholesale')
             <div class="col-12"><div class="sales-channel-section-heading"><h5>Activity overview</h5><p>Sales, returns, payment, and customer summary</p></div></div>
-            @include('hubs.reports.metric', ['label' => 'Gross Sales', 'value' => $metrics['gross_sales'], 'color' => 'primary'])
-            @include('hubs.reports.metric', ['label' => 'Total Sales', 'value' => $totalSales, 'color' => 'success'])
+            @include('hubs.reports.metric', ['label' => 'Gross Sales', 'value' => $metrics['gross_sales'], 'color' => 'primary', 'description' => 'Value of items kept after returns and approved exchanges, before discounts.'])
+            @include('hubs.reports.metric', ['label' => 'Total Sales', 'value' => $totalSales, 'color' => 'success', 'description' => 'Order value after recorded return and refund deductions.'])
             @include('hubs.reports.metric', ['label' => 'Replacement Requests', 'value' => $metrics['replacement_count'], 'money' => false, 'color' => 'warning'])
             @include('hubs.reports.metric', ['label' => 'Wholesale Return Entries', 'value' => $metrics['return_count'], 'money' => false, 'color' => 'info'])
             @include('hubs.reports.metric', ['label' => 'Total Refund Cost', 'value' => $metrics['refund_total'], 'color' => 'danger'])

@@ -10,6 +10,7 @@ use App\Models\InventoryTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class WholesalePaymentTest extends TestCase
@@ -115,7 +116,12 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame(3, $replacement->fresh()->stock);
 
         $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']))
-            ->assertOk()->assertSee('Replacement Item')->assertSee('Replaced/returned:')->assertSee('APPROVED');
+            ->assertOk()
+            ->assertSee('Replacement Item')
+            ->assertSee('Replaced/returned:')
+            ->assertSee('APPROVED')
+            ->assertSee('Value of items kept after returns and approved exchanges, before discounts.')
+            ->assertSee('Order value after recorded return and refund deductions.');
     }
 
     public function test_wholesale_replacement_can_be_requested_after_inventory_recorded_the_return(): void
@@ -206,6 +212,46 @@ class WholesalePaymentTest extends TestCase
             ->count());
         $this->assertSame(0, InventoryTransaction::where('type', 'replacement_return')->count());
         $this->assertSame(1, InventoryTransaction::where('type', 'replacement_out')->count());
+    }
+
+    public function test_replacement_payment_proof_is_served_from_the_public_storage_disk(): void
+    {
+        Storage::fake('public');
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $original = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ATTACH-ORIG', 'name' => 'Original Item', 'stock' => 1, 'status' => 'active']);
+        $replacementProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ATTACH-REPL', 'name' => 'Replacement Item', 'stock' => 1, 'status' => 'active']);
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'customer_name' => 'Customer',
+            'order_number' => 'ATTACH-1',
+            'order_date' => '2026-10-06',
+            'grand_total' => 100,
+            'status' => 'confirmed',
+        ]);
+        $item = $sale->items()->create(['product_id' => $original->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100]);
+        $path = 'exchange_payment_proofs/payment-proof.pdf';
+        Storage::disk('public')->put($path, 'replacement payment proof');
+        $replacement = ProductReplacement::create([
+            'transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'original_product_id' => $original->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 1,
+            'exchange_payment_proofs' => [$path],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('hub.report.replacement-attachment', [
+                'hub' => $hub->id,
+                'replacement' => $replacement->id,
+                'type' => 'payment-proof',
+                'index' => 0,
+            ]))
+            ->assertOk()
+            ->assertStreamedContent('replacement payment proof');
     }
 
     public function test_wholesale_report_filters_open_and_completed_transactions(): void

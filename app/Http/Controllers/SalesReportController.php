@@ -14,6 +14,7 @@ use App\Notifications\InventoryWorkflowNotification;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 
@@ -725,6 +726,32 @@ class SalesReportController extends Controller
         StoreHub::findOrFail($hub);
 
         return redirect()->route('hub.report', ['hub' => $hub, 'channel' => 'wholesale']);
+    }
+
+    public function replacementAttachment(int $hub, ProductReplacement $replacement, string $type, int $index)
+    {
+        $storeHub = StoreHub::findOrFail($hub);
+        abort_unless(auth()->user()?->canAccessHub($storeHub->id), 403);
+
+        $sale = $replacement->transaction;
+        abort_unless($sale && (int) $sale->store_hub_id === (int) $storeHub->id, 404);
+
+        $path = match ($type) {
+            'payment-proof' => $replacement->exchange_payment_proofs[$index] ?? null,
+            'replacement-slip' => $index === 0 ? $replacement->replacement_order_slip : null,
+            default => null,
+        };
+        abort_unless(is_string($path) && $path !== '', 404);
+
+        $disk = Storage::disk('public');
+        abort_unless($disk->exists($path), 404, 'Replacement attachment is no longer available.');
+
+        return $disk->response(
+            $path,
+            basename($path),
+            ['Content-Type' => $disk->mimeType($path) ?: 'application/octet-stream'],
+            'inline'
+        );
     }
 
     public function replaceWholesaleItem(Request $request, int $hub, int $transaction, int $item)

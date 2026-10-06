@@ -282,7 +282,7 @@
                                                     @if($replacement->reason)<div>{{ $replacement->reason }}</div>@endif
                                                     @if($replacement->rejection_reason)<div class="text-danger">{{ $replacement->rejection_reason }}</div>@endif
                                                     @if($replacement->replacement_order_slip)
-                                                        <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($replacement->replacement_order_slip) }}" target="_blank" rel="noopener" class="d-block">View order slip</a>
+                                                        <a href="{{ route('hub.report.replacement-attachment', ['hub' => $hub->id, 'replacement' => $replacement->id, 'type' => 'replacement-slip', 'index' => 0]) }}" target="_blank" rel="noopener" class="d-block">View order slip</a>
                                                     @endif
                                                     @if(!$replacement->reason && !$replacement->rejection_reason && !$replacement->replacement_order_slip)
                                                         <span class="text-muted">—</span>
