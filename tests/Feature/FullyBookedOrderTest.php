@@ -166,8 +166,8 @@ class FullyBookedOrderTest extends TestCase
             ->get(route('inventory-transactions.index', ['hub_id' => $branch->id]))
             ->assertOk()
             ->assertSee('Transaction Logs')
-            ->assertSee('aria-label="2 Fully Booked orders not yet processed"', false)
-            ->assertSee('aria-label="1 Fully Booked order not yet processed"', false)
+            ->assertSee('aria-label="2 inventory item(s) awaiting verification"', false)
+            ->assertSee('aria-label="1 inventory item(s) awaiting verification"', false)
             ->assertSee('BRANCH STORE');
 
         $this->get(route('hub.dashboard', $branch->id))
@@ -175,7 +175,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('Verify Sales')
             ->assertSee('2 inventory item(s) awaiting verification, including unprocessed Fully Booked orders')
             ->assertSee('BRANCH STORE')
-            ->assertSee('aria-label="2 Fully Booked orders not yet processed"', false);
+            ->assertSee('aria-label="2 inventory item(s) awaiting verification"', false);
     }
 
     public function test_sales_staff_fully_booked_order_tracking_is_paginated_six_per_page(): void

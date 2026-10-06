@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\StoreHub;
 use App\Models\FullyBookedOrder;
+use App\Models\PendingSale;
+use App\Models\ProductReplacement;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
@@ -24,18 +26,44 @@ class AppServiceProvider extends ServiceProvider
         View::composer('layouts.sidebar', function ($view) {
             $user = auth()->user();
             $sidebarHubs = StoreHub::where('status', 'active')->orderBy('name')->get();
-            $fullyBookedCountsByHub = in_array($user?->role, ['admin', 'inventory_staff'], true)
-                ? FullyBookedOrder::query()
+            $pendingVerificationCountsByHub = collect();
+            if (in_array($user?->role, ['admin', 'inventory_staff'], true)) {
+                $pendingVerificationCountsByHub = PendingSale::query()
+                    ->where('status', 'pending')
+                    ->selectRaw('store_hub_id, COUNT(*) as total')
+                    ->groupBy('store_hub_id')
+                    ->pluck('total', 'store_hub_id');
+
+                ProductReplacement::query()
+                    ->where('product_replacements.status', 'pending')
+                    ->join('sales_transactions', 'product_replacements.transaction_id', '=', 'sales_transactions.id')
+                    ->selectRaw('sales_transactions.store_hub_id, COUNT(*) as total')
+                    ->groupBy('sales_transactions.store_hub_id')
+                    ->pluck('total', 'store_hub_id')
+                    ->each(function ($count, $hubId) use ($pendingVerificationCountsByHub) {
+                        $pendingVerificationCountsByHub->put(
+                            $hubId,
+                            (int) $pendingVerificationCountsByHub->get($hubId, 0) + (int) $count
+                        );
+                    });
+
+                FullyBookedOrder::query()
                     ->whereIn('status', ['pending', 'reviewed'])
                     ->whereNull('pulled_out_at')
                     ->selectRaw('store_hub_id, COUNT(*) as total')
                     ->groupBy('store_hub_id')
                     ->pluck('total', 'store_hub_id')
-                : collect();
+                    ->each(function ($count, $hubId) use ($pendingVerificationCountsByHub) {
+                        $pendingVerificationCountsByHub->put(
+                            $hubId,
+                            (int) $pendingVerificationCountsByHub->get($hubId, 0) + (int) $count
+                        );
+                    });
+            }
 
             $view->with([
                 'sidebarHubs' => $sidebarHubs,
-                'sidebarFullyBookedCountsByHub' => $fullyBookedCountsByHub,
+                'sidebarPendingVerificationCountsByHub' => $pendingVerificationCountsByHub,
             ]);
         });
 
