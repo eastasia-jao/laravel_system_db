@@ -119,6 +119,18 @@ class NotificationAccessTest extends TestCase
         $this->assertStringNotContainsString('Another users notification.', $response->json('html'));
     }
 
+    public function test_live_notification_feed_preserves_stock_allocation_icon(): void
+    {
+        $user = User::factory()->create(['role' => 'inventory_staff']);
+        $user->notify(new InventoryWorkflowNotification('stock_allocation', 'Stock allocation was updated.'));
+
+        $response = $this->actingAs($user)->getJson(route('notifications.feed'));
+
+        $response->assertOk();
+        $this->assertStringContainsString('fa-layer-group', $response->json('html'));
+        $this->assertStringNotContainsString('fa-bell', $response->json('html'));
+    }
+
     public function test_branch_walk_in_replacement_notifications_use_walk_in_label_icon_and_reference(): void
     {
         $hub = StoreHub::create(['name' => 'Branch', 'code' => 'BRANCH', 'status' => 'active', 'is_head_office' => false]);

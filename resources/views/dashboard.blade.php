@@ -477,7 +477,41 @@
             @if($alerts->hasPages())
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
                     <small class="text-muted">Showing {{ $alerts->firstItem() }}–{{ $alerts->lastItem() }} of {{ $alertCount }} alerts</small>
-                    {{ $alerts->onEachSide(1)->links() }}
+                    <nav aria-label="Live inventory alert pages">
+                        <ul class="pagination mb-0">
+                            @if($alerts->onFirstPage())
+                                <li class="page-item disabled" aria-disabled="true"><span class="page-link" aria-hidden="true">&lsaquo;</span></li>
+                            @else
+                                <li class="page-item"><a class="page-link" href="{{ $alerts->previousPageUrl() }}" rel="prev" aria-label="Previous page">&lsaquo;</a></li>
+                            @endif
+                            @php($alertPageWindow = \Illuminate\Pagination\UrlWindow::make($alerts->onEachSide(1)))
+                            @foreach(array_filter([
+                                $alertPageWindow['first'],
+                                is_array($alertPageWindow['slider']) ? '...' : null,
+                                $alertPageWindow['slider'],
+                                is_array($alertPageWindow['last']) ? '...' : null,
+                                $alertPageWindow['last'],
+                            ]) as $element)
+                                @if(is_string($element))
+                                    <li class="page-item disabled" aria-disabled="true"><span class="page-link">{{ $element }}</span></li>
+                                @endif
+                                @if(is_array($element))
+                                    @foreach($element as $page => $url)
+                                        @if($page === $alerts->currentPage())
+                                            <li class="page-item active" aria-current="page"><span class="page-link">{{ $page }}</span></li>
+                                        @else
+                                            <li class="page-item"><a class="page-link" href="{{ $url }}">{{ $page }}</a></li>
+                                        @endif
+                                    @endforeach
+                                @endif
+                            @endforeach
+                            @if($alerts->hasMorePages())
+                                <li class="page-item"><a class="page-link" href="{{ $alerts->nextPageUrl() }}" rel="next" aria-label="Next page">&rsaquo;</a></li>
+                            @else
+                                <li class="page-item disabled" aria-disabled="true"><span class="page-link" aria-hidden="true">&rsaquo;</span></li>
+                            @endif
+                        </ul>
+                    </nav>
                 </div>
             @endif
         @endif

@@ -131,9 +131,16 @@
                             </div>
                         @endif
                         @if(!$exchangeStockReady)
+                            @php
+                                $shortageLine = $exchangeLines->first(fn ($line) => (int) $line->replacement_available_stock < (int) ($line->replacement_quantity ?: $line->quantity));
+                            @endphp
                             <div class="alert alert-warning small mt-3 mb-0">
                                 One or more exchange products do not have enough {{ $replacementChannel === 'walk_in' ? 'unallocated physical' : 'allocated '.ucfirst(str_replace('_', ' ', $replacementChannel)) }} stock.
-                                <a class="alert-link d-block mt-1" href="{{ route('stock-allocation.index', ['hub_id' => $replacement->transaction?->store_hub_id, 'search' => $exchangeLines->first(fn ($line) => (int) $line->replacement_available_stock < (int) ($line->replacement_quantity ?: $line->quantity))?->replacementProduct?->item_id, 'return_to' => 'verification-queue', 'return_hub_id' => $replacement->transaction?->store_hub_id]) }}">Open Stock Allocation</a>
+                                <a href="{{ route('stock-allocation.index', ['hub_id' => $replacement->transaction?->store_hub_id, 'search' => $shortageLine?->replacementProduct?->item_id, 'product_id' => $shortageLine?->replacement_product_id, 'return_to' => 'verification-queue', 'return_hub_id' => $replacement->transaction?->store_hub_id]) }}"
+                                   class="btn btn-sm btn-outline-primary text-nowrap d-block mt-2"
+                                   title="Open this product in Stock Allocation">
+                                    <i class="fa-solid fa-layer-group me-1"></i> Open Stock Allocation
+                                </a>
                             </div>
                         @endif
                     </div>

@@ -79,6 +79,33 @@ class InventoryScalingTest extends TestCase
         );
     }
 
+    public function test_inventory_staff_sees_store_name_only_when_all_stores_are_selected(): void
+    {
+        $office = StoreHub::create(['name' => 'Main Warehouse', 'code' => 'HO-STORE', 'is_head_office' => true, 'status' => 'active']);
+        $branch = StoreHub::create(['name' => 'Branch Store', 'code' => 'BR-STORE', 'status' => 'active']);
+        Product::create(['store_hub_id' => $office->id, 'item_id' => 'STORE-1', 'name' => 'Office Product', 'stock' => 10]);
+        Product::create(['store_hub_id' => $branch->id, 'item_id' => 'STORE-2', 'name' => 'Branch Product', 'stock' => 10]);
+        $staff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $office->id]);
+
+        $allStores = $this->actingAs($staff)->get(route('products.index'));
+        $allStores->assertOk()
+            ->assertSee('<th>Store Name</th>', false)
+            ->assertSee('MAIN WAREHOUSE')
+            ->assertSee('BRANCH STORE');
+
+        $this->get(route('products.index', ['hub_id' => $branch->id]))
+            ->assertOk()
+            ->assertDontSee('<th>Store Name</th>', false)
+            ->assertSee('Branch Product')
+            ->assertDontSee('<td>MAIN WAREHOUSE</td>', false);
+
+        $this->get(route('products.index', ['hub_id' => $office->id]))
+            ->assertOk()
+            ->assertDontSee('<th>Store Name</th>', false)
+            ->assertSee('Office Product')
+            ->assertDontSee('<td>MAIN WAREHOUSE</td>', false);
+    }
+
     public function test_shared_catalog_requires_head_office_context_and_only_lists_regular_branches(): void
     {
         $office = StoreHub::create(['name' => 'Head Office', 'code' => 'HO', 'is_head_office' => true, 'status' => 'active']);

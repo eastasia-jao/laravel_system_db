@@ -424,7 +424,9 @@
                 @endif
                 <div class="col-sm-4 col-md-3 d-flex gap-2">
                     <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-filter me-1"></i> Apply</button>
-                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('hub.report', ['hub' => $hub->id, 'channel' => $channel]) }}">Reset</a>
+                    @unless($channel === 'wholesale')
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('hub.report', ['hub' => $hub->id, 'channel' => $channel]) }}">Reset</a>
+                    @endunless
                 </div>
             </form>
         </div>

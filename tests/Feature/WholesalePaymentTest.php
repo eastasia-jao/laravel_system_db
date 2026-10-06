@@ -348,7 +348,12 @@ class WholesalePaymentTest extends TestCase
         $response->assertOk()
             ->assertSee('Total Sales')
             ->assertSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
-            ->assertDontSee('Gross Sales');
+            ->assertDontSee('Gross Sales')
+            ->assertDontSee('>Reset</a>');
         $this->assertSame(150.0, $response->viewData('wholesaleCollectedSales'));
+
+        $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'online']))
+            ->assertOk()
+            ->assertSee('Reset');
     }
 }

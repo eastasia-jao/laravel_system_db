@@ -23,7 +23,17 @@
                 ? ['icon' => 'fa-clipboard-check', 'color' => 'text-success', 'background' => 'bg-success']
                 : ($isWalkIn
                     ? ['icon' => 'fa-cash-register', 'color' => 'text-warning', 'background' => 'bg-warning']
-                    : ['icon' => 'fa-bell', 'color' => 'text-primary', 'background' => 'bg-primary']));
+                    : match ($event) {
+                        'submitted' => ['icon' => 'fa-file-circle-plus', 'color' => 'text-info', 'background' => 'bg-info'],
+                        'import' => ['icon' => 'fa-file-import', 'color' => 'text-success', 'background' => 'bg-success'],
+                        'export' => ['icon' => 'fa-file-export', 'color' => 'text-primary', 'background' => 'bg-primary'],
+                        'stock_allocation' => ['icon' => 'fa-layer-group', 'color' => 'text-primary', 'background' => 'bg-primary'],
+                        'transaction_log' => ['icon' => 'fa-clipboard-list', 'color' => 'text-warning', 'background' => 'bg-warning'],
+                        'replacement_request' => ['icon' => 'fa-box-open', 'color' => 'text-warning', 'background' => 'bg-warning'],
+                        'branch_transfer_request' => ['icon' => 'fa-right-left', 'color' => 'text-warning', 'background' => 'bg-warning'],
+                        'return_recorded' => ['icon' => 'fa-rotate-left', 'color' => 'text-danger', 'background' => 'bg-danger'],
+                        default => ['icon' => 'fa-bell', 'color' => 'text-primary', 'background' => 'bg-primary'],
+                    }));
     @endphp
     <a href="{{ $notificationUrl }}" class="d-block px-3 py-3 border-bottom {{ $notification->read_at ? 'text-muted' : 'text-dark' }} text-decoration-none" style="white-space: normal; overflow-wrap: anywhere;">
         <div class="d-flex align-items-start gap-2" style="min-width: 0;">

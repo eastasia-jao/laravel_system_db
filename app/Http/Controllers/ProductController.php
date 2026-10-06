@@ -79,6 +79,10 @@ class ProductController extends Controller
 
         $selectedHub = $selectedHubId ? StoreHub::find($selectedHubId) : null;
         $query = Product::query()->with('stockAllocation');
+        $showProductStoreName = $user?->role === 'inventory_staff' && ! $selectedHubId;
+        if ($showProductStoreName) {
+            $query->with('storeHub');
+        }
         if (! in_array($user->role, ['admin', 'inventory_staff'], true) && ! $selectedHubId) {
             $query->whereRaw('1 = 0');
         }
@@ -178,7 +182,7 @@ class ProductController extends Controller
 
         return view('products.index', compact(
             'products', 'productHubs', 'selectedHub', 'brands', 'groups', 'departments', 'unitTypes', 'baseUnits',
-            'displayChannel', 'displayChannelLabel', 'displayChannelOptions', 'isSalesAssociate'
+            'displayChannel', 'displayChannelLabel', 'displayChannelOptions', 'isSalesAssociate', 'showProductStoreName'
         ));
     }
 

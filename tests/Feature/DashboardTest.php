@@ -422,7 +422,9 @@ class DashboardTest extends TestCase
             'date' => '2026-09-28',
         ]))->assertOk()
             ->assertSee('Showing 1–10 of 12 alerts')
+            ->assertDontSee('Showing 1 to 10 of 12 results')
             ->assertSee('alerts_page=2', false)
+            ->assertSee('aria-label="Live inventory alert pages"', false)
             ->assertSee('hub_id='.$hub->id, false)
             ->assertSee('date=2026-09-28', false)
             ->assertSee('id="inventoryAlertResults"', false)
@@ -439,6 +441,7 @@ class DashboardTest extends TestCase
             'alerts_page' => 2,
         ]))->assertOk()
             ->assertSee('Showing 11–12 of 12 alerts')
+            ->assertDontSee('Showing 11 to 12 of 12 results')
             ->assertSee('Alert Product 10')
             ->assertSee('Alert Product 11')
             ->assertDontSee('Alert Product 0');

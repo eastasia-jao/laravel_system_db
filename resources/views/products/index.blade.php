@@ -147,6 +147,9 @@
                     <thead class="table-light">
                         <tr class="small text-uppercase text-muted fw-bold" style="font-size: 11px;">
                             <th>Product</th>
+                            @if($showProductStoreName)
+                                <th>Store Name</th>
+                            @endif
                             <th>Item ID</th>
                             <th>Barcode</th>
                             <th>Brand</th>
@@ -168,6 +171,9 @@
                         @forelse($products as $product)
                             <tr>
                                 <td class="product-name-cell">{{ $product->name }}</td>
+                                @if($showProductStoreName)
+                                    <td>{{ $product->storeHub?->name ?? '—' }}</td>
+                                @endif
                                 <td class="text-nowrap">{{ $product->item_id }}</td>
                                 <td class="text-nowrap">{{ $product->barcode ?? '-' }}</td>
                                 <td>
@@ -207,7 +213,7 @@
                                 @endcan
                             </tr>
                         @empty
-                            <tr><td colspan="11" class="text-center py-5 text-muted">No products found.</td></tr>
+                            <tr><td colspan="{{ $showProductStoreName ? 12 : 11 }}" class="text-center py-5 text-muted">No products found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
