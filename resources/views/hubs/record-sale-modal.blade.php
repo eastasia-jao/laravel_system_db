@@ -147,6 +147,7 @@
                             <div class="col-md-2">Regular Price</div>
                             <div class="col-md-1 text-danger">Disc %</div>
                             <div class="col-md-2 text-success">Total after Disc.</div>
+                            <div class="col-md-2 text-info tiktok-shipping-fee-column">Shipping Service Fee</div>
                             <div class="col-md-1 text-center">Action</div>
                         </div>
 
@@ -182,6 +183,11 @@
                             <div class="col-md-2">
                                 <label class="form-label fw-bold text-success d-md-none">Total after Disc.</label>
                                 <input type="text" class="form-control item-total-display bg-white fw-bold text-success" readonly value="₱0.00">
+                            </div>
+
+                            <div class="col-md-2 tiktok-shipping-fee-column">
+                                <label class="form-label fw-bold text-info d-md-none">Shipping Service Fee</label>
+                                <input type="text" class="form-control item-shipping-service-fee-display bg-white fw-bold text-info" readonly value="₱0.00">
                             </div>
 
                             <!-- Remove Row Button -->
@@ -254,31 +260,6 @@
                                     <input type="hidden" id="shopeeSubTotal" value="0.00">
                                     <input type="text" id="shopeeGrandTotal" class="form-control-plaintext text-end fs-4 fw-bold text-success p-0 m-0" value="₱0.00" readonly style="color: #198754 !important;">
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- EXTRA FIELDS FOR TIKTOK SALES ONLY -->
-                    <div id="tiktokExtraFields" class="mt-4 p-3 bg-light rounded border extra-fields-container" style="display: none;">
-                        <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-video me-1"></i> TikTok Tracking Details</h6>
-                        <div class="row g-2">
-                            <div class="col-md-4">
-                                <label class="form-label">Total Sales</label>
-                                <input type="number" step="0.01" name="tiktok_sub_total" id="tiktokSubTotal" class="form-control bg-white" readonly placeholder="0.00">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Shipment Status</label>
-                                <select name="delivery_status" class="form-select tiktok-input" disabled>
-                                    <option value="pending">Pending</option>
-                                    <option value="preparing">Preparing</option>
-                                    <option value="shipped">Shipped</option>
-                                    <option value="delivered">Delivered</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Remarks</label>
-                                <textarea name="note" class="form-control tiktok-input" rows="1" maxlength="2000" placeholder="Add remarks" disabled></textarea>
                             </div>
                         </div>
                     </div>
@@ -849,7 +830,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // Hide and disable all extra field containers first
         const allContainerIds = [
             'marketplaceExtraFields', 
-            'tiktokExtraFields', 
             'wholesaleExtraFields', 
             'onlineExtraFields', 
             'walkInExtraFields'
@@ -869,8 +849,6 @@ document.addEventListener('DOMContentLoaded', function () {
         let activeContainerId = '';
         if (rawVal === 'shopee' || rawVal === 'lazada') {
             activeContainerId = 'marketplaceExtraFields';
-        } else if (rawVal === 'tiktok') {
-            activeContainerId = 'tiktokExtraFields';
         } else if (rawVal === 'wholesale') {
             activeContainerId = 'wholesaleExtraFields';
         } else if (rawVal === 'online') {
@@ -885,7 +863,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (activeContainer) {
                 activeContainer.style.display = 'block';
                 activeContainer.querySelectorAll('input, select, textarea').forEach(el => {
-                    if (el.id === 'onlineSubTotal' || el.id === 'walkInSubTotal' || el.id === 'walkInGrandTotal' || el.id === 'shopeeSubTotal' || el.id === 'tiktokSubTotal' || el.id === 'wholesaleSubTotal' || el.id === 'wholesaleGrandTotal' || el.id === 'wholesaleWithholdingTaxAmount') {
+                    if (el.id === 'onlineSubTotal' || el.id === 'walkInSubTotal' || el.id === 'walkInGrandTotal' || el.id === 'shopeeSubTotal' || el.id === 'wholesaleSubTotal' || el.id === 'wholesaleGrandTotal' || el.id === 'wholesaleWithholdingTaxAmount') {
                         el.disabled = true;
                     } else {
                         el.disabled = false;
@@ -957,6 +935,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="col-md-2">
                     <label class="form-label fw-bold text-success d-md-none">Total after Disc.</label>
                     <input type="text" class="form-control item-total-display bg-white fw-bold text-success" readonly value="₱0.00">
+                </div>
+                <div class="col-md-2 tiktok-shipping-fee-column">
+                    <label class="form-label fw-bold text-info d-md-none">Shipping Service Fee</label>
+                    <input type="text" class="form-control item-shipping-service-fee-display bg-white fw-bold text-info" readonly value="₱0.00">
                 </div>
                 <div class="col-md-1">
                     <label class="form-label fw-bold d-md-none">Action</label>
@@ -1035,12 +1017,17 @@ document.addEventListener('DOMContentLoaded', function () {
     function calculateTotals() {
         let cumulativeSubTotal = 0;
         const channelVal = channelSelect ? (channelSelect.value || '').trim() : '';
+        const showTikTokFee = channelVal === 'tiktok';
+        document.querySelectorAll('.tiktok-shipping-fee-column').forEach(column => {
+            column.style.display = showTikTokFee ? '' : 'none';
+        });
 
         document.querySelectorAll('.product-row').forEach(row => {
             const unitPrice = parseFloat(row.getAttribute('data-unit-price')) || 0;
             const qtyInput = row.querySelector('.qty-input');
             const discountInput = row.querySelector('.item-discount-input');
             const totalDisplay = row.querySelector('.item-total-display');
+            const feeDisplay = row.querySelector('.item-shipping-service-fee-display');
 
             const qty = qtyInput ? parseFloat(qtyInput.value) || 0 : 0;
             const discountPercent = discountInput ? parseFloat(discountInput.value) || 0 : 0;
@@ -1052,6 +1039,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (totalDisplay) {
                 totalDisplay.value = '₱' + rowTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
+            if (feeDisplay) {
+                const fee = showTikTokFee ? Number((rowTotal * 0.05).toFixed(2)) : 0;
+                feeDisplay.value = '₱' + fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
         });
 
         // Assign to respective active channel total fields
@@ -1060,9 +1051,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const grandTotalInput = document.getElementById('shopeeGrandTotal');
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
             if (grandTotalInput) grandTotalInput.value = '₱' + cumulativeSubTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        } else if (channelVal === 'tiktok') {
-            const subTotalInput = document.getElementById('tiktokSubTotal');
-            if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
         } else if (channelVal === 'wholesale') {
             const subTotalInput = document.getElementById('wholesaleSubTotal');
             const subTotalDisplay = document.getElementById('wholesaleSubTotalDisplay');

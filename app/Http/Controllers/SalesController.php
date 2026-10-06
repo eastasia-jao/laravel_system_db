@@ -360,6 +360,7 @@ class SalesController extends Controller
 
             $formattedItems = [];
             $subTotal = 0;
+            $shippingServiceFee = 0;
             $requestedQuantities = [];
             $availableStocks = [];
 
@@ -370,12 +371,15 @@ class SalesController extends Controller
 
                 $quantity = $item['quantity'];
                 $unitPrice = $isTiktok
-                    ? ($product->sales_price ?? 0)
+                    ? ($product->tiktok_price ?? $product->sales_price ?? 0)
                     : ($item['unit_price'] ?? $item['price'] ?? $product->sales_price ?? 0);
                 $discountPct = $item['discount_percentage'] ?? $item['discount'] ?? 0;
 
                 $lineTotal = ($unitPrice * $quantity) * (1 - ($discountPct / 100));
                 $subTotal += $lineTotal;
+                if ($isTiktok) {
+                    $shippingServiceFee += round($lineTotal * 0.05, 2);
+                }
 
                 $formattedItems[] = [
                     'product_id' => $product->id,
@@ -452,7 +456,7 @@ class SalesController extends Controller
                 'check_date' => $request->input('check_date'),
                 'shipping_fee_amount' => $shippingFee,
                 'delivery_fee' => $shippingFee,
-                'shipping_service_fee' => 0,
+                'shipping_service_fee' => $shippingServiceFee,
                 'sales_after_transaction_fee' => $request->input('sales_after_transaction_fee'),
                 'refund_shipping_fee' => $isTiktok ? 0 : $request->input('refund_shipping_fee', 0),
                 'proof_amount' => $request->input('proof_amount'),
@@ -685,7 +689,7 @@ class SalesController extends Controller
                     $quantity = $itemData['quantity'];
 
                     $unitPrice = $channel === 'tiktok'
-                        ? ($product->sales_price ?? 0)
+                        ? ($product->tiktok_price ?? $product->sales_price ?? 0)
                         : ($itemData['unit_price'] ?? $itemData['price'] ?? $product->sales_price ?? 0);
                     $discountPct = $itemData['discount_percentage'] ?? 0;
                     $lineTotal = ($unitPrice * $quantity) * (1 - ($discountPct / 100));

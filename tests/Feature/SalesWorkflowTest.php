@@ -140,6 +140,8 @@ class SalesWorkflowTest extends TestCase
             ->get(route('hub.dashboard', $hub))
             ->assertOk()
             ->assertSee('Record Multi-Channel Sale')
+            ->assertSee('Shipping Service Fee')
+            ->assertDontSee('TikTok Tracking Details')
             ->assertSee('Shopee Sales')
             ->assertDontSee('Lazada Sales');
 
@@ -504,7 +506,7 @@ class SalesWorkflowTest extends TestCase
             'item_id' => 'REPORT-001',
             'name' => 'Report Product',
             'sales_price' => 100,
-            'tiktok_price' => 100,
+            'tiktok_price' => 120,
             'stock' => 20,
             'status' => 'active',
             'store_hub_id' => $hub->id,
@@ -530,6 +532,7 @@ class SalesWorkflowTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $tiktokPending = PendingSale::where('invoice_number', 'TIKTOK-REPORT-001')->sole();
+        $this->assertSame('10.80', $tiktokPending->shipping_service_fee);
 
         $this->actingAs($admin)
             ->post(route('sales.confirmPending', $tiktokPending))
@@ -537,6 +540,7 @@ class SalesWorkflowTest extends TestCase
         $tiktokTransaction = SalesTransaction::where('order_number', 'TIKTOK-REPORT-001')->sole();
         $tiktokTransaction = SalesTransaction::where('order_number', 'TIKTOK-REPORT-001')->sole();
         $this->assertSame('150.00', $tiktokTransaction->sales_after_transaction_fee);
+        $this->assertSame('10.80', $tiktokTransaction->shipping_service_fee);
         $this->assertSame('0.00', $tiktokTransaction->refund_shipping_fee);
 
         $tiktokReport = $this->actingAs($admin)->get(route('hub.report', [
@@ -549,7 +553,7 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('Total Shipping Fee 5%')
             ->assertSee('Recorded Sales After Transactions')
             ->assertSee('TIKTOK-REPORT-001');
-        $this->assertSame(9.0, (float) $tiktokReport->viewData('metrics')['shipping_service_fees']);
+        $this->assertSame(10.8, (float) $tiktokReport->viewData('metrics')['shipping_service_fees']);
         $this->assertSame(150.0, (float) $tiktokReport->viewData('metrics')['actual_platform_payout']);
         $this->assertFalse($tiktokReport->viewData('salesByChannel')->pluck('channel_type')->contains('tiktok'));
 
