@@ -191,6 +191,12 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('TikTok Returns')
             ->assertSee('RETURN-1')
             ->assertSee('Customer')
+            ->assertSee('TikTok Order #')
+            ->assertSee('Customer name')
+            ->assertSee('View return items')
+            ->assertSee('data-bs-target="#return-items-'.$sale->id.'"', false)
+            ->assertSee('id="return-items-'.$sale->id.'"', false)
+            ->assertSee('class="collapse"', false)
             ->assertSee('Report items customers say they are returning.')
             ->assertDontSee('Sales Report');
 
