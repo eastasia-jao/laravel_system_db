@@ -185,6 +185,7 @@ class TikTokReturnsTest extends TestCase
             'quantity' => 1,
             'condition' => 'good',
             'occurred_on' => '2026-09-09',
+            'notes' => 'Inventory checked and returned to stock.',
             'created_by' => auth()->id(),
         ]);
         $staff = User::factory()->create([
@@ -207,6 +208,8 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('TikTok Order #')
             ->assertSee('Customer name')
             ->assertSee('Return summary')
+            ->assertSee('Notes')
+            ->assertSee('Inventory checked and returned to stock.')
             ->assertSee('View return items')
             ->assertSee('data-bs-target="#return-items-modal-'.$sale->id.'"', false)
             ->assertSee('id="return-items-modal-'.$sale->id.'"', false)
@@ -219,6 +222,7 @@ class TikTokReturnsTest extends TestCase
             ->assertDontSee('name="return_reason"', false)
             ->assertDontSee('What happened?')
             ->assertDontSee('Save returned item')
+            ->assertDontSee('>Clear</a>', false)
             ->assertDontSee('Sales Report');
 
         $this->get(route('hub.tiktok-returns', ['hub' => $hub->id, 'date_from' => '2026-09-09']))
