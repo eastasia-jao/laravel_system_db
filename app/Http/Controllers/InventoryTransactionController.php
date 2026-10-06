@@ -238,15 +238,22 @@ class InventoryTransactionController extends Controller
 
         $fullyBookedOrders = in_array($user?->role, ['admin', 'inventory_staff'], true)
             && (! $request->filled('type') || $request->input('type') === 'fully_booked')
-            && (! in_array($request->input('status'), ['approved', 'rejected'], true))
+            && (! in_array($request->input('status'), ['approved'], true))
             ? FullyBookedOrder::with(['storeHub', 'salesStaff', 'submitter', 'reviewer', 'pullOutBy', 'items.product'])
-                ->where('status', 'reviewed')
+                ->whereIn('status', ['reviewed', 'rejected'])
                 ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
-                ->when($request->filled('month'), fn ($query) => $query->whereBetween('created_at', [
-                    $request->input('month').'-01 00:00:00',
-                    now()->parse($request->input('month').'-01')->endOfMonth()->toDateString().' 23:59:59',
-                ]))
-                ->when(in_array($request->input('status'), ['pending', 'reviewed'], true), fn ($query) => $query->where('status', $request->input('status')))
+                ->when($request->filled('month'), function ($query) use ($request) {
+                    $start = $request->input('month').'-01 00:00:00';
+                    $end = now()->parse($request->input('month').'-01')->endOfMonth()->toDateString().' 23:59:59';
+                    $query->where(function ($query) use ($start, $end) {
+                        $query->where(function ($query) use ($start, $end) {
+                            $query->where('status', 'rejected')->whereBetween('reviewed_at', [$start, $end]);
+                        })->orWhere(function ($query) use ($start, $end) {
+                            $query->where('status', '!=', 'rejected')->whereBetween('created_at', [$start, $end]);
+                        });
+                    });
+                })
+                ->when(in_array($request->input('status'), ['reviewed', 'rejected'], true), fn ($query) => $query->where('status', $request->input('status')))
                 ->latest()
                 ->get()
             : collect();
@@ -323,7 +330,7 @@ class InventoryTransactionController extends Controller
             $transactions = $transactions->filter(function (InventoryTransaction $transaction) use ($request) {
                 $order = $transaction->getRelation('fullyBookedOrder');
 
-                return $order && (! in_array($request->input('status'), ['pending', 'reviewed'], true)
+                return $order && (! in_array($request->input('status'), ['pending', 'reviewed', 'rejected'], true)
                     || $order->status === $request->input('status'));
             })->values();
         }
@@ -430,7 +437,7 @@ class InventoryTransactionController extends Controller
                 'store_hub_id' => $order->store_hub_id,
                 'channel' => 'fully_booked',
                 'quantity' => 0,
-                'occurred_on' => $order->created_at?->toDateString(),
+                'occurred_on' => ($order->status === 'rejected' ? $order->reviewed_at : $order->created_at)?->toDateString(),
                 'created_by' => $order->submitted_by,
                 'status' => $order->status,
             ], true);

@@ -221,11 +221,18 @@
                                     <strong>{{ $order->order_number }}</strong>
                                     <div class="small text-muted">Store: {{ $order->store_name ?? '—' }} · Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
                                 </div>
-                                <span class="badge rounded-pill {{ $order->pulled_out_at ? 'text-bg-success' : 'text-bg-warning' }}">
-                                    {{ $order->pulled_out_at ? 'Stock updated' : 'Pending inventory pull-out' }}
+                                <span class="badge rounded-pill {{ $order->status === 'rejected' ? 'text-bg-danger' : ($order->pulled_out_at ? 'text-bg-success' : 'text-bg-warning') }}">
+                                    {{ $order->status === 'rejected' ? 'Rejected' : ($order->pulled_out_at ? 'Stock updated' : 'Pending inventory pull-out') }}
                                 </span>
                             </div>
-                            @if($order->pulled_out_at)
+                            @if($order->status === 'rejected')
+                                <div class="small text-muted mt-2">
+                                    Rejected by {{ $order->reviewer?->name ?? 'Inventory staff' }}{{ $order->reviewed_at ? ' · '.$order->reviewed_at->format('M d, Y h:i A') : '' }}
+                                </div>
+                                @if($order->rejection_reason)
+                                    <div class="small text-danger mt-2"><strong>Reason:</strong> {{ $order->rejection_reason }}</div>
+                                @endif
+                            @elseif($order->pulled_out_at)
                                 <div class="small text-muted mt-2">
                                     {{ $order->items->count() }} item line(s) · {{ $order->items->sum('quantity') }} total updated
                                     · Completed {{ $order->pulled_out_at->format('M d, Y h:i A') }}

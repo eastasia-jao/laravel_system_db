@@ -239,12 +239,14 @@
                     <td><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
                         @if($transaction->type === 'branch_transfer')
                             <span class="badge mt-1 d-block {{ $transaction->status === 'approved' ? 'text-bg-success' : ($transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') }}">{{ strtoupper($transaction->status ?? 'approved') }}</span>
+                        @elseif($isFullyBookedGroup && $fullyBookedOrder?->status === 'rejected')
+                            <span class="badge mt-1 d-block text-bg-danger">REJECTED</span>
                         @endif
                     </td>
                     <td class="log-detail-title">
                         @if($isFullyBookedGroup)
                             <strong>{{ $fullyBookedOrder->order_number }}</strong>
-                            <small class="d-block text-muted">{{ $fullyBookedOrder->salesStaff?->name ?? 'Deleted staff' }} · {{ $fullyBookedOrder->pulled_out_at ? $group->count().' item line(s) · '.$group->sum('quantity').' total pulled out' : 'Attachment submitted for review' }}</small>
+                            <small class="d-block text-muted">{{ $fullyBookedOrder->salesStaff?->name ?? 'Deleted staff' }} · {{ $fullyBookedOrder->status === 'rejected' ? 'Order rejected' : ($fullyBookedOrder->pulled_out_at ? $group->count().' item line(s) · '.$group->sum('quantity').' total pulled out' : 'Attachment submitted for review') }}</small>
                         @elseif($isReplacementGroup)
                             <strong>{{ $transaction->productReplacement->originalProduct?->name ?? 'Original item' }} → {{ $transaction->productReplacement->replacementProduct?->name ?? 'Replacement item' }}</strong>
                             <small class="d-block text-muted">Returned {{ $transaction->productReplacement->quantity }} · Replaced with {{ $transaction->productReplacement->replacement_quantity ?: $transaction->productReplacement->quantity }}</small>
@@ -287,6 +289,11 @@
                                 <div class="col-md-6"><strong class="small text-muted">Submitted By</strong><div class="fw-semibold">{{ $fullyBookedOrder?->submitter?->name ?? 'Deleted user' }}</div></div>
                                 <div class="col-md-6"><strong class="small text-muted">Store Hub</strong><div class="fw-semibold">{{ $fullyBookedOrder?->storeHub?->name ?? '—' }}</div></div>
                                 <div class="col-md-6"><strong class="small text-muted">Submitted</strong><div class="fw-semibold">{{ $fullyBookedOrder?->created_at?->format('M d, Y h:i A') }}</div></div>
+                                @if($fullyBookedOrder?->status === 'rejected')
+                                    <div class="col-md-6"><strong class="small text-muted">Rejected By</strong><div class="fw-semibold">{{ $fullyBookedOrder->reviewer?->name ?? 'Inventory staff' }}</div></div>
+                                    <div class="col-md-6"><strong class="small text-muted">Rejected At</strong><div class="fw-semibold">{{ $fullyBookedOrder->reviewed_at?->format('M d, Y h:i A') ?? '—' }}</div></div>
+                                    <div class="col-12"><strong class="small text-muted">Rejection Reason</strong><div class="fw-semibold text-danger" style="white-space:pre-wrap">{{ $fullyBookedOrder->rejection_reason ?: '—' }}</div></div>
+                                @endif
                                 @if($fullyBookedOrder?->remarks)
                                     <div class="col-12"><strong class="small text-muted">Remarks</strong><div class="fw-semibold" style="white-space:pre-wrap">{{ $fullyBookedOrder->remarks }}</div></div>
                                 @endif

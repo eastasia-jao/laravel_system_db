@@ -39,6 +39,20 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->assertSame('pending', $request->status);
         $this->assertSame('120.00', $request->replacement_unit_price);
 
+        $replacement->stockAllocation->update(['online' => 0]);
+        $this->actingAs($admin)->get(route('hub.sales.pending', $hub->id))
+            ->assertOk()
+            ->assertSee('Not enough allocated Online stock for this item.')
+            ->assertSee(route('stock-allocation.index', [
+                'hub_id' => $hub->id,
+                'search' => $replacement->item_id,
+                'product_id' => $replacement->id,
+                'return_to' => 'verification-queue',
+                'return_hub_id' => $hub->id,
+            ]))
+            ->assertDontSee('One or more exchange products do not have enough allocated Wholesale stock.');
+        $replacement->stockAllocation->update(['online' => 5]);
+
         $this->post(route('wholesale-replacements.approve', $request))
             ->assertSessionHasErrors('replacement');
         $this->assertSame('pending', $request->fresh()->status);
@@ -257,6 +271,21 @@ class OnlineWalkInReplacementTest extends TestCase
                 'exchange_payment_method' => 'CASH',
             ])->assertSessionHasNoErrors();
             $request = ProductReplacement::where('transaction_id', $sale->id)->sole();
+            if ($channel === 'wholesale') {
+                $replacement->stockAllocation->update(['wholesale' => 0]);
+                $this->get(route('hub.sales.pending', $hub->id))
+                    ->assertOk()
+                    ->assertSee('Not enough allocated Wholesale stock for this item.')
+                    ->assertSee(route('stock-allocation.index', [
+                        'hub_id' => $hub->id,
+                        'search' => $replacement->item_id,
+                        'product_id' => $replacement->id,
+                        'return_to' => 'verification-queue',
+                        'return_hub_id' => $hub->id,
+                    ]))
+                    ->assertDontSee('One or more exchange products do not have enough allocated Wholesale stock.');
+                $replacement->stockAllocation->update(['wholesale' => 10]);
+            }
             $original->increment('stock');
             $original->stockAllocation->increment($channel);
             InventoryTransaction::create([

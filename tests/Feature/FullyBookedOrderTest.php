@@ -571,6 +571,16 @@ class FullyBookedOrderTest extends TestCase
             'hub_id' => $hub->id,
             'activity_type' => 'fully_booked',
         ]))->assertOk()->assertViewHas('fullyBookedOrders', fn ($orders) => ! $orders->contains('id', $order->id));
+        $this->actingAs($inventoryStaff)
+            ->get(route('inventory-transactions.index', [
+                'hub_id' => $hub->id,
+                'type' => 'fully_booked',
+                'status' => 'rejected',
+            ]))
+            ->assertOk()
+            ->assertSee('FB-REJECT-001')
+            ->assertSee('REJECTED')
+            ->assertSee('The attachment is missing the requested quantities.');
 
         $rejectedUrl = route('hub.fully-booked-rejected', ['hub' => $hub->id]);
         $notification = $staff->notifications()->where('data->event', 'fully_booked_rejected')->sole();
@@ -583,6 +593,14 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('FB-REJECT-001')
             ->assertSee('The attachment is missing the requested quantities.')
             ->assertSee(route('inventory-transactions.fully-booked.attachment', $order), false);
+        $this->get(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'fully_booked',
+        ]))
+            ->assertOk()
+            ->assertSee('Rejected')
+            ->assertSee('Rejected by')
+            ->assertSee('The attachment is missing the requested quantities.');
         $this->get(route('hub.dashboard', $hub->id))
             ->assertOk()
             ->assertSeeInOrder([
