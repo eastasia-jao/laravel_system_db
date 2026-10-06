@@ -102,6 +102,18 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         }
 
         $destination = $record->data['url'] ?? route('dashboard');
+        if (($record->data['event'] ?? null) === 'confirmed') {
+            $notificationChannel = $record->data['channel'] ?? null;
+            if (! $notificationChannel && is_string($destination)) {
+                parse_str((string) parse_url($destination, PHP_URL_QUERY), $destinationQuery);
+                $notificationChannel = $destinationQuery['channel'] ?? null;
+            }
+            $notificationChannel = strtolower(str_replace(['-', ' '], '_', (string) $notificationChannel));
+
+            if ($notificationChannel === 'tiktok' && ! empty($record->data['hub_id'])) {
+                $destination = route('hub.tiktok-returns', ['hub' => $record->data['hub_id']]);
+            }
+        }
         if (! in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)
             && str_contains($destination, '/pending-sales')) {
             return redirect()->route('dashboard')->with('notification_error',

@@ -548,19 +548,10 @@ class SalesWorkflowTest extends TestCase
         $this->assertSame('10.80', $tiktokTransaction->shipping_service_fee);
         $this->assertSame('0.00', $tiktokTransaction->refund_shipping_fee);
 
-        $tiktokReport = $this->actingAs($admin)->get(route('hub.report', [
+        $this->actingAs($admin)->get(route('hub.report', [
             'hub' => $hub->id,
             'channel' => 'tiktok',
-        ]));
-        $tiktokReport
-            ->assertOk()
-            ->assertSee('TikTok Sales Report')
-            ->assertSee('Total Shipping Fee 5%')
-            ->assertSee('Recorded Sales After Transactions')
-            ->assertSee('TIKTOK-REPORT-001');
-        $this->assertSame(10.8, (float) $tiktokReport->viewData('metrics')['shipping_service_fees']);
-        $this->assertSame(150.0, (float) $tiktokReport->viewData('metrics')['actual_platform_payout']);
-        $this->assertFalse($tiktokReport->viewData('salesByChannel')->pluck('channel_type')->contains('tiktok'));
+        ]))->assertNotFound();
 
         $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
             'store_hub_id' => $hub->id,

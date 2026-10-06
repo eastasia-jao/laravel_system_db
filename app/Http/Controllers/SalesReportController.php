@@ -85,6 +85,7 @@ class SalesReportController extends Controller
             abort(403, 'Sales staff can only view the report for their designated store branch.');
         }
         $channel = $this->normalizeChannel($validated['channel'] ?? null);
+        abort_if($channel === 'tiktok', 404);
         if (! $hub->is_head_office) {
             $channel = 'walk_in';
         } elseif (in_array($user?->role, ['sales_associate', 'sales_marketing_staff'], true)) {
@@ -98,8 +99,7 @@ class SalesReportController extends Controller
                 $channel = $this->normalizeChannel($assignedChannels[0] ?? null);
             }
 
-            $isAssignedTikTokReturnView = $channel === 'tiktok' && in_array('tiktok', $userChannels, true);
-            if ($channel === 'all' || (! in_array($channel, $assignedChannels, true) && ! $isAssignedTikTokReturnView)) {
+            if ($channel === 'all' || ! in_array($channel, $assignedChannels, true)) {
                 abort(403, 'You are not assigned to view this sales channel.');
             }
         }

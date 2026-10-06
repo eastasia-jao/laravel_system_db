@@ -45,6 +45,7 @@ class SalesWorkflowNotification extends Notification
 
         return new DatabaseMessage([
             'event' => $this->event,
+            'channel' => $reportChannel,
             'title' => match ($this->event) {
                 'submitted' => 'New sale for verification',
                 'confirmed' => 'Sale approved by inventory',
@@ -55,10 +56,12 @@ class SalesWorkflowNotification extends Notification
             'url' => $this->event === 'rejected'
                 ? route('sales.rejected')
                 : ($this->event === 'confirmed'
-                    ? route('hub.report', [
-                        'hub' => $this->sale->store_hub_id,
-                        'channel' => $reportChannel,
-                    ])
+                    ? ($reportChannel === 'tiktok'
+                        ? route('hub.tiktok-returns', ['hub' => $this->sale->store_hub_id])
+                        : route('hub.report', [
+                            'hub' => $this->sale->store_hub_id,
+                            'channel' => $reportChannel,
+                        ]))
                     : route('hub.sales.pending', $this->sale->store_hub_id)),
             'sale_id' => $this->sale->id,
             'hub_id' => $this->sale->store_hub_id,

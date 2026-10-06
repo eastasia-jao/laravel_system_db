@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Notifications\SalesWorkflowNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -48,6 +49,48 @@ class NotificationAccessTest extends TestCase
         $owner->notify(new InventoryWorkflowNotification('inventory_verification', 'Verified.'));
         $this->actingAs(User::factory()->create())->get(route('notifications.read', $owner->notifications()->first()->id))->assertNotFound();
         $this->assertNull($owner->notifications()->first()->read_at);
+    }
+
+    public function test_tiktok_approval_notification_opens_tiktok_returns_instead_of_sales_report(): void
+    {
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['tiktok'],
+        ]);
+        $sale = \App\Models\PendingSale::create([
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'tiktok',
+            'invoice_number' => 'TIKTOK-APPROVED-001',
+            'customer_name' => 'TikTok Customer',
+            'placed_order_date' => '2026-10-06',
+            'items' => [],
+            'status' => 'confirmed',
+            'submitted_by' => $staff->id,
+        ]);
+
+        $staff->notify(new SalesWorkflowNotification('confirmed', $sale));
+        $notification = $staff->notifications()->firstOrFail();
+        $returnsUrl = route('hub.tiktok-returns', ['hub' => $hub->id]);
+        $this->assertSame($returnsUrl, $notification->data['url']);
+        $this->assertSame('tiktok', $notification->data['channel']);
+
+        $this->actingAs($staff)
+            ->get(route('notifications.read', $notification->id))
+            ->assertRedirect($returnsUrl);
+
+        $legacyNotification = $staff->notifications()->create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'type' => SalesWorkflowNotification::class,
+            'data' => [
+                'event' => 'confirmed',
+                'hub_id' => $hub->id,
+                'url' => route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']),
+            ],
+        ]);
+        $this->get(route('notifications.read', $legacyNotification->id))
+            ->assertRedirect($returnsUrl);
     }
 
     public function test_mark_all_notifications_as_read_uses_post(): void
