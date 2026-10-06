@@ -213,10 +213,7 @@
             </div>
 
             {{-- Pagination Links Container --}}
-            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                <div class="text-muted small">
-                    Showing {{ $products->firstItem() ?? 0 }} to {{ $products->lastItem() ?? 0 }} of {{ $products->total() }} entries
-                </div>
+            <div class="d-flex justify-content-end align-items-center mt-4 pt-3 border-top">
                 <div>
                     {{ $products->appends(request()->query())->links() }}
                 </div>

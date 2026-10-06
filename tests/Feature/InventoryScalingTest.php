@@ -77,6 +77,8 @@ class InventoryScalingTest extends TestCase
             ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
             $response->viewData('products')->getCollection()->pluck('item_id')->all()
         );
+        $paginationText = preg_replace('/\s+/', ' ', strip_tags($response->getContent()));
+        $this->assertSame(1, substr_count($paginationText, 'Showing 1 to 10 of 12 results'));
     }
 
     public function test_inventory_staff_store_filter_excludes_all_stores_and_defaults_to_assigned_head_office(): void
