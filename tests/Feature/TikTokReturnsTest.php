@@ -171,6 +171,43 @@ class TikTokReturnsTest extends TestCase
         $this->assertDatabaseCount('inventory_transactions', 0);
     }
 
+    public function test_tiktok_sales_marketing_staff_can_open_returns_from_the_hub_dashboard(): void
+    {
+        [$hub, $product, $sale, $item] = $this->order();
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['tiktok'],
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('TikTok Returns')
+            ->assertSee(route('hub.tiktok-returns', $hub->id), false);
+
+        $returnsPage = $this->get(route('hub.tiktok-returns', $hub->id));
+        $returnsPage->assertOk()
+            ->assertSee('TikTok Returns')
+            ->assertSee('RETURN-1')
+            ->assertSee('Customer')
+            ->assertSee('Report items customers say they are returning.')
+            ->assertDontSee('Sales Report');
+
+        $this->get(route('hub.tiktok-returns', ['hub' => $hub->id, 'date_from' => '2026-09-09']))
+            ->assertOk()
+            ->assertSee('No TikTok orders found');
+
+        $unassignedStaff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['online'],
+        ]);
+        $this->actingAs($unassignedStaff)
+            ->get(route('hub.tiktok-returns', $hub->id))
+            ->assertForbidden();
+    }
+
     public function test_legacy_tiktok_returns_show_customer_name_using_order_reference(): void
     {
         [$hub, $product, $sale] = $this->order();

@@ -72,6 +72,14 @@
         @endif
         @endcan
 
+        @if($hub->is_head_office && auth()->user()?->role === 'sales_marketing_staff' && auth()->user()->hasSalesChannel('tiktok'))
+        <div class="col">
+            <a href="{{ route('hub.tiktok-returns', ['hub' => $hub->id]) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
+                <span class="hub-action-icon"><i class="fa-solid fa-rotate-left"></i></span><span class="hub-action-label">TikTok Returns</span>
+            </a>
+        </div>
+        @endif
+
         <!-- Sales Report -->
         @can('view-sales-reports')
         @if($reportChannel)

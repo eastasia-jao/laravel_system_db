@@ -232,6 +232,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             Route::post('/products/import', [ProductController::class, 'importCsv'])->middleware('can:manage-inventory')->name('products.import');
             Route::get('/products/import-status', [ProductController::class, 'importStatus'])->middleware('can:manage-inventory')->name('products.import-status');
             Route::get('/report', [SalesReportController::class, 'report'])->middleware('can:view-sales-reports')->name('report');
+            Route::get('/tiktok-returns', [SalesReportController::class, 'tiktokReturns'])->middleware('can:view-sales-reports')->name('tiktok-returns');
             Route::patch('/report/tiktok/{transaction}', [SalesReportController::class, 'updateTikTokFields'])->middleware('can:view-sales-reports')->name('report.tiktok.update');
             Route::patch('/report/tiktok/{transaction}/returns/{item}', [SalesReportController::class, 'updateTikTokReturn'])->middleware('can:view-sales-reports')->name('report.tiktok.return.update');
             Route::post('/report/tiktok/{transaction}/replacements/{item}', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:manage-sales-status')->name('report.tiktok.replacement.store');

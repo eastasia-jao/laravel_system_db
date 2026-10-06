@@ -21,6 +21,49 @@ class SalesReportController extends Controller
 {
     private const REPORT_CHANNELS = ['online', 'wholesale', 'walk_in'];
 
+    public function tiktokReturns(Request $request, int $hub)
+    {
+        $user = auth()->user();
+        $storeHub = StoreHub::findOrFail($hub);
+
+        abort_unless($user && $user->canAccessHub($storeHub->id), 403);
+        abort_unless(
+            $user->role === 'admin'
+                || (in_array($user->role, ['sales_associate', 'sales_marketing_staff'], true)
+                    && $user->hasSalesChannel('tiktok')),
+            403
+        );
+        abort_unless($storeHub->is_head_office, 404);
+
+        $filters = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $transactions = SalesTransaction::query()
+            ->where('store_hub_id', $storeHub->id)
+            ->whereRaw('LOWER(channel_type) = ?', ['tiktok'])
+            ->with([
+                'items.product',
+                'items.inventoryReturns',
+                'items.replacements.inventoryReturns',
+                'items.replacements.replacementProduct',
+            ])
+            ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->where('order_date', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->where('order_date', '<', Carbon::parse($date)->addDay()->toDateString()))
+            ->orderByDesc('order_date')
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('hubs.tiktok-returns', [
+            'hub' => $storeHub,
+            'transactions' => $transactions,
+            'dateFrom' => $filters['date_from'] ?? null,
+            'dateTo' => $filters['date_to'] ?? null,
+        ]);
+    }
+
     public function report(Request $request, int $hub)
     {
         $user = auth()->user();
