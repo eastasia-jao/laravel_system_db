@@ -48,9 +48,8 @@ class TikTokReturnsTest extends TestCase
         $this->assertEquals(70, $sale->fresh()->netTikTokPayout());
         $data['returned_quantity'] = 2;
         $this->patch($url, $data)->assertSessionHasErrors('returned_quantity');
-        $report = $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']));
-        $report->assertOk()->assertSee('Edit payout')->assertSee('70.00');
-        $this->assertEquals(70, $report->viewData('metrics')['net_platform_payout']);
+        $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']))
+            ->assertNotFound();
     }
 
     public function test_damaged_returns_restore_only_physical_stock_and_refund_only_restores_nothing(): void
@@ -69,11 +68,8 @@ class TikTokReturnsTest extends TestCase
         $this->patch(route('hub.report.tiktok.update', [$hub->id, $sale->id]), ['sales_after_transaction_fee' => -30, 'refund_shipping_fee' => 10, 'payout_includes_refunds' => 1])
             ->assertSessionHasErrors('sales_after_transaction_fee');
         $this->assertEquals(-30, $sale->fresh()->netTikTokPayout());
-        $report = $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']))
-            ->assertOk()
-            ->assertSee('Edit payout &amp; delivery locked', false)
-            ->assertDontSee('Enter the updated TikTok payout below');
-        $this->assertEquals(0, $report->viewData('metrics')['net_platform_payout']);
+        $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']))
+            ->assertNotFound();
     }
 
     public function test_partial_return_keeps_tiktok_payout_and_delivery_editable(): void
@@ -95,8 +91,8 @@ class TikTokReturnsTest extends TestCase
 
         $this->assertSame('75.00', $sale->fresh()->tiktok_recalculated_payout);
         $this->assertSame('J&T', $sale->fresh()->courier);
-        $report = $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']))->assertOk();
-        $this->assertEquals(75, $report->viewData('metrics')['net_platform_payout']);
+        $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']))
+            ->assertNotFound();
     }
 
     public function test_invalid_returns_are_rejected_and_missing_payout_is_not_estimated(): void
@@ -109,10 +105,8 @@ class TikTokReturnsTest extends TestCase
         $this->assertEquals(8, $product->fresh()->stock);
         $sale->update(['sales_after_transaction_fee' => null]);
         $this->assertNull($sale->fresh()->netTikTokPayout());
-        $report = $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']));
-        $report->assertOk()->assertSee('Awaiting sales total');
-        $this->assertEquals(0, $report->viewData('metrics')['net_platform_payout']);
-        $this->assertEquals(0, $report->viewData('metrics')['actual_platform_payout']);
+        $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']))
+            ->assertNotFound();
     }
 
     public function test_return_items_show_tiktok_orders_even_before_sales_total_is_entered(): void
@@ -141,7 +135,7 @@ class TikTokReturnsTest extends TestCase
             ->assertJsonPath('orders.0.id', $sale->id);
     }
 
-    public function test_tiktok_sales_marketing_staff_can_open_and_report_returned_items(): void
+    public function test_tiktok_sales_marketing_staff_cannot_open_the_removed_sales_report(): void
     {
         [$hub, $product, $sale, $item] = $this->order();
         $staff = User::factory()->create([
@@ -150,25 +144,9 @@ class TikTokReturnsTest extends TestCase
             'sales_channels' => ['tiktok'],
         ]);
 
-        $report = $this->actingAs($staff)->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']));
-        $report->assertOk()
-            ->assertSee('Return items')
-            ->assertSee('Report returned items')
-            ->assertSee('Return requested')
-            ->assertSee('RETURN-1');
-
-        $this->patch(route('hub.report.tiktok.return.update', [$hub->id, $sale->id, $item->id]), [
-            'return_status' => 'requested',
-            'returned_quantity' => 1,
-            'refund_status' => 'none',
-            'customer_refund_amount' => 0,
-            'return_reason' => 'Customer reported a damaged item.',
-        ])->assertSessionHasNoErrors();
-
-        $this->assertSame('requested', $item->fresh()->return_status);
-        $this->assertSame('Customer reported a damaged item.', $item->fresh()->return_reason);
-        $this->assertSame(8, $product->fresh()->stock);
-        $this->assertDatabaseCount('inventory_transactions', 0);
+        $this->actingAs($staff)
+            ->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']))
+            ->assertNotFound();
     }
 
     public function test_tiktok_sales_marketing_staff_can_open_returns_from_the_hub_dashboard(): void
@@ -208,8 +186,8 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('TikTok Order #')
             ->assertSee('Customer name')
             ->assertSee('Return summary')
-            ->assertSee('Notes')
-            ->assertSee('Inventory checked and returned to stock.')
+            ->assertDontSee('Notes')
+            ->assertDontSee('Inventory checked and returned to stock.')
             ->assertSee('View return items')
             ->assertSee('data-bs-target="#return-items-modal-'.$sale->id.'"', false)
             ->assertSee('id="return-items-modal-'.$sale->id.'"', false)
@@ -266,18 +244,13 @@ class TikTokReturnsTest extends TestCase
         for ($i = 1; $i < 25; $i++) {
             $sale->items()->create(['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100]);
         }
-        $report = $this->withSession(['_old_input' => ['editing_order' => $sale->id, 'editing_item' => $item->id]])
-            ->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'tiktok']));
-        $report->assertOk()->assertSee('25 products')->assertSee('View order');
+        $returns = $this->get(route('hub.tiktok-returns', ['hub' => $hub->id]));
+        $returns->assertOk()->assertSee('View return items');
         $document = new \DOMDocument;
-        @$document->loadHTML($report->getContent());
+        @$document->loadHTML($returns->getContent());
         $xpath = new \DOMXPath($document);
-        $orderModalId = 'tiktok-order-'.$sale->id;
-        $this->assertSame(25, $xpath->query('//div[@id="tiktok-order-'.$sale->id.'"]//tr[@data-order-item]')->length);
-        $this->assertSame(0, $xpath->query('//tr[@data-order-item and not(ancestor::div[contains(@class,"modal")])]')->length);
-        $this->assertSame(1, $xpath->query('//div[@id="'.$orderModalId.'"]//form[contains(@action, "/report/tiktok/") and not(contains(@action, "/returns/"))]')->length);
-        $this->assertSame(25, $xpath->query('//div[@id="'.$orderModalId.'"]//form[contains(@action, "/returns/")]')->length);
-        $this->assertSame(0, $xpath->query('//form[contains(@action, "/report/tiktok/") and not(ancestor::div[@id="'.$orderModalId.'"])]')->length);
-        $this->assertSame(1, $xpath->query('//div[@data-reopen-order]')->length);
+        $orderModalId = 'return-items-modal-'.$sale->id;
+        $this->assertSame(25, $xpath->query('//div[@id="'.$orderModalId.'"]//tbody/tr')->length);
+        $this->assertSame(0, $xpath->query('//div[@id="'.$orderModalId.'"]//form')->length);
     }
 }

@@ -39,7 +39,6 @@
                             <th>Order date</th>
                             <th>Items</th>
                             <th>Return summary</th>
-                            <th>Notes</th>
                             <th class="text-end pe-3">Action</th>
                         </tr>
                     </thead>
@@ -50,7 +49,6 @@
                                 $goodReturned = (int) $returnRecords->where('condition', 'good')->sum('quantity');
                                 $badReturned = (int) $returnRecords->where('condition', 'damaged')->sum('quantity');
                                 $totalReturned = (int) $returnRecords->sum('quantity');
-                                $returnNotes = $returnRecords->pluck('notes')->filter()->unique()->values();
                             @endphp
                             <tr>
                                 <td class="ps-3 fw-semibold">{{ $transaction->order_number }}</td>
@@ -65,7 +63,6 @@
                                         @if($badReturned > 0)<span class="badge text-bg-danger me-1">Bad: {{ $badReturned }}</span>@endif
                                     @endif
                                 </td>
-                                <td>{{ $returnNotes->isNotEmpty() ? $returnNotes->implode('; ') : '—' }}</td>
                                 <td class="text-end pe-3">
                                     <button class="btn btn-sm btn-outline-primary text-nowrap"
                                         type="button"
@@ -104,7 +101,6 @@
                                                 <th class="text-center">Sold quantity</th>
                                                 <th class="text-center">Return quantity</th>
                                                 <th>Item status</th>
-                                                <th>Notes</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -114,7 +110,6 @@
                                                     $goodQuantity = (int) $itemReturns->where('condition', 'good')->sum('quantity');
                                                     $badQuantity = (int) $itemReturns->where('condition', 'damaged')->sum('quantity');
                                                     $returnedQuantity = (int) $itemReturns->sum('quantity');
-                                                    $itemNotes = $itemReturns->pluck('notes')->filter()->unique()->values();
                                                 @endphp
                                                 <tr>
                                                     <td>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</td>
@@ -128,7 +123,6 @@
                                                             @if($badQuantity > 0)<span class="badge text-bg-danger me-1">Bad: {{ $badQuantity }}</span>@endif
                                                         @endif
                                                     </td>
-                                                    <td>{{ $itemNotes->isNotEmpty() ? $itemNotes->implode('; ') : '—' }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>

@@ -1347,8 +1347,14 @@ class InventoryTransactionController extends Controller
         $this->notifyInventoryStaff($validated);
         $this->notifySalesSubmitter($validated);
 
-        return redirect()->route('inventory-transactions.return.create', ['hub_id' => $validated['store_hub_id']])
-            ->with('success', 'Return items recorded successfully.');
+        $redirect = in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)
+            ? redirect()->route('inventory-transactions.index', [
+                'hub_id' => $validated['store_hub_id'],
+                'type' => 'return',
+            ])
+            : redirect()->route('inventory-transactions.return.create', ['hub_id' => $validated['store_hub_id']]);
+
+        return $redirect->with('success', 'Return items recorded successfully.');
     }
 
     private function notifyInventoryStaff(array $validated): void
@@ -1403,15 +1409,31 @@ class InventoryTransactionController extends Controller
             return;
         }
 
+        $channel = $this->normalizeChannel($sale->channel_type);
+        $url = $channel === 'tiktok'
+            ? route('hub.tiktok-returns', ['hub' => $sale->store_hub_id])
+            : route('hub.report', ['hub' => $sale->store_hub_id, 'channel' => $channel ?: 'all']);
+        $orderNumber = $sale->order_number ?: $sale->id;
+        $actorName = auth()->user()?->name ?? 'Inventory staff';
+        $message = $channel === 'tiktok'
+            ? sprintf(
+                'Return items for order %s were recorded by %s. Returned quantities and conditions are now visible in TikTok Returns.',
+                $orderNumber,
+                $actorName
+            )
+            : sprintf(
+                'Return items were recorded for order %s by %s. Good and damaged quantities are now reflected in the sales report.',
+                $orderNumber,
+                $actorName
+            );
+
         $submitter->notify(new InventoryWorkflowNotification(
             'return_recorded',
-            sprintf(
-                'Return items were recorded for order %s by %s. Good and damaged quantities are now reflected in the sales report.',
-                $sale->order_number ?: $sale->id,
-                auth()->user()?->name ?? 'Inventory staff'
-            ),
+            $message,
             (int) $sale->store_hub_id,
-            route('hub.report', ['hub' => $sale->store_hub_id, 'channel' => $this->normalizeChannel($sale->channel_type) ?: 'all'])
+            $url,
+            channel: $channel,
+            reference: $sale->order_number,
         ));
     }
 

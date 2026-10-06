@@ -226,7 +226,9 @@ class TransactionBulkTest extends TestCase
                     'product_id' => $product->id, 'transaction_item_id' => $item->id,
                     'good_quantity' => 1, 'damaged_quantity' => 1,
                 ]],
-            ])->assertSessionHasNoErrors();
+            ])->assertSessionHasNoErrors()
+                ->assertRedirect(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'return']))
+                ->assertSessionHas('success', 'Return items recorded successfully.');
 
             $this->assertSame(10, $product->fresh()->stock, "{$channel} should restore both returned units to physical stock.");
             $this->assertSame(9, (int) $product->stockAllocation->fresh()->{$channel}, "{$channel} should restore only the good unit to its allocation.");
@@ -286,7 +288,13 @@ class TransactionBulkTest extends TestCase
             'stock' => 0,
             'status' => 'active',
         ]);
+        $submitter = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['tiktok'],
+        ]);
         $sale = SalesTransaction::create([
+            'user_id' => $submitter->id,
             'store_hub_id' => $hub->id,
             'channel_type' => 'tiktok',
             'status' => 'confirmed',
@@ -316,7 +324,9 @@ class TransactionBulkTest extends TestCase
                 'damaged_quantity' => 1,
                 'refund_amount' => 90,
             ]],
-        ])->assertSessionHasNoErrors();
+        ])->assertSessionHasNoErrors()
+            ->assertRedirect(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'return']))
+            ->assertSessionHas('success', 'Return items recorded successfully.');
 
         $this->assertDatabaseHas('inventory_transactions', [
             'sales_transaction_id' => $sale->id,
@@ -327,6 +337,13 @@ class TransactionBulkTest extends TestCase
             'refund_amount' => 0,
         ]);
         $this->assertSame(1, (int) $product->fresh()->stock);
+        $returnNotification = $submitter->notifications()->firstOrFail();
+        $this->assertSame(route('hub.tiktok-returns', ['hub' => $hub->id]), $returnNotification->data['url']);
+        $this->assertSame('tiktok', $returnNotification->data['channel']);
+        $this->assertStringNotContainsString('sales report', strtolower($returnNotification->data['message']));
+        $this->get(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'return']))
+            ->assertOk()
+            ->assertSee('Return items recorded successfully.');
 
         $this->post(route('inventory-transactions.store'), [
             'type' => 'return',
@@ -790,7 +807,7 @@ class TransactionBulkTest extends TestCase
                 'good_quantity' => 1, 'damaged_quantity' => 0,
             ]],
         ])->assertSessionHasNoErrors()
-            ->assertRedirect(route('inventory-transactions.return.create', ['hub_id' => $hub->id]))
+            ->assertRedirect(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'return']))
             ->assertSessionHas('success', 'Return items recorded successfully.');
     }
 }
