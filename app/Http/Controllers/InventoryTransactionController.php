@@ -437,7 +437,9 @@ class InventoryTransactionController extends Controller
                 'store_hub_id' => $order->store_hub_id,
                 'channel' => 'fully_booked',
                 'quantity' => 0,
-                'occurred_on' => ($order->status === 'rejected' ? $order->reviewed_at : $order->created_at)?->toDateString(),
+                'occurred_on' => ($order->status === 'rejected'
+                    ? ($order->reviewed_at ?? $order->created_at)
+                    : $order->created_at)?->toDateString(),
                 'created_by' => $order->submitted_by,
                 'status' => $order->status,
             ], true);

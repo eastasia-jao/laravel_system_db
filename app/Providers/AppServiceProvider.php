@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\StoreHub;
+use App\Models\FullyBookedOrder;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
@@ -21,7 +22,21 @@ class AppServiceProvider extends ServiceProvider
         $isBuiltInRole = static fn ($user): bool => $user->hasBuiltInRole();
 
         View::composer('layouts.sidebar', function ($view) {
-            $view->with('sidebarHubs', StoreHub::where('status', 'active')->orderBy('name')->get());
+            $user = auth()->user();
+            $sidebarHubs = StoreHub::where('status', 'active')->orderBy('name')->get();
+            $fullyBookedCountsByHub = in_array($user?->role, ['admin', 'inventory_staff'], true)
+                ? FullyBookedOrder::query()
+                    ->whereIn('status', ['pending', 'reviewed'])
+                    ->whereNull('pulled_out_at')
+                    ->selectRaw('store_hub_id, COUNT(*) as total')
+                    ->groupBy('store_hub_id')
+                    ->pluck('total', 'store_hub_id')
+                : collect();
+
+            $view->with([
+                'sidebarHubs' => $sidebarHubs,
+                'sidebarFullyBookedCountsByHub' => $fullyBookedCountsByHub,
+            ]);
         });
 
         // 2. Define your Role-Based Gates here

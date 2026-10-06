@@ -131,6 +131,53 @@ class FullyBookedOrderTest extends TestCase
             ->assertViewHas('fullyBookedPulloutCount', 2);
     }
 
+    public function test_fully_booked_badges_show_in_sidebar_and_branch_hub_dashboard(): void
+    {
+        $headOffice = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $branch = StoreHub::create([
+            'name' => 'Branch Store', 'code' => 'BRANCH', 'status' => 'active', 'is_head_office' => false,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $staff = User::factory()->create(['role' => 'sales_marketing_staff', 'hub_id' => $branch->id]);
+
+        foreach ([
+            [$headOffice, 'FB-HO-PENDING', 'pending', null],
+            [$branch, 'FB-BRANCH-REVIEWED', 'reviewed', null],
+            [$branch, 'FB-BRANCH-PENDING', 'pending', null],
+            [$branch, 'FB-BRANCH-REJECTED', 'rejected', null],
+            [$branch, 'FB-BRANCH-COMPLETE', 'reviewed', now()],
+        ] as [$hub, $number, $status, $pulledOutAt]) {
+            FullyBookedOrder::create([
+                'order_number' => $number,
+                'store_hub_id' => $hub->id,
+                'sales_staff_id' => $staff->id,
+                'submitted_by' => $staff->id,
+                'attachment_path' => 'fully-booked-orders/order.pdf',
+                'original_filename' => 'order.pdf',
+                'mime_type' => 'application/pdf',
+                'status' => $status,
+                'pulled_out_at' => $pulledOutAt,
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.index', ['hub_id' => $branch->id]))
+            ->assertOk()
+            ->assertSee('Transaction Logs')
+            ->assertSee('aria-label="2 Fully Booked orders not yet processed"', false)
+            ->assertSee('aria-label="1 Fully Booked order not yet processed"', false)
+            ->assertSee('BRANCH STORE');
+
+        $this->get(route('hub.dashboard', $branch->id))
+            ->assertOk()
+            ->assertSee('Verify Sales')
+            ->assertSee('2 inventory item(s) awaiting verification, including unprocessed Fully Booked orders')
+            ->assertSee('BRANCH STORE')
+            ->assertSee('aria-label="2 Fully Booked orders not yet processed"', false);
+    }
+
     public function test_sales_staff_fully_booked_order_tracking_is_paginated_six_per_page(): void
     {
         $hub = StoreHub::create([

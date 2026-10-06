@@ -8,6 +8,10 @@
            ?: request()->route('hub')
            ?: auth()->user()->store_hub_id;
        $sidebarContextHub = $sidebarHubs->firstWhere('id', (int) $sidebarContextHubId);
+       $sidebarFullyBookedPendingCount = (int) $sidebarFullyBookedCountsByHub->get((int) $sidebarContextHubId, 0);
+       if (! $sidebarContextHubId && in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)) {
+           $sidebarFullyBookedPendingCount = (int) $sidebarFullyBookedCountsByHub->sum();
+       }
     @endphp
     
     <div class="d-flex align-items-center gap-2 mb-4 pb-3 border-bottom text-primary fw-bold">
@@ -144,8 +148,11 @@
         @endcan
         @can('view-transaction-logs')
         <li>
-            <a href="{{ route('inventory-transactions.index') }}" class="nav-link {{ request()->routeIs('inventory-transactions.index') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
+            <a href="{{ route('inventory-transactions.index', $sidebarContextHubId ? ['hub_id' => $sidebarContextHubId] : []) }}" class="nav-link {{ request()->routeIs('inventory-transactions.index') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-clipboard-list"></i> Transaction Logs
+                @if($sidebarFullyBookedPendingCount > 0)
+                    <span class="badge rounded-pill bg-danger ms-auto" aria-label="{{ $sidebarFullyBookedPendingCount }} Fully Booked orders not yet processed">{{ $sidebarFullyBookedPendingCount }}</span>
+                @endif
             </a>
         </li>
         @endcan
@@ -188,10 +195,14 @@
                         $isActive = request()->route('id') == $hub->id || request()->is('store-hub/' . $hub->id . '*');
                     @endphp
                     <li class="px-2">
+                        @php($fullyBookedHubCount = (int) $sidebarFullyBookedCountsByHub->get($hub->id, 0))
                         <div class="d-flex align-items-center justify-content-between mt-2 mb-1 px-2 rounded-2 {{ $isActive ? 'bg-light border-start border-primary border-3 ps-2' : '' }}">
                             <a href="{{ route('hub.dashboard', $hub->id) }}" class="text-decoration-none {{ $isActive ? 'text-primary fw-bold' : 'text-muted' }} text-truncate" style="font-size: 11px; letter-spacing: 0.5px;" title="{{ $hub->name }}">
                                 <i class="fa-solid fa-location-dot me-2 {{ $isActive ? 'text-primary' : '' }}"></i> {{ strtoupper($hub->name) }}
                             </a>
+                            @if($fullyBookedHubCount > 0)
+                                <span class="badge rounded-pill bg-danger ms-2 flex-shrink-0" aria-label="{{ $fullyBookedHubCount }} Fully Booked {{ $fullyBookedHubCount === 1 ? 'order' : 'orders' }} not yet processed">{{ $fullyBookedHubCount }}</span>
+                            @endif
                         </div>
                     </li>
                     @endforeach
