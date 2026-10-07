@@ -25,6 +25,20 @@ class SalesReportController extends Controller
 
     public function tiktokReturns(Request $request, int $hub)
     {
+        return $this->marketplaceReturnsForChannel($request, $hub, 'tiktok');
+    }
+
+    public function marketplaceReturns(Request $request, int $hub)
+    {
+        $filters = $request->validate([
+            'channel' => ['required', 'in:shopee,lazada'],
+        ]);
+
+        return $this->marketplaceReturnsForChannel($request, $hub, $filters['channel']);
+    }
+
+    private function marketplaceReturnsForChannel(Request $request, int $hub, string $channel)
+    {
         $user = auth()->user();
         $storeHub = StoreHub::findOrFail($hub);
 
@@ -32,7 +46,7 @@ class SalesReportController extends Controller
         abort_unless(
             $user->role === 'admin'
                 || (in_array($user->role, ['sales_associate', 'sales_marketing_staff'], true)
-                    && $user->hasSalesChannel('tiktok')),
+                    && $user->hasSalesChannel($channel)),
             403
         );
         abort_unless($storeHub->is_head_office, 404);
@@ -44,7 +58,7 @@ class SalesReportController extends Controller
 
         $transactions = SalesTransaction::query()
             ->where('store_hub_id', $storeHub->id)
-            ->whereRaw('LOWER(channel_type) = ?', ['tiktok'])
+            ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) = ?", [$channel])
             ->with([
                 'items.product',
                 'items.inventoryReturns',
@@ -61,6 +75,8 @@ class SalesReportController extends Controller
         return view('hubs.tiktok-returns', [
             'hub' => $storeHub,
             'transactions' => $transactions,
+            'channel' => ucfirst($channel),
+            'channelKey' => $channel,
             'dateFrom' => $filters['date_from'] ?? null,
             'dateTo' => $filters['date_to'] ?? null,
         ]);

@@ -118,11 +118,10 @@
         $channelCardGridClass = $channelSummaries->count() === 5 ? 'channel-card-grid-five' : '';
         $allStoreChannelGridClass = $isAllStoresAdminDashboard ? 'all-store-channel-grid' : '';
         $headOfficeChannelGridClass = $isHeadOfficeAdminDashboard ? 'head-office-channel-grid' : '';
-        $isTikTokSideBySideDashboard = $isTikTokDashboard && ! $isBranchDashboard && ! $isInventoryStaffDashboard;
         $isOperationalSideBySideDashboard = $channelPaymentOverview !== null
             && ! $isBranchDashboard
             && ! $isInventoryStaffDashboard;
-        $isChannelSideBySideDashboard = $isTikTokSideBySideDashboard || $isOperationalSideBySideDashboard;
+        $isChannelSideBySideDashboard = $isOperationalSideBySideDashboard;
     @endphp
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div><h2 class="mb-1">Sales Management Hub</h2><p class="dashboard-subtitle mb-0">Sales and inventory overview · {{ $scopeName }}</p></div>
@@ -203,9 +202,6 @@
         @endforeach
     </div>
     @endif
-    @unless($isTikTokDashboard)
-    <p class="small text-muted mb-4">{{ $isBranchDashboard ? 'Branch Walk-In sales from '.$fromDate->format('M d, Y').' through '.$asOf->format('M d, Y').'. Payment totals are grouped by the recorded payment method.' : 'Confirmed sales from '.$fromDate->format('M d, Y').' through '.$asOf->format('M d, Y').'; weeks start Monday. Wholesale uses the collected amount for partial payments, excludes unpaid orders, and counts an order as completed only when it is paid and delivered.' }}</p>
-    @endunless
     @if($isAllStoresAdminDashboard)
         @php
             $allStoreSalesTotal = (float) $storeSalesOverview->sum('total');
@@ -374,10 +370,7 @@
     @if($isChannelSideBySideDashboard)
         </div>
         <div class="col-xl-6">
-            @if($isTikTokSideBySideDashboard)
-                @include('dashboard._tiktok-settlement-overview')
-            @else
-                <section class="panel marketplace-mop-panel p-3 p-lg-4 h-100">
+            <section class="panel marketplace-mop-panel p-3 p-lg-4 h-100">
                     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                         <h3 class="mb-1"><i class="fa-regular fa-credit-card text-primary me-2"></i>{{ $channelPaymentOverview['label'] }}</h3>
                         <div class="marketplace-mop-total">
@@ -402,23 +395,13 @@
                     @else
                         <div class="empty-state py-4">No payments recorded for this channel in the selected date range.</div>
                     @endif
-                </section>
-            @endif
+            </section>
         </div>
     </div>
     @endif
     @endif
     @endunless
     <div class="row g-4 mb-4">
-        @unless($isInventoryStaffDashboard)
-        @if($isTikTokDashboard && ! $isTikTokSideBySideDashboard)
-        <div class="col-12">@include('dashboard._tiktok-settlement-overview')</div>
-        @else
-        @if($isBranchDashboard)
-        @elseif($isChannelSideBySideDashboard)
-        @endif
-        @endif
-        @endunless
         <div class="col-xl-6"><section class="panel product-panel p-3 p-lg-4 h-100">
             <h3 class="mb-1"><i class="fa-solid fa-trophy text-warning me-2"></i>Top 10 Products</h3>
             <p class="small text-muted mb-3">{{ $fromDate->format('M d, Y') }} – {{ $asOf->format('M d, Y') }} · Ranked by units sold</p>

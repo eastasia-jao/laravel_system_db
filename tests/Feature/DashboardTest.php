@@ -967,12 +967,18 @@ class DashboardTest extends TestCase
         $tiktokDashboard = $this->actingAs($tiktokStaff)
             ->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28']))
             ->assertOk()
-            ->assertSee('TikTok Settlement Overview')
+            ->assertDontSee('TikTok Settlement Overview')
             ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false);
         $this->assertSame(['tiktok'], $tiktokDashboard->viewData('dashboardChannelOptions')->all());
         $this->assertSame([], $tiktokDashboard->viewData('channelSummaries')->all());
         $this->assertSame([['name' => 'TikTok Product', 'units' => 2]], $tiktokDashboard->viewData('topProducts')->all());
-        $this->assertTrue($tiktokDashboard->viewData('showSalesTotals'));
+        $this->assertFalse($tiktokDashboard->viewData('showSalesTotals'));
         $this->assertEquals(190, $tiktokDashboard->viewData('salesTotals')['Daily']);
+        $tiktokDashboard->assertDontSee('Daily Sales')
+            ->assertDontSee('Weekly Sales')
+            ->assertDontSee('Monthly Sales')
+            ->assertDontSee('Quarterly Sales')
+            ->assertDontSee('Yearly Sales')
+            ->assertDontSee('TikTok Settlement Overview');
     }
 }

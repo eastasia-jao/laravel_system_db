@@ -23,10 +23,11 @@ window.setupProductSuggestions = function (root, list, options, endpoint, mapPro
                 const products = await response.json();
                 if (current !== version) return;
                 list.replaceChildren();
+                const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
                 products.map(mapProduct).filter(product => {
-                    const search = query.toLowerCase();
-                    return [product.item_id, product.barcode, product.name, product.description, product.label]
-                        .some(value => String(value || '').toLowerCase().includes(search));
+                    const searchableValues = [product.item_id, product.barcode, product.name, product.description, product.label]
+                        .map(value => String(value || '').toLowerCase());
+                    return keywords.every(keyword => searchableValues.some(value => value.includes(keyword)));
                 }).forEach(product => {
                     const existing = options.findIndex(item => item.id === product.id);
                     if (existing >= 0) options[existing] = product;

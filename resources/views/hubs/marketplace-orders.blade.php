@@ -50,6 +50,7 @@
                                 <div>
                                     <h5 class="modal-title fw-bold" id="marketplace-order-items-title-{{ $order->id }}">Order Items</h5>
                                     <div class="small text-muted">{{ $order->order_number ?: 'Sale #'.$order->id }} · {{ $order->customer_name ?: '—' }}</div>
+                                    <div class="small text-muted">Payment method: {{ str_replace('_', ' ', $order->mode_of_payment ?: $order->custom_mop ?: 'Not recorded') }}</div>
                                 </div>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>

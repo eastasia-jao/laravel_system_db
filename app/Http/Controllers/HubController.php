@@ -131,7 +131,7 @@ class HubController extends Controller
             $dashboardChannel = $dashboardChannelOptions->first();
         }
         $showSalesTotals = ($user?->role !== 'sales_marketing_staff' || $dashboardChannelOptions->isNotEmpty())
-            && ! in_array($dashboardChannel, ['shopee', 'lazada'], true);
+            && ! in_array($dashboardChannel, ['shopee', 'lazada', 'tiktok'], true);
         if ($user?->role === 'sales_marketing_staff') {
             if ($assignedChannels->isNotEmpty()) {
                 $salesQuery->whereRaw(

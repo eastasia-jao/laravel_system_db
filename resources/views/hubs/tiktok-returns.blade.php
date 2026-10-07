@@ -7,12 +7,15 @@
             <a href="{{ route('hub.dashboard', $hub->id) }}" class="btn btn-sm btn-outline-secondary mb-3">
                 <i class="fa-solid fa-arrow-left me-1"></i> Hub Dashboard
             </a>
-            <h2 class="fw-bold mb-1"><i class="fa-solid fa-rotate-left text-warning me-2"></i>TikTok Returns</h2>
+            <h2 class="fw-bold mb-1"><i class="fa-solid fa-rotate-left text-warning me-2"></i>{{ $channel }} Returns</h2>
             <p class="text-muted mb-0">{{ $hub->name }} · Report items customers say they are returning.</p>
         </div>
     </div>
 
-    <form method="GET" action="{{ route('hub.tiktok-returns', $hub->id) }}" class="card card-body mb-4">
+    <form method="GET" action="{{ $channelKey === 'tiktok' ? route('hub.tiktok-returns', $hub->id) : route('hub.marketplace-returns', ['hub' => $hub->id]) }}" class="card card-body mb-4">
+        @if($channelKey !== 'tiktok')
+            <input type="hidden" name="channel" value="{{ $channelKey }}">
+        @endif
         <div class="row g-3 align-items-end">
             <div class="col-md-4">
                 <label class="form-label" for="date_from">Order date from</label>
@@ -34,7 +37,7 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-3">TikTok Order #</th>
+                            <th class="ps-3">{{ $channel }} Order #</th>
                             <th>Customer name</th>
                             <th>Order date</th>
                             <th>Items</th>
@@ -52,7 +55,7 @@
                             @endphp
                             <tr>
                                 <td class="ps-3 fw-semibold">{{ $transaction->order_number }}</td>
-                                <td>{{ $transaction->customer_name ?: 'TikTok Customer' }}</td>
+                                <td>{{ $transaction->customer_name ?: $channel.' Customer' }}</td>
                                 <td>{{ optional($transaction->order_date)->format('M d, Y') ?: '—' }}</td>
                                 <td>{{ $transaction->items->count() }}</td>
                                 <td>
@@ -83,8 +86,8 @@
                     <div class="modal-content">
                         <div class="modal-header">
                             <div>
-                                <h5 class="modal-title fw-bold" id="return-items-title-{{ $transaction->id }}">TikTok Order #{{ $transaction->order_number }}</h5>
-                                <div class="small text-muted">{{ $transaction->customer_name ?: 'TikTok Customer' }} · {{ optional($transaction->order_date)->format('M d, Y') }}</div>
+                                <h5 class="modal-title fw-bold" id="return-items-title-{{ $transaction->id }}">{{ $channel }} Order #{{ $transaction->order_number }}</h5>
+                                <div class="small text-muted">{{ $transaction->customer_name ?: $channel.' Customer' }} · {{ optional($transaction->order_date)->format('M d, Y') }}</div>
                             </div>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
@@ -138,7 +141,7 @@
             </div>
         @endforeach
     @else
-        <div class="alert alert-info">No TikTok orders found for this Hub and date range.</div>
+        <div class="alert alert-info">No {{ $channel }} orders found for this Hub and date range.</div>
     @endif
 
     <div class="mt-4">{{ $transactions->links() }}</div>

@@ -88,6 +88,7 @@ class SalesWorkflowTest extends TestCase
             'order_date' => '2026-10-06',
             'grand_total' => 175,
             'status' => 'confirmed',
+            'mode_of_payment' => 'COD',
         ]);
         $shopeeOrder->items()->create([
             'product_id' => $product->id,
@@ -126,16 +127,33 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('SHOPEE-APPROVED-001')
             ->assertSee('View Order Items')
             ->assertSee('id="marketplace-order-items-'.$shopeeOrder->id.'"', false)
+            ->assertSee('Payment method: COD')
             ->assertSee('Marketplace order product')
             ->assertDontSee('<th>Items</th>', false)
             ->assertDontSee('LAZADA-APPROVED-001')
             ->assertDontSee('SHOPEE-PENDING-001');
 
-        $this->get(route('hub.dashboard', $hub->id))
+        $hubDashboard = $this->get(route('hub.dashboard', $hub->id));
+        $hubDashboard
             ->assertOk()
             ->assertSee('Shopee Orders')
             ->assertSee('Lazada Orders')
-            ->assertSee('TikTok Orders');
+            ->assertSee('Shopee Returns')
+            ->assertSee('Lazada Returns')
+            ->assertSee('TikTok Orders')
+            ->assertSee('TikTok Returns');
+        $hubDashboardContent = $hubDashboard->getContent();
+        $this->assertLessThan(
+            strpos($hubDashboardContent, 'TikTok Returns'),
+            strpos($hubDashboardContent, 'TikTok Orders')
+        );
+
+        $this->get(route('hub.marketplace-returns', ['hub' => $hub->id, 'channel' => 'shopee']))
+            ->assertOk()
+            ->assertSee('Shopee Returns');
+        $this->get(route('hub.marketplace-returns', ['hub' => $hub->id, 'channel' => 'lazada']))
+            ->assertOk()
+            ->assertSee('Lazada Returns');
 
         $unassignedStaff = User::factory()->create([
             'role' => 'sales_marketing_staff',
@@ -154,9 +172,13 @@ class SalesWorkflowTest extends TestCase
         ]);
         $user = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
         $product = Product::create([
-            'item_id' => 'MKT-001', 'name' => 'Marketplace Product', 'sales_price' => 100,
+            'item_id' => 'MKT-001', 'name' => 'Marketplace Product', 'barcode' => 'BARCODE-MKT-001', 'sales_price' => 100,
             'shopee_price' => 100, 'lazada_price' => 100, 'stock' => 10, 'status' => 'active', 'store_hub_id' => $hub->id,
         ]);
+        $this->actingAs($user)
+            ->getJson(route('hub.products.search.ajax', ['hubId' => $hub->id, 'q' => 'BARCODE-MKT-001']))
+            ->assertOk()
+            ->assertJsonPath('0.barcode', 'BARCODE-MKT-001');
 
         foreach (['shopee' => 'SHOPEE-000001', 'lazada' => 'LAZADA-000001'] as $channel => $expectedInvoice) {
             $this->actingAs($user)->post(route('sales.storeMultiChannelSale'), [
