@@ -905,6 +905,13 @@ class SalesReportController extends Controller
                     'quantity' => 'Replacement quantity exceeds the remaining quantity from the original sale.',
                 ]);
             }
+            if ($channel === 'online' && $quantity > max(0, $transactionItem->returnedQuantity() - $alreadyReplaced)) {
+                throw ValidationException::withMessages([
+                    'quantity' => $transactionItem->returnedQuantity() < 1
+                        ? 'Inventory must record the original item as returned before an Online replacement can be requested.'
+                        : 'Replacement quantity exceeds the quantity of returned items that has not already been replaced.',
+                ]);
+            }
 
             $originalProduct = Product::whereKey($transactionItem->product_id)->where('store_hub_id', $storeHub->id)->first();
             $replacementProducts = Product::whereIn('id', $requestedLines->pluck('product_id')->unique())

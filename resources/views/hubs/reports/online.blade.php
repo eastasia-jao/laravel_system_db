@@ -232,6 +232,10 @@
                                         $detailReturns = $item->inventoryReturns;
                                         $detailReturnedQuantity = max((int) ($item->returned_quantity ?? 0), (int) $detailReturns->sum('quantity'));
                                         $detailReturnStatus = $detailReturns->isNotEmpty() ? 'received' : ($item->return_status ?: 'none');
+                                        $detailAvailableReplacementQuantity = min(
+                                            (int) $item->remaining_replaceable_quantity,
+                                            (int) $item->remaining_returned_replaceable_quantity
+                                        );
                                         $detailReturnLabel = match ($detailReturnStatus) {
                                             'requested' => 'RETURN REQUESTED',
                                             'received' => 'RETURN RECEIVED',
@@ -288,7 +292,7 @@
                                         </td>
                                         <td>
                                             @can('manage-sales-status')
-                                                @if($detailReturnStatus !== 'received' && $detailReturns->isEmpty() && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+                                                @if($detailAvailableReplacementQuantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
                                                     <button type="button" class="btn btn-sm btn-outline-success online-replace-button" data-replacement-target="#online-replacement-{{ $item->id }}"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replacement</button>
                                                 @else
                                                     <span class="text-muted small">Unavailable</span>
@@ -311,7 +315,13 @@
 @can('manage-sales-status')
     @foreach($transactions as $transaction)
         @foreach($transaction->items as $item)
-            @if(($item->return_status ?? 'none') !== 'received' && $item->inventoryReturns->isEmpty() && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+            @php
+                $availableReplacementQuantity = min(
+                    (int) $item->remaining_replaceable_quantity,
+                    (int) $item->remaining_returned_replaceable_quantity
+                );
+            @endphp
+            @if($availableReplacementQuantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
                 <div class="modal fade" id="online-replacement-{{ $item->id }}" data-online-replacement-modal data-original-product-id="{{ $item->product_id }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                         <form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.online.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
@@ -347,7 +357,7 @@
                                 <div class="form-text" data-replacement-stock>Search by Item ID or product name. Online allocation is checked during verification.</div>
                                 <div class="small text-success fw-semibold mt-1" data-replacement-price></div>
                                 <div class="row g-3 mt-1">
-                                    <div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $item->remaining_replaceable_quantity }}" value="1" required><div class="form-text">Maximum {{ $item->remaining_replaceable_quantity }}</div></div>
+                                    <div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $availableReplacementQuantity }}" value="1" required><div class="form-text">Maximum {{ $availableReplacementQuantity }} returned item(s)</div></div>
                                     <div class="col-6"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div>
                                     <div class="col-12">
                                         <label class="form-label fw-semibold text-danger">Replacement discount (%)</label>

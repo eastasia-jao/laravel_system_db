@@ -46,6 +46,15 @@ class TransactionItem extends Model
             ->sum('quantity'));
     }
 
+    public function getRemainingReturnedReplaceableQuantityAttribute(): int
+    {
+        $alreadyReplaced = $this->relationLoaded('replacements')
+            ? (int) $this->replacements->whereIn('status', ['pending', 'approved'])->sum('quantity')
+            : (int) $this->replacements()->whereIn('status', ['pending', 'approved'])->sum('quantity');
+
+        return max(0, $this->returnedQuantity() - $alreadyReplaced);
+    }
+
     public function returnedQuantity(): int
     {
         $recordedQuantity = $this->return_status === 'received'

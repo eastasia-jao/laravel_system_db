@@ -33,6 +33,39 @@ class OnlineWalkInReplacementTest extends TestCase
             'exchange_payment_amount' => 20,
             'exchange_payment_method' => 'CASH',
             'reason' => 'Online customer requested another item.',
+        ])->assertSessionHasErrors('quantity');
+        $this->assertDatabaseCount('product_replacements', 0);
+        $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
+            ->assertOk()
+            ->assertDontSee('data-replacement-target="#online-replacement-', false)
+            ->assertSee('Unavailable');
+
+        $original->increment('stock');
+        $original->stockAllocation->increment('online');
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'online',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-23',
+            'created_by' => $admin->id,
+        ]);
+        $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
+            ->assertOk()
+            ->assertSee('online-replace-button', false);
+
+        $this->actingAs($admin)->post(route('hub.report.online.replacement.store', [$hub, $sale, $item]), [
+            'replacement_product_id' => $replacement->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'exchange_payment_amount' => 20,
+            'exchange_payment_method' => 'CASH',
+            'reason' => 'Online customer requested another item.',
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $request = ProductReplacement::sole();
@@ -51,28 +84,13 @@ class OnlineWalkInReplacementTest extends TestCase
                 'return_hub_id' => $hub->id,
             ]))
             ->assertDontSee('One or more exchange products do not have enough allocated Wholesale stock.');
-        $replacement->stockAllocation->update(['online' => 5]);
 
         $this->post(route('wholesale-replacements.approve', $request))
             ->assertSessionHasErrors('replacement');
         $this->assertSame('pending', $request->fresh()->status);
         $this->assertSame(5, $replacement->fresh()->stock);
+        $replacement->stockAllocation->update(['online' => 5]);
 
-        $original->increment('stock');
-        $original->stockAllocation->increment('online');
-        InventoryTransaction::create([
-            'type' => 'return',
-            'reference' => $sale->order_number,
-            'store_hub_id' => $hub->id,
-            'product_id' => $original->id,
-            'sales_transaction_id' => $sale->id,
-            'transaction_item_id' => $item->id,
-            'channel' => 'online',
-            'condition' => 'good',
-            'quantity' => 1,
-            'occurred_on' => '2026-09-23',
-            'created_by' => $admin->id,
-        ]);
         $this->post(route('wholesale-replacements.approve', $request))
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
@@ -95,6 +113,44 @@ class OnlineWalkInReplacementTest extends TestCase
 
         $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
             ->assertOk()->assertSee('APPROVED')->assertSee('Online Replacement');
+    }
+
+    public function test_online_replacement_quantity_cannot_exceed_received_return_quantity(): void
+    {
+        [$hub, $admin, $original, $replacement] = $this->fixtures('ONLINE-PARTIAL');
+        ProductStockAllocation::create(['product_id' => $original->id, 'online' => 0]);
+        ProductStockAllocation::create(['product_id' => $replacement->id, 'online' => 5]);
+        [$sale, $item] = $this->sale($admin, $hub, $original, 'online', 'not_applicable');
+        $item->update(['quantity' => 2, 'line_total' => 200]);
+
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'online',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-23',
+            'created_by' => $admin->id,
+        ]);
+
+        $payload = [
+            'replacement_product_id' => $replacement->id,
+            'replacement_quantity' => 1,
+            'exchange_payment_amount' => 20,
+            'exchange_payment_method' => 'CASH',
+        ];
+        $this->actingAs($admin)
+            ->post(route('hub.report.online.replacement.store', [$hub, $sale, $item]), $payload + ['quantity' => 2])
+            ->assertSessionHasErrors('quantity');
+        $this->assertDatabaseCount('product_replacements', 0);
+
+        $this->post(route('hub.report.online.replacement.store', [$hub, $sale, $item]), $payload + ['quantity' => 1])
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('product_replacements', 1);
     }
 
     public function test_walk_in_replacement_uses_physical_stock_and_report_has_distinct_png_ui(): void
@@ -263,6 +319,24 @@ class OnlineWalkInReplacementTest extends TestCase
             $sale = SalesTransaction::where('order_number', strtoupper($channel).'-LIVE-BALANCE')->sole();
             $item = $sale->items()->sole();
 
+            if ($channel === 'online') {
+                $original->increment('stock');
+                $original->stockAllocation->increment($channel);
+                InventoryTransaction::create([
+                    'type' => 'return',
+                    'reference' => $sale->order_number,
+                    'store_hub_id' => $hub->id,
+                    'product_id' => $original->id,
+                    'sales_transaction_id' => $sale->id,
+                    'transaction_item_id' => $item->id,
+                    'channel' => $channel,
+                    'condition' => 'good',
+                    'quantity' => 1,
+                    'occurred_on' => '2026-09-26',
+                    'created_by' => $admin->id,
+                ]);
+            }
+
             $this->post(route($routeName, [$hub, $sale, $item]), [
                 'replacement_product_id' => $replacement->id,
                 'quantity' => 1,
@@ -286,21 +360,23 @@ class OnlineWalkInReplacementTest extends TestCase
                     ->assertDontSee('One or more exchange products do not have enough allocated Wholesale stock.');
                 $replacement->stockAllocation->update(['wholesale' => 10]);
             }
-            $original->increment('stock');
-            $original->stockAllocation->increment($channel);
-            InventoryTransaction::create([
-                'type' => 'return',
-                'reference' => $sale->order_number,
-                'store_hub_id' => $hub->id,
-                'product_id' => $original->id,
-                'sales_transaction_id' => $sale->id,
-                'transaction_item_id' => $item->id,
-                'channel' => $channel,
-                'condition' => 'good',
-                'quantity' => 1,
-                'occurred_on' => '2026-09-26',
-                'created_by' => $admin->id,
-            ]);
+            if ($channel !== 'online') {
+                $original->increment('stock');
+                $original->stockAllocation->increment($channel);
+                InventoryTransaction::create([
+                    'type' => 'return',
+                    'reference' => $sale->order_number,
+                    'store_hub_id' => $hub->id,
+                    'product_id' => $original->id,
+                    'sales_transaction_id' => $sale->id,
+                    'transaction_item_id' => $item->id,
+                    'channel' => $channel,
+                    'condition' => 'good',
+                    'quantity' => 1,
+                    'occurred_on' => '2026-09-26',
+                    'created_by' => $admin->id,
+                ]);
+            }
             $this->post(route('wholesale-replacements.approve', $request))->assertSessionHasNoErrors();
 
             $this->assertSame(10, (int) $original->stockAllocation->fresh()->{$channel});
