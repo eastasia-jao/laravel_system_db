@@ -97,6 +97,20 @@ class TransactionItem extends Model
 
     public function netReturnDeduction(): float
     {
-        return max($this->returnedNetAmount(), $this->refundCostAmount());
+        $returnedQuantity = $this->returnedQuantity();
+        if ($returnedQuantity < 1) {
+            return max($this->returnedNetAmount(), $this->refundCostAmount());
+        }
+
+        $approvedReplacementQuantity = $this->relationLoaded('replacements')
+            ? (int) $this->replacements->where('status', 'approved')->sum('quantity')
+            : (int) $this->replacements()->where('status', 'approved')->sum('quantity');
+        $unreplacedReturnRatio = max(0, $returnedQuantity - min($returnedQuantity, $approvedReplacementQuantity))
+            / $returnedQuantity;
+
+        return max(
+            round($this->returnedNetAmount() * $unreplacedReturnRatio, 2),
+            round($this->refundCostAmount() * $unreplacedReturnRatio, 2)
+        );
     }
 }

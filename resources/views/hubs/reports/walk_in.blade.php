@@ -65,25 +65,37 @@
             <div class="walk-in-report-summary-card" style="grid-column: 1 / -1;"><div class="label"><i class="fa-solid fa-credit-card me-1 text-primary" aria-hidden="true"></i>Sales by payment method</div><div class="walk-in-report-mop">@forelse($paymentBreakdown as $payment)<span><strong>{{ $payment->payment_method }}</strong>: ₱{{ number_format($payment->total, 2) }}</span>@empty<span>No payment records</span>@endforelse</div></div>
         </div>
         <div class="table-responsive" data-walk-in-detail-table><table class="table table-hover align-middle mb-0">
-            <thead><tr><th>Date</th><th data-walk-in-preview-remove>Customer</th><th data-walk-in-preview-remove>Items</th><th>MOP</th><th data-walk-in-preview-remove>Payment</th><th class="text-end">Gross</th><th class="text-end">Discount</th><th class="text-end">Net Sales</th><th data-walk-in-screen-only>Action</th></tr></thead>
+            <thead>
+                @if($hub->is_head_office)
+                    <tr><th>Order Date</th><th>Order ID</th><th data-walk-in-preview-remove>Customer Name</th><th data-walk-in-preview-remove>Items</th><th data-walk-in-preview-remove>Payment</th><th data-walk-in-screen-only>Action</th></tr>
+                @else
+                    <tr><th>Date</th><th data-walk-in-preview-remove>Customer</th><th data-walk-in-preview-remove>Items</th><th>MOP</th><th data-walk-in-preview-remove>Payment</th><th class="text-end">Gross</th><th class="text-end">Discount</th><th class="text-end">Net Sales</th><th data-walk-in-screen-only>Action</th></tr>
+                @endif
+            </thead>
             <tbody>
                 @forelse($transactions as $transaction)
                     @php
                         $approvedReplacements = $transaction->replacements->where('status', 'approved');
-                        $walkInGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * (int) $item->quantity)
-                            - $approvedReplacements->sum(fn ($replacement) => (float) $replacement->original_unit_price * (int) $replacement->quantity)
+                        $walkInGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * max(0, (int) $item->quantity - $item->returnedQuantity()))
                             + $approvedReplacements->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
-                        $walkInGross = max(0, $walkInGross - $transaction->items->sum(fn ($item) => $item->returnedGrossAmount()));
                         $walkInNet = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->sub_total ?: $transaction->items->sum('line_total')));
                     @endphp
                     <tr>
-                        <td>{{ optional($transaction->order_date)->format('m/d/Y') }}</td><td data-walk-in-preview-remove class="fw-semibold">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge')</td>
-                        <td data-walk-in-preview-remove>{{ $transaction->items->count() }} product(s)<small class="d-block text-muted">{{ $transaction->items->sum(fn ($item) => (int) $item->quantity - $item->returnedQuantity()) }} remaining unit(s)</small></td>
-                        <td>{{ strtoupper($transaction->mode_of_payment ?: '—') }}</td><td data-walk-in-preview-remove><span class="badge {{ ($transaction->payment_status ?? 'paid') === 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">{{ strtoupper($transaction->payment_status ?? 'paid') }}</span></td>
-                        <td class="text-end">₱{{ number_format($walkInGross, 2) }}</td><td class="text-end text-danger">₱{{ number_format(max(0, $walkInGross - $walkInNet), 2) }}</td><td class="text-end fw-bold text-success">₱{{ number_format($walkInNet, 2) }}</td>
+                        <td>{{ optional($transaction->order_date)->format('m/d/Y') }}</td>
+                        @if($hub->is_head_office)
+                            <td class="fw-semibold">{{ $transaction->order_number ?: '—' }}</td>
+                            <td data-walk-in-preview-remove class="fw-semibold">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge')</td>
+                            <td data-walk-in-preview-remove>{{ $transaction->items->count() }} product(s)<small class="d-block text-muted">{{ $transaction->items->sum(fn ($item) => (int) $item->quantity - $item->returnedQuantity()) }} remaining unit(s)</small></td>
+                            <td data-walk-in-preview-remove><div>{{ strtoupper($transaction->mode_of_payment ?: '—') }}</div><span class="badge mt-1 {{ ($transaction->payment_status ?? 'paid') === 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">{{ strtoupper($transaction->payment_status ?? 'paid') }}</span></td>
+                        @else
+                            <td data-walk-in-preview-remove class="fw-semibold">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge')</td>
+                            <td data-walk-in-preview-remove>{{ $transaction->items->count() }} product(s)<small class="d-block text-muted">{{ $transaction->items->sum(fn ($item) => (int) $item->quantity - $item->returnedQuantity()) }} remaining unit(s)</small></td>
+                            <td>{{ strtoupper($transaction->mode_of_payment ?: '—') }}</td><td data-walk-in-preview-remove><span class="badge {{ ($transaction->payment_status ?? 'paid') === 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">{{ strtoupper($transaction->payment_status ?? 'paid') }}</span></td>
+                            <td class="text-end">₱{{ number_format($walkInGross, 2) }}</td><td class="text-end text-danger">₱{{ number_format(max(0, $walkInGross - $walkInNet), 2) }}</td><td class="text-end fw-bold text-success">₱{{ number_format($walkInNet, 2) }}</td>
+                        @endif
                         <td data-walk-in-screen-only><button type="button" class="btn btn-sm btn-outline-warning text-nowrap" data-bs-toggle="modal" data-bs-target="#walk-in-order-{{ $transaction->id }}"><i class="fa-solid fa-receipt me-1"></i> View order</button></td>
                     </tr>
-                @empty<tr><td colspan="9" class="text-center text-muted py-4">No walk-in sales found.</td></tr>@endforelse
+                @empty<tr><td colspan="{{ $hub->is_head_office ? 6 : 9 }}" class="text-center text-muted py-4">No walk-in sales found.</td></tr>@endforelse
             </tbody>
             @unless($hub->is_head_office)
                 <tfoot class="table-light fw-bold"><tr><td colspan="5" data-walk-in-total-label>TOTAL GROSS SALES / {{ number_format($totalTransactions) }} TRANSACTIONS</td><td class="text-end">₱{{ number_format($metrics['gross_sales'], 2) }}</td><td class="text-end text-danger">₱{{ number_format($metrics['discounts'], 2) }}</td><td class="text-end text-success">₱{{ number_format($metrics['total_sales'], 2) }}</td><td data-walk-in-screen-only></td></tr></tfoot>
@@ -95,10 +107,8 @@
 @foreach($transactions as $transaction)
     @php
         $approvedWalkInReplacements = $transaction->replacements->where('status', 'approved');
-        $walkInGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * (int) $item->quantity)
-            - $approvedWalkInReplacements->sum(fn ($replacement) => (float) $replacement->original_unit_price * (int) $replacement->quantity)
+        $walkInGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * max(0, (int) $item->quantity - $item->returnedQuantity()))
             + $approvedWalkInReplacements->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
-        $walkInGross = max(0, $walkInGross - $transaction->items->sum(fn ($item) => $item->returnedGrossAmount()));
         $walkInNet = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->sub_total ?: $transaction->items->sum('line_total')));
         $walkInPaid = (float) ($transaction->amount_paid ?? 0);
         $walkInBalance = max(0, round($walkInNet - $walkInPaid, 2));
@@ -234,7 +244,7 @@
                                             @if($item->remaining_returned_replaceable_quantity > 0 && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true) && auth()->user()?->role !== 'sales_associate')
                                                 <button type="button" class="btn btn-sm btn-warning text-nowrap walk-in-replace-button" data-replacement-target="#walk-in-replacement-{{ $item->id }}" aria-label="Replace {{ $item->product?->name ?? 'item' }}" title="Request a replacement for this item"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item</button>
                                             @elseif($item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true) && auth()->user()?->role !== 'sales_associate')
-                                                <span class="small text-muted">Awaiting received return</span>
+                                                <button type="button" class="btn btn-sm btn-warning text-nowrap" disabled title="Available after inventory receives the returned item"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item</button>
                                             @else
                                                 <span class="small text-muted">Unavailable</span>
                                             @endif
@@ -332,7 +342,28 @@
     @if($walkInReplacementAvailable && in_array($transaction->status, ['confirmed', 'completed'], true))
         <div class="modal fade" id="walk-in-replacement-{{ $item->id }}" data-walk-in-replacement-modal data-original-product-id="{{ $item->product_id }}" data-original-unit-price="{{ $item->unit_price }}" data-original-discount="{{ $item->discount_percentage ?? 0 }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.walk-in.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
             @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body"><div class="alert alert-warning small">Inventory must verify this request before stock and totals change. @if($hub->is_head_office) Only received returned items can be replaced. @endif</div><div class="small text-muted mb-3">Original item: <strong>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</strong></div><label class="form-label fw-semibold">Replacement product</label><input type="text" class="form-control" data-replacement-search list="walkInReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Search by Item ID, barcode, or product name" required><input type="hidden" name="replacement_product_id"><datalist id="walkInReplacementOptions-{{ $item->id }}"></datalist><div class="form-text" data-replacement-stock>Search by Item ID, barcode, or product name. Physical stock is checked during verification.</div><div class="border rounded-3 bg-light p-3 mt-2 d-none" data-replacement-price-panel><div class="row g-2 small"><div class="col-6"><span class="text-muted d-block">Item price</span><strong data-replacement-base-price>—</strong></div><div class="col-6"><span class="text-muted d-block">Discounted unit price</span><strong class="text-success" data-replacement-net-price>—</strong></div><div class="col-6"><span class="text-muted d-block">Discount amount</span><strong class="text-danger" data-replacement-discount-amount>—</strong></div><div class="col-6"><span class="text-muted d-block">Estimated total</span><strong data-replacement-total>—</strong></div></div></div><div class="row g-3 mt-1"><div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $walkInReplacementLimit }}" value="1" required></div><div class="col-6"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div><div class="col-12"><label class="form-label fw-semibold text-danger">Replacement discount (%)</label><input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00"><div class="form-text">Optional discount applied to the replacement product price after approval.</div></div><div class="col-12"><label class="form-label fw-semibold">Replacement order slip (optional)</label><input type="file" name="replacement_order_slip" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf"><div class="form-text">Upload an image or PDF, up to 2 MB.</div></div></div>
+            <div class="modal-body">
+                <div class="alert alert-warning small">Inventory must verify this request before stock and totals change. @if($hub->is_head_office) Only received returned items can be replaced. @endif</div>
+                <div class="small text-muted mb-3">Original item: <strong>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</strong></div>
+                <label class="form-label fw-semibold">Replacement product</label>
+                <input type="text" class="form-control" data-replacement-search list="walkInReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Search by Item ID, barcode, or product name" required>
+                <input type="hidden" name="replacement_product_id">
+                <datalist id="walkInReplacementOptions-{{ $item->id }}"></datalist>
+                <div class="form-text" data-replacement-stock>Search by Item ID, barcode, or product name. Physical stock is checked during verification.</div>
+                <div class="border rounded-3 bg-light p-3 mt-2 d-none" data-replacement-price-panel>
+                    <div class="row g-2 small">
+                        <div class="col-6"><span class="text-muted d-block">Item price</span><strong data-replacement-base-price>—</strong></div>
+                        <div class="col-6"><span class="text-muted d-block">Discounted unit price</span><strong class="text-success" data-replacement-net-price>—</strong></div>
+                        <div class="col-6"><span class="text-muted d-block">Discount amount</span><strong class="text-danger" data-replacement-discount-amount>—</strong></div>
+                        <div class="col-6"><span class="text-muted d-block">Estimated total</span><strong data-replacement-total>—</strong></div>
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $walkInReplacementLimit }}" value="1" required></div>
+                    <div class="col-6"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div>
+                    <div class="col-12"><label class="form-label fw-semibold text-danger">Replacement discount (%)</label><input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00"><div class="form-text">Optional discount applied to the replacement product price after approval.</div></div>
+                </div>
+            </div>
             <div class="card border-0 bg-light mt-3" data-walk-in-exchange-summary>
                 <div class="card-body p-3">
                     <div class="fw-semibold mb-2"><i class="fa-solid fa-calculator text-primary me-2"></i>Exchange calculation</div>

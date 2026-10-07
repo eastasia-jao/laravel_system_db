@@ -145,7 +145,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('class="text-center fw-semibold">1</td>', false)
             ->assertSee('class="text-end fw-bold">₱100.00</td>', false);
         $this->assertSame(1, $report->viewData('totalTransactions'));
-        $this->assertSame(135.0, (float) $report->viewData('metrics')['total_sales']);
+        $this->assertSame(235.0, (float) $report->viewData('metrics')['total_sales']);
         $this->assertSame(15.0, (float) $report->viewData('metrics')['difference']);
         $this->assertSame(1, (int) $report->viewData('metrics')['replacement_count']);
         $this->assertDatabaseCount('sales_transactions', 1);
@@ -349,7 +349,8 @@ class OnlineWalkInReplacementTest extends TestCase
 
         $report = $this->actingAs($admin)->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']));
         $report->assertOk()
-            ->assertSee('Awaiting received return')
+            ->assertSee('Available after inventory receives the returned item')
+            ->assertSee('<button type="button" class="btn btn-sm btn-warning text-nowrap" disabled title="Available after inventory receives the returned item"', false)
             ->assertDontSee('walk-in-replacement-'.$item->id, false)
             ->assertDontSee('TOTAL GROSS SALES');
 
@@ -376,6 +377,7 @@ class OnlineWalkInReplacementTest extends TestCase
             'channel' => 'walk_in',
             'condition' => 'good',
             'quantity' => 1,
+            'refund_amount' => 100,
             'occurred_on' => '2026-09-23',
             'created_by' => $admin->id,
         ]);
@@ -385,6 +387,13 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('RETURN RECEIVED')
             ->assertSee('Replace item')
             ->assertSee('walk-in-replacement-'.$item->id, false)
+            ->assertSee('Order Date')
+            ->assertSee('Order ID')
+            ->assertSee('Customer Name')
+            ->assertSee('Payment')
+            ->assertSee('Action')
+            ->assertDontSee('<th class="text-end">Net Sales</th>', false)
+            ->assertDontSee('Replacement order slip (optional)')
             ->assertSee('name="quantity" class="form-control" min="1" max="1" value="1"', false)
             ->assertSee('data-walk-in-amount-due', false);
         $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $payload)
@@ -404,6 +413,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('WALK_IN-ORDER');
         $this->assertSame(1, $report->viewData('totalTransactions'));
         $this->assertSame('120.00', $sale->fresh()->grand_total);
+        $this->assertEqualsWithDelta(120, $report->viewData('transactions')->first()->netOrderTotal(), 0.001);
         $this->assertDatabaseCount('sales_transactions', 1);
     }
 
@@ -427,9 +437,11 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->actingAs($salesStaff)
             ->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']))
             ->assertOk()
-            ->assertSee('Awaiting received return')
+            ->assertSee('Available after inventory receives the returned item')
+            ->assertSee('Replace item')
+            ->assertSee('<button type="button" class="btn btn-sm btn-warning text-nowrap" disabled title="Available after inventory receives the returned item"', false)
             ->assertDontSee('walk-in-replacement-'.$item->id, false)
-            ->assertDontSee('Replace item');
+            ->assertDontSee('data-replacement-target="#walk-in-replacement-'.$item->id.'"', false);
         $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $payload)
             ->assertSessionHasErrors('quantity');
         $this->assertDatabaseCount('product_replacements', 0);
