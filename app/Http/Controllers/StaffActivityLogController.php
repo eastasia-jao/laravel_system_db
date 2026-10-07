@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\KeywordSearch;
 use App\Models\StaffActivityLog;
 use App\Models\PendingSale;
 use App\Models\StoreHub;
@@ -47,9 +48,13 @@ class StaffActivityLogController extends Controller
         if (! empty($validated['search'])) {
             $search = $validated['search'];
             $query->where(function ($logQuery) use ($search) {
-                $logQuery->where('description', 'like', "%{$search}%")
-                    ->orWhere('details', 'like', "%{$search}%")
-                    ->orWhereHas('user', fn ($userQuery) => $userQuery->where('name', 'like', "%{$search}%"));
+                foreach (preg_split('/\s+/u', trim($search), -1, PREG_SPLIT_NO_EMPTY) as $keyword) {
+                    $logQuery->where(function ($keywordQuery) use ($keyword) {
+                        $keywordQuery->whereRaw('LOWER(description) LIKE ?', ['%'.mb_strtolower($keyword, 'UTF-8').'%'])
+                            ->orWhereRaw('LOWER(details) LIKE ?', ['%'.mb_strtolower($keyword, 'UTF-8').'%'])
+                            ->orWhereHas('user', fn ($userQuery) => KeywordSearch::apply($userQuery, $keyword, ['name']));
+                    });
+                }
             });
         }
 
@@ -98,8 +103,7 @@ class StaffActivityLogController extends Controller
             ->when(! $isInventoryVerification && $request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search')->trim();
                 $query->where(function ($itemQuery) use ($search) {
-                    $itemQuery->where('item_id', 'like', "%{$search}%")
-                        ->orWhere('product_name', 'like', "%{$search}%");
+                    KeywordSearch::apply($itemQuery, $search, ['item_id', 'product_name']);
                 });
             })
             ->orderBy('id')

@@ -6,6 +6,7 @@ use App\Jobs\AssignCatalogToBranch;
 use App\Models\CatalogProduct;
 use App\Models\Product;
 use App\Models\StoreHub;
+use App\Support\KeywordSearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -21,9 +22,7 @@ class CatalogController extends Controller
             default => 'CAST(item_id AS INTEGER)',
         };
         $catalog = CatalogProduct::query()->when($request->filled('search'), function ($query) use ($request) {
-            foreach (preg_split('/\s+/', trim($request->string('search')), -1, PREG_SPLIT_NO_EMPTY) as $word) {
-                $query->where(fn ($q) => $q->where('item_id', 'like', "%{$word}%")->orWhere('name', 'like', "%{$word}%")->orWhere('barcode', 'like', "%{$word}%")->orWhere('brand', 'like', "%{$word}%"));
-            }
+            KeywordSearch::apply($query, $request->string('search')->toString(), ['item_id', 'name', 'barcode', 'brand']);
         })->withCount('branchInventories')
             ->orderByRaw($itemIdNumericExpression)
             ->orderBy('item_id')

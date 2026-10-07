@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\KeywordSearch;
 use App\Models\Product;
 use App\Models\ProductFileRequest;
 use App\Models\StoreHub;
@@ -206,13 +207,7 @@ class PrivateApiController extends Controller
 
         if ($field === 'all') {
             $query->whereHas('catalogProduct', function ($catalog) use ($search) {
-                foreach (preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY) as $word) {
-                    $catalog->where(fn ($builder) => $builder
-                        ->where('name', 'like', "%{$word}%")
-                        ->orWhere('item_id', 'like', "%{$word}%")
-                        ->orWhere('barcode', 'like', "%{$word}%")
-                        ->orWhere('brand', 'like', "%{$word}%"));
-                }
+                KeywordSearch::apply($catalog, $search, ['name', 'item_id', 'barcode', 'brand']);
             });
 
             return;
@@ -220,14 +215,14 @@ class PrivateApiController extends Controller
 
         if ($field === 'item_id' && ctype_digit($search)) {
             $query->where(function ($builder) use ($search) {
-                $builder->whereCatalog('item_id', 'LIKE', "%{$search}%")
+                $builder->whereHas('catalogProduct', fn ($catalog) => KeywordSearch::apply($catalog, $search, ['item_id']))
                     ->orWhere('products.id', (int) $search);
             });
 
             return;
         }
 
-        $query->whereCatalog($field, 'LIKE', "%{$search}%");
+        $query->whereHas('catalogProduct', fn ($catalog) => KeywordSearch::apply($catalog, $search, [$field]));
     }
 
     private function accessibleHubIds($user): array

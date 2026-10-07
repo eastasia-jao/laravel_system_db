@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\KeywordSearch;
 use App\Models\PendingSale;
 use App\Models\Product;
 use App\Models\ProductReplacement;
@@ -880,7 +881,7 @@ class SalesController extends Controller
             ->where('store_hub_id', $hubId)
             ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) = ?", [$channel])
             ->whereNotNull('customer_name')
-            ->when($search !== '', fn ($query) => $query->where('customer_name', 'like', "%{$search}%"))
+            ->when($search !== '', fn ($query) => KeywordSearch::apply($query, $search, ['customer_name']))
             ->orderByDesc('order_date')
             ->orderByDesc('id')
             ->get(['customer_name', 'contact_number', 'address'])

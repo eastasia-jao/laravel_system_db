@@ -8,6 +8,7 @@ use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
 use App\Services\StockAllocationSales;
+use App\Support\KeywordSearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -50,11 +51,7 @@ class StockAllocationController extends Controller
             ->when($request->filled('search'), function ($builder) use ($request) {
                 $search = $request->string('search')->toString();
                 $builder->whereHas('catalogProduct', function ($nested) use ($search) {
-                    $nested->where(function ($nested) use ($search) {
-                    $nested->where('name', 'like', "%{$search}%")
-                        ->orWhere('item_id', 'like', "%{$search}%")
-                        ->orWhere('barcode', 'like', "%{$search}%");
-                    });
+                    KeywordSearch::apply($nested, $search, ['name', 'item_id', 'barcode']);
                 });
             })
             ->when($hasSoldDateRange, function ($builder) use ($soldFrom, $soldTo) {

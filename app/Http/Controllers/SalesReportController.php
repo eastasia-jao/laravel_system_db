@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\KeywordSearch;
 use App\Models\SalesTransaction;
 use App\Models\SalesPaymentRecord;
 use App\Models\StoreHub;
@@ -183,11 +184,7 @@ class SalesReportController extends Controller
             $query->where($reportDateColumn, '<', Carbon::parse($dateTo)->addDay()->toDateString());
         }
         if ($search !== '') {
-            $query->where(function ($builder) use ($search) {
-                $builder->where('customer_name', 'like', "%{$search}%")
-                    ->orWhere('order_number', 'like', "%{$search}%")
-                    ->orWhere('note', 'like', "%{$search}%");
-            });
+            $query->where(fn ($builder) => KeywordSearch::apply($builder, $search, ['customer_name', 'order_number', 'note']));
         }
         $stateCounts = ['all' => 0, 'open' => 0, 'completed' => 0];
         if ($channel === 'wholesale') {

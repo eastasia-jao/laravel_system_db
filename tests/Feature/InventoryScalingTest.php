@@ -83,6 +83,78 @@ class InventoryScalingTest extends TestCase
         $this->assertSame(1, substr_count($paginationText, 'Showing 1 to 10 of 12 results'));
     }
 
+    public function test_product_search_matches_case_insensitive_keywords_across_product_search_surfaces(): void
+    {
+        $hub = StoreHub::create(['name' => 'Search Head Office', 'code' => 'SEARCH-HO', 'is_head_office' => true, 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $hub->id]);
+        $matching = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'RED-75',
+            'name' => 'Amsterdam Expert Acrylic Paint Transparent Red Medium 75 ml',
+            'barcode' => '7500012345',
+            'brand' => 'Amsterdam Expert',
+            'stock' => 10,
+            'status' => 'active',
+        ]);
+        Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'RED-50',
+            'name' => 'Amsterdam Expert Acrylic Paint Transparent Red Medium 50 ml',
+            'stock' => 5,
+            'status' => 'active',
+        ]);
+        Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'BLUE-75',
+            'name' => 'Amsterdam Acrylic Paint Transparent Blue Medium 75 ml',
+            'stock' => 5,
+            'status' => 'active',
+        ]);
+        $this->actingAs($admin);
+        $search = 'eXPeRT 75 ML';
+
+        $this->get(route('products.index', ['hub_id' => $hub->id, 'search' => $search]))
+            ->assertOk()
+            ->assertSee($matching->name)
+            ->assertDontSee('Amsterdam Expert Acrylic Paint Transparent Red Medium 50 ml')
+            ->assertDontSee('Amsterdam Acrylic Paint Transparent Blue Medium 75 ml');
+
+        $this->get(route('products.index', ['hub_id' => $hub->id, 'search' => '75 expert']))
+            ->assertOk()
+            ->assertSee($matching->name)
+            ->assertDontSee('Amsterdam Expert Acrylic Paint Transparent Red Medium 50 ml')
+            ->assertDontSee('Amsterdam Acrylic Paint Transparent Blue Medium 75 ml');
+
+        $this->getJson(route('hub.products.search.ajax', [
+            'hubId' => $hub->id,
+            'q' => $search,
+            'active_only' => 1,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $matching->id);
+
+        $this->get(route('stock-allocation.index', ['hub_id' => $hub->id, 'search' => $search]))
+            ->assertOk()
+            ->assertViewHas('products', fn ($products) => $products->getCollection()->contains('id', $matching->id)
+                && $products->total() === 1);
+
+        $this->get(route('catalog.index', ['hub_id' => $hub->id, 'search' => $search]))
+            ->assertOk()
+            ->assertViewHas('catalog', fn ($catalog) => $catalog->getCollection()->contains('id', $matching->catalog_product_id)
+                && $catalog->total() === 1);
+
+        $this->getJson(route('api.products.search', ['hub_id' => $hub->id, 'q' => $search]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.item_id', 'RED-75');
+
+        $this->getJson(route('api.products.search', ['hub_id' => $hub->id, 'q' => '75 expert']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.item_id', 'RED-75');
+    }
+
     public function test_inventory_staff_store_filter_excludes_all_stores_and_defaults_to_assigned_head_office(): void
     {
         $office = StoreHub::create(['name' => 'Main Warehouse', 'code' => 'HO-STORE', 'is_head_office' => true, 'status' => 'active']);

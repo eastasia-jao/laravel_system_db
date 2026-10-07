@@ -16,6 +16,7 @@ use App\Models\UnitType;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
 use App\Support\CsvIdentifier;
+use App\Support\KeywordSearch;
 use App\Support\ProductExportFilename;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
@@ -105,24 +106,13 @@ class ProductController extends Controller
 
             if ($field === 'all') {
                 $query->whereHas('catalogProduct', function ($catalog) use ($search) {
-                    foreach (preg_split('/\s+/', trim($search), -1, PREG_SPLIT_NO_EMPTY) as $word) {
-                        $catalog->where(fn ($q) => $q->where('name', 'like', "%{$word}%")->orWhere('item_id', 'like', "%{$word}%")->orWhere('barcode', 'like', "%{$word}%")->orWhere('brand', 'like', "%{$word}%"));
-                    }
+                    KeywordSearch::apply($catalog, $search, ['name', 'item_id', 'barcode', 'brand']);
                 });
-            } elseif ($field === 'item_id') {
-                $query->whereCatalog('item_id', 'LIKE', "%{$search}%");
-            } elseif ($field === 'barcode') {
-                $query->whereCatalog('barcode', 'LIKE', "%{$search}%");
-            } elseif ($field === 'brand') {
-                $query->whereCatalog('brand', 'LIKE', "%{$search}%");
-            } elseif ($field === 'retail_group') {
-                $query->whereCatalog('retail_group', 'LIKE', "%{$search}%");
-            } elseif ($field === 'retail_department') {
-                $query->whereCatalog('retail_department', 'LIKE', "%{$search}%");
-            } elseif ($field === 'unit_type') {
-                $query->whereCatalog('unit_type', 'LIKE', "%{$search}%");
             } else {
-                $query->whereCatalog('name', 'LIKE', "%{$search}%");
+                $searchableField = in_array($field, ['item_id', 'barcode', 'brand', 'retail_group', 'retail_department', 'unit_type'], true)
+                    ? $field
+                    : 'name';
+                $query->whereHas('catalogProduct', fn ($catalog) => KeywordSearch::apply($catalog, $search, [$searchableField]));
             }
         }
 
@@ -831,10 +821,10 @@ class ProductController extends Controller
 
         if ($search !== '') {
             if (in_array($field, ['brand', 'retail_group', 'retail_department'], true)) {
-                $query->whereCatalog($field, $search);
+                $query->whereHas('catalogProduct', fn ($catalog) => KeywordSearch::apply($catalog, $search, [$field]));
             } elseif (in_array($field, ['item_id', 'barcode'], true)) {
                 $query->where(function ($builder) use ($field, $search) {
-                    $builder->whereCatalog($field, 'LIKE', "%{$search}%");
+                    $builder->whereHas('catalogProduct', fn ($catalog) => KeywordSearch::apply($catalog, $search, [$field]));
                     if ($field === 'item_id' && ctype_digit((string) $search)) {
                         $builder->orWhere('products.id', (int) $search);
                     }
@@ -845,11 +835,7 @@ class ProductController extends Controller
                     : ['name', 'description'];
                 $query->where(function ($builder) use ($search, $fields) {
                     $builder->whereHas('catalogProduct', function ($catalog) use ($search, $fields) {
-                        $catalog->where(function ($catalog) use ($search, $fields) {
-                            foreach ($fields as $column) {
-                                $catalog->orWhere($column, 'LIKE', "%{$search}%");
-                            }
-                        });
+                        KeywordSearch::apply($catalog, $search, $fields);
                     });
                     if (ctype_digit((string) $search)) {
                         $builder->orWhere('products.id', (int) $search);
