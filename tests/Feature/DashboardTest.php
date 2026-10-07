@@ -203,23 +203,27 @@ class DashboardTest extends TestCase
 
         $singleChannelResponse = $this->actingAs($staff)->get(route('dashboard', ['hub_id' => $hub->id]));
         $singleChannelResponse->assertOk()
-            ->assertSee('id="dashboardChannel"', false)
-            ->assertSee('value="online" selected', false);
-        $this->assertMatchesRegularExpression(
-            '/<select name="channel" id="dashboardChannel"[^>]*\sdisabled(?:\s|>)/',
-            $singleChannelResponse->getContent()
-        );
+            ->assertDontSee('id="dashboardChannel"', false);
+        $this->assertSame(['online'], $singleChannelResponse->viewData('dashboardChannelOptions')->all());
 
-        $staff->sales_channels = ['online', 'wholesale'];
+        $staff->sales_channels = ['online', 'wholesale', 'fully_booked'];
         $staff->save();
 
         $multipleChannelResponse = $this->get(route('dashboard', ['hub_id' => $hub->id]));
         $multipleChannelResponse->assertOk()
+            ->assertSee('id="dashboardChannel"', false)
+            ->assertSee('value="online" selected', false)
+            ->assertSee('value="wholesale"', false)
+            ->assertDontSee('value="fully_booked"', false)
             ->assertSee('onchange="submitDashboardFilters(this.form)"', false);
-        $this->assertDoesNotMatchRegularExpression(
-            '/<select name="channel" id="dashboardChannel"[^>]*\sdisabled(?:\s|>)/',
-            $multipleChannelResponse->getContent()
-        );
+        $this->assertSame(['online', 'wholesale'], $multipleChannelResponse->viewData('dashboardChannelOptions')->all());
+
+        $selectedChannelResponse = $this->get(route('dashboard', [
+            'hub_id' => $hub->id,
+            'channel' => 'wholesale',
+        ]));
+        $selectedChannelResponse->assertOk()->assertSee('value="wholesale" selected', false);
+        $this->assertSame('wholesale', $selectedChannelResponse->viewData('dashboardChannel'));
     }
 
     public function test_marketing_staff_with_no_assigned_channels_cannot_view_any_channel_data(): void

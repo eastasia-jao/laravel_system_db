@@ -153,10 +153,10 @@
                 </select>
                 @endif
             </div>
-            @if(auth()->user()?->role === 'sales_marketing_staff' && $dashboardChannelOptions->isNotEmpty())
+            @if($isMarketingDashboard && $dashboardChannelOptions->count() > 1)
             <div class="col-12 col-md-4 {{ $isMarketingDashboard ? 'col-xl-2' : 'col-xl-3' }}">
                 <label for="dashboardChannel" class="form-label filter-title mb-1">Sales channel</label>
-                <select name="channel" id="dashboardChannel" class="form-select" @disabled($dashboardChannelOptions->count() === 1) onchange="submitDashboardFilters(this.form)">
+                <select name="channel" id="dashboardChannel" class="form-select" onchange="submitDashboardFilters(this.form)">
                     @foreach($dashboardChannelOptions as $channelOption)
                         <option value="{{ $channelOption }}" @selected($dashboardChannel === $channelOption)>{{ ['shopee' => 'Shopee', 'lazada' => 'Lazada', 'tiktok' => 'TikTok', 'online' => 'Online', 'wholesale' => 'Wholesale', 'walk_in' => 'Walk-In'][$channelOption] }}</option>
                     @endforeach
