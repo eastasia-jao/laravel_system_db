@@ -407,16 +407,22 @@ class SalesReportController extends Controller
             'customer_refund_amount' => $allTransactions->sum(fn ($transaction) => $transaction->completedCustomerRefunds()),
             'pending_payouts' => $allTransactions->whereNull('sales_after_transaction_fee')->count(),
             'proof_amount' => $allTransactions->sum('proof_amount'),
-            'difference' => $allTransactions->sum(function ($transaction) use ($resolveTotal, $replacementDeliveryFee) {
+            'difference' => $allTransactions->sum(function ($transaction) use ($channel, $resolveTotal, $replacementDeliveryFee) {
                 if ($transaction->proof_amount === null) {
                     return 0;
                 }
 
-                $saleAmount = (float) ($transaction->sub_total ?: $resolveTotal($transaction));
+                $subtotal = $channel === 'online'
+                    ? $transaction->netOrderTotal((float) ($transaction->sub_total ?: $transaction->items->sum('line_total')))
+                    : (float) ($transaction->sub_total ?: $resolveTotal($transaction));
+                $shippingFee = $channel === 'online' ? (float) $transaction->shipping_fee_amount : 0.0;
+                $replacementShippingFee = $channel === 'online' ? $replacementDeliveryFee($transaction) : 0.0;
+                $saleShippingFee = max(0, $shippingFee - $replacementShippingFee);
 
                 return (float) $transaction->proof_amount
-                    - $saleAmount
-                    - $replacementDeliveryFee($transaction);
+                    - $subtotal
+                    - $saleShippingFee
+                    - $replacementShippingFee;
             }),
             'replacement_count' => $replacementCount,
             'return_count' => $returnCount,

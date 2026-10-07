@@ -68,10 +68,13 @@
                         $replacementDeliveryFee = (float) $saleReplacements
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
+                        $shippingFee = (float) $transaction->shipping_fee_amount;
+                        $saleShippingFee = max(0, $shippingFee - $replacementDeliveryFee);
                         $difference = $transaction->proof_amount === null
                             ? null
                             : (float) $transaction->proof_amount
-                                - (float) ($transaction->sub_total ?: $saleAmount)
+                                - $saleAmount
+                                - $saleShippingFee
                                 - $replacementDeliveryFee;
                     @endphp
                     <div class="col-12">
@@ -97,12 +100,15 @@
                             </div>
                             <div class="card-body p-3">
                                 <div class="row g-3">
-                                    <div class="col-6 col-md-2"><div class="order-label">Sale amount</div><div class="order-value">₱{{ number_format($saleAmount, 2) }}</div></div>
-                                    <div class="col-6 col-md-2"><div class="order-label">Shipping fee</div><div class="order-value">₱{{ number_format($transaction->shipping_fee_amount, 2) }}</div></div>
+                                    <div class="col-6 col-md-2"><div class="order-label">Product subtotal</div><div class="order-value">₱{{ number_format($saleAmount, 2) }}</div><div class="small text-muted">Sale amount after returns</div></div>
+                                    <div class="col-6 col-md-2"><div class="order-label">Shipping fee</div><div class="order-value">₱{{ number_format($shippingFee, 2) }}</div><div class="small text-muted">Sale ₱{{ number_format($saleShippingFee, 2) }} + replacement ₱{{ number_format($replacementDeliveryFee, 2) }}</div></div>
                                     <div class="col-6 col-md-2"><div class="order-label">Proof amount</div><div class="order-value">{{ $transaction->proof_amount !== null ? '₱'.number_format($transaction->proof_amount, 2) : 'Not entered' }}</div></div>
                                     <div class="col-6 col-md-2">
                                         <div class="order-label">Difference</div>
                                         <div class="order-value {{ $difference !== null && abs($difference) >= 0.01 ? 'text-danger' : 'text-success' }}">{{ $difference !== null ? '₱'.number_format($difference, 2) : '—' }}</div>
+                                        @if($difference !== null)
+                                            <div class="small text-muted">Proof − subtotal − sale shipping − replacement shipping</div>
+                                        @endif
                                     </div>
                                     <div class="col-12 col-md-2"><div class="order-label">Remarks</div><div class="order-value">{{ $transaction->note ?: '—' }}</div></div>
                                     <div class="col-12 col-md-2">
@@ -184,34 +190,19 @@
 
 @foreach($transactions as $transaction)
     @php
-        $detailBaseSubtotal = (float) ($transaction->sub_total ?: $transaction->items->sum('line_total'));
-        $detailReturnDeduction = $transaction->items->sum(function ($item) {
-            $quantity = max(1, (int) $item->quantity);
-            $approvedReplacementQuantity = min(
-                $item->returnedQuantity(),
-                (int) $item->replacements->where('status', 'approved')->sum('quantity')
-            );
-            $unreplacedReturnedQuantity = max(0, $item->returnedQuantity() - $approvedReplacementQuantity);
-            $unreplacedReturnAmount = round((float) $item->line_total * ($unreplacedReturnedQuantity / $quantity), 2);
-
-            return max($unreplacedReturnAmount, $item->refundCostAmount());
-        });
-        $unlinkedReturnRefund = (float) $transaction->inventoryReturns
-            ->whereNull('transaction_item_id')
-            ->sum('refund_amount');
-        $detailReturnDeduction = max($detailReturnDeduction, $unlinkedReturnRefund);
-        $detailSaleAmount = max(0, $detailBaseSubtotal - $detailReturnDeduction);
+        $detailSaleAmount = $transaction->netOrderTotal((float) ($transaction->sub_total ?: $transaction->items->sum('line_total')));
         $detailShippingFee = (float) $transaction->shipping_fee_amount;
-        $detailBaseTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: ($detailBaseSubtotal + $detailShippingFee));
-        $detailOrderTotal = max(0, $detailBaseTotal - $detailReturnDeduction);
+        $detailOrderTotal = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->total_amount ?: ($detailSaleAmount + $detailShippingFee)));
         $detailProofAmount = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount;
         $detailReplacementDeliveryFee = (float) $transaction->items
             ->flatMap(fn ($item) => $item->replacements)
             ->where('status', 'approved')
             ->sum('replacement_shipping_fee_amount');
+        $detailSaleShippingFee = max(0, $detailShippingFee - $detailReplacementDeliveryFee);
+        $detailReconciledAmount = $detailSaleAmount + $detailSaleShippingFee + $detailReplacementDeliveryFee;
         $detailDifference = $detailProofAmount === null
             ? null
-            : $detailProofAmount - (float) ($transaction->sub_total ?: $detailSaleAmount) - $detailReplacementDeliveryFee;
+            : $detailProofAmount - $detailReconciledAmount;
         $detailRefundTotal = $transaction->items->sum(fn ($item) => $item->refundCostAmount())
             + $transaction->inventoryReturns->whereNull('transaction_item_id')->sum('refund_amount');
         $detailPaymentLabel = strtoupper($transaction->mode_of_payment ?: 'Unspecified');
@@ -237,10 +228,20 @@
                         </div>
                         <div class="col-12 col-lg-6">
                             <div class="row g-3 h-100">
-                                <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Product subtotal</div><div class="fs-5 fw-bold">₱{{ number_format($detailSaleAmount, 2) }}</div></div></div>
-                                <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Shipping fee</div><div class="fs-5 fw-bold">₱{{ number_format($detailShippingFee, 2) }}</div></div></div>
-                                <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Total cost</div><div class="fs-5 fw-bold text-success">₱{{ number_format($detailOrderTotal, 2) }}</div></div></div>
-                                <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Return/refund cost</div><div class="fs-5 fw-bold text-danger">₱{{ number_format($detailRefundTotal, 2) }}</div></div></div>
+                                <div class="col-12">
+                                    <div class="rounded border p-3 h-100">
+                                        <h6 class="fw-bold mb-3">Proof amount breakdown</h6>
+                                        <div class="d-flex justify-content-between gap-3"><span>Product subtotal <small class="text-muted">(sale amount after returns)</small></span><strong>₱{{ number_format($detailSaleAmount, 2) }}</strong></div>
+                                        <div class="d-flex justify-content-between gap-3 mt-2"><span>Sale shipping fee</span><strong>+ ₱{{ number_format($detailSaleShippingFee, 2) }}</strong></div>
+                                        <div class="d-flex justify-content-between gap-3 mt-2"><span>Replacement shipping fee <small class="text-muted">(custom only; free delivery is ₱0)</small></span><strong>+ ₱{{ number_format($detailReplacementDeliveryFee, 2) }}</strong></div>
+                                        <hr class="my-2">
+                                        <div class="d-flex justify-content-between gap-3"><span>Expected total <small class="text-muted">(subtotal + shipping fees)</small></span><strong>₱{{ number_format($detailReconciledAmount, 2) }}</strong></div>
+                                        <div class="d-flex justify-content-between gap-3 mt-2"><span>Proof / received amount</span><strong>₱{{ $detailProofAmount !== null ? number_format($detailProofAmount, 2) : 'Not entered' }}</strong></div>
+                                        <div class="d-flex justify-content-between gap-3 mt-2 {{ $detailDifference !== null && abs($detailDifference) >= 0.01 ? 'text-danger' : 'text-success' }}"><span class="fw-bold">Difference <small>(proof − expected total)</small></span><strong>{{ $detailDifference !== null ? '₱'.number_format($detailDifference, 2) : '—' }}</strong></div>
+                                        <div class="d-flex justify-content-between gap-3 mt-3 pt-2 border-top"><span>Total cost <small class="text-muted">(after returns)</small></span><strong class="text-success">₱{{ number_format($detailOrderTotal, 2) }}</strong></div>
+                                        <div class="d-flex justify-content-between gap-3 mt-2"><span>Return/refund cost</span><strong class="text-danger">₱{{ number_format($detailRefundTotal, 2) }}</strong></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
