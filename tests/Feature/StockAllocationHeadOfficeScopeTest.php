@@ -26,13 +26,28 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         $response->assertOk()
             ->assertSee('HEAD OFFICE')
             ->assertSee('Head Office Item')
-            ->assertDontSee('Branch Item');
+            ->assertDontSee('Branch Item')
+            ->assertSee('name="hub_id" value="'.$headOffice->id.'"', false)
+            ->assertViewHas('hub', fn ($hub) => $hub?->id === $headOffice->id);
         preg_match('/<select name="hub_id".*?<\/select>/s', $response->getContent(), $selector);
-        $this->assertNotEmpty($selector);
-        $this->assertStringContainsString('<option value="'.$headOffice->id.'"', $selector[0]);
-        $this->assertStringNotContainsString('<option value="'.$branch->id.'"', $selector[0]);
+        $this->assertEmpty($selector);
         $this->assertSame([$headOffice->id], $response->viewData('allocationHubs')->modelKeys());
         $this->assertSame([$headOffice->id], $response->viewData('products')->getCollection()->pluck('store_hub_id')->unique()->all());
+    }
+
+    public function test_stock_allocation_shows_hub_selector_when_multiple_head_offices_exist(): void
+    {
+        StoreHub::create(['name' => 'First Head Office', 'code' => 'HO-FIRST', 'status' => 'active', 'is_head_office' => true]);
+        StoreHub::create(['name' => 'Second Head Office', 'code' => 'HO-SECOND', 'status' => 'active', 'is_head_office' => true]);
+
+        $response = $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('stock-allocation.index'));
+
+        $response->assertOk()
+            ->assertSee('<select name="hub_id"', false)
+            ->assertSee('FIRST HEAD OFFICE')
+            ->assertSee('SECOND HEAD OFFICE')
+            ->assertSee('<option value="">All stores</option>', false);
     }
 
     public function test_non_head_office_hub_cannot_be_opened_in_stock_allocations(): void

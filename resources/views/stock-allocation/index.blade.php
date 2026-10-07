@@ -77,17 +77,19 @@
 
     <div class="card workspace-card p-3 mb-4">
         <form method="GET" action="{{ route('stock-allocation.index') }}" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label class="small text-muted fw-bold"><i class="fa-solid fa-store me-1"></i>STORE HUB</label>
-                <select name="hub_id" class="form-select" onchange="this.form.submit()">
-                    @if($allocationHubs->count() > 1)
+            @if($allocationHubs->count() > 1)
+                <div class="col-md-3">
+                    <label class="small text-muted fw-bold"><i class="fa-solid fa-store me-1"></i>STORE HUB</label>
+                    <select name="hub_id" class="form-select" onchange="this.form.submit()">
                         <option value="">All stores</option>
-                    @endif
-                    @foreach($allocationHubs as $storeHub)
-                        <option value="{{ $storeHub->id }}" @selected($hub?->id === $storeHub->id)>{{ strtoupper($storeHub->name) }}</option>
-                    @endforeach
-                </select>
-            </div>
+                        @foreach($allocationHubs as $storeHub)
+                            <option value="{{ $storeHub->id }}" @selected($hub?->id === $storeHub->id)>{{ strtoupper($storeHub->name) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @elseif($hub)
+                <input type="hidden" name="hub_id" value="{{ $hub->id }}">
+            @endif
             <div class="col-md-3">
                 <label class="small text-muted fw-bold"><i class="fa-solid fa-magnifying-glass me-1"></i>SEARCH PRODUCTS</label>
                 <input name="search" value="{{ request('search') }}" class="form-control" placeholder="Product name, item ID, or barcode">

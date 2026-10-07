@@ -358,10 +358,17 @@
                                             <span class="badge text-bg-info">RETURN ITEMS</span>
                                         </div>
                                     </div>
+                                    @php
+                                        $returnChannel = strtolower(str_replace(['-', ' '], '_', (string) ($transaction->salesTransaction?->channel_type ?? $transaction->channel ?? '')));
+                                        $showReturnRefund = ! $isFullyBookedGroup
+                                            && ! in_array($returnChannel, ['shopee', 'lazada', 'tiktok', 'fully_booked'], true);
+                                    @endphp
                                     <div class="row g-2 mb-3">
-                                        <div class="col-md-4"><div class="return-detail-kpi good"><div class="small text-muted">Good quantity</div><div class="value">{{ $group->where('condition', 'good')->sum('quantity') }}</div></div></div>
-                                        <div class="col-md-4"><div class="return-detail-kpi damaged"><div class="small text-muted">Damaged quantity</div><div class="value">{{ $group->where('condition', 'damaged')->sum('quantity') }}</div></div></div>
-                                        <div class="col-md-4"><div class="return-detail-kpi refund"><div class="small text-muted">Refund total</div><div class="value">₱{{ number_format($group->sum('refund_amount'), 2) }}</div></div></div>
+                                        <div class="{{ $showReturnRefund ? 'col-md-4' : 'col-md-6' }}"><div class="return-detail-kpi good"><div class="small text-muted">Good quantity</div><div class="value">{{ $group->where('condition', 'good')->sum('quantity') }}</div></div></div>
+                                        <div class="{{ $showReturnRefund ? 'col-md-4' : 'col-md-6' }}"><div class="return-detail-kpi damaged"><div class="small text-muted">Damaged quantity</div><div class="value">{{ $group->where('condition', 'damaged')->sum('quantity') }}</div></div></div>
+                                        @if($showReturnRefund)
+                                            <div class="col-md-4"><div class="return-detail-kpi refund"><div class="small text-muted">Refund total</div><div class="value">₱{{ number_format($group->sum('refund_amount'), 2) }}</div></div></div>
+                                        @endif
                                     </div>
                                 </div>
                                 @if($canPreviewFullyBookedReturn)
@@ -577,6 +584,7 @@
                                     </div>
                                 @elseif($isReturnGroup)
                                     <div class="col-12">
+                                        <div class="text-uppercase small fw-bold text-primary mb-2">Return record</div>
                                         <div class="row g-2">
                                             <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Date</div><strong>{{ $transaction->occurred_on->format('M d, Y') }}</strong></div></div>
                                             <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Recorded by</div><strong>{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</strong></div></div>

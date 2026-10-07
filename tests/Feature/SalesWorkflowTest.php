@@ -165,6 +165,42 @@ class SalesWorkflowTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_marketplace_order_pages_have_bottom_left_results_and_bottom_right_numeric_pagination(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Marketplace Pagination Head Office',
+            'code' => 'MARKET-PAGINATION',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        foreach (['shopee', 'lazada', 'tiktok'] as $channel) {
+            foreach (range(1, 16) as $number) {
+                SalesTransaction::create([
+                    'user_id' => $admin->id,
+                    'store_hub_id' => $hub->id,
+                    'channel_type' => $channel,
+                    'order_number' => strtoupper($channel).'-PAGE-'.$number,
+                    'customer_name' => 'Pagination Customer',
+                    'order_date' => '2026-10-06',
+                    'status' => 'confirmed',
+                ]);
+            }
+
+            $response = $this->actingAs($admin)->get(route('hub.marketplace-orders', [
+                'hub' => $hub->id,
+                'channel' => $channel,
+            ]));
+            $response->assertOk()
+                ->assertSee('Showing')
+                ->assertSee('of')
+                ->assertSee('results')
+                ->assertViewHas('orders', fn ($orders) => $orders->total() === 16 && $orders->hasPages())
+                ->assertSee('aria-label="Pagination Navigation"', false)
+                ->assertSee('page=2', false);
+        }
+    }
+
     public function test_shopee_and_lazada_generate_invoice_numbers_when_left_blank(): void
     {
         $hub = StoreHub::create([

@@ -300,6 +300,59 @@ class TransactionBulkTest extends TestCase
         }
     }
 
+    public function test_return_order_details_hide_refund_total_for_marketplace_tiktok_and_fully_booked_channels(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
+        $hub = StoreHub::create(['name' => 'Returns Log', 'code' => 'RETURNS-LOG', 'status' => 'active', 'is_head_office' => true]);
+        $product = Product::create([
+            'name' => 'Return log item',
+            'item_id' => 'RETURN-LOG-ITEM',
+            'store_hub_id' => $hub->id,
+            'stock' => 0,
+            'status' => 'active',
+        ]);
+
+        foreach (['shopee', 'lazada', 'tiktok', 'fully_booked'] as $channel) {
+            $sale = SalesTransaction::create([
+                'store_hub_id' => $hub->id,
+                'channel_type' => $channel,
+                'status' => 'confirmed',
+                'order_date' => '2026-10-06',
+                'order_number' => strtoupper($channel).'-RETURN-LOG',
+                'customer_name' => 'Return log customer',
+            ]);
+            $item = $sale->items()->create([
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+                'line_total' => 100,
+            ]);
+            InventoryTransaction::create([
+                'type' => 'return',
+                'reference' => $sale->order_number,
+                'store_hub_id' => $hub->id,
+                'product_id' => $product->id,
+                'sales_transaction_id' => $sale->id,
+                'transaction_item_id' => $item->id,
+                'channel' => $channel,
+                'quantity' => 1,
+                'condition' => 'good',
+                'refund_amount' => 50,
+                'occurred_on' => '2026-10-06',
+                'created_by' => $admin->id,
+            ]);
+        }
+
+        $response = $this->get(route('inventory-transactions.index', [
+            'hub_id' => $hub->id,
+            'type' => 'return',
+        ]))->assertOk();
+
+        $response->assertSee('Return Order Details')
+            ->assertDontSee('Refund total');
+    }
+
     public function test_tiktok_returns_do_not_create_automatic_refunds(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

@@ -186,8 +186,8 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('TikTok Order #')
             ->assertSee('Customer name')
             ->assertSee('Return summary')
-            ->assertDontSee('Notes')
-            ->assertDontSee('Inventory checked and returned to stock.')
+            ->assertSee('Return notes')
+            ->assertSee('Inventory checked and returned to stock.')
             ->assertSee('View return items')
             ->assertSee('data-bs-target="#return-items-modal-'.$sale->id.'"', false)
             ->assertSee('id="return-items-modal-'.$sale->id.'"', false)
@@ -333,18 +333,57 @@ class TikTokReturnsTest extends TestCase
                 'quantity' => 1,
                 'condition' => 'good',
                 'occurred_on' => '2026-09-09',
+                'notes' => ucfirst($channel).' inventory return note',
                 'created_by' => $admin->id,
             ]);
+            for ($number = 1; $number <= 20; $number++) {
+                $additionalSale = SalesTransaction::create([
+                    'store_hub_id' => $hub->id,
+                    'channel_type' => $channel,
+                    'order_date' => '2026-09-08',
+                    'order_number' => strtoupper($channel).'-PAGE-'.$number,
+                    'customer_name' => 'Pagination Customer',
+                ]);
+                $additionalItem = $additionalSale->items()->create([
+                    'product_id' => $returnedProduct->id,
+                    'quantity' => 1,
+                    'unit_price' => 100,
+                    'line_total' => 100,
+                ]);
+                InventoryTransaction::create([
+                    'type' => 'return',
+                    'reference' => $additionalSale->order_number,
+                    'store_hub_id' => $hub->id,
+                    'product_id' => $returnedProduct->id,
+                    'sales_transaction_id' => $additionalSale->id,
+                    'transaction_item_id' => $additionalItem->id,
+                    'channel' => $channel,
+                    'quantity' => 1,
+                    'condition' => 'good',
+                    'occurred_on' => '2026-09-09',
+                    'created_by' => $admin->id,
+                ]);
+            }
 
             $url = $channel === 'tiktok'
                 ? route('hub.tiktok-returns', $hub->id)
                 : route('hub.marketplace-returns', ['hub' => $hub->id, 'channel' => $channel]);
             $this->get($url)
                 ->assertOk()
-                ->assertSee(strtoupper($channel).'-WITH-RETURN')
                 ->assertSee(ucfirst($channel).' returned product')
                 ->assertDontSee(strtoupper($channel).'-NO-RETURN')
-                ->assertDontSee(ucfirst($channel).' unreturned product');
+                ->assertDontSee(ucfirst($channel).' unreturned product')
+                ->assertSee('Showing')
+                ->assertSee('aria-label="Pagination Navigation"', false)
+                ->assertViewHas('transactions', fn ($transactions) => $transactions->total() === 21 && $transactions->hasPages());
+
+            $pageTwoUrl = $channel === 'tiktok'
+                ? route('hub.tiktok-returns', ['hub' => $hub->id, 'page' => 2])
+                : route('hub.marketplace-returns', ['hub' => $hub->id, 'channel' => $channel, 'page' => 2]);
+            $this->get($pageTwoUrl)
+                ->assertOk()
+                ->assertSee(strtoupper($channel).'-WITH-RETURN')
+                ->assertSee(ucfirst($channel).' inventory return note');
         }
     }
 }

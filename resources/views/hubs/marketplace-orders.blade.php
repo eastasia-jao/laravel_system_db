@@ -93,11 +93,9 @@
                     </div>
                 </div>
             @endforeach
-            @if($orders->hasPages())
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                    {{ $orders->links() }}
-                </div>
-            @endif
+            <div class="mt-3">
+                {{ $orders->links('vendor.pagination.bootstrap-5') }}
+            </div>
         @endif
     </section>
 </div>

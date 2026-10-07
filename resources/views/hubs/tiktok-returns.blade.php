@@ -66,6 +66,7 @@
                                     @else
                                         @if($goodReturned > 0)<span class="badge text-bg-success me-1">Good: {{ $goodReturned }}</span>@endif
                                         @if($badReturned > 0)<span class="badge text-bg-danger me-1">Bad: {{ $badReturned }}</span>@endif
+                                        @if($goodReturned === 0 && $badReturned === 0)<span class="badge text-bg-secondary">Returned: {{ $totalReturned }}</span>@endif
                                     @endif
                                 </td>
                                 <td class="text-end pe-3">
@@ -134,6 +135,21 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                @php
+                                    $returnNotes = $returnedItems
+                                        ->flatMap(fn ($item) => $item->inventoryReturns->where('quantity', '>', 0)->pluck('notes'))
+                                        ->filter(fn ($note) => filled($note))
+                                        ->unique()
+                                        ->values();
+                                @endphp
+                                <div class="border rounded-3 p-3 mt-3">
+                                    <div class="small fw-bold text-muted text-uppercase mb-1">Return notes</div>
+                                    @forelse($returnNotes as $note)
+                                        <p class="mb-1">{{ $note }}</p>
+                                    @empty
+                                        <span class="text-muted">No notes recorded.</span>
+                                    @endforelse
+                                </div>
                             @endif
                         </div>
                         <div class="modal-footer">
@@ -147,6 +163,6 @@
         <div class="alert alert-info">No {{ $channel }} orders found for this Hub and date range.</div>
     @endif
 
-    <div class="mt-4">{{ $transactions->links() }}</div>
+    <div class="mt-4">{{ $transactions->links('vendor.pagination.bootstrap-5') }}</div>
 </div>
 @endsection
