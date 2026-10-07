@@ -102,11 +102,7 @@
                             <div class="col-md-5">
                                 <div class="meta-label">Release to customer</div>
                                 @if($replacementChannel === 'online')
-                                    <button type="button" class="btn btn-sm {{ $exchangeStockReady ? 'btn-outline-success' : 'btn-outline-warning' }} fw-bold mt-2"
-                                            data-bs-toggle="modal" data-bs-target="#onlineReplacementInventory{{ $replacement->id }}">
-                                        <i class="fa-solid fa-list-check me-1"></i> Review Inventory ({{ $exchangeLines->count() }})
-                                    </button>
-                                    <div class="small text-muted mt-1">Review replacement items, stock, and totals.</div>
+                                    <div class="small text-muted mt-2">Replacement items, stock, and totals are available in the inventory review.</div>
                                 @else
                                     @foreach($exchangeLines as $line)
                                         <div class="border rounded-3 p-2 mt-2">
@@ -154,9 +150,16 @@
                             </div>
                         @endif
                         <div class="d-flex justify-content-end gap-2 mt-3">
-                            <form method="POST" action="{{ route('wholesale-replacements.approve', $replacement->id) }}">@csrf
-                                <button class="btn btn-sm btn-success" @disabled(!$exchangeStockReady || !$exchangeReturnReady)><i class="fa-solid fa-check me-1"></i>Verify & Apply</button>
-                            </form>
+                            @if($replacementChannel === 'online')
+                                <button type="button" class="btn btn-sm btn-warning fw-bold"
+                                        data-bs-toggle="modal" data-bs-target="#onlineReplacementInventory{{ $replacement->id }}">
+                                    <i class="fa-solid fa-list-check me-1"></i> Review Inventory ({{ $exchangeLines->count() }})
+                                </button>
+                            @else
+                                <form method="POST" action="{{ route('wholesale-replacements.approve', $replacement->id) }}">@csrf
+                                    <button class="btn btn-sm btn-success" @disabled(!$exchangeStockReady || !$exchangeReturnReady)><i class="fa-solid fa-check me-1"></i>Verify & Apply</button>
+                                </form>
+                            @endif
                             <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectReplacement{{ $replacement->id }}">Reject</button>
                         </div>
                         @if(!$exchangeReturnReady)
