@@ -298,7 +298,7 @@
                                 </ul>
                             </div>
                             <div class="mt-auto pt-3 border-top">
-                                <div class="pagination-wrapper">
+                                <div class="pagination-wrapper w-100">
                                     @if(method_exists($departments, 'appends'))
                                         {{ $departments->appends(['tab' => 'retail'])->onEachSide(0)->links() }}
                                     @endif
@@ -342,7 +342,7 @@
                                 </ul>
                             </div>
                             <div class="mt-auto pt-3 border-top">
-                                <div class="pagination-wrapper">
+                                <div class="pagination-wrapper w-100">
                                     @if(method_exists($groups, 'appends'))
                                         {{ $groups->appends(['tab' => 'retail'])->onEachSide(0)->links() }}
                                     @endif

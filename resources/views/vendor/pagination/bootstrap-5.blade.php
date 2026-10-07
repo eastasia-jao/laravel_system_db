@@ -1,4 +1,4 @@
-<nav class="d-flex flex-wrap justify-content-between align-items-center gap-2 pagination-summary" aria-label="{{ __('Pagination Navigation') }}">
+<nav class="d-flex flex-wrap justify-content-between align-items-center gap-2 w-100 pagination-summary" aria-label="{{ __('Pagination Navigation') }}">
     <p class="small text-muted mb-0">
         {{ __('Showing') }}
         <span class="fw-semibold">{{ $paginator->firstItem() ?? 0 }}</span>

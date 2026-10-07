@@ -73,6 +73,8 @@ class InventoryScalingTest extends TestCase
         $response = $this->actingAs($admin)->get(route('products.index', ['hub_id' => $hub->id]));
 
         $response->assertOk();
+        $response->assertSee('class="mt-4 pt-3 border-top"', false)
+            ->assertSee('w-100 pagination-summary', false);
         $this->assertSame(
             ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
             $response->viewData('products')->getCollection()->pluck('item_id')->all()
