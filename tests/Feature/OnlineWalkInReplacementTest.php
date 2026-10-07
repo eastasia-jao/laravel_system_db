@@ -139,17 +139,13 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Replacement: APPROVED')
             ->assertSee('Online Replacement')
             ->assertSee('ONLINE-ORDER')
-            ->assertSee('Proof amount breakdown')
-            ->assertSee('Sale shipping fee')
-            ->assertSee('Replacement shipping fee')
-            ->assertSee('custom only; free delivery is ₱0')
-            ->assertSee('+ ₱15.00')
-            ->assertSee('>₱120.00</strong>', false)
+            ->assertDontSee('Proof amount breakdown')
+            ->assertSee('Includes ₱15.00 replacement shipping')
             ->assertSee('class="text-center fw-semibold">1</td>', false)
             ->assertSee('class="text-end fw-bold">₱100.00</td>', false);
         $this->assertSame(1, $report->viewData('totalTransactions'));
         $this->assertSame(135.0, (float) $report->viewData('metrics')['total_sales']);
-        $this->assertSame(100.0, (float) $report->viewData('metrics')['difference']);
+        $this->assertSame(15.0, (float) $report->viewData('metrics')['difference']);
         $this->assertSame(1, (int) $report->viewData('metrics')['replacement_count']);
         $this->assertDatabaseCount('sales_transactions', 1);
     }
@@ -197,9 +193,8 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->assertSame('100.00', $sale->fresh()->grand_total);
         $report = $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
             ->assertOk()
-            ->assertSee('Replacement shipping fee')
-            ->assertSee('+ ₱0.00');
-        $this->assertSame(100.0, (float) $report->viewData('metrics')['difference']);
+            ->assertDontSee('Includes ₱0.00 replacement shipping');
+        $this->assertSame(20.0, (float) $report->viewData('metrics')['difference']);
         $this->assertDatabaseCount('sales_payment_records', 0);
     }
 
