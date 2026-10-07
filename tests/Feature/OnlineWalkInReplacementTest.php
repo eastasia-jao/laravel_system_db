@@ -49,7 +49,8 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
             ->assertOk()
             ->assertDontSee('data-replacement-target="#online-replacement-', false)
-            ->assertSee('Unavailable');
+            ->assertSee('Available after inventory receives the returned item')
+            ->assertSee('<button type="button" class="btn btn-sm btn-outline-success" disabled title="Available after inventory receives the returned item"', false);
 
         $original->increment('stock');
         $original->stockAllocation->increment('online');
@@ -69,6 +70,7 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
             ->assertOk()
             ->assertSee('online-replace-button', false)
+            ->assertDontSee('aria-label="Close order details"', false)
             ->assertSee('Search by Item ID, barcode, or product name')
             ->assertSee('Exchange calculation')
             ->assertSee('name="exchange_payment_amount"', false);
@@ -398,6 +400,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Custom amount')
             ->assertSee('Order Date')
             ->assertSee('Order ID')
+            ->assertDontSee('aria-label="Close order"', false)
+            ->assertDontSee('Amount required from customer')
             ->assertSee('Customer Name')
             ->assertSee('Payment')
             ->assertSee('Action')
@@ -589,7 +593,7 @@ class OnlineWalkInReplacementTest extends TestCase
             $sale = SalesTransaction::where('order_number', strtoupper($channel).'-LIVE-BALANCE')->sole();
             $item = $sale->items()->sole();
 
-            if ($channel === 'online') {
+            if (in_array($channel, ['online', 'wholesale'], true)) {
                 $original->increment('stock');
                 $original->stockAllocation->increment($channel);
                 InventoryTransaction::create([
@@ -630,7 +634,7 @@ class OnlineWalkInReplacementTest extends TestCase
                     ->assertDontSee('One or more exchange products do not have enough allocated Wholesale stock.');
                 $replacement->stockAllocation->update(['wholesale' => 10]);
             }
-            if ($channel !== 'online') {
+            if (in_array($channel, ['walk_in', 'tiktok'], true)) {
                 $original->increment('stock');
                 $original->stockAllocation->increment($channel);
                 InventoryTransaction::create([

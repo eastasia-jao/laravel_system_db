@@ -74,6 +74,10 @@ class WholesalePaymentTest extends TestCase
 
         $url = route('hub.report.wholesale.replace', [$hub->id, $sale->id, $item->id]);
         $reportUrl = route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']);
+        $this->actingAs($user)->get($reportUrl)
+            ->assertOk()
+            ->assertSee('Available after inventory receives the returned item')
+            ->assertSee('<button type="button" class="btn btn-outline-success btn-sm mt-2" disabled title="Available after inventory receives the returned item"', false);
         $this->actingAs($user)->from($reportUrl)->post($url, [
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
@@ -81,21 +85,7 @@ class WholesalePaymentTest extends TestCase
             'exchange_payment_amount' => 140,
             'exchange_payment_method' => 'CASH',
             'reason' => 'Customer requested a different item.',
-        ])->assertRedirect($reportUrl)->assertSessionHasNoErrors()->assertSessionHas('success');
-        $this->get($reportUrl)
-            ->assertOk()
-            ->assertSee('Replacement request submitted', false)
-            ->assertSee('No stock or order total has changed yet.', false);
-
-        $this->assertSame(3, $original->fresh()->stock);
-        $this->assertSame(5, $replacement->fresh()->stock);
-        $this->assertSame(1, ProductReplacement::where('transaction_item_id', $item->id)->sum('quantity'));
-        $request = ProductReplacement::where('transaction_item_id', $item->id)->sole();
-        $this->assertSame('pending', $request->status);
-        $this->assertSame(0, InventoryTransaction::whereIn('type', ['replacement_return', 'replacement_out'])->count());
-        $this->assertSame('200.00', $sale->fresh()->grand_total);
-        $this->actingAs($user)->get(route('sales.pending'))
-            ->assertOk()->assertSee('EXCHANGE AWAITING VERIFICATION')->assertSee('Replacement Item');
+        ])->assertRedirect($reportUrl)->assertSessionHasErrors('quantity');
 
         $original->increment('stock');
         InventoryTransaction::create([
@@ -111,6 +101,31 @@ class WholesalePaymentTest extends TestCase
             'occurred_on' => '2026-09-19',
             'created_by' => $user->id,
         ]);
+        $this->get($reportUrl)->assertOk()->assertSee('data-remaining="1"', false);
+
+        $this->actingAs($user)->from($reportUrl)->post($url, [
+            'replacement_product_id' => $replacement->id,
+            'quantity' => 1,
+            'replacement_quantity' => 2,
+            'exchange_payment_amount' => 140,
+            'exchange_payment_method' => 'CASH',
+            'reason' => 'Customer requested a different item.',
+        ])->assertRedirect($reportUrl)->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->get($reportUrl)
+            ->assertOk()
+            ->assertSee('Replacement request submitted', false)
+            ->assertSee('No stock or order total has changed yet.', false);
+
+        $this->assertSame(4, $original->fresh()->stock);
+        $this->assertSame(5, $replacement->fresh()->stock);
+        $this->assertSame(1, ProductReplacement::where('transaction_item_id', $item->id)->sum('quantity'));
+        $request = ProductReplacement::where('transaction_item_id', $item->id)->sole();
+        $this->assertSame('pending', $request->status);
+        $this->assertSame(0, InventoryTransaction::whereIn('type', ['replacement_return', 'replacement_out'])->count());
+        $this->assertSame('200.00', $sale->fresh()->grand_total);
+        $this->actingAs($user)->get(route('sales.pending'))
+            ->assertOk()->assertSee('EXCHANGE AWAITING VERIFICATION')->assertSee('Replacement Item');
+
         $this->actingAs($user)->post(route('wholesale-replacements.approve', $request->id))
             ->assertSessionHasNoErrors()->assertSessionHas('success');
         $this->assertSame(4, $original->fresh()->stock);

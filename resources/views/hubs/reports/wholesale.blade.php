@@ -183,15 +183,25 @@
                                                     @endif
                                                 </div>
                                             @endforeach
+                                            @php
+                                                $wholesaleReplacementLimit = min(
+                                                    (int) $item->remaining_replaceable_quantity,
+                                                    (int) $item->remaining_returned_replaceable_quantity
+                                                );
+                                            @endphp
                                             @can('manage-sales-status')
-                                                @if($item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+                                                @if($wholesaleReplacementLimit > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
                                                     <button type="button" class="btn btn-outline-success btn-sm mt-2 wholesale-replace-button"
                                                         data-bs-toggle="modal" data-bs-target="#wholesaleReplacementModal"
                                                         data-action="{{ route('hub.report.wholesale.replace', [$hub->id, $transaction->id, $item->id]) }}"
                                                         data-product="{{ $item->product?->name ?? 'Product #'.$item->product_id }}"
                                                         data-original-product-id="{{ $item->product_id }}"
                                                         data-original-unit-price="{{ round((float) $item->unit_price * (1 - ((float) ($item->discount_percentage ?? 0) / 100)), 2) }}"
-                                                        data-remaining="{{ $item->remaining_replaceable_quantity }}">
+                                                        data-remaining="{{ $wholesaleReplacementLimit }}">
+                                                        <i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item
+                                                    </button>
+                                                @elseif($item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+                                                    <button type="button" class="btn btn-outline-success btn-sm mt-2" disabled title="Available after inventory receives the returned item">
                                                         <i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item
                                                     </button>
                                                 @endif

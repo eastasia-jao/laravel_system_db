@@ -9,6 +9,7 @@
     .walk-in-order-summary-section .walk-in-order-summary .small { font-size: .72rem; }
     .walk-in-order-totals { display: flex; flex-direction: column; }
     .walk-in-order-totals-list { display: grid; flex: 1; grid-template-rows: repeat(2, minmax(78px, 1fr)); gap: .5rem; }
+    .walk-in-replacement-impact-list { grid-template-rows: minmax(78px, 1fr); }
     .walk-in-order-totals-list .walk-in-order-summary { display: flex; flex-direction: column; justify-content: center; margin: 0 !important; }
     .walk-in-order-modal .modal-header { background: linear-gradient(135deg, #fff7ed, #fffbeb); border-bottom: 1px solid #fed7aa; }
     .walk-in-order-modal .modal-body { background: #fafaf9; }
@@ -148,7 +149,7 @@
     @endphp
     <div class="modal fade" id="walk-in-order-{{ $transaction->id }}" tabindex="-1" aria-labelledby="walk-in-title-{{ $transaction->id }}" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-sm-down"><div class="modal-content walk-in-order-modal">
-            <div class="modal-header bg-warning-subtle"><div><h5 class="modal-title" id="walk-in-title-{{ $transaction->id }}"><i class="fa-solid fa-receipt me-2"></i>Walk-In Order #{{ $transaction->order_number ?: $transaction->id }}</h5><small class="text-muted">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge') · {{ optional($transaction->order_date)->format('M d, Y') }} · {{ strtoupper($transaction->mode_of_payment ?: '—') }}</small></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close order"></button></div>
+            <div class="modal-header bg-warning-subtle"><div><h5 class="modal-title" id="walk-in-title-{{ $transaction->id }}"><i class="fa-solid fa-receipt me-2"></i>Walk-In Order #{{ $transaction->order_number ?: $transaction->id }}</h5><small class="text-muted">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge') · {{ optional($transaction->order_date)->format('M d, Y') }} · {{ strtoupper($transaction->mode_of_payment ?: '—') }}</small></div></div>
             <div class="modal-body">
                 <div class="row g-3 mb-4"><div class="col-12">@include('hubs.reports._payment-proof', ['paymentRecord' => $transaction])</div></div>
                 <div class="row g-3 mb-4">
@@ -164,9 +165,8 @@
                     <div class="col-12 col-lg-4">
                         <div class="walk-in-order-summary-section walk-in-order-totals">
                             <div class="section-title"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Replacement impact</div>
-                            <div class="walk-in-order-totals-list">
+                            <div class="walk-in-order-totals-list walk-in-replacement-impact-list">
                                 <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Replacement adjustment</div><div class="fs-5 fw-bold {{ $walkInReplacementAdjustment > 0 ? 'text-danger' : 'text-success' }}">{{ $walkInReplacementAdjustment >= 0 ? '+' : '' }}₱{{ number_format($walkInReplacementAdjustment, 2) }}</div></div>
-                                <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Amount required from customer</div><div class="fs-5 fw-bold text-success">₱{{ number_format($walkInNet, 2) }}</div><div class="small text-muted mt-1">Lower-priced replacements do not reduce the original order obligation.</div>@if($walkInReplacementShippingFee > 0)<div class="small text-muted mt-1">Includes ₱{{ number_format($walkInReplacementShippingFee, 2) }} replacement delivery fee.</div>@endif</div>
                             </div>
                         </div>
                     </div>

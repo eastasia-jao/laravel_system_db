@@ -906,7 +906,7 @@ class SalesReportController extends Controller
                     'quantity' => 'Replacement quantity exceeds the remaining quantity from the original sale.',
                 ]);
             }
-            $requiresReceivedReturn = $channel === 'online'
+            $requiresReceivedReturn = in_array($channel, ['online', 'wholesale'], true)
                 || ($channel === 'walk_in' && $storeHub->is_head_office);
             if ($requiresReceivedReturn && $quantity > max(0, $transactionItem->returnedQuantity() - $alreadyReplaced)) {
                 throw ValidationException::withMessages([

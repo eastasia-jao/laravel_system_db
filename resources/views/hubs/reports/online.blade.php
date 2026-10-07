@@ -207,7 +207,6 @@
                         <h5 class="modal-title" id="online-order-title-{{ $transaction->id }}">Online Order #{{ $transaction->order_number }}</h5>
                         <small class="text-muted">{{ $transaction->customer_name }}@include('hubs.reports._new-customer-badge') · {{ optional($transaction->order_date)->format('F d, Y') }} · {{ $detailPaymentLabel }}@if($detailBankLabel) / {{ strtoupper($detailBankLabel) }}@endif</small>
                     </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close order details"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row g-3 mb-4 align-items-stretch">
@@ -291,6 +290,8 @@
                                             @can('manage-sales-status')
                                                 @if($detailAvailableReplacementQuantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
                                                     <button type="button" class="btn btn-sm btn-outline-success online-replace-button" data-replacement-target="#online-replacement-{{ $item->id }}"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replacement</button>
+                                                @elseif($item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+                                                    <button type="button" class="btn btn-sm btn-outline-success" disabled title="Available after inventory receives the returned item"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replacement</button>
                                                 @else
                                                     <span class="text-muted small">Unavailable</span>
                                                 @endif

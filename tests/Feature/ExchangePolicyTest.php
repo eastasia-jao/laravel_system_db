@@ -46,9 +46,11 @@ class ExchangePolicyTest extends TestCase
             $item = $sale->items()->create(['product_id' => $original->id, 'quantity' => 1, 'unit_price' => 1000, 'line_total' => 1000]);
             $url = route($routeName, [$hub, $sale, $item]);
 
-            if ($channel === 'online') {
+            if (in_array($channel, ['online', 'wholesale', 'walk_in'], true)) {
                 $original->increment('stock');
-                $original->stockAllocation->increment($channel);
+                if ($channel !== 'walk_in') {
+                    $original->stockAllocation->increment($channel);
+                }
                 InventoryTransaction::create([
                     'type' => 'return',
                     'reference' => $sale->order_number,
@@ -64,13 +66,13 @@ class ExchangePolicyTest extends TestCase
                 ]);
             }
 
-            if ($channel !== 'online') {
+            if (in_array($channel, ['wholesale', 'tiktok'], true)) {
                 $this->actingAs($admin)->post($url, [
                     'replacement_product_id' => $lower->id, 'quantity' => 1, 'replacement_quantity' => 1,
                 ])->assertSessionHasErrors('replacement_product_id');
             }
 
-            $this->post($url, [
+            $this->actingAs($admin)->post($url, [
                 'replacement_product_id' => $lower->id, 'quantity' => 1, 'replacement_quantity' => 1,
                 'additional_items' => [['product_id' => $addOn->id, 'quantity' => 1, 'discount_percentage' => 0]],
                 'exchange_payment_amount' => 100,
@@ -84,7 +86,7 @@ class ExchangePolicyTest extends TestCase
             $this->assertSame('1100.00', $exchange->first()->exchange_total);
             $this->assertSame('100.00', $exchange->first()->additional_payment_due);
 
-            if ($channel !== 'online') {
+            if ($channel === 'tiktok') {
                 $original->increment('stock');
                 if ($channel !== 'walk_in') {
                     $original->stockAllocation->increment($channel);
