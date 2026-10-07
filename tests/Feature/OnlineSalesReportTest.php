@@ -119,6 +119,7 @@ class OnlineSalesReportTest extends TestCase
             ->assertSee('data-online-delivery-form', false)
             ->assertSee('View details')
             ->assertSee('Product items')
+            ->assertDontSee('Product subtotal</td>')
             ->assertSee('Online Item')
             ->assertSee('RETURN REQUESTED')
             ->assertSee('Quantity returned: 1')

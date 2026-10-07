@@ -906,10 +906,12 @@ class SalesReportController extends Controller
                     'quantity' => 'Replacement quantity exceeds the remaining quantity from the original sale.',
                 ]);
             }
-            if ($channel === 'online' && $quantity > max(0, $transactionItem->returnedQuantity() - $alreadyReplaced)) {
+            $requiresReceivedReturn = $channel === 'online'
+                || ($channel === 'walk_in' && $storeHub->is_head_office);
+            if ($requiresReceivedReturn && $quantity > max(0, $transactionItem->returnedQuantity() - $alreadyReplaced)) {
                 throw ValidationException::withMessages([
                     'quantity' => $transactionItem->returnedQuantity() < 1
-                        ? 'Inventory must record the original item as returned before an Online replacement can be requested.'
+                        ? 'Inventory must record the original item as returned before a replacement can be requested.'
                         : 'Replacement quantity exceeds the quantity of returned items that has not already been replaced.',
                 ]);
             }
@@ -952,7 +954,9 @@ class SalesReportController extends Controller
             }
             $replacementProductsTotal = round((float) $pricedLines->sum('total'), 2);
             $exchangeTotal = round($replacementProductsTotal + $replacementShippingFee, 2);
-            if ($channel !== 'online' && $exchangeTotal + 0.0001 < $credit) {
+            $allowsLowerValueExchange = $channel === 'online'
+                || ($channel === 'walk_in' && $storeHub->is_head_office);
+            if (! $allowsLowerValueExchange && $exchangeTotal + 0.0001 < $credit) {
                 throw ValidationException::withMessages([
                     'replacement_product_id' => 'The replacement basket must equal or exceed the exchange credit of ₱'.number_format($credit, 2).'. Add another product or increase a quantity.',
                 ]);

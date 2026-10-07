@@ -591,13 +591,15 @@
 
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Proof of Quotation</label>
-                                <input type="file" name="quotation_proofs[]" class="form-control walk-in-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple disabled>
+                                <input type="file" name="quotation_proofs[]" class="form-control walk-in-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple disabled data-inline-attachment-preview>
                                 <div class="form-text">Up to 4 attachments total, 2 MB each.</div>
+                                <div class="d-flex flex-wrap gap-2 mt-2" data-inline-attachment-preview-list></div>
                             </div>
                             <div class="col-md-6 walkin-payment-proof-container" style="display: none;">
                                 <label class="form-label fw-bold">Proof of Payment</label>
-                                <input type="file" name="walkin_payment_proofs[]" class="form-control walk-in-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple disabled>
+                                <input type="file" name="walkin_payment_proofs[]" class="form-control walk-in-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple disabled data-inline-attachment-preview>
                                 <div class="form-text">Required for all payments except cash. Up to 4 attachments total, 2 MB each.</div>
+                                <div class="d-flex flex-wrap gap-2 mt-2" data-inline-attachment-preview-list></div>
                             </div>
 
                             <div class="col-md-4">
@@ -1440,4 +1442,39 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+    document.querySelectorAll('[data-inline-attachment-preview]').forEach(input => {
+        const previewList = input.parentElement.querySelector('[data-inline-attachment-preview-list]');
+        let previewUrls = [];
+        if (!previewList) return;
+
+        const clearPreviews = () => {
+            previewUrls.forEach(url => URL.revokeObjectURL(url));
+            previewUrls = [];
+            previewList.replaceChildren();
+        };
+
+        input.addEventListener('change', () => {
+            clearPreviews();
+            Array.from(input.files || []).forEach(file => {
+                const url = URL.createObjectURL(file);
+                previewUrls.push(url);
+                const preview = document.createElement(file.type === 'application/pdf' ? 'a' : 'img');
+                if (preview instanceof HTMLImageElement) {
+                    preview.src = url;
+                    preview.alt = `Preview of ${file.name}`;
+                    preview.className = 'border rounded';
+                    preview.style.cssText = 'width:96px;height:96px;object-fit:cover';
+                } else {
+                    preview.href = url;
+                    preview.target = '_blank';
+                    preview.rel = 'noopener';
+                    preview.textContent = `Preview PDF: ${file.name}`;
+                    preview.className = 'small border rounded p-2 align-self-start';
+                }
+                previewList.append(preview);
+            });
+        });
+
+        input.form?.addEventListener('reset', () => window.setTimeout(clearPreviews));
+    });
 </script>

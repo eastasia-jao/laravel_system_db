@@ -299,7 +299,6 @@
                                     </tr>
                                 @endforeach
                             </tbody>
-                            <tfoot class="table-light fw-bold"><tr><td colspan="3">Product subtotal</td><td class="text-end">₱{{ number_format($detailSaleAmount, 2) }}</td><td colspan="3"></td></tr></tfoot>
                         </table>
                     </div>
                 </div>

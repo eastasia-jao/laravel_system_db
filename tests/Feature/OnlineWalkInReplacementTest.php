@@ -140,6 +140,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Online Replacement')
             ->assertSee('ONLINE-ORDER')
             ->assertDontSee('Proof amount breakdown')
+            ->assertDontSee('Product subtotal</td>')
             ->assertSee('Includes ₱15.00 replacement shipping')
             ->assertSee('class="text-center fw-semibold">1</td>', false)
             ->assertSee('class="text-end fw-bold">₱100.00</td>', false);
@@ -334,6 +335,76 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Total Returns (Qty) / Refunds')
             ->assertSee('View order slip')
             ->assertSee('Replacement item did not pass inspection.');
+    }
+
+    public function test_head_office_walk_in_replacement_requires_received_return_and_updates_original_report_order(): void
+    {
+        [$hub, $admin, $original, $replacement] = $this->fixtures('WALK-HO');
+        [$sale, $item] = $this->sale($admin, $hub, $original, 'walk_in', 'paid');
+
+        $this->actingAs($admin)->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('data-inline-attachment-preview', false)
+            ->assertSee('data-inline-attachment-preview-list', false);
+
+        $report = $this->actingAs($admin)->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']));
+        $report->assertOk()
+            ->assertSee('Awaiting received return')
+            ->assertDontSee('walk-in-replacement-'.$item->id, false)
+            ->assertDontSee('TOTAL GROSS SALES');
+
+        $payload = [
+            'replacement_product_id' => $replacement->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'exchange_payment_amount' => 20,
+            'exchange_payment_method' => 'CASH',
+            'reason' => 'Head Office walk-in exchange.',
+        ];
+        $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $payload)
+            ->assertSessionHasErrors('quantity');
+        $this->assertDatabaseCount('product_replacements', 0);
+
+        $original->increment('stock');
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'walk_in',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-23',
+            'created_by' => $admin->id,
+        ]);
+
+        $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']))
+            ->assertOk()
+            ->assertSee('RETURN RECEIVED')
+            ->assertSee('Replace item')
+            ->assertSee('walk-in-replacement-'.$item->id, false)
+            ->assertSee('name="quantity" class="form-control" min="1" max="1" value="1"', false)
+            ->assertSee('data-walk-in-amount-due', false);
+        $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $replacementRequest = ProductReplacement::sole();
+        $this->assertSame('20.00', $replacementRequest->additional_payment_due);
+        $this->post(route('wholesale-replacements.approve', $replacementRequest))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $report = $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']))
+            ->assertOk()
+            ->assertSee('Replacement history')
+            ->assertSee('APPROVED')
+            ->assertSee('WALK_IN-ORDER');
+        $this->assertSame(1, $report->viewData('totalTransactions'));
+        $this->assertSame('120.00', $sale->fresh()->grand_total);
+        $this->assertDatabaseCount('sales_transactions', 1);
     }
 
     public function test_non_head_office_walk_in_replacement_rejects_unsupported_payment_methods(): void

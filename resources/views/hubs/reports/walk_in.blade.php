@@ -85,7 +85,9 @@
                     </tr>
                 @empty<tr><td colspan="9" class="text-center text-muted py-4">No walk-in sales found.</td></tr>@endforelse
             </tbody>
-            <tfoot class="table-light fw-bold"><tr><td colspan="5" data-walk-in-total-label>TOTAL GROSS SALES / {{ number_format($totalTransactions) }} TRANSACTIONS</td><td class="text-end">₱{{ number_format($metrics['gross_sales'], 2) }}</td><td class="text-end text-danger">₱{{ number_format($metrics['discounts'], 2) }}</td><td class="text-end text-success">₱{{ number_format($metrics['total_sales'], 2) }}</td><td data-walk-in-screen-only></td></tr></tfoot>
+            @unless($hub->is_head_office)
+                <tfoot class="table-light fw-bold"><tr><td colspan="5" data-walk-in-total-label>TOTAL GROSS SALES / {{ number_format($totalTransactions) }} TRANSACTIONS</td><td class="text-end">₱{{ number_format($metrics['gross_sales'], 2) }}</td><td class="text-end text-danger">₱{{ number_format($metrics['discounts'], 2) }}</td><td class="text-end text-success">₱{{ number_format($metrics['total_sales'], 2) }}</td><td data-walk-in-screen-only></td></tr></tfoot>
+            @endunless
         </table></div>
     </div>
 </div>
@@ -227,17 +229,21 @@
                                     </div>
                                 </div>
                                 <div class="col-4 col-lg-2 d-flex justify-content-center align-items-center text-center">
-                                    @if(!$hub->is_head_office)
-                                        @can('request-walk-in-replacements')
-                                            @if($walkReturnStatus !== 'received' && $walkReturns->isEmpty() && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+                                    @can('request-walk-in-replacements')
+                                        @if($hub->is_head_office)
+                                            @if($item->remaining_returned_replaceable_quantity > 0 && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true) && auth()->user()?->role !== 'sales_associate')
                                                 <button type="button" class="btn btn-sm btn-warning text-nowrap walk-in-replace-button" data-replacement-target="#walk-in-replacement-{{ $item->id }}" aria-label="Replace {{ $item->product?->name ?? 'item' }}" title="Request a replacement for this item"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item</button>
+                                            @elseif($item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true) && auth()->user()?->role !== 'sales_associate')
+                                                <span class="small text-muted">Awaiting received return</span>
                                             @else
                                                 <span class="small text-muted">Unavailable</span>
                                             @endif
-                                        @endcan
-                                    @else
-                                        <span class="small text-muted">—</span>
-                                    @endif
+                                        @elseif($walkReturnStatus !== 'received' && $walkReturns->isEmpty() && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+                                            <button type="button" class="btn btn-sm btn-warning text-nowrap walk-in-replace-button" data-replacement-target="#walk-in-replacement-{{ $item->id }}" aria-label="Replace {{ $item->product?->name ?? 'item' }}" title="Request a replacement for this item"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item</button>
+                                        @else
+                                            <span class="small text-muted">Unavailable</span>
+                                        @endif
+                                    @endcan
                                 </div>
                             </div>
                             @if($walkReplacements->isNotEmpty())
@@ -310,13 +316,23 @@
     </div>
 @endforeach
 
-@if(!$hub->is_head_office)
 @can('request-walk-in-replacements')
 @foreach($transactions as $transaction) @foreach($transaction->items as $item)
-    @if(($item->return_status ?? 'none') !== 'received' && $item->inventoryReturns->isEmpty() && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+    @php
+        $walkInReplacementLimit = min(
+            (int) $item->remaining_replaceable_quantity,
+            $hub->is_head_office
+                ? (int) $item->remaining_returned_replaceable_quantity
+                : (int) $item->remaining_replaceable_quantity
+        );
+        $walkInReplacementAvailable = $hub->is_head_office
+            ? $walkInReplacementLimit > 0 && auth()->user()?->role !== 'sales_associate'
+            : ($item->return_status ?? 'none') !== 'received' && $item->inventoryReturns->isEmpty() && $walkInReplacementLimit > 0;
+    @endphp
+    @if($walkInReplacementAvailable && in_array($transaction->status, ['confirmed', 'completed'], true))
         <div class="modal fade" id="walk-in-replacement-{{ $item->id }}" data-walk-in-replacement-modal data-original-product-id="{{ $item->product_id }}" data-original-unit-price="{{ $item->unit_price }}" data-original-discount="{{ $item->discount_percentage ?? 0 }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.walk-in.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
             @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body"><div class="alert alert-warning small">Inventory must verify this request before stock and totals change.</div><div class="small text-muted mb-3">Original item: <strong>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</strong></div><label class="form-label fw-semibold">Replacement product</label><input type="text" class="form-control" data-replacement-search list="walkInReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Search by Item ID, barcode, or product name" required><input type="hidden" name="replacement_product_id"><datalist id="walkInReplacementOptions-{{ $item->id }}"></datalist><div class="form-text" data-replacement-stock>Search by Item ID, barcode, or product name. Physical stock is checked during verification.</div><div class="border rounded-3 bg-light p-3 mt-2 d-none" data-replacement-price-panel><div class="row g-2 small"><div class="col-6"><span class="text-muted d-block">Item price</span><strong data-replacement-base-price>—</strong></div><div class="col-6"><span class="text-muted d-block">Discounted unit price</span><strong class="text-success" data-replacement-net-price>—</strong></div><div class="col-6"><span class="text-muted d-block">Discount amount</span><strong class="text-danger" data-replacement-discount-amount>—</strong></div><div class="col-6"><span class="text-muted d-block">Estimated total</span><strong data-replacement-total>—</strong></div></div></div><div class="row g-3 mt-1"><div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $item->remaining_replaceable_quantity }}" value="1" required></div><div class="col-6"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div><div class="col-12"><label class="form-label fw-semibold text-danger">Replacement discount (%)</label><input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00"><div class="form-text">Optional discount applied to the replacement product price after approval.</div></div><div class="col-12"><label class="form-label fw-semibold">Replacement order slip (optional)</label><input type="file" name="replacement_order_slip" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf"><div class="form-text">Upload an image or PDF, up to 2 MB.</div></div></div>
+            <div class="modal-body"><div class="alert alert-warning small">Inventory must verify this request before stock and totals change. @if($hub->is_head_office) Only received returned items can be replaced. @endif</div><div class="small text-muted mb-3">Original item: <strong>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</strong></div><label class="form-label fw-semibold">Replacement product</label><input type="text" class="form-control" data-replacement-search list="walkInReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Search by Item ID, barcode, or product name" required><input type="hidden" name="replacement_product_id"><datalist id="walkInReplacementOptions-{{ $item->id }}"></datalist><div class="form-text" data-replacement-stock>Search by Item ID, barcode, or product name. Physical stock is checked during verification.</div><div class="border rounded-3 bg-light p-3 mt-2 d-none" data-replacement-price-panel><div class="row g-2 small"><div class="col-6"><span class="text-muted d-block">Item price</span><strong data-replacement-base-price>—</strong></div><div class="col-6"><span class="text-muted d-block">Discounted unit price</span><strong class="text-success" data-replacement-net-price>—</strong></div><div class="col-6"><span class="text-muted d-block">Discount amount</span><strong class="text-danger" data-replacement-discount-amount>—</strong></div><div class="col-6"><span class="text-muted d-block">Estimated total</span><strong data-replacement-total>—</strong></div></div></div><div class="row g-3 mt-1"><div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $walkInReplacementLimit }}" value="1" required></div><div class="col-6"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div><div class="col-12"><label class="form-label fw-semibold text-danger">Replacement discount (%)</label><input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00"><div class="form-text">Optional discount applied to the replacement product price after approval.</div></div><div class="col-12"><label class="form-label fw-semibold">Replacement order slip (optional)</label><input type="file" name="replacement_order_slip" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf"><div class="form-text">Upload an image or PDF, up to 2 MB.</div></div></div>
             <div class="card border-0 bg-light mt-3" data-walk-in-exchange-summary>
                 <div class="card-body p-3">
                     <div class="fw-semibold mb-2"><i class="fa-solid fa-calculator text-primary me-2"></i>Exchange calculation</div>
@@ -339,7 +355,6 @@
     @endif
 @endforeach @endforeach
 @endcan
-@endif
 
 @push('scripts')
 <script>
