@@ -59,6 +59,12 @@ class SalesReportController extends Controller
         $transactions = SalesTransaction::query()
             ->where('store_hub_id', $storeHub->id)
             ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) = ?", [$channel])
+            ->whereHas('items', fn ($items) => $items->where(function ($returnedItems) {
+                $returnedItems->whereHas('inventoryReturns', fn ($returns) => $returns->where('quantity', '>', 0))
+                    ->orWhere(fn ($legacyReturns) => $legacyReturns
+                        ->where('return_status', 'received')
+                        ->where('returned_quantity', '>', 0));
+            }))
             ->with([
                 'items.product',
                 'items.inventoryReturns',
@@ -72,10 +78,12 @@ class SalesReportController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $channelLabel = $channel === 'tiktok' ? 'TikTok' : ucfirst($channel);
+
         return view('hubs.tiktok-returns', [
             'hub' => $storeHub,
             'transactions' => $transactions,
-            'channel' => ucfirst($channel),
+            'channel' => $channelLabel,
             'channelKey' => $channel,
             'dateFrom' => $filters['date_from'] ?? null,
             'dateTo' => $filters['date_to'] ?? null,

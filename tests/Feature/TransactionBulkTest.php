@@ -235,17 +235,24 @@ class TransactionBulkTest extends TestCase
         }
     }
 
-    public function test_shopee_and_lazada_returns_record_refunds_without_a_toggle(): void
+    public function test_shopee_and_lazada_returns_do_not_create_automatic_refunds(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
         $hub = StoreHub::create(['name' => 'Marketplace Returns', 'code' => 'MKT-RET', 'status' => 'active', 'is_head_office' => true]);
 
         foreach (['shopee', 'lazada'] as $channel) {
+            $submitter = User::factory()->create([
+                'role' => 'sales_marketing_staff',
+                'hub_id' => $hub->id,
+                'sales_channels' => [$channel],
+            ]);
             $product = Product::create([
                 'name' => ucfirst($channel).' Refund Product', 'item_id' => strtoupper($channel).'-REFUND',
                 'store_hub_id' => $hub->id, 'stock' => 0, 'status' => 'active',
             ]);
             $sale = SalesTransaction::create([
+                'user_id' => $submitter->id,
                 'store_hub_id' => $hub->id, 'channel_type' => $channel, 'status' => 'confirmed',
                 'order_date' => '2026-09-23', 'order_number' => strtoupper($channel).'-REFUND-ORDER',
                 'customer_name' => 'Refund Customer',
@@ -271,8 +278,25 @@ class TransactionBulkTest extends TestCase
                 'channel' => $channel,
                 'condition' => 'damaged',
                 'quantity' => 1,
-                'refund_amount' => 90,
+                'refund_amount' => 0,
             ]);
+
+            $returnsUrl = route('hub.marketplace-returns', ['hub' => $hub->id, 'channel' => $channel]);
+            $returnNotification = $submitter->notifications()->where('data->event', 'return_recorded')->sole();
+            $this->assertSame($returnsUrl, $returnNotification->data['url']);
+
+            $legacyNotification = $submitter->notifications()->create([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'type' => \App\Notifications\InventoryWorkflowNotification::class,
+                'data' => [
+                    'event' => 'return_recorded',
+                    'hub_id' => $hub->id,
+                    'url' => route('hub.report', ['hub' => $hub->id, 'channel' => $channel]),
+                ],
+            ]);
+            $this->actingAs($submitter)->get(route('notifications.read', $legacyNotification->id))
+                ->assertRedirect($returnsUrl);
+            $this->actingAs($admin);
         }
     }
 

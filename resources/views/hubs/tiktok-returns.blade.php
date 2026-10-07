@@ -48,16 +48,18 @@
                     <tbody>
                         @foreach($transactions as $transaction)
                             @php
-                                $returnRecords = $transaction->items->flatMap->inventoryReturns;
+                                $returnedItems = $transaction->items->filter(fn ($item) => $item->inventoryReturns->contains(fn ($return) => (int) $return->quantity > 0)
+                                    || ($item->return_status === 'received' && (int) $item->returned_quantity > 0));
+                                $returnRecords = $returnedItems->flatMap(fn ($item) => $item->inventoryReturns->where('quantity', '>', 0));
                                 $goodReturned = (int) $returnRecords->where('condition', 'good')->sum('quantity');
                                 $badReturned = (int) $returnRecords->where('condition', 'damaged')->sum('quantity');
-                                $totalReturned = (int) $returnRecords->sum('quantity');
+                                $totalReturned = (int) $returnedItems->sum(fn ($item) => $item->returnedQuantity());
                             @endphp
                             <tr>
                                 <td class="ps-3 fw-semibold">{{ $transaction->order_number }}</td>
                                 <td>{{ $transaction->customer_name ?: $channel.' Customer' }}</td>
                                 <td>{{ optional($transaction->order_date)->format('M d, Y') ?: '—' }}</td>
-                                <td>{{ $transaction->items->count() }}</td>
+                                <td>{{ $returnedItems->count() }}</td>
                                 <td>
                                     @if($totalReturned === 0)
                                         <span class="badge text-bg-secondary">No items recorded</span>
@@ -93,8 +95,12 @@
                         </div>
                         <div class="modal-body">
                             <p class="small text-muted">Return quantities and item conditions below are recorded by inventory staff.</p>
-                            @if($transaction->items->isEmpty())
-                                <div class="alert alert-light border mb-0">This order has no items.</div>
+                            @php
+                                $returnedItems = $transaction->items->filter(fn ($item) => $item->inventoryReturns->contains(fn ($return) => (int) $return->quantity > 0)
+                                    || ($item->return_status === 'received' && (int) $item->returned_quantity > 0));
+                            @endphp
+                            @if($returnedItems->isEmpty())
+                                <div class="alert alert-light border mb-0">This order has no returned items.</div>
                             @else
                                 <div class="table-responsive">
                                     <table class="table table-bordered align-middle mb-0">
@@ -107,24 +113,21 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach($transaction->items as $item)
+                                            @foreach($returnedItems as $item)
                                                 @php
-                                                    $itemReturns = $item->inventoryReturns;
+                                                    $itemReturns = $item->inventoryReturns->where('quantity', '>', 0);
                                                     $goodQuantity = (int) $itemReturns->where('condition', 'good')->sum('quantity');
                                                     $badQuantity = (int) $itemReturns->where('condition', 'damaged')->sum('quantity');
-                                                    $returnedQuantity = (int) $itemReturns->sum('quantity');
+                                                    $returnedQuantity = $item->returnedQuantity();
                                                 @endphp
                                                 <tr>
                                                     <td>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</td>
                                                     <td class="text-center">{{ $item->quantity }}</td>
                                                     <td class="text-center">{{ $returnedQuantity }}</td>
                                                     <td>
-                                                        @if($returnedQuantity === 0)
-                                                            <span class="text-muted">Not recorded by inventory staff</span>
-                                                        @else
-                                                            @if($goodQuantity > 0)<span class="badge text-bg-success me-1">Good: {{ $goodQuantity }}</span>@endif
-                                                            @if($badQuantity > 0)<span class="badge text-bg-danger me-1">Bad: {{ $badQuantity }}</span>@endif
-                                                        @endif
+                                                        @if($goodQuantity > 0)<span class="badge text-bg-success me-1">Good: {{ $goodQuantity }}</span>@endif
+                                                        @if($badQuantity > 0)<span class="badge text-bg-danger me-1">Bad: {{ $badQuantity }}</span>@endif
+                                                        @if($goodQuantity === 0 && $badQuantity === 0)<span class="badge text-bg-secondary">Returned</span>@endif
                                                     </td>
                                                 </tr>
                                             @endforeach

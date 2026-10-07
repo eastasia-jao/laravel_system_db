@@ -199,7 +199,7 @@
                 showFullyBookedAttachment(data.transaction?.fully_booked_attachment);
             }
             const items = data.transaction?.items || [];
-            const supportsAutoRefund = !['fully_booked', 'tiktok'].includes(channel.value);
+            const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada'].includes(channel.value);
             container.innerHTML = items.length ? items.map((item, index) => {
                 const remaining = Math.max(0, item.quantity - (item.returned_quantity || 0));
                 return `

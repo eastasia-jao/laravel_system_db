@@ -1223,10 +1223,10 @@ class InventoryTransactionController extends Controller
             'items.*.replacement_id' => ['nullable', 'integer', 'exists:product_replacements,id'],
         ]);
         $hasReturnQuantity = collect($validated['items'])->sum(fn ($item) => (int) ($item['good_quantity'] ?? 0) + (int) ($item['damaged_quantity'] ?? 0)) >= 1;
-        if (! $hasReturnQuantity && (in_array($validated['channel'], ['fully_booked', 'tiktok'], true)
+        if (! $hasReturnQuantity && (in_array($validated['channel'], ['fully_booked', 'tiktok', 'shopee', 'lazada'], true)
             || collect($validated['items'])->sum(fn ($item) => (float) ($item['refund_amount'] ?? 0)) <= 0)) {
             throw ValidationException::withMessages([
-                'items' => in_array($validated['channel'], ['fully_booked', 'tiktok'], true)
+                'items' => in_array($validated['channel'], ['fully_booked', 'tiktok', 'shopee', 'lazada'], true)
                     ? 'Enter at least one good or damaged return quantity.'
                     : 'Enter at least one good or damaged return quantity, or a refund amount.',
             ]);
@@ -1298,7 +1298,7 @@ class InventoryTransactionController extends Controller
                 $effectiveUnitPrice = round($unitPrice * (1 - ($discount / 100)), 2);
                 $refundQuantity = $quantity > 0 ? $quantity : $orderedQuantity;
                 $refundCap = round($effectiveUnitPrice * $refundQuantity, 2);
-                $refundAmount = in_array($returnChannel, ['fully_booked', 'tiktok'], true) ? 0 : ($quantity > 0
+                $refundAmount = in_array($returnChannel, ['fully_booked', 'tiktok', 'shopee', 'lazada'], true) ? 0 : ($quantity > 0
                     ? $refundCap
                     : min((float) ($item['refund_amount'] ?? 0), $refundCap));
                 $alreadyReturned = InventoryTransaction::query()
@@ -1432,6 +1432,7 @@ class InventoryTransactionController extends Controller
 
         $channel = $this->normalizeChannel($sale->channel_type);
         $url = match ($channel) {
+            'shopee', 'lazada' => route('hub.marketplace-returns', ['hub' => $sale->store_hub_id, 'channel' => $channel]),
             'tiktok' => route('hub.tiktok-returns', ['hub' => $sale->store_hub_id]),
             'fully_booked' => route('hub.fully-booked-returns', ['hub' => $sale->store_hub_id]),
             default => route('hub.report', ['hub' => $sale->store_hub_id, 'channel' => $channel ?: 'all']),
@@ -1439,6 +1440,12 @@ class InventoryTransactionController extends Controller
         $orderNumber = $sale->order_number ?: $sale->id;
         $actorName = auth()->user()?->name ?? 'Inventory staff';
         $message = match ($channel) {
+            'shopee', 'lazada' => sprintf(
+                'Return items for order %s were recorded by %s. Returned quantities and conditions are now visible in %s Returns.',
+                $orderNumber,
+                $actorName,
+                ucfirst($channel)
+            ),
             'tiktok' => sprintf(
                 'Return items for order %s were recorded by %s. Returned quantities and conditions are now visible in TikTok Returns.',
                 $orderNumber,

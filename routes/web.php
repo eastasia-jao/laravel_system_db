@@ -117,10 +117,24 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
                 ]);
             }
         }
-        if (($record->data['event'] ?? null) === 'return_recorded'
-            && ($record->data['channel'] ?? null) === 'fully_booked'
-            && ! empty($record->data['hub_id'])) {
-            $destination = route('hub.fully-booked-returns', ['hub' => $record->data['hub_id']]);
+        if (($record->data['event'] ?? null) === 'return_recorded') {
+            $returnChannel = $record->data['channel'] ?? null;
+            if (! $returnChannel && is_string($destination)) {
+                parse_str((string) parse_url($destination, PHP_URL_QUERY), $destinationQuery);
+                $returnChannel = $destinationQuery['channel'] ?? null;
+            }
+            $returnChannel = strtolower(str_replace(['-', ' '], '_', (string) $returnChannel));
+            if (! empty($record->data['hub_id'])) {
+                $destination = match ($returnChannel) {
+                    'shopee', 'lazada' => route('hub.marketplace-returns', [
+                        'hub' => $record->data['hub_id'],
+                        'channel' => $returnChannel,
+                    ]),
+                    'tiktok' => route('hub.tiktok-returns', ['hub' => $record->data['hub_id']]),
+                    'fully_booked' => route('hub.fully-booked-returns', ['hub' => $record->data['hub_id']]),
+                    default => $destination,
+                };
+            }
         }
         if (! in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)
             && str_contains($destination, '/pending-sales')) {

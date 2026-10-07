@@ -244,13 +244,107 @@ class TikTokReturnsTest extends TestCase
         for ($i = 1; $i < 25; $i++) {
             $sale->items()->create(['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100]);
         }
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'tiktok',
+            'quantity' => 1,
+            'condition' => 'good',
+            'occurred_on' => '2026-09-09',
+            'created_by' => auth()->id(),
+        ]);
         $returns = $this->get(route('hub.tiktok-returns', ['hub' => $hub->id]));
         $returns->assertOk()->assertSee('View return items');
         $document = new \DOMDocument;
         @$document->loadHTML($returns->getContent());
         $xpath = new \DOMXPath($document);
         $orderModalId = 'return-items-modal-'.$sale->id;
-        $this->assertSame(25, $xpath->query('//div[@id="'.$orderModalId.'"]//tbody/tr')->length);
+        $this->assertSame(1, $xpath->query('//div[@id="'.$orderModalId.'"]//tbody/tr')->length);
         $this->assertSame(0, $xpath->query('//div[@id="'.$orderModalId.'"]//form')->length);
+    }
+
+    public function test_marketplace_returns_show_only_orders_and_items_with_recorded_returns(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $hub = StoreHub::create(['name' => 'Marketplace Returns', 'code' => 'MKT-RETURNS', 'status' => 'active', 'is_head_office' => true]);
+        $this->actingAs($admin);
+
+        foreach (['tiktok', 'shopee', 'lazada'] as $channel) {
+            $returnedProduct = Product::create([
+                'item_id' => strtoupper($channel).'-RETURNED',
+                'name' => ucfirst($channel).' returned product',
+                'stock' => 1,
+                'sales_price' => 100,
+                'store_hub_id' => $hub->id,
+                'status' => 'active',
+            ]);
+            $unreturnedProduct = Product::create([
+                'item_id' => strtoupper($channel).'-NOT-RETURNED',
+                'name' => ucfirst($channel).' unreturned product',
+                'stock' => 1,
+                'sales_price' => 100,
+                'store_hub_id' => $hub->id,
+                'status' => 'active',
+            ]);
+            $sale = SalesTransaction::create([
+                'store_hub_id' => $hub->id,
+                'channel_type' => $channel,
+                'order_date' => '2026-09-08',
+                'order_number' => strtoupper($channel).'-WITH-RETURN',
+                'customer_name' => 'Returned Customer',
+            ]);
+            $returnedItem = $sale->items()->create([
+                'product_id' => $returnedProduct->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+                'line_total' => 100,
+            ]);
+            $sale->items()->create([
+                'product_id' => $unreturnedProduct->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+                'line_total' => 100,
+            ]);
+            $unreturnedSale = SalesTransaction::create([
+                'store_hub_id' => $hub->id,
+                'channel_type' => $channel,
+                'order_date' => '2026-09-08',
+                'order_number' => strtoupper($channel).'-NO-RETURN',
+                'customer_name' => 'No Return Customer',
+            ]);
+            $unreturnedSale->items()->create([
+                'product_id' => $unreturnedProduct->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+                'line_total' => 100,
+            ]);
+            InventoryTransaction::create([
+                'type' => 'return',
+                'reference' => $sale->order_number,
+                'store_hub_id' => $hub->id,
+                'product_id' => $returnedProduct->id,
+                'sales_transaction_id' => $sale->id,
+                'transaction_item_id' => $returnedItem->id,
+                'channel' => $channel,
+                'quantity' => 1,
+                'condition' => 'good',
+                'occurred_on' => '2026-09-09',
+                'created_by' => $admin->id,
+            ]);
+
+            $url = $channel === 'tiktok'
+                ? route('hub.tiktok-returns', $hub->id)
+                : route('hub.marketplace-returns', ['hub' => $hub->id, 'channel' => $channel]);
+            $this->get($url)
+                ->assertOk()
+                ->assertSee(strtoupper($channel).'-WITH-RETURN')
+                ->assertSee(ucfirst($channel).' returned product')
+                ->assertDontSee(strtoupper($channel).'-NO-RETURN')
+                ->assertDontSee(ucfirst($channel).' unreturned product');
+        }
     }
 }
