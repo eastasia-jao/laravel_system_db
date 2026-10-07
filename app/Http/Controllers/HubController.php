@@ -15,6 +15,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class HubController extends Controller
 {
@@ -62,12 +63,22 @@ class HubController extends Controller
             $hubsQuery->whereIn('id', $user->accessibleStoreHubIds());
         }
 
+        $user = auth()->user();
+        $allowedDashboardChannels = ['online', 'wholesale', 'walk_in', 'shopee', 'lazada', 'tiktok'];
+        $dashboardChannelValues = $user?->role === 'sales_marketing_staff'
+            ? collect($user->sales_channels ?? [])
+                ->map(fn ($channel) => strtolower(str_replace(['-', ' '], '_', (string) $channel)))
+                ->filter(fn ($channel) => in_array($channel, $allowedDashboardChannels, true))
+                ->unique()
+                ->values()
+                ->all()
+            : ['online', 'wholesale', 'walk_in'];
         $filters = $request->validate([
             'hub_id' => ['nullable', 'integer'],
             'date' => ['nullable', 'date_format:Y-m-d'],
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'channel' => ['nullable', 'in:online,wholesale,walk_in'],
+            'channel' => ['nullable', Rule::in($dashboardChannelValues)],
         ]);
         $endDateInput = $filters['to'] ?? $filters['date'] ?? now()->toDateString();
         if (isset($filters['from']) && $filters['from'] > $endDateInput) {
@@ -98,7 +109,6 @@ class HubController extends Controller
         ];
         $salesQuery = SalesTransaction::whereIn('store_hub_id', $scopeIds)
             ->whereIn('status', ['completed', 'confirmed'])
-            ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) NOT IN ('shopee', 'lazada', 'tiktok')")
             ->where(function ($query) {
                 $query->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) <> 'wholesale'")
                     ->orWhere('payment_status', 'paid')
@@ -109,7 +119,10 @@ class HubController extends Controller
         $assignedChannels = $user?->role === 'sales_marketing_staff'
             ? collect($user->sales_channels ?? [])->map(fn ($channel) => strtolower(str_replace(['-', ' '], '_', (string) $channel)))->values()
             : collect();
-        $dashboardChannelOptions = $assignedChannels->filter(fn ($channel) => in_array($channel, ['online', 'wholesale', 'walk_in'], true))->values();
+        $dashboardChannelOptions = $assignedChannels
+            ->filter(fn ($channel) => in_array($channel, $allowedDashboardChannels, true))
+            ->unique()
+            ->values();
         $showSalesTotals = $user?->role !== 'sales_marketing_staff' || $dashboardChannelOptions->isNotEmpty();
         $dashboardChannel = $filters['channel'] ?? null;
         if ($dashboardChannel && $user?->role === 'sales_marketing_staff' && ! $assignedChannels->contains($dashboardChannel)) {
@@ -119,7 +132,16 @@ class HubController extends Controller
             $dashboardChannel = $dashboardChannelOptions->first();
         }
         if ($user?->role === 'sales_marketing_staff') {
-            $salesQuery->whereIn('channel_type', $assignedChannels->all());
+            if ($assignedChannels->isNotEmpty()) {
+                $salesQuery->whereRaw(
+                    "LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) IN (".implode(',', array_fill(0, $assignedChannels->count(), '?')).')',
+                    $assignedChannels->all()
+                );
+            } else {
+                $salesQuery->whereRaw('1 = 0');
+            }
+        } else {
+            $salesQuery->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) NOT IN ('shopee', 'lazada', 'tiktok')");
         }
         $marketplaceComparisonQuery = clone $salesQuery;
         if ($dashboardChannel) {
@@ -226,7 +248,7 @@ class HubController extends Controller
         if ($dashboardChannel) {
             $availableChannels = array_values(array_intersect($availableChannels, [$dashboardChannel]));
         }
-        $isTikTokDashboard = $availableChannels === ['tiktok'];
+        $isTikTokDashboard = $dashboardChannel === 'tiktok';
         $tiktokTransactions = $monthlyTransactions
             ->filter(fn ($sale) => $normalizeChannel($sale->channel_type) === 'tiktok')
             ->map(function ($sale) {
