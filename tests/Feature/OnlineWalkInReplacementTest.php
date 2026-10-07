@@ -358,7 +358,9 @@ class OnlineWalkInReplacementTest extends TestCase
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
             'replacement_quantity' => 1,
-            'exchange_payment_amount' => 20,
+            'replacement_shipping_fee_type' => 'Custom Amount',
+            'replacement_shipping_fee_amount' => 10,
+            'exchange_payment_amount' => 30,
             'exchange_payment_method' => 'CASH',
             'reason' => 'Head Office walk-in exchange.',
         ];
@@ -387,6 +389,12 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('RETURN RECEIVED')
             ->assertSee('Replace item')
             ->assertSee('walk-in-replacement-'.$item->id, false)
+            ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
+            ->assertSee('<h5 class="modal-title">Walk-In Replacement / Exchange</h5></div>', false)
+            ->assertSee('<div class="modal-dialog modal-xl modal-dialog-centered">', false)
+            ->assertSee('name="replacement_shipping_fee_type"', false)
+            ->assertSee('Free delivery')
+            ->assertSee('Custom amount')
             ->assertSee('Order Date')
             ->assertSee('Order ID')
             ->assertSee('Customer Name')
@@ -401,7 +409,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSessionHas('success');
 
         $replacementRequest = ProductReplacement::sole();
-        $this->assertSame('20.00', $replacementRequest->additional_payment_due);
+        $this->assertSame('30.00', $replacementRequest->additional_payment_due);
+        $this->assertSame('10.00', $replacementRequest->replacement_shipping_fee_amount);
         $this->post(route('wholesale-replacements.approve', $replacementRequest))
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success');
@@ -412,9 +421,49 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('APPROVED')
             ->assertSee('WALK_IN-ORDER');
         $this->assertSame(1, $report->viewData('totalTransactions'));
-        $this->assertSame('120.00', $sale->fresh()->grand_total);
-        $this->assertEqualsWithDelta(120, $report->viewData('transactions')->first()->netOrderTotal(), 0.001);
+        $this->assertSame('130.00', $sale->fresh()->grand_total);
+        $this->assertSame('10.00', $sale->fresh()->shipping_fee_amount);
+        $this->assertEqualsWithDelta(130, $report->viewData('transactions')->first()->netOrderTotal(), 0.001);
         $this->assertDatabaseCount('sales_transactions', 1);
+    }
+
+    public function test_head_office_walk_in_lower_value_free_delivery_exchange_has_no_additional_payment(): void
+    {
+        [$hub, $admin, $original, $replacement] = $this->fixtures('WALK-HO-LOWER');
+        $replacement->update(['sales_price' => 80]);
+        [$sale, $item] = $this->sale($admin, $hub, $original, 'walk_in', 'paid');
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'walk_in',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-23',
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), [
+            'replacement_product_id' => $replacement->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'replacement_shipping_fee_type' => 'Free',
+            'exchange_payment_amount' => 0,
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $request = ProductReplacement::sole();
+        $this->assertSame('80.00', $request->exchange_total);
+        $this->assertSame('0.00', $request->additional_payment_due);
+        $this->assertSame('Free', $request->replacement_shipping_fee_type);
+        $this->post(route('wholesale-replacements.approve', $request))
+            ->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertSame('100.00', $sale->fresh()->grand_total);
+        $this->assertSame('0.00', $sale->fresh()->shipping_fee_amount);
+        $this->assertDatabaseCount('sales_payment_records', 0);
     }
 
     public function test_head_office_walk_in_sales_marketing_staff_cannot_replace_before_inventory_records_return(): void

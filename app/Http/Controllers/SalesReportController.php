@@ -940,13 +940,15 @@ class SalesReportController extends Controller
                 $line['total'] = round($unitPrice * (1 - ($line['discount_percentage'] / 100)) * $line['quantity'], 2);
                 return $line;
             });
-            $replacementShippingFeeType = $channel === 'online'
+            $supportsReplacementShipping = $channel === 'online'
+                || ($channel === 'walk_in' && $storeHub->is_head_office);
+            $replacementShippingFeeType = $supportsReplacementShipping
                 ? (string) ($validated['replacement_shipping_fee_type'] ?? 'Free')
                 : null;
-            $replacementShippingFee = $channel === 'online' && $replacementShippingFeeType === 'Custom Amount'
+            $replacementShippingFee = $supportsReplacementShipping && $replacementShippingFeeType === 'Custom Amount'
                 ? round((float) ($validated['replacement_shipping_fee_amount'] ?? 0), 2)
                 : 0.0;
-            if ($channel === 'online' && $replacementShippingFeeType === 'Custom Amount'
+            if ($supportsReplacementShipping && $replacementShippingFeeType === 'Custom Amount'
                 && ! array_key_exists('replacement_shipping_fee_amount', $validated)) {
                 throw ValidationException::withMessages([
                     'replacement_shipping_fee_amount' => 'Enter the replacement delivery fee or choose Free delivery.',
@@ -1183,7 +1185,9 @@ class SalesReportController extends Controller
             $charge = round((float) $records->sum(fn ($line) => (float) $line->replacement_unit_price
                 * (1 - ((float) ($line->replacement_discount_percentage ?? 0) / 100))
                 * (int) ($line->replacement_quantity ?: $line->quantity)), 2);
-            $replacementShippingFee = $channel === 'online'
+            $supportsReplacementShipping = $channel === 'online'
+                || ($channel === 'walk_in' && (bool) $sale->storeHub()->value('is_head_office'));
+            $replacementShippingFee = $supportsReplacementShipping
                 ? (float) ($records->firstWhere('replacement_shipping_fee_amount', '>', 0)?->replacement_shipping_fee_amount ?? 0)
                 : 0.0;
             $originalOrderTotal = round(

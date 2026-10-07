@@ -42,6 +42,23 @@
     .walk-in-report-summary-card .subvalue { color: #78716c; font-size: .72rem; }
     .walk-in-report-mop { display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin-top: .35rem; color: #57534e; font-size: .72rem; }
     .walk-in-report-card { max-width: 100%; }
+    .walk-in-replacement-modal .modal-dialog { max-width: min(1140px, calc(100vw - 1.5rem)); }
+    .walk-in-replacement-modal .modal-content { border: 0; border-radius: 12px; }
+    .walk-in-replacement-modal .modal-header,
+    .walk-in-replacement-modal .modal-footer { padding: .65rem 1rem; }
+    .walk-in-replacement-modal .modal-body { padding: .75rem 1rem; }
+    .walk-in-replacement-modal .modal-body > .alert { margin-bottom: .5rem; padding: .5rem .75rem; }
+    .walk-in-replacement-modal [data-replacement-price-panel] { padding: .55rem .75rem !important; }
+    .walk-in-replacement-modal [data-walk-in-exchange-summary] { margin-top: .65rem !important; }
+    .walk-in-replacement-modal [data-walk-in-exchange-summary] .card-body { padding: .7rem .85rem; }
+    .walk-in-replacement-modal [data-exchange-lines] { margin-top: .65rem !important; }
+    .walk-in-replacement-modal [data-exchange-lines] > .alert { margin-bottom: .5rem !important; padding: .45rem .75rem; }
+    .walk-in-replacement-modal [data-exchange-lines] .card-body { padding: .65rem .8rem; }
+    .walk-in-replacement-modal [data-exchange-lines] .card { margin-top: .5rem !important; }
+    .walk-in-replacement-modal [data-exchange-lines] p { margin-bottom: .5rem !important; }
+    .walk-in-replacement-modal .form-label { margin-bottom: .25rem; }
+    .walk-in-replacement-modal .form-text { font-size: .72rem; }
+    .walk-in-replacement-modal textarea { resize: vertical; }
     @media (max-width: 900px) { .walk-in-report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 520px) { .walk-in-report-summary { grid-template-columns: 1fr; } }
 </style>
@@ -340,48 +357,70 @@
             : ($item->return_status ?? 'none') !== 'received' && $item->inventoryReturns->isEmpty() && $walkInReplacementLimit > 0;
     @endphp
     @if($walkInReplacementAvailable && in_array($transaction->status, ['confirmed', 'completed'], true))
-        <div class="modal fade" id="walk-in-replacement-{{ $item->id }}" data-walk-in-replacement-modal data-original-product-id="{{ $item->product_id }}" data-original-unit-price="{{ $item->unit_price }}" data-original-discount="{{ $item->discount_percentage ?? 0 }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.walk-in.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
-            @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal fade walk-in-replacement-modal" id="walk-in-replacement-{{ $item->id }}" data-walk-in-replacement-modal data-bs-backdrop="static" data-bs-keyboard="false" data-original-product-id="{{ $item->product_id }}" data-original-unit-price="{{ $item->unit_price }}" data-original-discount="{{ $item->discount_percentage ?? 0 }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.walk-in.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
+            @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5></div>
             <div class="modal-body">
-                <div class="alert alert-warning small">Inventory must verify this request before stock and totals change. @if($hub->is_head_office) Only received returned items can be replaced. @endif</div>
-                <div class="small text-muted mb-3">Original item: <strong>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</strong></div>
-                <label class="form-label fw-semibold">Replacement product</label>
-                <input type="text" class="form-control" data-replacement-search list="walkInReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Search by Item ID, barcode, or product name" required>
-                <input type="hidden" name="replacement_product_id">
-                <datalist id="walkInReplacementOptions-{{ $item->id }}"></datalist>
-                <div class="form-text" data-replacement-stock>Search by Item ID, barcode, or product name. Physical stock is checked during verification.</div>
-                <div class="border rounded-3 bg-light p-3 mt-2 d-none" data-replacement-price-panel>
-                    <div class="row g-2 small">
-                        <div class="col-6"><span class="text-muted d-block">Item price</span><strong data-replacement-base-price>—</strong></div>
-                        <div class="col-6"><span class="text-muted d-block">Discounted unit price</span><strong class="text-success" data-replacement-net-price>—</strong></div>
-                        <div class="col-6"><span class="text-muted d-block">Discount amount</span><strong class="text-danger" data-replacement-discount-amount>—</strong></div>
-                        <div class="col-6"><span class="text-muted d-block">Estimated total</span><strong data-replacement-total>—</strong></div>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="alert alert-warning small">Inventory must verify this request before stock and totals change. @if($hub->is_head_office) Only received returned items can be replaced. @endif</div>
+                        <div class="small text-muted mb-2">Original item: <strong>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</strong></div>
+                        <label class="form-label fw-semibold">Replacement product</label>
+                        <input type="text" class="form-control" data-replacement-search list="walkInReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Search by Item ID, barcode, or product name" required>
+                        <input type="hidden" name="replacement_product_id">
+                        <datalist id="walkInReplacementOptions-{{ $item->id }}"></datalist>
+                        <div class="form-text" data-replacement-stock>Search by Item ID, barcode, or product name. Physical stock is checked during verification.</div>
+                        <div class="border rounded-3 bg-light p-3 mt-2 d-none" data-replacement-price-panel>
+                            <div class="row g-2 small">
+                                <div class="col-6"><span class="text-muted d-block">Item price</span><strong data-replacement-base-price>—</strong></div>
+                                <div class="col-6"><span class="text-muted d-block">Discounted unit price</span><strong class="text-success" data-replacement-net-price>—</strong></div>
+                                <div class="col-6"><span class="text-muted d-block">Discount amount</span><strong class="text-danger" data-replacement-discount-amount>—</strong></div>
+                                <div class="col-6"><span class="text-muted d-block">Estimated total</span><strong data-replacement-total>—</strong></div>
+                            </div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $walkInReplacementLimit }}" value="1" required></div>
+                            <div class="col-6"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div>
+                            <div class="col-12"><label class="form-label fw-semibold text-danger">Replacement discount (%)</label><input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00"><div class="form-text">Optional discount applied to the replacement product price after approval.</div></div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Replacement delivery</label>
+                                <select name="replacement_shipping_fee_type" class="form-select" data-walk-in-replacement-shipping-type>
+                                    <option value="Free">Free delivery</option>
+                                    <option value="Custom Amount">Custom amount</option>
+                                </select>
+                            </div>
+                            <div class="col-6 d-none" data-walk-in-replacement-shipping-amount-wrap>
+                                <label class="form-label fw-semibold">Shipping fee (₱)</label>
+                                <input type="number" name="replacement_shipping_fee_amount" class="form-control" min="0" step="0.01" value="0.00" disabled>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="row g-3 mt-1">
-                    <div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $walkInReplacementLimit }}" value="1" required></div>
-                    <div class="col-6"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div>
-                    <div class="col-12"><label class="form-label fw-semibold text-danger">Replacement discount (%)</label><input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00"><div class="form-text">Optional discount applied to the replacement product price after approval.</div></div>
-                </div>
-            </div>
-            <div class="card border-0 bg-light mt-3" data-walk-in-exchange-summary>
-                <div class="card-body p-3">
+                    <div class="col-sm-6">
+                        <div class="card border-0 bg-light" data-walk-in-exchange-summary>
+                            <div class="card-body p-3">
                     <div class="fw-semibold mb-2"><i class="fa-solid fa-calculator text-primary me-2"></i>Exchange calculation</div>
                     <div class="row g-2 small">
                         <div class="col-6 col-md-3"><span class="text-muted d-block">Exchange credit</span><strong data-walk-in-credit>₱0.00</strong></div>
                         <div class="col-6 col-md-3"><span class="text-muted d-block">Main replacement</span><strong data-walk-in-main-total>₱0.00</strong></div>
                         <div class="col-6 col-md-3"><span class="text-muted d-block">Additional products</span><strong data-walk-in-extra-total>₱0.00</strong></div>
                         <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement basket</span><strong data-walk-in-basket-total>₱0.00</strong></div>
+                        <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement delivery</span><strong data-walk-in-shipping>₱0.00</strong></div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top mt-3 pt-3">
                         <span class="text-muted small" data-walk-in-exchange-status>Select replacement products to calculate.</span>
                         <span class="fw-bold text-danger" data-walk-in-amount-due>Additional payment: ₱0.00</span>
                     </div>
                     <div class="form-text mt-2">The additional payment amount below is filled with the exact excess over the exchange credit. Confirm it before submitting.</div>
+                            </div>
+                        </div>
+                        @include('hubs.reports._exchange-additional-items', ['exchangePrefix' => 'walk-in-'.$item->id, 'exchangeChannel' => 'walk_in'])
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Reason (optional)</label>
+                        <textarea name="reason" class="form-control" rows="2" maxlength="2000"></textarea>
+                    </div>
                 </div>
             </div>
-            @include('hubs.reports._exchange-additional-items', ['exchangePrefix' => 'walk-in-'.$item->id, 'exchangeChannel' => 'walk_in'])<label class="form-label fw-semibold mt-3">Reason (optional)</label><textarea name="reason" class="form-control" rows="3" maxlength="2000"></textarea></div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning">Submit for Verification</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-warning">Submit for Verification</button></div>
         </form></div></div>
     @endif
 @endforeach @endforeach
@@ -400,7 +439,10 @@
     document.querySelectorAll('[data-walk-in-replacement-modal]').forEach(modal => {
         const form = modal.querySelector('form'), search = modal.querySelector('[data-replacement-search]'), productId = modal.querySelector('[name="replacement_product_id"]'), options = modal.querySelector('datalist'), help = modal.querySelector('[data-replacement-stock]'), pricePanel = modal.querySelector('[data-replacement-price-panel]'), basePrice = modal.querySelector('[data-replacement-base-price]'), netPrice = modal.querySelector('[data-replacement-net-price]'), discountAmount = modal.querySelector('[data-replacement-discount-amount]'), estimatedTotal = modal.querySelector('[data-replacement-total]'), discountInput = modal.querySelector('[name="replacement_discount_percentage"]'), quantityInput = modal.querySelector('[name="replacement_quantity"]'), originalId = modal.dataset.originalProductId;
         const products = new Map(); let timer; let searchVersion = 0; let controller;
-        modal.addEventListener('show.bs.modal', () => { clearTimeout(timer); controller?.abort(); searchVersion++; search.value = ''; productId.value = ''; search.setCustomValidity(''); options.replaceChildren(); products.clear(); help.textContent = 'Search by Item ID, barcode, or product name. Physical stock is checked during verification.'; pricePanel.classList.add('d-none'); updateExchangeCalculation(); });
+        const shippingType = modal.querySelector('[data-walk-in-replacement-shipping-type]');
+        const shippingAmountInput = modal.querySelector('[name="replacement_shipping_fee_amount"]');
+        const shippingAmountWrap = modal.querySelector('[data-walk-in-replacement-shipping-amount-wrap]');
+        modal.addEventListener('show.bs.modal', () => { clearTimeout(timer); controller?.abort(); searchVersion++; search.value = ''; productId.value = ''; search.setCustomValidity(''); options.replaceChildren(); products.clear(); help.textContent = 'Search by Item ID, barcode, or product name. Physical stock is checked during verification.'; pricePanel.classList.add('d-none'); shippingType.value = 'Free'; shippingAmountInput.value = '0.00'; shippingAmountInput.disabled = true; shippingAmountWrap.classList.add('d-none'); modal.querySelector('[data-exchange-line-list]')?.replaceChildren(); updateExchangeCalculation(); });
         const money = value => `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         const roundMoney = value => Math.round((value + Number.EPSILON) * 100) / 100;
         const exchangeSummary = modal.querySelector('[data-walk-in-exchange-summary]');
@@ -421,22 +463,35 @@
                 extraTotal += roundMoney(unitPrice * (1 - discount / 100) * quantity);
             });
             extraTotal = roundMoney(extraTotal);
-            const basketTotal = roundMoney(mainTotal + extraTotal);
+            const shippingFee = shippingType.value === 'Custom Amount'
+                ? roundMoney(Math.max(0, Number(shippingAmountInput.value || 0)))
+                : 0;
+            const basketTotal = roundMoney(mainTotal + extraTotal + shippingFee);
             const amountDue = roundMoney(Math.max(0, basketTotal - credit));
             const shortfall = roundMoney(Math.max(0, credit - basketTotal));
             exchangeSummary.querySelector('[data-walk-in-credit]').textContent = money(credit);
             exchangeSummary.querySelector('[data-walk-in-main-total]').textContent = money(mainTotal);
             exchangeSummary.querySelector('[data-walk-in-extra-total]').textContent = money(extraTotal);
             exchangeSummary.querySelector('[data-walk-in-basket-total]').textContent = money(basketTotal);
+            exchangeSummary.querySelector('[data-walk-in-shipping]').textContent = money(shippingFee);
             exchangeSummary.querySelector('[data-walk-in-amount-due]').textContent = `Additional payment: ${money(amountDue)}`;
             const status = exchangeSummary.querySelector('[data-walk-in-exchange-status]');
             status.textContent = shortfall > 0
-                ? `Add ${money(shortfall)} more in products to meet the exchange credit.`
+                ? 'No additional payment is due. The original sale total remains unchanged.'
                 : (amountDue > 0 ? `Customer adds ${money(amountDue)}. Enter this as additional payment.` : 'Replacement basket matches the exchange credit.');
             status.classList.toggle('text-danger', amountDue > 0);
-            status.classList.toggle('text-warning', shortfall > 0);
+            status.classList.toggle('text-warning', false);
             paymentAmount.value = amountDue.toFixed(2);
         };
+        const updateReplacementShipping = () => {
+            const custom = shippingType.value === 'Custom Amount';
+            shippingAmountWrap.classList.toggle('d-none', !custom);
+            shippingAmountInput.disabled = !custom;
+            if (!custom) shippingAmountInput.value = '0.00';
+            updateExchangeCalculation();
+        };
+        shippingType.addEventListener('change', updateReplacementShipping);
+        shippingAmountInput.addEventListener('input', updateExchangeCalculation);
         const updateReplacementPrice = () => { const selected = products.get(search.value); if (!selected) { pricePanel.classList.add('d-none'); updateExchangeCalculation(); return; } const price = Number(selected.sales_price || 0); const discount = Math.min(100, Math.max(0, Number(discountInput.value || 0))); const quantity = Math.max(1, Number(quantityInput.value || 1)); const discountValue = price * discount / 100; const discountedPrice = price - discountValue; basePrice.textContent = money(price); netPrice.textContent = money(discountedPrice); discountAmount.textContent = `${money(discountValue)} (${discount.toFixed(2)}%)`; estimatedTotal.textContent = money(discountedPrice * quantity); pricePanel.classList.remove('d-none'); updateExchangeCalculation(); };
         discountInput.addEventListener('input', updateReplacementPrice);
         quantityInput.addEventListener('input', updateReplacementPrice);

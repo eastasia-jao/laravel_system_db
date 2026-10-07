@@ -1,7 +1,11 @@
 @php($exchangeId = 'exchange-lines-'.preg_replace('/[^A-Za-z0-9_-]/', '-', $exchangePrefix))
 <div id="{{ $exchangeId }}" class="mt-3" data-exchange-lines data-search-url="{{ route('hub.products.search.ajax', $hub->id) }}" data-stock-channel="{{ $exchangeChannel }}">
     <div class="alert alert-warning small mb-3">
-        The returned item's actual paid value is non-refundable exchange credit. Add products until the replacement basket equals or exceeds that credit. Any excess becomes an additional payment.
+        @if($exchangeChannel === 'online' || ($exchangeChannel === 'walk_in' && $hub->is_head_office))
+            If the replacement basket exceeds the exchange credit, only the excess is an additional payment. An equal or lower total requires no additional payment.
+        @else
+            The returned item's actual paid value is non-refundable exchange credit. Add products until the replacement basket equals or exceeds that credit. Any excess becomes an additional payment.
+        @endif
     </div>
     <div class="d-flex justify-content-between align-items-center mb-2">
         <label class="form-label fw-semibold mb-0">Additional replacement products</label>

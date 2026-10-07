@@ -396,34 +396,37 @@ class HubController extends Controller
 
             return ['channel' => $channel, 'rows' => $rows, 'total' => $rows->sum(fn ($row) => array_sum($row['amounts']))];
         })->values();
-        $buildSoldUnits = function ($sales) use ($normalizeChannel) {
+        $buildSoldUnits = function ($sales) {
             $units = collect();
             foreach ($sales as $sale) {
-            $isTikTok = $normalizeChannel($sale->channel_type) === 'tiktok';
-            foreach ($sale->items as $item) {
-                if (! $isTikTok) {
-                    $units[$item->product_id] = ($units[$item->product_id] ?? 0) + (int) $item->quantity;
-                    continue;
-                }
-
-                $approvedReplacements = $item->replacements->where('status', 'approved');
-                $returnedQuantity = max((int) ($item->returned_quantity ?? 0), (int) $item->inventoryReturns->sum('quantity'));
-                $originalRemaining = max(0, (int) $item->quantity - $returnedQuantity - (int) $approvedReplacements->sum('quantity'));
-                $units[$item->product_id] = ($units[$item->product_id] ?? 0) + $originalRemaining;
-                foreach ($approvedReplacements as $replacement) {
-                    $replacementRemaining = max(0,
-                        (int) ($replacement->replacement_quantity ?: $replacement->quantity)
-                        - (int) $replacement->inventoryReturns->sum('quantity')
+                foreach ($sale->items as $item) {
+                    $approvedReplacements = $item->replacements->where('status', 'approved');
+                    $returnedQuantity = max(
+                        (int) ($item->returned_quantity ?? 0),
+                        (int) $item->inventoryReturns->sum('quantity')
                     );
-                    $units[$replacement->replacement_product_id] = ($units[$replacement->replacement_product_id] ?? 0) + $replacementRemaining;
+                    $removedOriginalQuantity = max(
+                        $returnedQuantity,
+                        (int) $approvedReplacements->sum('quantity')
+                    );
+                    $originalRemaining = max(0, (int) $item->quantity - $removedOriginalQuantity);
+                    $units[$item->product_id] = ($units[$item->product_id] ?? 0) + $originalRemaining;
+
+                    foreach ($approvedReplacements as $replacement) {
+                        $replacementReturnedQuantity = (int) $replacement->inventoryReturns->sum('quantity');
+                        $replacementRemaining = max(
+                            0,
+                            (int) ($replacement->replacement_quantity ?: $replacement->quantity) - $replacementReturnedQuantity
+                        );
+                        $units[$replacement->replacement_product_id] = ($units[$replacement->replacement_product_id] ?? 0) + $replacementRemaining;
+                    }
                 }
-            }
             }
 
             return $units;
         };
         $soldUnits = $buildSoldUnits($monthlySales);
-        $topUnits = $soldUnits->sortDesc()->take(10);
+        $topUnits = $soldUnits->filter(fn ($units) => (int) $units > 0)->sortDesc()->take(10);
         $topNames = Product::whereIn('id', $topUnits->keys())->get()->keyBy('id');
         $topProducts = $topUnits->map(fn ($units, $productId) => [
             'name' => $topNames->get($productId)?->name ?? 'Unavailable product',
@@ -442,7 +445,8 @@ class HubController extends Controller
             $allocationSales = app(StockAllocationSales::class);
             $rangeUnits = $allocationSales->soldByProduct($productIds, $fromDate->toDateString(), $asOf->toDateString())
                 ->map(fn ($channelUnits) => (int) $channelUnits->sum());
-            $topUnits = $rangeUnits->sortDesc()->take(10);
+            $soldUnits = $rangeUnits;
+            $topUnits = $rangeUnits->filter(fn ($units) => (int) $units > 0)->sortDesc()->take(10);
             $topNames = Product::whereIn('id', $topUnits->keys())->get()->keyBy('id');
             $topProducts = $topUnits->map(fn ($units, $productId) => [
                 'name' => $topNames->get($productId)?->name ?? 'Unavailable product',

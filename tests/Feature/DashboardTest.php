@@ -619,6 +619,84 @@ class DashboardTest extends TestCase
         ]))->assertSessionHasErrors('to');
     }
 
+    public function test_dashboard_product_rankings_exclude_returned_units_across_channels(): void
+    {
+        $hub = StoreHub::create(['name' => 'Returned Units Dashboard', 'code' => 'RETURNED-DASH', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $netProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'NET-SELLER', 'name' => 'Net Seller', 'stock' => 10, 'status' => 'active']);
+        $returnedProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'FULLY-RETURNED', 'name' => 'Fully Returned Product', 'stock' => 10, 'status' => 'active']);
+
+        foreach (['online', 'wholesale', 'walk_in'] as $channel) {
+            $sale = SalesTransaction::create([
+                'user_id' => $user->id,
+                'store_hub_id' => $hub->id,
+                'customer_name' => 'Return-aware Customer',
+                'channel_type' => $channel,
+                'order_number' => 'NET-'.$channel,
+                'order_date' => '2026-10-05',
+                'grand_total' => 200,
+                'status' => 'confirmed',
+                'payment_status' => 'paid',
+            ]);
+            $item = $sale->items()->create(['product_id' => $netProduct->id, 'quantity' => 2, 'unit_price' => 100, 'line_total' => 200]);
+            \App\Models\InventoryTransaction::create([
+                'type' => 'return',
+                'reference' => $sale->order_number,
+                'store_hub_id' => $hub->id,
+                'product_id' => $netProduct->id,
+                'sales_transaction_id' => $sale->id,
+                'transaction_item_id' => $item->id,
+                'channel' => $channel,
+                'condition' => 'good',
+                'quantity' => 1,
+                'occurred_on' => '2026-10-06',
+                'created_by' => $user->id,
+            ]);
+        }
+
+        $fullyReturnedSale = SalesTransaction::create([
+            'user_id' => $user->id,
+            'store_hub_id' => $hub->id,
+            'customer_name' => 'Fully Returned Customer',
+            'channel_type' => 'online',
+            'order_number' => 'FULLY-RETURNED-ORDER',
+            'order_date' => '2026-10-05',
+            'grand_total' => 100,
+            'status' => 'confirmed',
+        ]);
+        $fullyReturnedItem = $fullyReturnedSale->items()->create([
+            'product_id' => $returnedProduct->id,
+            'quantity' => 1,
+            'unit_price' => 100,
+            'line_total' => 100,
+        ]);
+        \App\Models\InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $fullyReturnedSale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $returnedProduct->id,
+            'sales_transaction_id' => $fullyReturnedSale->id,
+            'transaction_item_id' => $fullyReturnedItem->id,
+            'channel' => 'online',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-10-06',
+            'created_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('dashboard', [
+            'hub_id' => $hub->id,
+            'from' => '2026-10-01',
+            'to' => '2026-10-07',
+        ]))->assertOk();
+
+        $this->assertSame([['name' => 'Net Seller', 'units' => 3]], $response->viewData('topProducts')->all());
+        $slowItems = $response->viewData('slowProducts')->getCollection();
+        $this->assertSame(0, $slowItems->firstWhere('id', $returnedProduct->id)['units']);
+        $this->assertSame(3, $slowItems->firstWhere('id', $netProduct->id)['units']);
+        $this->assertSame(3, $response->viewData('soldItemCount'));
+    }
+
     public function test_slow_moving_items_only_include_in_stock_products_and_paginate_ten_per_page(): void
     {
         $hub = StoreHub::create(['name' => 'Slow Items Branch', 'code' => 'SLOW-ITEMS', 'status' => 'active']);
