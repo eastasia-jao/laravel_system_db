@@ -199,7 +199,7 @@
         }
         $detailBankLabel = $transaction->bank_name ?: $transaction->custom_bank_name;
     @endphp
-    <div class="modal fade" id="online-order-{{ $transaction->id }}" tabindex="-1" aria-labelledby="online-order-title-{{ $transaction->id }}" aria-hidden="true">
+    <div class="modal fade" id="online-order-{{ $transaction->id }}" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="online-order-title-{{ $transaction->id }}" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content">
                 <div class="modal-header">

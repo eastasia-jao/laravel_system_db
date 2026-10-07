@@ -147,7 +147,7 @@
             * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
         $walkInReplacementAdjustment = max(0, round($walkInReplacementCharge - $walkInReplacementCredit, 2));
     @endphp
-    <div class="modal fade" id="walk-in-order-{{ $transaction->id }}" tabindex="-1" aria-labelledby="walk-in-title-{{ $transaction->id }}" aria-hidden="true">
+    <div class="modal fade" id="walk-in-order-{{ $transaction->id }}" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="walk-in-title-{{ $transaction->id }}" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-sm-down"><div class="modal-content walk-in-order-modal">
             <div class="modal-header bg-warning-subtle"><div><h5 class="modal-title" id="walk-in-title-{{ $transaction->id }}"><i class="fa-solid fa-receipt me-2"></i>Walk-In Order #{{ $transaction->order_number ?: $transaction->id }}</h5><small class="text-muted">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge') · {{ optional($transaction->order_date)->format('M d, Y') }} · {{ strtoupper($transaction->mode_of_payment ?: '—') }}</small></div></div>
             <div class="modal-body">

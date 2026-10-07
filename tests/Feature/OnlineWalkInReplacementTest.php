@@ -70,7 +70,9 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
             ->assertOk()
             ->assertSee('online-replace-button', false)
+            ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
             ->assertDontSee('aria-label="Close order details"', false)
+            ->assertDontSee('>Reset</a>')
             ->assertSee('Search by Item ID, barcode, or product name')
             ->assertSee('Exchange calculation')
             ->assertSee('name="exchange_payment_amount"', false);
@@ -401,6 +403,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Order Date')
             ->assertSee('Order ID')
             ->assertDontSee('aria-label="Close order"', false)
+            ->assertDontSee('>Reset</a>')
             ->assertDontSee('Amount required from customer')
             ->assertSee('Customer Name')
             ->assertSee('Payment')

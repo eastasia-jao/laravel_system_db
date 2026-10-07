@@ -369,6 +369,9 @@ class WholesalePaymentTest extends TestCase
 
         $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'online']))
             ->assertOk()
-            ->assertSee('Reset');
+            ->assertDontSee('>Reset</a>');
+        $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'walk_in']))
+            ->assertOk()
+            ->assertDontSee('>Reset</a>');
     }
 }
