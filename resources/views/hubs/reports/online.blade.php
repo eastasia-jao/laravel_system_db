@@ -65,6 +65,7 @@
                     @php
                         $saleAmount = $transaction->netOrderTotal((float) ($transaction->sub_total ?: $transaction->items->sum('line_total')));
                         $difference = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount - (float) ($transaction->sub_total ?: $saleAmount);
+                        $saleReplacements = $transaction->items->flatMap(fn ($item) => $item->replacements);
                     @endphp
                     <div class="col-12">
                         <article class="card online-order-card overflow-hidden">
@@ -74,6 +75,9 @@
                                     <div class="order-label">Client / Company</div>
                                     <div class="fs-5 fw-bold">{{ $transaction->customer_name }}@include('hubs.reports._new-customer-badge')</div>
                                     <div class="small text-muted">{{ optional($transaction->order_date)->format('M d, Y') }} · Order #{{ $transaction->order_number }}</div>
+                                    @foreach($saleReplacements->pluck('status')->unique() as $replacementStatus)
+                                        <span class="badge mt-1 {{ $replacementStatus === 'approved' ? 'bg-success' : ($replacementStatus === 'pending' ? 'bg-warning text-dark' : 'bg-secondary') }}">Replacement: {{ strtoupper($replacementStatus) }}</span>
+                                    @endforeach
                                 </div>
                                 <div class="col-12 col-md-4 text-md-center">
                                     <div class="order-label">Payment / Bank</div>

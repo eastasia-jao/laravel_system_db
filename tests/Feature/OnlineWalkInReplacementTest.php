@@ -133,8 +133,15 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Order number')
             ->assertSee('ONLINE-ORDER');
 
-        $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
-            ->assertOk()->assertSee('APPROVED')->assertSee('Online Replacement');
+        $report = $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
+            ->assertOk()
+            ->assertSee('Replacement: APPROVED')
+            ->assertSee('Online Replacement')
+            ->assertSee('ONLINE-ORDER');
+        $this->assertSame(1, $report->viewData('totalTransactions'));
+        $this->assertSame(35.0, (float) $report->viewData('metrics')['total_sales']);
+        $this->assertSame(1, (int) $report->viewData('metrics')['replacement_count']);
+        $this->assertDatabaseCount('sales_transactions', 1);
     }
 
     public function test_online_replacement_below_credit_can_be_submitted_without_changing_proof_amount(): void
