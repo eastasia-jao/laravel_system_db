@@ -12,6 +12,8 @@
        if (! $sidebarContextHubId && in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)) {
            $sidebarPendingVerificationCount = (int) $sidebarPendingVerificationCountsByHub->sum();
        }
+       $hasPendingHubVerification = $sidebarPendingVerificationCountsByHub->isNotEmpty()
+           && $sidebarPendingVerificationCountsByHub->sum() > 0;
     @endphp
     
     <div class="d-flex align-items-center gap-2 mb-4 pb-3 border-bottom text-primary fw-bold">
@@ -176,7 +178,11 @@
         @can('access-sales')
         <li>
             <a class="nav-link text-secondary d-flex align-items-center gap-3 py-2 px-3 rounded-3" data-bs-toggle="collapse" href="#storeHubDropdown" role="button">
-                <i class="fa-solid fa-shop"></i> Store Hub <i class="fa-solid fa-chevron-down ms-auto small"></i>
+                <i class="fa-solid fa-shop"></i> Store Hub
+                @if($hasPendingHubVerification)
+                    <span class="rounded-circle bg-danger flex-shrink-0" style="width:.65rem;height:.65rem" aria-label="Pending inventory verification" title="Pending inventory verification"></span>
+                @endif
+                <i class="fa-solid fa-chevron-down ms-auto small"></i>
             </a>
             <div class="collapse ps-2" id="storeHubDropdown">
                 <ul class="list-unstyled fw-normal pb-1 small d-flex flex-column gap-1 pt-1" style="max-height: 250px; overflow-y: auto; overflow-x: hidden;">

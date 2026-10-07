@@ -167,6 +167,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertOk()
             ->assertSee('Transaction Logs')
             ->assertSee('aria-label="1 inventory item(s) awaiting verification"', false)
+            ->assertSee('aria-label="Pending inventory verification"', false)
             ->assertSee('BRANCH STORE')
             ->getContent();
         preg_match('~<a href="[^"]*inventory-transactions[^"]*"[^>]*>(.*?)</a>~s', $transactionLogsResponse, $transactionLogsLink);
