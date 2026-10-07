@@ -781,8 +781,10 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('Payment reconciliation')
             ->assertSee('Reconciliation Difference')
             ->assertSee('ONLINE-REPORT-001', false)
-            ->assertSee('Reconciled payment');
+            ->assertSee('Reconciled payment')
+            ->assertSee('Difference')
+            ->assertDontSee('Difference ₱');
         $this->assertSame(230.0, (float) $onlineReport->viewData('metrics')['proof_amount']);
-        $this->assertSame(0.0, (float) $onlineReport->viewData('metrics')['difference']);
+        $this->assertSame(30.0, (float) $onlineReport->viewData('metrics')['difference']);
     }
 }

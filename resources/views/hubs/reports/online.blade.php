@@ -64,7 +64,7 @@
             @forelse($transactions as $transaction)
                     @php
                         $saleAmount = $transaction->netOrderTotal((float) ($transaction->sub_total ?: $transaction->items->sum('line_total')));
-                        $difference = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount - $saleAmount - (float) $transaction->shipping_fee_amount;
+                        $difference = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount - (float) ($transaction->sub_total ?: $saleAmount);
                     @endphp
                     <div class="col-12">
                         <article class="card online-order-card overflow-hidden">
@@ -126,7 +126,6 @@
                     <span>Sales ₱{{ number_format($metrics['total_sales'], 2) }}</span>
                     <span>Shipping ₱{{ number_format($metrics['shipping_fees'], 2) }}</span>
                     <span>Proof ₱{{ number_format($metrics['proof_amount'], 2) }}</span>
-                    <span class="{{ abs($metrics['difference']) >= 0.01 ? 'text-danger' : 'text-success' }}">Difference ₱{{ number_format($metrics['difference'], 2) }}</span>
                 </div>
             </div>
         @endif
@@ -136,7 +135,7 @@
                 @forelse($transactions as $transaction)
                     @php
                         $saleAmount = (float) ($transaction->sub_total ?: $transaction->items->sum('line_total'));
-                        $difference = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount - $saleAmount - (float) $transaction->shipping_fee_amount;
+                        $difference = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount - (float) ($transaction->sub_total ?: $saleAmount);
                     @endphp
                     <tr>
                         <td class="fw-semibold" data-online-preview-remove>{{ $transaction->customer_name }}@include('hubs.reports._new-customer-badge')</td>
@@ -188,7 +187,7 @@
         $detailShippingFee = (float) $transaction->shipping_fee_amount;
         $detailOrderTotal = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->total_amount ?: ($detailSaleAmount + $detailShippingFee)));
         $detailProofAmount = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount;
-        $detailDifference = $detailProofAmount === null ? null : $detailProofAmount - $detailSaleAmount - $detailShippingFee;
+        $detailDifference = $detailProofAmount === null ? null : $detailProofAmount - (float) ($transaction->sub_total ?: $detailSaleAmount);
         $detailRefundTotal = $transaction->items->sum(fn ($item) => $item->refundCostAmount())
             + $transaction->inventoryReturns->whereNull('transaction_item_id')->sum('refund_amount');
         $detailPaymentLabel = strtoupper($transaction->mode_of_payment ?: 'Unspecified');

@@ -411,8 +411,7 @@ class SalesReportController extends Controller
                 $saleAmount = (float) ($transaction->sub_total ?: $resolveTotal($transaction));
 
                 return (float) $transaction->proof_amount
-                    - $saleAmount
-                    - (float) $transaction->shipping_fee_amount;
+                    - $saleAmount;
             }),
             'replacement_count' => $replacementCount,
             'return_count' => $returnCount,
