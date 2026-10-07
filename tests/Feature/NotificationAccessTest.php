@@ -51,7 +51,7 @@ class NotificationAccessTest extends TestCase
         $this->assertNull($owner->notifications()->first()->read_at);
     }
 
-    public function test_tiktok_approval_notification_opens_tiktok_returns_instead_of_sales_report(): void
+    public function test_marketplace_approval_notification_opens_approved_orders_instead_of_sales_report(): void
     {
         $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true]);
         $staff = User::factory()->create([
@@ -72,13 +72,13 @@ class NotificationAccessTest extends TestCase
 
         $staff->notify(new SalesWorkflowNotification('confirmed', $sale));
         $notification = $staff->notifications()->firstOrFail();
-        $returnsUrl = route('hub.tiktok-returns', ['hub' => $hub->id]);
-        $this->assertSame($returnsUrl, $notification->data['url']);
+        $ordersUrl = route('hub.marketplace-orders', ['hub' => $hub->id, 'channel' => 'tiktok']);
+        $this->assertSame($ordersUrl, $notification->data['url']);
         $this->assertSame('tiktok', $notification->data['channel']);
 
         $this->actingAs($staff)
             ->get(route('notifications.read', $notification->id))
-            ->assertRedirect($returnsUrl);
+            ->assertRedirect($ordersUrl);
 
         $legacyNotification = $staff->notifications()->create([
             'id' => (string) \Illuminate\Support\Str::uuid(),
@@ -90,7 +90,7 @@ class NotificationAccessTest extends TestCase
             ],
         ]);
         $this->get(route('notifications.read', $legacyNotification->id))
-            ->assertRedirect($returnsUrl);
+            ->assertRedirect($ordersUrl);
     }
 
     public function test_mark_all_notifications_as_read_uses_post(): void

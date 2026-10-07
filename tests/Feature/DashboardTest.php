@@ -109,7 +109,7 @@ class DashboardTest extends TestCase
         $staffDashboard->assertOk()
             ->assertSee('Sales channel')
             ->assertSee('value="shopee" selected', false)
-            ->assertSee('Shopee Payment Overview')
+            ->assertDontSee('Shopee Payment Overview')
             ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false)
             ->assertSee('Daily Sales')
             ->assertDontSee('Lazada Payment Overview')
@@ -282,7 +282,8 @@ class DashboardTest extends TestCase
 
         $response->assertOk()
             ->assertSee('value="shopee" selected', false)
-            ->assertSee('Shopee Payment Overview')
+            ->assertDontSee('Shopee Payment Overview')
+            ->assertDontSee('Lazada Payment Overview')
             ->assertSee('Shopee Channel Product')
             ->assertDontSee('Fully Booked');
         $this->assertSame(['online', 'shopee', 'lazada', 'tiktok'], $response->viewData('dashboardChannelOptions')->all());

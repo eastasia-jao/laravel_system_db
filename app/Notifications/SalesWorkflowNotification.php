@@ -56,8 +56,11 @@ class SalesWorkflowNotification extends Notification
             'url' => $this->event === 'rejected'
                 ? route('sales.rejected')
                 : ($this->event === 'confirmed'
-                    ? ($reportChannel === 'tiktok'
-                        ? route('hub.tiktok-returns', ['hub' => $this->sale->store_hub_id])
+                    ? (in_array($reportChannel, ['shopee', 'lazada', 'tiktok'], true)
+                        ? route('hub.marketplace-orders', [
+                            'hub' => $this->sale->store_hub_id,
+                            'channel' => $reportChannel,
+                        ])
                         : route('hub.report', [
                             'hub' => $this->sale->store_hub_id,
                             'channel' => $reportChannel,

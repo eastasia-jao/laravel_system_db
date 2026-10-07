@@ -80,6 +80,18 @@
         </div>
         @endif
 
+        @if($hub->is_head_office && auth()->user()?->role === 'sales_marketing_staff')
+            @foreach(['shopee' => 'Shopee', 'lazada' => 'Lazada', 'tiktok' => 'TikTok'] as $marketplaceChannel => $marketplaceLabel)
+                @if(auth()->user()->hasSalesChannel($marketplaceChannel))
+                <div class="col">
+                    <a href="{{ route('hub.marketplace-orders', ['hub' => $hub->id, 'channel' => $marketplaceChannel]) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
+                        <span class="hub-action-icon"><i class="fa-solid fa-bag-shopping"></i></span><span class="hub-action-label">{{ $marketplaceLabel }} Orders</span>
+                    </a>
+                </div>
+                @endif
+            @endforeach
+        @endif
+
         <!-- Sales Report -->
         @can('view-sales-reports')
         @if($reportChannel)

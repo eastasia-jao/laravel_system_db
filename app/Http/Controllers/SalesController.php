@@ -898,6 +898,37 @@ class SalesController extends Controller
         return response()->json($customers);
     }
 
+    public function marketplaceOrders(Request $request, int $hub)
+    {
+        $hub = StoreHub::findOrFail($hub);
+        $this->ensureHubAccess((int) $hub->id);
+        abort_unless($hub->is_head_office, 404);
+
+        $validated = $request->validate([
+            'channel' => ['required', Rule::in(['shopee', 'lazada', 'tiktok'])],
+        ]);
+        $channel = $validated['channel'];
+        $user = $request->user();
+
+        if ($user?->role === 'sales_marketing_staff') {
+            abort_unless($user->hasSalesChannel($channel), 403, 'You are not assigned to view this sales channel.');
+        } else {
+            abort_unless(in_array($user?->role, ['admin', 'inventory_staff'], true), 403);
+        }
+
+        $orders = SalesTransaction::query()
+            ->where('store_hub_id', $hub->id)
+            ->whereIn('status', ['confirmed', 'completed'])
+            ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) = ?", [$channel])
+            ->with(['items.product'])
+            ->orderByDesc('order_date')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('hubs.marketplace-orders', compact('hub', 'channel', 'orders'));
+    }
+
     public function updateStatus(Request $request, int $id)
     {
         $sale = SalesTransaction::findOrFail($id);

@@ -59,6 +59,88 @@ class SalesWorkflowTest extends TestCase
             ->assertSee("url.searchParams.set('q', search.trim())", false);
     }
 
+    public function test_assigned_marketplace_staff_can_view_only_approved_orders_for_the_selected_channel(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Marketplace Orders Head Office',
+            'code' => 'MARKET-ORDERS',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['shopee', 'lazada', 'tiktok'],
+        ]);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'MARKET-ITEM',
+            'name' => 'Marketplace order product',
+            'stock' => 10,
+            'status' => 'active',
+        ]);
+        $shopeeOrder = SalesTransaction::create([
+            'user_id' => $staff->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'shopee',
+            'order_number' => 'SHOPEE-APPROVED-001',
+            'customer_name' => 'Shopee Customer',
+            'order_date' => '2026-10-06',
+            'grand_total' => 175,
+            'status' => 'confirmed',
+        ]);
+        $shopeeOrder->items()->create([
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit_price' => 87.5,
+            'line_total' => 175,
+        ]);
+        SalesTransaction::create([
+            'user_id' => $staff->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'lazada',
+            'order_number' => 'LAZADA-APPROVED-001',
+            'customer_name' => 'Lazada Customer',
+            'order_date' => '2026-10-06',
+            'grand_total' => 250,
+            'status' => 'confirmed',
+        ]);
+        SalesTransaction::create([
+            'user_id' => $staff->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'shopee',
+            'order_number' => 'SHOPEE-PENDING-001',
+            'customer_name' => 'Pending Customer',
+            'order_date' => '2026-10-06',
+            'grand_total' => 90,
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('hub.marketplace-orders', ['hub' => $hub->id, 'channel' => 'shopee']))
+            ->assertOk()
+            ->assertSee('Shopee Approved Orders')
+            ->assertSee('SHOPEE-APPROVED-001')
+            ->assertSee('Marketplace order product')
+            ->assertDontSee('LAZADA-APPROVED-001')
+            ->assertDontSee('SHOPEE-PENDING-001');
+
+        $this->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('Shopee Orders')
+            ->assertSee('Lazada Orders')
+            ->assertSee('TikTok Orders');
+
+        $unassignedStaff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['online'],
+        ]);
+        $this->actingAs($unassignedStaff)
+            ->get(route('hub.marketplace-orders', ['hub' => $hub->id, 'channel' => 'shopee']))
+            ->assertForbidden();
+    }
+
     public function test_shopee_and_lazada_generate_invoice_numbers_when_left_blank(): void
     {
         $hub = StoreHub::create([

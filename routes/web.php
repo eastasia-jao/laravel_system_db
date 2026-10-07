@@ -110,8 +110,11 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             }
             $notificationChannel = strtolower(str_replace(['-', ' '], '_', (string) $notificationChannel));
 
-            if ($notificationChannel === 'tiktok' && ! empty($record->data['hub_id'])) {
-                $destination = route('hub.tiktok-returns', ['hub' => $record->data['hub_id']]);
+            if (in_array($notificationChannel, ['shopee', 'lazada', 'tiktok'], true) && ! empty($record->data['hub_id'])) {
+                $destination = route('hub.marketplace-orders', [
+                    'hub' => $record->data['hub_id'],
+                    'channel' => $notificationChannel,
+                ]);
             }
         }
         if (($record->data['event'] ?? null) === 'return_recorded'
@@ -252,6 +255,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             Route::post('/products/import', [ProductController::class, 'importCsv'])->middleware('can:manage-inventory')->name('products.import');
             Route::get('/products/import-status', [ProductController::class, 'importStatus'])->middleware('can:manage-inventory')->name('products.import-status');
             Route::get('/report', [SalesReportController::class, 'report'])->middleware('can:view-sales-reports')->name('report');
+            Route::get('/marketplace-orders', [SalesController::class, 'marketplaceOrders'])->name('marketplace-orders');
             Route::get('/tiktok-returns', [SalesReportController::class, 'tiktokReturns'])->middleware('can:view-sales-reports')->name('tiktok-returns');
             Route::get('/fully-booked-returns', [SalesReportController::class, 'fullyBookedReturns'])->middleware('can:view-sales-reports')->name('fully-booked-returns');
             Route::get('/fully-booked-rejected', [FullyBookedOrderController::class, 'rejected'])->name('fully-booked-rejected');
