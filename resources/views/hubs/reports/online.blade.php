@@ -174,7 +174,7 @@
                 @endforelse
             </tbody>
             <tfoot class="table-light fw-bold">
-                <tr><td colspan="5" data-online-total-label>TOTAL SALES / {{ number_format($totalTransactions) }} TRANSACTIONS</td><td class="text-end">₱{{ number_format($metrics['total_sales'], 2) }}</td><td class="text-end">₱{{ number_format($metrics['shipping_fees'], 2) }}</td><td class="text-end">₱{{ number_format($metrics['proof_amount'], 2) }}</td><td class="text-end">₱{{ number_format($metrics['difference'], 2) }}</td><td class="text-end">{{ number_format($metrics['return_count']) }}</td><td class="text-end">{{ number_format($metrics['replacement_count']) }}</td><td></td><td data-online-screen-only></td></tr>
+                <tr><td colspan="5" data-online-total-label>TOTAL SALES / {{ number_format($totalTransactions) }} TRANSACTIONS</td><td class="text-end">₱{{ number_format($metrics['total_sales'], 2) }}</td><td class="text-end">₱{{ number_format($metrics['shipping_fees'], 2) }}</td><td class="text-end">₱{{ number_format($metrics['proof_amount'], 2) }}</td><td class="text-end">{{ number_format($metrics['return_count']) }}</td><td class="text-end">{{ number_format($metrics['replacement_count']) }}</td><td></td><td data-online-screen-only></td></tr>
             </tfoot>
         </table>
     </div>
