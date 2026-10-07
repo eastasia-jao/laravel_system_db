@@ -120,8 +120,14 @@ class SalesWorkflowTest extends TestCase
             ->get(route('hub.marketplace-orders', ['hub' => $hub->id, 'channel' => 'shopee']))
             ->assertOk()
             ->assertSee('Shopee Approved Orders')
+            ->assertSee('Order Number')
+            ->assertSee('Customer Name')
+            ->assertSee('Order Date')
             ->assertSee('SHOPEE-APPROVED-001')
+            ->assertSee('View Order Items')
+            ->assertSee('id="marketplace-order-items-'.$shopeeOrder->id.'"', false)
             ->assertSee('Marketplace order product')
+            ->assertDontSee('<th>Items</th>', false)
             ->assertDontSee('LAZADA-APPROVED-001')
             ->assertDontSee('SHOPEE-PENDING-001');
 
