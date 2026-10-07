@@ -322,6 +322,8 @@ class BranchTransferTest extends TestCase
         $firstPage = $this->actingAs($associate)
             ->get(route('staff-logs.index', ['search' => 'TRF-PAGE']))
             ->assertOk()
+            ->assertSee('.staff-log-pagination > div { width: 100%; }', false)
+            ->assertSee('w-100 pagination-summary', false)
             ->assertSee('search=TRF-PAGE', false)
             ->assertSee('page=2', false)
             ->assertViewHas('logs', fn ($logs) => $logs->count() === 10 && $logs->currentPage() === 1);

@@ -60,7 +60,6 @@
     .sales-dashboard .marketplace-comparison-grid .marketplace-sales-chart { height: 118px; gap: .75rem; padding: 7px .2rem 0; border-top: 0; margin-top: 0; }
     .sales-dashboard .marketplace-comparison-grid .marketplace-sales-bar-label { min-height: 1.7rem; font-size: .58rem; line-height: 1.1; text-align: center; white-space: normal; }
     .sales-dashboard .marketplace-comparison-grid .marketplace-sales-bar-value { font-size: .54rem; }
-    .sales-dashboard #slowProductsResults nav p { display: none; }
     .sales-dashboard .section-kicker { color: #17345d; font-size: .78rem; font-weight: 750; letter-spacing: .02em; }
     .sales-dashboard .dashboard-subtitle { color: #64748b; font-size: .72rem; }
     .sales-dashboard .product-panel { min-height: 300px; }
@@ -460,7 +459,7 @@
             <div id="slowProductsResults" aria-live="polite">
                 <div>@forelse($slowProducts as $product)<div class="d-flex align-items-center gap-2 py-2 border-bottom small"><span class="rank">{{ $slowProducts->firstItem() + $loop->index }}</span><span class="flex-grow-1">{{ $product['name'] }}</span><span class="text-muted text-nowrap">{{ number_format($product['stock']) }} pcs in stock · {{ number_format($product['units']) }} sold</span></div>@empty<div class="empty-state">No active products with stock.</div>@endforelse</div>
                 @if($slowProducts->hasPages())
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 w-100">
                         {{ $slowProducts->onEachSide(1)->links() }}
                     </div>
                 @endif

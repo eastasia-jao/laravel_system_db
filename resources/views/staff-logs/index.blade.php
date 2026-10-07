@@ -45,6 +45,7 @@
     .staff-log-empty { padding: 3.5rem 1rem !important; color: var(--log-muted) !important; text-align: center; }
     .staff-log-empty i { display: block; margin-bottom: .8rem; color: #94a3b8; font-size: 1.8rem; }
     .staff-log-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: 1rem 1.15rem; border-top: 1px solid #edf1f6; }
+    .staff-log-pagination > div { width: 100%; }
     .staff-log-pagination .pagination { margin-bottom: 0; }
     @media (max-width: 1399.98px) { .staff-log-filter-grid { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); } .staff-log-filter-grid .filter-search { grid-column: span 2; } }
     @media (max-width: 767.98px) {

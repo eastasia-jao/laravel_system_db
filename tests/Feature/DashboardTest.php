@@ -560,7 +560,7 @@ class DashboardTest extends TestCase
             ->assertSee('Stocked slow item 10')
             ->assertSee('slow_page=2', false)
             ->assertSee('id="slowProductsResults"', false)
-            ->assertSee('#slowProductsResults nav p { display: none; }', false)
+            ->assertSee('w-100 pagination-summary', false)
             ->assertSee('event.preventDefault()', false);
         $this->assertSame(10, $firstPage->viewData('slowProducts')->count());
         $this->assertSame(12, $firstPage->viewData('slowProducts')->total());
