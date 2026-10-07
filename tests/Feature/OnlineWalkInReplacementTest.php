@@ -90,10 +90,11 @@ class OnlineWalkInReplacementTest extends TestCase
         $replacement->stockAllocation->update(['online' => 0]);
         $this->actingAs($admin)->get(route('hub.sales.pending', $hub->id))
             ->assertOk()
-            ->assertSee('Not enough allocated Online stock for this item.')
             ->assertSee('Review Inventory (1)')
             ->assertSee('Replacement Inventory Review')
             ->assertSee('SHORT 1')
+            ->assertDontSee('Not enough allocated Online stock for this item.')
+            ->assertDontSee('Replacement total (including shipping)')
             ->assertSee('Stock Allocation')
             ->assertSee(route('stock-allocation.index', [
                 'hub_id' => $hub->id,

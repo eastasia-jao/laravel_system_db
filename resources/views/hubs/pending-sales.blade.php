@@ -99,26 +99,39 @@
                         </div>
                         <div class="row g-3 mt-2">
                             <div class="col-md-5"><div class="meta-label">Return to inventory</div><div class="meta-value">{{ $returnedQty }} × {{ $replacement->originalProduct?->name }}</div><small class="text-muted">Exchange credit ₱{{ number_format($credit, 2) }}</small></div>
-                            <div class="col-md-5"><div class="meta-label">Release to customer</div>@foreach($exchangeLines as $line)<div class="border rounded-3 p-2 mt-2">
-                                <div class="meta-value">{{ $line->replacement_quantity ?: $line->quantity }} × {{ $line->replacementProduct?->name }}</div>
-                                <small class="text-muted d-block">{{ $line->replacement_available_stock }} available · ₱{{ number_format((float) $line->replacement_unit_price * (1 - ((float) ($line->replacement_discount_percentage ?? 0) / 100)) * (int) ($line->replacement_quantity ?: $line->quantity), 2) }}</small>
-                                @if((int) $line->replacement_available_stock < (int) ($line->replacement_quantity ?: $line->quantity))
-                                    <div class="alert alert-warning small py-2 px-2 mt-2 mb-0">
-                                        Not enough {{ $replacementChannel === 'walk_in' ? 'unallocated physical' : 'allocated '.ucfirst(str_replace('_', ' ', $replacementChannel)) }} stock for this item.
-                                        @if($replacementChannel !== 'walk_in' && $replacementChannel !== 'online')
-                                            <a href="{{ route('stock-allocation.index', ['hub_id' => $replacement->transaction?->store_hub_id, 'search' => $line->replacementProduct?->item_id, 'product_id' => $line->replacement_product_id, 'return_to' => 'verification-queue', 'return_hub_id' => $replacement->transaction?->store_hub_id]) }}"
-                                               class="btn btn-sm btn-outline-primary text-nowrap d-block mt-2"
-                                               title="Open this product in Stock Allocation">
-                                                <i class="fa-solid fa-layer-group me-1"></i> Open Stock Allocation
-                                            </a>
-                                        @endif
-                                    </div>
-                                @endif
-                            </div>@endforeach<div class="small fw-semibold mt-2">Replacement total (including shipping) ₱{{ number_format($charge, 2) }} · Additional payment ₱{{ number_format(max(0, $difference), 2) }}</div>
-                                @if((float) ($replacement->replacement_shipping_fee_amount ?? 0) > 0)
-                                    <div class="small text-muted">Replacement shipping ({{ $replacement->replacement_shipping_fee_type ?: 'Custom Amount' }}): ₱{{ number_format($replacement->replacement_shipping_fee_amount, 2) }}</div>
+                            <div class="col-md-5">
+                                <div class="meta-label">Release to customer</div>
+                                @if($replacementChannel === 'online')
+                                    <button type="button" class="btn btn-sm {{ $exchangeStockReady ? 'btn-outline-success' : 'btn-outline-warning' }} fw-bold mt-2"
+                                            data-bs-toggle="modal" data-bs-target="#onlineReplacementInventory{{ $replacement->id }}">
+                                        <i class="fa-solid fa-list-check me-1"></i> Review Inventory ({{ $exchangeLines->count() }})
+                                    </button>
+                                    <div class="small text-muted mt-1">Review replacement items, stock, and totals.</div>
                                 @else
-                                    <div class="small text-muted">Replacement shipping: Free delivery</div>
+                                    @foreach($exchangeLines as $line)
+                                        <div class="border rounded-3 p-2 mt-2">
+                                            <div class="meta-value">{{ $line->replacement_quantity ?: $line->quantity }} × {{ $line->replacementProduct?->name }}</div>
+                                            <small class="text-muted d-block">{{ $line->replacement_available_stock }} available · ₱{{ number_format((float) $line->replacement_unit_price * (1 - ((float) ($line->replacement_discount_percentage ?? 0) / 100)) * (int) ($line->replacement_quantity ?: $line->quantity), 2) }}</small>
+                                            @if((int) $line->replacement_available_stock < (int) ($line->replacement_quantity ?: $line->quantity))
+                                                <div class="alert alert-warning small py-2 px-2 mt-2 mb-0">
+                                                    Not enough {{ $replacementChannel === 'walk_in' ? 'unallocated physical' : 'allocated '.ucfirst(str_replace('_', ' ', $replacementChannel)) }} stock for this item.
+                                                    @if($replacementChannel !== 'walk_in')
+                                                        <a href="{{ route('stock-allocation.index', ['hub_id' => $replacement->transaction?->store_hub_id, 'search' => $line->replacementProduct?->item_id, 'product_id' => $line->replacement_product_id, 'return_to' => 'verification-queue', 'return_hub_id' => $replacement->transaction?->store_hub_id]) }}"
+                                                           class="btn btn-sm btn-outline-primary text-nowrap d-block mt-2"
+                                                           title="Open this product in Stock Allocation">
+                                                            <i class="fa-solid fa-layer-group me-1"></i> Open Stock Allocation
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                    <div class="small fw-semibold mt-2">Replacement total (including shipping) ₱{{ number_format($charge, 2) }} · Additional payment ₱{{ number_format(max(0, $difference), 2) }}</div>
+                                    @if((float) ($replacement->replacement_shipping_fee_amount ?? 0) > 0)
+                                        <div class="small text-muted">Replacement shipping ({{ $replacement->replacement_shipping_fee_type ?: 'Custom Amount' }}): ₱{{ number_format($replacement->replacement_shipping_fee_amount, 2) }}</div>
+                                    @else
+                                        <div class="small text-muted">Replacement shipping: Free delivery</div>
+                                    @endif
                                 @endif
                             </div>
                             <div class="col-md-2"><div class="meta-label">Reason</div><div class="meta-value">{{ $replacement->reason ?: '—' }}</div></div>
@@ -141,12 +154,6 @@
                             </div>
                         @endif
                         <div class="d-flex justify-content-end gap-2 mt-3">
-                            @if($replacementChannel === 'online')
-                                <button type="button" class="btn btn-sm {{ $exchangeStockReady ? 'btn-success' : 'btn-warning' }} fw-bold"
-                                        data-bs-toggle="modal" data-bs-target="#onlineReplacementInventory{{ $replacement->id }}">
-                                    <i class="fa-solid fa-list-check me-1"></i> Review Inventory ({{ $exchangeLines->count() }})
-                                </button>
-                            @endif
                             <form method="POST" action="{{ route('wholesale-replacements.approve', $replacement->id) }}">@csrf
                                 <button class="btn btn-sm btn-success" @disabled(!$exchangeStockReady || !$exchangeReturnReady)><i class="fa-solid fa-check me-1"></i>Verify & Apply</button>
                             </form>
