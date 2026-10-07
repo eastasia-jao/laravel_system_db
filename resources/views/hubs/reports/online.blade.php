@@ -119,16 +119,6 @@
                 <div class="col-12"><div class="card border-0 shadow-sm text-center text-muted py-4">No online sales found.</div></div>
             @endforelse
         </div>
-        @if($transactions->count())
-            <div class="card border-0 shadow-sm mt-3">
-                <div class="card-body d-flex flex-wrap justify-content-between gap-3 fw-bold">
-                    <span>TOTAL SALES / {{ number_format($totalTransactions) }} TRANSACTIONS</span>
-                    <span>Sales ₱{{ number_format($metrics['total_sales'], 2) }}</span>
-                    <span>Shipping ₱{{ number_format($metrics['shipping_fees'], 2) }}</span>
-                    <span>Proof ₱{{ number_format($metrics['proof_amount'], 2) }}</span>
-                </div>
-            </div>
-        @endif
     </div>
     {{-- The detailed order modals remain below the cards. --}}
     @if(false)

@@ -128,6 +128,7 @@ class OnlineSalesReportTest extends TestCase
             ->assertSee('Customer selected a different item.')
             ->assertSee('data-online-preview-only', false)
             ->assertSee('data-online-preview-remove', false)
+            ->assertDontSee('TOTAL SALES /')
             ->assertDontSee('Customer details');
 
         $monthlySales = $response->viewData('monthlySales');
