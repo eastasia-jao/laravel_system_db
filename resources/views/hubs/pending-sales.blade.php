@@ -105,7 +105,7 @@
                                 @if((int) $line->replacement_available_stock < (int) ($line->replacement_quantity ?: $line->quantity))
                                     <div class="alert alert-warning small py-2 px-2 mt-2 mb-0">
                                         Not enough {{ $replacementChannel === 'walk_in' ? 'unallocated physical' : 'allocated '.ucfirst(str_replace('_', ' ', $replacementChannel)) }} stock for this item.
-                                        @if($replacementChannel !== 'walk_in')
+                                        @if($replacementChannel !== 'walk_in' && $replacementChannel !== 'online')
                                             <a href="{{ route('stock-allocation.index', ['hub_id' => $replacement->transaction?->store_hub_id, 'search' => $line->replacementProduct?->item_id, 'product_id' => $line->replacement_product_id, 'return_to' => 'verification-queue', 'return_hub_id' => $replacement->transaction?->store_hub_id]) }}"
                                                class="btn btn-sm btn-outline-primary text-nowrap d-block mt-2"
                                                title="Open this product in Stock Allocation">
@@ -141,6 +141,12 @@
                             </div>
                         @endif
                         <div class="d-flex justify-content-end gap-2 mt-3">
+                            @if($replacementChannel === 'online')
+                                <button type="button" class="btn btn-sm {{ $exchangeStockReady ? 'btn-success' : 'btn-warning' }} fw-bold"
+                                        data-bs-toggle="modal" data-bs-target="#onlineReplacementInventory{{ $replacement->id }}">
+                                    <i class="fa-solid fa-list-check me-1"></i> Review Inventory ({{ $exchangeLines->count() }})
+                                </button>
+                            @endif
                             <form method="POST" action="{{ route('wholesale-replacements.approve', $replacement->id) }}">@csrf
                                 <button class="btn btn-sm btn-success" @disabled(!$exchangeStockReady || !$exchangeReturnReady)><i class="fa-solid fa-check me-1"></i>Verify & Apply</button>
                             </form>
@@ -152,6 +158,95 @@
                             </div>
                         @endif
                     </div>
+                    @if($replacementChannel === 'online')
+                        <div class="modal fade review-items-modal" id="onlineReplacementInventory{{ $replacement->id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-primary text-white">
+                                        <h5 class="modal-title">Replacement Inventory Review - {{ $replacement->transaction?->order_number }}</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body bg-light">
+                                        @if(!$exchangeStockReady)
+                                            <div class="alert alert-warning">
+                                                <div class="fw-bold mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> This replacement is awaiting stock</div>
+                                                <div>Verification is disabled until every replacement item has enough allocated Online stock. No stock will be deducted.</div>
+                                            </div>
+                                        @endif
+                                        <div class="order-items-heading">
+                                            <h6>Replacement Items</h6>
+                                            <span class="badge text-bg-light">{{ $exchangeLines->count() }} item line(s)</span>
+                                        </div>
+                                        <div class="table-responsive border rounded-3 bg-white mb-3">
+                                            <table class="table table-hover align-middle order-items-table">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Product</th>
+                                                        <th class="text-center">Requested</th>
+                                                        <th class="text-center">Available<br>(Online)</th>
+                                                        <th class="text-center">Stock Status</th>
+                                                        <th class="text-end">Unit Price</th>
+                                                        <th class="text-center">Discount</th>
+                                                        <th class="text-end">Line Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($exchangeLines as $line)
+                                                        @php
+                                                            $requestedQuantity = (int) ($line->replacement_quantity ?: $line->quantity);
+                                                            $discountPercentage = (float) ($line->replacement_discount_percentage ?? 0);
+                                                            $unitPrice = (float) $line->replacement_unit_price;
+                                                            $lineTotal = round($unitPrice * (1 - ($discountPercentage / 100)) * $requestedQuantity, 2);
+                                                            $stockShortage = max(0, $requestedQuantity - (int) $line->replacement_available_stock);
+                                                        @endphp
+                                                        <tr>
+                                                            <td class="order-product-name">
+                                                                {{ $line->replacementProduct?->name ?? 'Product #'.$line->replacement_product_id }}
+                                                                @if($line->replacementProduct?->item_id)<span class="order-product-code">{{ $line->replacementProduct->item_id }}</span>@endif
+                                                            </td>
+                                                            <td class="text-center">{{ $requestedQuantity }}</td>
+                                                            <td class="text-center">{{ $line->replacement_available_stock }}</td>
+                                                            <td class="text-center stock-status-cell">
+                                                                @if($stockShortage > 0)
+                                                                    <span class="badge bg-danger d-inline-block mb-2">SHORT {{ $stockShortage }}</span>
+                                                                    @can('manage-inventory')
+                                                                        <a href="{{ route('stock-allocation.index', ['hub_id' => $replacement->transaction?->store_hub_id, 'search' => $line->replacementProduct?->item_id, 'product_id' => $line->replacement_product_id, 'return_to' => 'verification-queue', 'return_hub_id' => $replacement->transaction?->store_hub_id]) }}"
+                                                                           class="btn btn-sm btn-outline-primary text-nowrap d-block"
+                                                                           title="Open this product in Stock Allocation">
+                                                                            <i class="fa-solid fa-layer-group me-1"></i> Stock Allocation
+                                                                        </a>
+                                                                    @endcan
+                                                                @else
+                                                                    <span class="badge bg-success">READY</span>
+                                                                @endif
+                                                            </td>
+                                                            <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
+                                                            <td class="text-center text-danger fw-semibold">{{ $discountPercentage > 0 ? number_format($discountPercentage, 2).'%' : '—' }}</td>
+                                                            <td class="text-end fw-bold">₱{{ number_format($lineTotal, 2) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="order-summary-panel">
+                                            <div class="order-summary-title">Replacement Summary</div>
+                                            <div class="order-summary-line"><span class="text-muted">Replacement total, including shipping</span><strong>₱{{ number_format($charge, 2) }}</strong></div>
+                                            <div class="order-summary-line"><span class="text-muted">Replacement shipping</span><strong>{{ (float) ($replacement->replacement_shipping_fee_amount ?? 0) > 0 ? '₱'.number_format($replacement->replacement_shipping_fee_amount, 2) : 'Free delivery' }}</strong></div>
+                                            <div class="order-summary-line"><span class="text-muted">Additional payment</span><strong>₱{{ number_format(max(0, $difference), 2) }}</strong></div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer bg-white">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        <form method="POST" action="{{ route('wholesale-replacements.approve', $replacement->id) }}">@csrf
+                                            <button class="btn btn-success" @disabled(!$exchangeStockReady || !$exchangeReturnReady) title="{{ $exchangeStockReady && $exchangeReturnReady ? 'Verify and apply this replacement' : 'Restock the insufficient items before verification' }}">
+                                                <i class="fa-solid {{ $exchangeStockReady && $exchangeReturnReady ? 'fa-check' : 'fa-lock' }} me-1"></i>{{ $exchangeStockReady && $exchangeReturnReady ? 'Verify & Apply' : 'Awaiting Stock' }}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                     <div class="modal fade" id="rejectReplacement{{ $replacement->id }}" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered"><form method="POST" action="{{ route('wholesale-replacements.reject', $replacement->id) }}" class="modal-content">@csrf
                             <div class="modal-header"><h5 class="modal-title">Reject Replacement Request</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
