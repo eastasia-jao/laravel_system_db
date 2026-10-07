@@ -337,8 +337,10 @@
                                     </div>
                                 @endif
                             @elseif($isReplacementGroup)
-                                @php($replacement = $transaction->productReplacement)
-                                @php($channelLabel = ucwords(str_replace(['_', '-'], ' ', (string) ($replacement->transaction?->channel_type ?? $transaction->channel ?? 'sales'))))
+                                @php
+                                    $replacement = $transaction->productReplacement;
+                                    $channelLabel = ucwords(str_replace(['_', '-'], ' ', (string) ($replacement->transaction?->channel_type ?? $transaction->channel ?? 'sales')));
+                                @endphp
                                 <div class="col-12"><div class="replacement-detail-hero"><div class="text-uppercase small fw-bold text-primary mb-2"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Product exchange <span class="ms-2 text-muted">· {{ $channelLabel }} channel pricing</span></div><div class="row g-3"><div class="col-md-6"><div class="item-card"><div class="label">Original item returned</div><div class="name">{{ $replacement->originalProduct?->name ?? '—' }}</div><div class="small text-muted mt-1">Quantity returned: <strong>{{ $replacement->quantity }}</strong></div><div class="small text-primary mt-2">Original {{ $channelLabel }} price: <strong>₱{{ number_format((float) $replacement->original_unit_price, 2) }}</strong> / unit</div></div></div><div class="col-md-6"><div class="item-card"><div class="label">Replacement item released</div><div class="name">{{ $replacement->replacementProduct?->name ?? '—' }}</div><div class="small text-muted mt-1">Quantity released: <strong>{{ $replacement->replacement_quantity ?: $replacement->quantity }}</strong></div><div class="small text-primary mt-2">Replacement {{ $channelLabel }} price: <strong>₱{{ number_format((float) $replacement->replacement_unit_price, 2) }}</strong> / unit</div></div></div></div></div></div>
                                 <div class="col-md-6"><div class="replacement-detail-section"><div class="label">Customer name</div><div class="value">{{ $replacement->transaction?->customer_name ?: '—' }}</div></div></div>
                                 <div class="col-md-6"><div class="replacement-detail-section"><div class="label">Order number</div><div class="value">{{ $replacement->transaction?->order_number ?: ($transaction->reference ?: '—') }}</div></div></div>
