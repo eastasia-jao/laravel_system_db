@@ -311,7 +311,7 @@
     .online-overview-metrics {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 1rem;
+        gap: .85rem;
         margin: 0;
     }
     .online-overview-metrics > [class*="col-"] {
@@ -326,14 +326,20 @@
         padding: 1rem;
     }
     .online-overview-metrics .fs-4 {
-        font-size: clamp(1.1rem, 1.5vw, 1.5rem) !important;
-        overflow-wrap: anywhere;
+        font-size: clamp(1.05rem, 1.25vw, 1.35rem) !important;
+        white-space: nowrap;
     }
-    @media (min-width: 1400px) {
-        .online-overview-primary-metrics { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-        .online-overview-reconciliation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    }
-    @media (min-width: 768px) and (max-width: 1399.98px) {
+    @media (min-width: 768px) {
+        .online-overview-primary-metrics > :first-child {
+            grid-column: span 2;
+        }
+        .online-overview-primary-metrics > :first-child .card {
+            background: linear-gradient(135deg, #f0fdf4, #ffffff 78%);
+            border-left: 3px solid #059669 !important;
+        }
+        .online-overview-primary-metrics > :first-child .fs-4 {
+            font-size: clamp(1.35rem, 1.8vw, 1.8rem) !important;
+        }
         .online-overview-reconciliation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 767.98px) {
@@ -341,6 +347,7 @@
     }
     @media (max-width: 479.98px) {
         .online-overview-metrics { grid-template-columns: 1fr; }
+        .online-overview-primary-metrics > :first-child { grid-column: auto; }
     }
     .online-overview-divider {
         display: flex;
