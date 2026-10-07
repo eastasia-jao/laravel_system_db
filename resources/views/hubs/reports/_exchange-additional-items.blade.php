@@ -12,7 +12,7 @@
         <div class="border rounded-3 p-3 mb-2" data-exchange-line>
             <div class="d-flex justify-content-between gap-2 mb-2"><strong class="small">Additional item</strong><button type="button" class="btn btn-sm btn-outline-danger" data-remove-exchange-line aria-label="Remove additional item"><i class="fa-solid fa-trash"></i></button></div>
             <div class="row g-2">
-                <div class="col-12"><input type="text" class="form-control form-control-sm" data-exchange-search autocomplete="off" placeholder="Search Item ID or product name" required><input type="hidden" data-exchange-product></div>
+                <div class="col-12"><input type="text" class="form-control form-control-sm" data-exchange-search autocomplete="off" placeholder="Search Item ID, barcode, or product name" required><input type="hidden" data-exchange-product></div>
                 <div class="col-6"><label class="form-label small mb-1">Quantity</label><input type="number" class="form-control form-control-sm" data-exchange-quantity min="1" value="1" required></div>
                 <div class="col-6"><label class="form-label small mb-1">Discount %</label><input type="number" class="form-control form-control-sm" data-exchange-discount min="0" max="100" step="0.01" value="0"></div>
                 <div class="col-12"><div class="form-text" data-exchange-help>Select a product from the suggestions.</div></div>
@@ -113,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dataList = document.createElement('datalist');
                     dataList.id = `exchange-options-${root.id}-${index}`;
                     results.forEach(item => {
-                        const label = `${item.item_id || item.id} — ${item.name || 'Unnamed product'}`;
+                        const barcode = item.barcode ? ` · Barcode: ${item.barcode}` : '';
+                        const label = `${item.item_id || item.id} — ${item.name || 'Unnamed product'}${barcode}`;
                         choices.set(label, item);
                         const option = document.createElement('option'); option.value = label; dataList.appendChild(option);
                     });

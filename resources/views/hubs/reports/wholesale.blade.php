@@ -663,7 +663,8 @@
                         optionsList.replaceChildren();
                         products.clear();
                         results.filter(product => String(product.id) !== originalProductId && Number(product.stock) > 0).forEach(product => {
-                            const label = `${product.item_id || product.id} — ${product.name || 'Unnamed product'} (stock: ${product.stock})`;
+                            const barcode = product.barcode ? ` · Barcode: ${product.barcode}` : '';
+                            const label = `${product.item_id || product.id} — ${product.name || 'Unnamed product'}${barcode} (stock: ${product.stock})`;
                             products.set(label, product);
                             const option = document.createElement('option');
                             option.value = label;

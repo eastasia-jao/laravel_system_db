@@ -26,6 +26,13 @@ class OnlineWalkInReplacementTest extends TestCase
         ProductStockAllocation::create(['product_id' => $replacement->id, 'online' => 5]);
         [$sale, $item] = $this->sale($admin, $hub, $original, 'online', 'not_applicable');
 
+        $this->actingAs($admin)->getJson(route('hub.products.search.ajax', [
+            'hubId' => $hub->id,
+            'q' => 'ONLINE-BARCODE',
+            'active_only' => 1,
+            'stock_channel' => 'online',
+        ]))->assertOk()->assertJsonPath('0.barcode', 'ONLINE-BARCODE');
+
         $this->actingAs($admin)->post(route('hub.report.online.replacement.store', [$hub, $sale, $item]), [
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
@@ -57,7 +64,10 @@ class OnlineWalkInReplacementTest extends TestCase
         ]);
         $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
             ->assertOk()
-            ->assertSee('online-replace-button', false);
+            ->assertSee('online-replace-button', false)
+            ->assertSee('Search by Item ID, barcode, or product name')
+            ->assertSee('Exchange calculation')
+            ->assertSee('name="exchange_payment_amount"', false);
 
         $this->actingAs($admin)->post(route('hub.report.online.replacement.store', [$hub, $sale, $item]), [
             'replacement_product_id' => $replacement->id,
@@ -407,7 +417,7 @@ class OnlineWalkInReplacementTest extends TestCase
         $hub = StoreHub::create(['name' => $prefix.' Hub', 'code' => $prefix, 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
         $original = Product::create(['store_hub_id' => $hub->id, 'item_id' => $prefix.'-ORIGINAL', 'name' => $prefix.' Original', 'stock' => 9, 'sales_price' => 100, 'status' => 'active']);
-        $replacement = Product::create(['store_hub_id' => $hub->id, 'item_id' => $prefix.'-REPLACEMENT', 'name' => $prefix === 'ONLINE' ? 'Online Replacement' : 'Walk-In Replacement', 'stock' => 5, 'sales_price' => 120, 'status' => 'active']);
+        $replacement = Product::create(['store_hub_id' => $hub->id, 'item_id' => $prefix.'-REPLACEMENT', 'name' => $prefix === 'ONLINE' ? 'Online Replacement' : 'Walk-In Replacement', 'barcode' => $prefix.'-BARCODE', 'stock' => 5, 'sales_price' => 120, 'status' => 'active']);
 
         return [$hub, $admin, $original, $replacement];
     }

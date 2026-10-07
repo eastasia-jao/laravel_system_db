@@ -322,7 +322,7 @@
                 );
             @endphp
             @if($availableReplacementQuantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
-                <div class="modal fade" id="online-replacement-{{ $item->id }}" data-online-replacement-modal data-original-product-id="{{ $item->product_id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal fade" id="online-replacement-{{ $item->id }}" data-online-replacement-modal data-original-product-id="{{ $item->product_id }}" data-original-net-unit-price="{{ round((float) $item->unit_price * (1 - ((float) ($item->discount_percentage ?? 0) / 100)), 2) }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                         <form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.online.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
                             @csrf
@@ -351,10 +351,10 @@
                                     </div>
                                 </div>
                                 <label class="form-label fw-semibold">Replacement product</label>
-                                <input type="text" class="form-control" data-replacement-search list="onlineReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Type an Item ID or product name" required>
+                                <input type="text" class="form-control" data-replacement-search list="onlineReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Type an Item ID, barcode, or product name" required>
                                 <input type="hidden" name="replacement_product_id">
                                 <datalist id="onlineReplacementOptions-{{ $item->id }}"></datalist>
-                                <div class="form-text" data-replacement-stock>Search by Item ID or product name. Online allocation is checked during verification.</div>
+                                <div class="form-text" data-replacement-stock>Search by Item ID, barcode, or product name. Online allocation is checked during verification.</div>
                                 <div class="small text-success fw-semibold mt-1" data-replacement-price></div>
                                 <div class="row g-3 mt-1">
                                     <div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $availableReplacementQuantity }}" value="1" required><div class="form-text">Maximum {{ $availableReplacementQuantity }} returned item(s)</div></div>
@@ -363,6 +363,21 @@
                                         <label class="form-label fw-semibold text-danger">Replacement discount (%)</label>
                                         <input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00">
                                         <div class="form-text">Optional discount applied to the replacement product price after approval.</div>
+                                    </div>
+                                </div>
+                                <div class="card border-0 bg-light mt-3" data-online-exchange-summary>
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center justify-content-between mb-2"><strong><i class="fa-solid fa-calculator text-primary me-2"></i>Exchange calculation</strong><span class="badge bg-secondary" data-online-exchange-status>Select a replacement</span></div>
+                                        <div class="row g-2 small">
+                                            <div class="col-6 col-md-3"><span class="text-muted d-block">Exchange credit</span><strong data-online-exchange-credit>₱0.00</strong></div>
+                                            <div class="col-6 col-md-3"><span class="text-muted d-block">Main replacement</span><strong data-online-exchange-main-total>₱0.00</strong></div>
+                                            <div class="col-6 col-md-3"><span class="text-muted d-block">Additional products</span><strong data-online-exchange-extra-total>₱0.00</strong></div>
+                                            <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement basket</span><strong data-online-exchange-basket-total>₱0.00</strong></div>
+                                        </div>
+                                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top mt-3 pt-3">
+                                            <span class="text-muted small" data-online-exchange-message>Choose replacement products to calculate.</span>
+                                            <span class="fw-bold text-danger" data-online-exchange-amount-due>Additional payment: ₱0.00</span>
+                                        </div>
                                     </div>
                                 </div>
                                 @include('hubs.reports._exchange-additional-items', ['exchangePrefix' => 'online-'.$item->id, 'exchangeChannel' => 'online'])
@@ -408,6 +423,10 @@
         const stockHelp = modal.querySelector('[data-replacement-stock]');
         const replacementPrice = modal.querySelector('[data-replacement-price]');
         const discountInput = modal.querySelector('[name="replacement_discount_percentage"]');
+        const replacementQuantity = modal.querySelector('[name="replacement_quantity"]');
+        const originalReturnedQuantity = modal.querySelector('[name="quantity"]');
+        const paymentAmount = modal.querySelector('[name="exchange_payment_amount"]');
+        const exchangeSummary = modal.querySelector('[data-online-exchange-summary]');
         const originalProductId = modal.dataset.originalProductId;
         const products = new Map();
         let timer;
@@ -421,9 +440,46 @@
             search.setCustomValidity('');
             options.replaceChildren();
             products.clear();
-            stockHelp.textContent = 'Search by Item ID or product name. Online allocation is checked during verification.';
+            stockHelp.textContent = 'Search by Item ID, barcode, or product name. Online allocation is checked during verification.';
             replacementPrice.textContent = '';
+            paymentAmount.value = '0.00';
+            modal.querySelector('[data-exchange-line-list]')?.replaceChildren();
+            updateExchangeCalculation();
         });
+        const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const roundMoney = value => Math.round((value + Number.EPSILON) * 100) / 100;
+        const updateExchangeCalculation = () => {
+            const selected = products.get(search.value);
+            const originalUnitPrice = Number(modal.dataset.originalNetUnitPrice || 0);
+            const credit = roundMoney(originalUnitPrice * Math.max(1, Number(originalReturnedQuantity.value || 1)));
+            const mainPrice = Number(selected?.sales_price || 0);
+            const discount = Math.min(100, Math.max(0, Number(discountInput.value || 0)));
+            const mainTotal = roundMoney(mainPrice * (1 - discount / 100) * Math.max(1, Number(replacementQuantity.value || 1)));
+            let extraTotal = 0;
+            modal.querySelectorAll('[data-exchange-line]').forEach(line => {
+                const unitPrice = Number(line.querySelector('[data-exchange-product]')?.dataset.unitPrice || 0);
+                const quantity = Math.max(1, Number(line.querySelector('[data-exchange-quantity]')?.value || 1));
+                const lineDiscount = Math.min(100, Math.max(0, Number(line.querySelector('[data-exchange-discount]')?.value || 0)));
+                extraTotal += roundMoney(unitPrice * (1 - lineDiscount / 100) * quantity);
+            });
+            extraTotal = roundMoney(extraTotal);
+            const basketTotal = roundMoney(mainTotal + extraTotal);
+            const amountDue = roundMoney(Math.max(0, basketTotal - credit));
+            const shortfall = roundMoney(Math.max(0, credit - basketTotal));
+            exchangeSummary.querySelector('[data-online-exchange-credit]').textContent = money(credit);
+            exchangeSummary.querySelector('[data-online-exchange-main-total]').textContent = money(mainTotal);
+            exchangeSummary.querySelector('[data-online-exchange-extra-total]').textContent = money(extraTotal);
+            exchangeSummary.querySelector('[data-online-exchange-basket-total]').textContent = money(basketTotal);
+            exchangeSummary.querySelector('[data-online-exchange-amount-due]').textContent = `Additional payment: ${money(amountDue)}`;
+            const message = exchangeSummary.querySelector('[data-online-exchange-message]');
+            message.textContent = shortfall > 0
+                ? `Add ${money(shortfall)} more in products to meet the exchange credit.`
+                : (amountDue > 0 ? `Customer adds ${money(amountDue)}.` : 'Replacement basket matches the exchange credit.');
+            const status = exchangeSummary.querySelector('[data-online-exchange-status]');
+            status.className = `badge ${shortfall > 0 ? 'bg-warning text-dark' : (amountDue > 0 ? 'bg-danger' : 'bg-success')}`;
+            status.textContent = shortfall > 0 ? `Add ${money(shortfall)} more` : (amountDue > 0 ? `Additional payment ${money(amountDue)}` : 'Credit fully used');
+            paymentAmount.value = amountDue.toFixed(2);
+        };
         const updateReplacementPrice = () => {
             const selected = products.get(search.value);
             if (!selected) {
@@ -434,8 +490,12 @@
             const discount = Math.min(100, Math.max(0, Number(discountInput.value || 0)));
             const netPrice = price * (1 - discount / 100);
             replacementPrice.textContent = `Replacement price after discount: ₱${netPrice.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            updateExchangeCalculation();
         };
         discountInput.addEventListener('input', updateReplacementPrice);
+        replacementQuantity.addEventListener('input', updateExchangeCalculation);
+        originalReturnedQuantity.addEventListener('input', updateExchangeCalculation);
+        form.addEventListener('exchange:changed', updateExchangeCalculation);
         search.addEventListener('input', () => {
             clearTimeout(timer);
             const version = ++searchVersion;
@@ -444,7 +504,7 @@
             const selected = products.get(search.value);
             if (selected) {
                 productId.value = selected.id;
-                stockHelp.textContent = `${selected.channel_available_stock} Online unit(s) available · Retail price ₱${Number(selected.sales_price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                stockHelp.textContent = `${selected.channel_available_stock} Online unit(s) available · Retail price ₱${Number(selected.sales_price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${selected.barcode ? ` · Barcode ${selected.barcode}` : ''}`;
                 updateReplacementPrice();
                 return;
             }
@@ -466,7 +526,8 @@
                     options.replaceChildren();
                     products.clear();
                     results.filter(product => String(product.id) !== String(originalProductId) && Number(product.stock) > 0).forEach(product => {
-                        const label = `${product.item_id || product.id} — ${product.name || 'Unnamed product'} (Online stock: ${product.channel_available_stock})`;
+                        const barcode = product.barcode ? ` · Barcode: ${product.barcode}` : '';
+                        const label = `${product.item_id || product.id} — ${product.name || 'Unnamed product'}${barcode} (Online stock: ${product.channel_available_stock})`;
                         products.set(label, product);
                         const option = document.createElement('option');
                         option.value = label;
@@ -474,7 +535,7 @@
                     });
                     stockHelp.textContent = products.size
                         ? 'Select a product from the suggestions. Online allocation is checked during verification.'
-                        : 'No matching products with available stock. Try another Item ID or product name.';
+                        : 'No matching products with available stock. Try another Item ID, barcode, or product name.';
                 } catch (error) {
                     if (version !== searchVersion) return;
                     stockHelp.textContent = 'Product search is unavailable. Please try again.';

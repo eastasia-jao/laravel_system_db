@@ -873,6 +873,7 @@ class ProductController extends Controller
             // the searchable fields explicitly for AJAX consumers.
             $product->setAttribute('item_id', $product->catalogProduct?->item_id);
             $product->setAttribute('name', $product->catalogProduct?->name);
+            $product->setAttribute('barcode', $product->catalogProduct?->barcode);
         });
 
         if ($stockChannel && $products->isNotEmpty()) {
