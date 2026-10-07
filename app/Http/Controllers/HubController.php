@@ -123,7 +123,6 @@ class HubController extends Controller
             ->filter(fn ($channel) => in_array($channel, $allowedDashboardChannels, true))
             ->unique()
             ->values();
-        $showSalesTotals = $user?->role !== 'sales_marketing_staff' || $dashboardChannelOptions->isNotEmpty();
         $dashboardChannel = $filters['channel'] ?? null;
         if ($dashboardChannel && $user?->role === 'sales_marketing_staff' && ! $assignedChannels->contains($dashboardChannel)) {
             abort(403, 'You are not assigned to view this sales channel.');
@@ -131,6 +130,8 @@ class HubController extends Controller
         if (! $dashboardChannel && $dashboardChannelOptions->isNotEmpty()) {
             $dashboardChannel = $dashboardChannelOptions->first();
         }
+        $showSalesTotals = ($user?->role !== 'sales_marketing_staff' || $dashboardChannelOptions->isNotEmpty())
+            && ! in_array($dashboardChannel, ['shopee', 'lazada'], true);
         if ($user?->role === 'sales_marketing_staff') {
             if ($assignedChannels->isNotEmpty()) {
                 $salesQuery->whereRaw(

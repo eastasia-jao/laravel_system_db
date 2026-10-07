@@ -111,13 +111,13 @@ class DashboardTest extends TestCase
             ->assertSee('value="shopee" selected', false)
             ->assertDontSee('Shopee Payment Overview')
             ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false)
-            ->assertSee('Daily Sales')
+            ->assertDontSee('Daily Sales')
             ->assertDontSee('Lazada Payment Overview')
             ->assertDontSee('TikTok Settlement Overview');
         $this->assertSame([], $staffDashboard->viewData('channelSummaries')->all());
         $this->assertSame(['shopee', 'lazada', 'tiktok'], $staffDashboard->viewData('dashboardChannelOptions')->all());
         $this->assertSame(['shopee'], $staffDashboard->viewData('marketplaceOverviews')->pluck('channel')->all());
-        $this->assertTrue($staffDashboard->viewData('showSalesTotals'));
+        $this->assertFalse($staffDashboard->viewData('showSalesTotals'));
         $this->assertEquals(120, $staffDashboard->viewData('salesTotals')['Daily']);
         $this->assertSame(['Marketplace Dashboard Product'], $staffDashboard->viewData('topProducts')->pluck('name')->all());
 
@@ -291,6 +291,26 @@ class DashboardTest extends TestCase
         $this->assertEquals(120, $response->viewData('salesTotals')['Daily']);
         $this->assertSame([['name' => 'Shopee Channel Product', 'units' => 1]], $response->viewData('topProducts')->all());
         $this->assertEquals(120, $response->viewData('marketplaceOverviews')->first()['total']);
+        $this->assertFalse($response->viewData('showSalesTotals'));
+        $response->assertDontSee('Daily Sales')
+            ->assertDontSee('Weekly Sales')
+            ->assertDontSee('Monthly Sales')
+            ->assertDontSee('Quarterly Sales')
+            ->assertDontSee('Yearly Sales');
+
+        $lazadaResponse = $this->get(route('dashboard', [
+            'hub_id' => $hub->id,
+            'from' => '2026-10-06',
+            'to' => '2026-10-06',
+            'channel' => 'lazada',
+        ]));
+        $lazadaResponse->assertOk()
+            ->assertDontSee('Daily Sales')
+            ->assertDontSee('Weekly Sales')
+            ->assertDontSee('Monthly Sales')
+            ->assertDontSee('Quarterly Sales')
+            ->assertDontSee('Yearly Sales');
+        $this->assertFalse($lazadaResponse->viewData('showSalesTotals'));
     }
 
     public function test_marketing_staff_with_no_assigned_channels_cannot_view_any_channel_data(): void
