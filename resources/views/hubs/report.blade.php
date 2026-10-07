@@ -308,14 +308,39 @@
         border: 1px solid #edf0f5 !important;
         box-shadow: 0 2px 8px rgba(15, 23, 42, .04) !important;
     }
-    @media (min-width: 1200px) {
-        .online-overview-panel .online-overview-metrics {
-            flex-wrap: nowrap;
-        }
-        .online-overview-panel .online-overview-metrics > .col-xl-3 {
-            flex: 1 1 0;
-            width: auto;
-        }
+    .online-overview-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+        margin: 0;
+    }
+    .online-overview-metrics > [class*="col-"] {
+        width: auto;
+        max-width: none;
+        padding: 0;
+    }
+    .online-overview-metrics .card {
+        min-height: 100%;
+    }
+    .online-overview-metrics .card-body {
+        padding: 1rem;
+    }
+    .online-overview-metrics .fs-4 {
+        font-size: clamp(1.1rem, 1.5vw, 1.5rem) !important;
+        overflow-wrap: anywhere;
+    }
+    @media (min-width: 1400px) {
+        .online-overview-primary-metrics { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+        .online-overview-reconciliation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (min-width: 768px) and (max-width: 1399.98px) {
+        .online-overview-reconciliation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 767.98px) {
+        .online-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 479.98px) {
+        .online-overview-metrics { grid-template-columns: 1fr; }
     }
     .online-overview-divider {
         display: flex;
@@ -486,7 +511,7 @@
                         </div>
                         <i class="fa-solid fa-chart-line text-primary" aria-hidden="true"></i>
                     </div>
-                    <div class="row g-3 online-overview-metrics">
+                    <div class="online-overview-metrics online-overview-primary-metrics">
                         @include('hubs.reports.metric', ['label' => 'Total Sales', 'value' => $metrics['total_sales'], 'color' => 'success'])
                         @include('hubs.reports.metric', ['label' => 'No. of Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark'])
                         @include('hubs.reports.metric', ['label' => 'No. of Returns', 'value' => $metrics['return_count'], 'money' => false, 'color' => 'danger'])
@@ -498,7 +523,7 @@
                     <div class="online-overview-divider">
                         <span>Payment reconciliation</span>
                     </div>
-                    <div class="row g-3 online-overview-metrics">
+                    <div class="online-overview-metrics online-overview-reconciliation">
                         @include('hubs.reports.metric', ['label' => 'Shipping Fees', 'value' => $metrics['shipping_fees'], 'color' => 'info'])
                         @include('hubs.reports.metric', ['label' => 'Proof Amount', 'value' => $metrics['proof_amount'], 'color' => 'primary'])
                         @include('hubs.reports.metric', ['label' => 'Reconciliation Difference', 'value' => $metrics['difference'], 'color' => abs($metrics['difference']) < 0.01 ? 'success' : 'danger'])

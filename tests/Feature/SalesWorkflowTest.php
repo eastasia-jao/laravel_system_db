@@ -779,6 +779,8 @@ class SalesWorkflowTest extends TestCase
         $onlineReport
             ->assertOk()
             ->assertSee('Payment reconciliation')
+            ->assertSee('online-overview-primary-metrics')
+            ->assertSee('online-overview-reconciliation')
             ->assertSee('Reconciliation Difference')
             ->assertSee('ONLINE-REPORT-001', false)
             ->assertSee('Reconciled payment')
