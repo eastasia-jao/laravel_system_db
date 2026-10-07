@@ -47,7 +47,12 @@
     .walk-in-replacement-modal .modal-header,
     .walk-in-replacement-modal .modal-footer { padding: .65rem 1rem; }
     .walk-in-replacement-modal .modal-body { padding: .75rem 1rem; }
-    .walk-in-replacement-modal .modal-body > .alert { margin-bottom: .5rem; padding: .5rem .75rem; }
+    .walk-in-replacement-modal .modal-body > .alert { margin-bottom: .65rem; padding: .5rem .75rem; }
+    .walk-in-replacement-modal .replacement-form-section { border: 1px solid #e7e5e4; border-radius: 10px; padding: .75rem; background: #fff; }
+    .walk-in-replacement-modal .replacement-form-section-title { margin-bottom: .65rem; color: #57534e; font-size: .78rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; }
+    .walk-in-replacement-modal .exchange-total-card { border: 1px solid #dbeafe; border-radius: 10px; background: #eff6ff; padding: .75rem; }
+    .walk-in-replacement-modal .exchange-total-card .exchange-total-value { color: #1d4ed8; font-size: 1.1rem; font-weight: 800; }
+    .walk-in-replacement-modal .exchange-total-card .exchange-total-label { color: #64748b; font-size: .7rem; font-weight: 700; text-transform: uppercase; }
     .walk-in-replacement-modal [data-replacement-price-panel] { padding: .55rem .75rem !important; }
     .walk-in-replacement-modal [data-walk-in-exchange-summary] { margin-top: .65rem !important; }
     .walk-in-replacement-modal [data-walk-in-exchange-summary] .card-body { padding: .7rem .85rem; }
@@ -124,6 +129,7 @@
 @foreach($transactions as $transaction)
     @php
         $approvedWalkInReplacements = $transaction->replacements->where('status', 'approved');
+        $walkInReplacementShippingFee = round((float) $approvedWalkInReplacements->sum('replacement_shipping_fee_amount'), 2);
         $walkInGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * max(0, (int) $item->quantity - $item->returnedQuantity()))
             + $approvedWalkInReplacements->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
         $walkInNet = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->sub_total ?: $transaction->items->sum('line_total')));
@@ -160,7 +166,7 @@
                             <div class="section-title"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Replacement impact</div>
                             <div class="walk-in-order-totals-list">
                                 <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Replacement adjustment</div><div class="fs-5 fw-bold {{ $walkInReplacementAdjustment > 0 ? 'text-danger' : 'text-success' }}">{{ $walkInReplacementAdjustment >= 0 ? '+' : '' }}₱{{ number_format($walkInReplacementAdjustment, 2) }}</div></div>
-                                <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Amount required from customer</div><div class="fs-5 fw-bold text-success">₱{{ number_format($walkInNet, 2) }}</div><div class="small text-muted mt-1">Lower-priced replacements do not reduce the original order obligation.</div></div>
+                                <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Amount required from customer</div><div class="fs-5 fw-bold text-success">₱{{ number_format($walkInNet, 2) }}</div><div class="small text-muted mt-1">Lower-priced replacements do not reduce the original order obligation.</div>@if($walkInReplacementShippingFee > 0)<div class="small text-muted mt-1">Includes ₱{{ number_format($walkInReplacementShippingFee, 2) }} replacement delivery fee.</div>@endif</div>
                             </div>
                         </div>
                     </div>
@@ -333,7 +339,7 @@
                         <div class="text-center text-muted py-4">No items recorded.</div>
                     @endforelse
                     <div class="walk-in-order-total d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <div class="fw-bold text-uppercase">Net order total <span class="d-block small fw-normal">After discounts and approved replacements</span></div>
+                        <div class="fw-bold text-uppercase">Net order total <span class="d-block small fw-normal">After discounts and approved replacements</span>@if($walkInReplacementShippingFee > 0)<span class="d-block small fw-normal text-muted">Includes ₱{{ number_format($walkInReplacementShippingFee, 2) }} replacement shipping fee</span>@endif</div>
                         <div class="fs-5 fw-bold">₱{{ number_format($walkInNet, 2) }}</div>
                     </div>
                 </div>
@@ -358,13 +364,19 @@
     @endphp
     @if($walkInReplacementAvailable && in_array($transaction->status, ['confirmed', 'completed'], true))
         <div class="modal fade walk-in-replacement-modal" id="walk-in-replacement-{{ $item->id }}" data-walk-in-replacement-modal data-bs-backdrop="static" data-bs-keyboard="false" data-original-product-id="{{ $item->product_id }}" data-original-unit-price="{{ $item->unit_price }}" data-original-discount="{{ $item->discount_percentage ?? 0 }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.walk-in.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
-            @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5></div>
+            @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close replacement form"></button></div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-sm-6">
-                        <div class="alert alert-warning small">Inventory must verify this request before stock and totals change. @if($hub->is_head_office) Only received returned items can be replaced. @endif</div>
-                        <div class="small text-muted mb-2">Original item: <strong>{{ $item->product?->name ?? 'Product #'.$item->product_id }}</strong></div>
-                        <label class="form-label fw-semibold">Replacement product</label>
+                <div class="alert alert-warning small">Inventory must verify this request before stock and totals change. @if($hub->is_head_office) Only received returned items can be replaced. @endif</div>
+                <div class="replacement-form-section mb-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <div><div class="replacement-form-section-title mb-0">Returned item</div><div class="small text-muted">{{ $item->product?->name ?? 'Product #'.$item->product_id }}</div></div>
+                        <span class="badge rounded-pill text-bg-light">Up to {{ $walkInReplacementLimit }} returned</span>
+                    </div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Replacement product</label>
+                        </div>
+                        <div class="col-12">
                         <input type="text" class="form-control" data-replacement-search list="walkInReplacementOptions-{{ $item->id }}" autocomplete="off" placeholder="Search by Item ID, barcode, or product name" required>
                         <input type="hidden" name="replacement_product_id">
                         <datalist id="walkInReplacementOptions-{{ $item->id }}"></datalist>
@@ -377,50 +389,39 @@
                                 <div class="col-6"><span class="text-muted d-block">Estimated total</span><strong data-replacement-total>—</strong></div>
                             </div>
                         </div>
-                        <div class="row g-2 mt-1">
-                            <div class="col-6"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $walkInReplacementLimit }}" value="1" required></div>
-                            <div class="col-6"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div>
-                            <div class="col-12"><label class="form-label fw-semibold text-danger">Replacement discount (%)</label><input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00"><div class="form-text">Optional discount applied to the replacement product price after approval.</div></div>
-                            <div class="col-6">
-                                <label class="form-label fw-semibold">Replacement delivery</label>
-                                <select name="replacement_shipping_fee_type" class="form-select" data-walk-in-replacement-shipping-type>
-                                    <option value="Free">Free delivery</option>
-                                    <option value="Custom Amount">Custom amount</option>
-                                </select>
-                            </div>
-                            <div class="col-6 d-none" data-walk-in-replacement-shipping-amount-wrap>
-                                <label class="form-label fw-semibold">Shipping fee (₱)</label>
-                                <input type="number" name="replacement_shipping_fee_amount" class="form-control" min="0" step="0.01" value="0.00" disabled>
-                            </div>
                         </div>
                     </div>
-                    <div class="col-sm-6">
-                        <div class="card border-0 bg-light" data-walk-in-exchange-summary>
-                            <div class="card-body p-3">
-                    <div class="fw-semibold mb-2"><i class="fa-solid fa-calculator text-primary me-2"></i>Exchange calculation</div>
-                    <div class="row g-2 small">
-                        <div class="col-6 col-md-3"><span class="text-muted d-block">Exchange credit</span><strong data-walk-in-credit>₱0.00</strong></div>
-                        <div class="col-6 col-md-3"><span class="text-muted d-block">Main replacement</span><strong data-walk-in-main-total>₱0.00</strong></div>
-                        <div class="col-6 col-md-3"><span class="text-muted d-block">Additional products</span><strong data-walk-in-extra-total>₱0.00</strong></div>
-                        <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement basket</span><strong data-walk-in-basket-total>₱0.00</strong></div>
-                        <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement delivery</span><strong data-walk-in-shipping>₱0.00</strong></div>
-                    </div>
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top mt-3 pt-3">
-                        <span class="text-muted small" data-walk-in-exchange-status>Select replacement products to calculate.</span>
-                        <span class="fw-bold text-danger" data-walk-in-amount-due>Additional payment: ₱0.00</span>
-                    </div>
-                    <div class="form-text mt-2">The additional payment amount below is filled with the exact excess over the exchange credit. Confirm it before submitting.</div>
-                            </div>
+                    <div class="row g-2 mt-1">
+                        <div class="col-6 col-md-3"><label class="form-label fw-semibold">Original returned</label><input type="number" name="quantity" class="form-control" min="1" max="{{ $walkInReplacementLimit }}" value="1" required></div>
+                        <div class="col-6 col-md-3"><label class="form-label fw-semibold">Replacement quantity</label><input type="number" name="replacement_quantity" class="form-control" min="1" value="1" required></div>
+                        <div class="col-6 col-md-3"><label class="form-label fw-semibold text-danger">Discount (%)</label><input type="number" name="replacement_discount_percentage" class="form-control" min="0" max="100" step="0.01" value="0.00"></div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label fw-semibold">Replacement delivery</label>
+                            <select name="replacement_shipping_fee_type" class="form-select" data-walk-in-replacement-shipping-type>
+                                <option value="Free">Free delivery</option>
+                                <option value="Custom Amount">Custom amount</option>
+                            </select>
                         </div>
-                        @include('hubs.reports._exchange-additional-items', ['exchangePrefix' => 'walk-in-'.$item->id, 'exchangeChannel' => 'walk_in'])
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Reason (optional)</label>
-                        <textarea name="reason" class="form-control" rows="2" maxlength="2000"></textarea>
+                        <div class="col-6 d-none" data-walk-in-replacement-shipping-amount-wrap>
+                            <label class="form-label fw-semibold">Shipping fee (₱)</label>
+                            <input type="number" name="replacement_shipping_fee_amount" class="form-control" min="0" step="0.01" value="0.00" disabled>
+                        </div>
                     </div>
                 </div>
+                <div class="exchange-total-card mb-3" data-walk-in-exchange-summary>
+                    <div class="d-flex align-items-center gap-2 mb-2 fw-semibold"><i class="fa-solid fa-calculator"></i>Exchange total</div>
+                    <div class="row g-2 align-items-center">
+                        <div class="col-6 col-md-4"><div class="exchange-total-label">Exchange credit</div><div class="fw-bold" data-walk-in-credit>₱0.00</div></div>
+                        <div class="col-6 col-md-4"><div class="exchange-total-label">Replacement total</div><div class="fw-bold" data-walk-in-total>₱0.00</div><div class="small text-muted" data-walk-in-shipping-note>Delivery: Free</div></div>
+                        <div class="col-12 col-md-4"><div class="exchange-total-label">Additional payment</div><div class="exchange-total-value" data-walk-in-amount-due>₱0.00</div></div>
+                    </div>
+                    <div class="small mt-2" data-walk-in-exchange-status>Select a replacement to calculate the exchange total.</div>
+                </div>
+                @include('hubs.reports._exchange-additional-items', ['exchangePrefix' => 'walk-in-'.$item->id, 'exchangeChannel' => 'walk_in'])
+                <label class="form-label fw-semibold mt-2">Reason (optional)</label>
+                <textarea name="reason" class="form-control" rows="2" maxlength="2000"></textarea>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-warning">Submit for Verification</button></div>
+            <div class="modal-footer"><button class="btn btn-warning">Submit for Verification</button></div>
         </form></div></div>
     @endif
 @endforeach @endforeach
@@ -468,19 +469,18 @@
                 : 0;
             const basketTotal = roundMoney(mainTotal + extraTotal + shippingFee);
             const amountDue = roundMoney(Math.max(0, basketTotal - credit));
-            const shortfall = roundMoney(Math.max(0, credit - basketTotal));
             exchangeSummary.querySelector('[data-walk-in-credit]').textContent = money(credit);
-            exchangeSummary.querySelector('[data-walk-in-main-total]').textContent = money(mainTotal);
-            exchangeSummary.querySelector('[data-walk-in-extra-total]').textContent = money(extraTotal);
-            exchangeSummary.querySelector('[data-walk-in-basket-total]').textContent = money(basketTotal);
-            exchangeSummary.querySelector('[data-walk-in-shipping]').textContent = money(shippingFee);
-            exchangeSummary.querySelector('[data-walk-in-amount-due]').textContent = `Additional payment: ${money(amountDue)}`;
+            exchangeSummary.querySelector('[data-walk-in-total]').textContent = money(basketTotal);
+            exchangeSummary.querySelector('[data-walk-in-shipping-note]').textContent = shippingFee > 0
+                ? `Includes ${money(shippingFee)} replacement delivery`
+                : 'Delivery: Free';
+            exchangeSummary.querySelector('[data-walk-in-amount-due]').textContent = money(amountDue);
+            modal.querySelector('[data-walk-in-additional-payment]')?.classList.toggle('d-none', amountDue <= 0);
             const status = exchangeSummary.querySelector('[data-walk-in-exchange-status]');
-            status.textContent = shortfall > 0
-                ? 'No additional payment is due. The original sale total remains unchanged.'
-                : (amountDue > 0 ? `Customer adds ${money(amountDue)}. Enter this as additional payment.` : 'Replacement basket matches the exchange credit.');
+            status.textContent = amountDue > 0
+                ? `Only the excess over the exchange credit is collected. Enter ${money(amountDue)} as additional payment.`
+                : 'No additional payment is due. The original sale total remains unchanged.';
             status.classList.toggle('text-danger', amountDue > 0);
-            status.classList.toggle('text-warning', false);
             paymentAmount.value = amountDue.toFixed(2);
         };
         const updateReplacementShipping = () => {

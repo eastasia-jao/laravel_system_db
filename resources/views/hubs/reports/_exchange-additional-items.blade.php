@@ -23,7 +23,7 @@
             </div>
         </div>
     </template>
-    <div class="card border-primary-subtle bg-primary-subtle mt-3">
+    <div class="card border-primary-subtle bg-primary-subtle mt-3" @if($exchangeChannel === 'walk_in') data-walk-in-additional-payment @endif>
         <div class="card-body">
             <div class="fw-semibold text-primary mb-1"><i class="fa-solid fa-money-bill-transfer me-1"></i>Additional payment</div>
             <p class="small text-muted mb-3">The amount is calculated from the replacement basket and exchange credit. Any additional payment is posted only after inventory approval.</p>

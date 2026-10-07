@@ -256,8 +256,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('View order')
             ->assertSee('Replace item')
             ->assertSee('walk-in-replacement-'.$item->id, false)
-            ->assertSee('Exchange calculation')
-            ->assertSee('Additional products')
+            ->assertSee('Exchange total')
+            ->assertSee('Additional replacement products')
             ->assertSee('data-walk-in-amount-due', false)
             ->assertSee('<option value="QRPH">QRPH</option>', false)
             ->assertDontSee('<option value="DATED_CHECK">', false)
@@ -390,7 +390,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Replace item')
             ->assertSee('walk-in-replacement-'.$item->id, false)
             ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
-            ->assertSee('<h5 class="modal-title">Walk-In Replacement / Exchange</h5></div>', false)
+            ->assertSee('aria-label="Close replacement form"', false)
+            ->assertSee('data-walk-in-total', false)
             ->assertSee('<div class="modal-dialog modal-xl modal-dialog-centered">', false)
             ->assertSee('name="replacement_shipping_fee_type"', false)
             ->assertSee('Free delivery')
@@ -419,7 +420,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertOk()
             ->assertSee('Replacement history')
             ->assertSee('APPROVED')
-            ->assertSee('WALK_IN-ORDER');
+            ->assertSee('WALK_IN-ORDER')
+            ->assertSee('Includes ₱10.00 replacement shipping fee');
         $this->assertSame(1, $report->viewData('totalTransactions'));
         $this->assertSame('130.00', $sale->fresh()->grand_total);
         $this->assertSame('10.00', $sale->fresh()->shipping_fee_amount);
