@@ -407,6 +407,59 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->assertDatabaseCount('sales_transactions', 1);
     }
 
+    public function test_head_office_walk_in_sales_marketing_staff_cannot_replace_before_inventory_records_return(): void
+    {
+        [$hub, $admin, $original, $replacement] = $this->fixtures('WALK-STAFF-RETURN');
+        [$sale, $item] = $this->sale($admin, $hub, $original, 'walk_in', 'paid');
+        $salesStaff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['walk_in'],
+        ]);
+        $payload = [
+            'replacement_product_id' => $replacement->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'exchange_payment_amount' => 20,
+            'exchange_payment_method' => 'CASH',
+        ];
+
+        $this->actingAs($salesStaff)
+            ->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']))
+            ->assertOk()
+            ->assertSee('Awaiting received return')
+            ->assertDontSee('walk-in-replacement-'.$item->id, false)
+            ->assertDontSee('Replace item');
+        $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $payload)
+            ->assertSessionHasErrors('quantity');
+        $this->assertDatabaseCount('product_replacements', 0);
+
+        $original->increment('stock');
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'walk_in',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-23',
+            'created_by' => $admin->id,
+        ]);
+
+        $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']))
+            ->assertOk()
+            ->assertSee('RETURN RECEIVED')
+            ->assertSee('Replace item')
+            ->assertSee('walk-in-replacement-'.$item->id, false);
+        $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+        $this->assertSame('pending', ProductReplacement::sole()->status);
+    }
+
     public function test_non_head_office_walk_in_replacement_rejects_unsupported_payment_methods(): void
     {
         [$hub, $admin, $original, $replacement] = $this->fixtures('WALK-MOP');
