@@ -841,6 +841,8 @@ class SalesReportController extends Controller
             'quantity' => ['required', 'integer', 'min:1'],
             'replacement_quantity' => ['required', 'integer', 'min:1'],
             'replacement_discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
+            'replacement_shipping_fee_type' => ['nullable', 'in:Free,Custom Amount'],
+            'replacement_shipping_fee_amount' => ['nullable', 'required_if:replacement_shipping_fee_type,Custom Amount', 'numeric', 'min:0', 'max:99999999.99'],
             'additional_items' => ['nullable', 'array', 'max:9'],
             'additional_items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'additional_items.*.quantity' => ['required', 'integer', 'min:1'],
@@ -936,8 +938,21 @@ class SalesReportController extends Controller
                 $line['total'] = round($unitPrice * (1 - ($line['discount_percentage'] / 100)) * $line['quantity'], 2);
                 return $line;
             });
-            $exchangeTotal = round((float) $pricedLines->sum('total'), 2);
-            if ($exchangeTotal + 0.0001 < $credit) {
+            $replacementShippingFeeType = $channel === 'online'
+                ? (string) ($validated['replacement_shipping_fee_type'] ?? 'Free')
+                : null;
+            $replacementShippingFee = $channel === 'online' && $replacementShippingFeeType === 'Custom Amount'
+                ? round((float) ($validated['replacement_shipping_fee_amount'] ?? 0), 2)
+                : 0.0;
+            if ($channel === 'online' && $replacementShippingFeeType === 'Custom Amount'
+                && ! array_key_exists('replacement_shipping_fee_amount', $validated)) {
+                throw ValidationException::withMessages([
+                    'replacement_shipping_fee_amount' => 'Enter the replacement delivery fee or choose Free delivery.',
+                ]);
+            }
+            $replacementProductsTotal = round((float) $pricedLines->sum('total'), 2);
+            $exchangeTotal = round($replacementProductsTotal + $replacementShippingFee, 2);
+            if ($channel !== 'online' && $exchangeTotal + 0.0001 < $credit) {
                 throw ValidationException::withMessages([
                     'replacement_product_id' => 'The replacement basket must equal or exceed the exchange credit of ₱'.number_format($credit, 2).'. Add another product or increase a quantity.',
                 ]);
@@ -946,7 +961,7 @@ class SalesReportController extends Controller
             $additionalPaymentDue = max(0, round($exchangeTotal - $credit, 2));
             $paymentAmount = round((float) ($validated['exchange_payment_amount'] ?? 0), 2);
             $paymentMethod = strtoupper(trim((string) ($validated['exchange_payment_method'] ?? '')));
-            if ($additionalPaymentDue > 0 && abs($paymentAmount - $additionalPaymentDue) > 0.0001) {
+            if (abs($paymentAmount - $additionalPaymentDue) > 0.0001) {
                 throw ValidationException::withMessages([
                     'exchange_payment_amount' => 'Enter the exact additional payment of ₱'.number_format($additionalPaymentDue, 2).'.',
                 ]);
@@ -964,7 +979,7 @@ class SalesReportController extends Controller
             $replacementOrderSlip = $request->file('replacement_order_slip')?->store('replacement_order_slips', 'public');
 
             $exchangeReference = (string) Str::uuid();
-            $created = $pricedLines->map(function ($line, $index) use ($sale, $transactionItem, $originalProduct, $quantity, $originalUnitPrice, $credit, $exchangeTotal, $additionalPaymentDue, $paymentAmount, $paymentMethod, $paymentProofs, $replacementOrderSlip, $exchangeReference, $validated) {
+            $created = $pricedLines->map(function ($line, $index) use ($sale, $transactionItem, $originalProduct, $quantity, $originalUnitPrice, $credit, $exchangeTotal, $additionalPaymentDue, $replacementShippingFeeType, $replacementShippingFee, $paymentAmount, $paymentMethod, $paymentProofs, $replacementOrderSlip, $exchangeReference, $validated) {
                 return ProductReplacement::create([
                     'exchange_reference' => $exchangeReference,
                     'transaction_id' => $sale->id,
@@ -979,6 +994,8 @@ class SalesReportController extends Controller
                     'exchange_credit' => $credit,
                     'exchange_total' => $exchangeTotal,
                     'additional_payment_due' => $additionalPaymentDue,
+                    'replacement_shipping_fee_type' => $index === 0 ? $replacementShippingFeeType : null,
+                    'replacement_shipping_fee_amount' => $index === 0 ? $replacementShippingFee : 0,
                     'exchange_payment_amount' => $index === 0 ? $paymentAmount : 0,
                     'exchange_payment_method' => $index === 0 ? ($paymentMethod ?: null) : null,
                     'exchange_custom_mop' => $index === 0 ? ($validated['exchange_custom_mop'] ?? null) : null,
@@ -1162,14 +1179,18 @@ class SalesReportController extends Controller
             $charge = round((float) $records->sum(fn ($line) => (float) $line->replacement_unit_price
                 * (1 - ((float) ($line->replacement_discount_percentage ?? 0) / 100))
                 * (int) ($line->replacement_quantity ?: $line->quantity)), 2);
+            $replacementShippingFee = $channel === 'online'
+                ? (float) ($records->firstWhere('replacement_shipping_fee_amount', '>', 0)?->replacement_shipping_fee_amount ?? 0)
+                : 0.0;
             $originalOrderTotal = round(
                 (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->sub_total),
                 2
             );
             $newSubTotal = max(0, (float) $sale->sub_total - $credit + $charge);
+            $newShippingFee = round((float) $sale->shipping_fee_amount + $replacementShippingFee, 2);
             $discount = $newSubTotal * ((float) $sale->additional_discount_percentage / 100);
             $withholding = $newSubTotal * ((float) $sale->withholding_tax / 100);
-            $calculatedGrandTotal = max(0, round($newSubTotal - $discount - $withholding + (float) $sale->shipping_fee_amount, 2));
+            $calculatedGrandTotal = max(0, round($newSubTotal - $discount - $withholding + $newShippingFee, 2));
             // A cheaper replacement does not reduce the original order obligation.
             $newGrandTotal = max($originalOrderTotal, $calculatedGrandTotal);
             $amountPaid = (float) $sale->amount_paid;
@@ -1198,6 +1219,11 @@ class SalesReportController extends Controller
                 'sub_total' => $newSubTotal,
                 'total_amount' => $newGrandTotal,
                 'grand_total' => $newGrandTotal,
+                'shipping_fee_amount' => $newShippingFee,
+                'delivery_fee' => $newShippingFee,
+                'proof_amount' => $channel === 'online' && $exchangePayment > 0 && $sale->proof_amount !== null
+                    ? round((float) $sale->proof_amount + $exchangePayment, 2)
+                    : $sale->proof_amount,
                 'amount_paid' => $amountPaid,
                 'withholding_tax_amount' => round($withholding, 2),
                 'payment_status' => $paymentStatus,

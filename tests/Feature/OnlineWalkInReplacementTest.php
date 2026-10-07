@@ -25,6 +25,7 @@ class OnlineWalkInReplacementTest extends TestCase
         ProductStockAllocation::create(['product_id' => $original->id, 'online' => 0]);
         ProductStockAllocation::create(['product_id' => $replacement->id, 'online' => 5]);
         [$sale, $item] = $this->sale($admin, $hub, $original, 'online', 'not_applicable');
+        $sale->update(['proof_amount' => 100]);
 
         $this->actingAs($admin)->getJson(route('hub.products.search.ajax', [
             'hubId' => $hub->id,
@@ -37,7 +38,9 @@ class OnlineWalkInReplacementTest extends TestCase
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
             'replacement_quantity' => 1,
-            'exchange_payment_amount' => 20,
+            'replacement_shipping_fee_type' => 'Custom Amount',
+            'replacement_shipping_fee_amount' => 15,
+            'exchange_payment_amount' => 35,
             'exchange_payment_method' => 'CASH',
             'reason' => 'Online customer requested another item.',
         ])->assertSessionHasErrors('quantity');
@@ -73,7 +76,9 @@ class OnlineWalkInReplacementTest extends TestCase
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
             'replacement_quantity' => 1,
-            'exchange_payment_amount' => 20,
+            'replacement_shipping_fee_type' => 'Custom Amount',
+            'replacement_shipping_fee_amount' => 15,
+            'exchange_payment_amount' => 35,
             'exchange_payment_method' => 'CASH',
             'reason' => 'Online customer requested another item.',
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
@@ -105,7 +110,9 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $this->assertSame('approved', $request->fresh()->status);
-        $this->assertSame('120.00', $sale->fresh()->grand_total);
+        $this->assertSame('135.00', $sale->fresh()->grand_total);
+        $this->assertSame('15.00', $sale->fresh()->shipping_fee_amount);
+        $this->assertSame('135.00', $sale->fresh()->proof_amount);
         $this->assertSame('not_applicable', $sale->fresh()->payment_status);
         $this->assertSame(4, $replacement->fresh()->stock);
         $this->assertSame(1, $original->stockAllocation->fresh()->online);
@@ -123,6 +130,51 @@ class OnlineWalkInReplacementTest extends TestCase
 
         $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
             ->assertOk()->assertSee('APPROVED')->assertSee('Online Replacement');
+    }
+
+    public function test_online_replacement_below_credit_can_be_submitted_without_changing_proof_amount(): void
+    {
+        [$hub, $admin, $original, $replacement] = $this->fixtures('ONLINE-LOWER');
+        $replacement->update(['sales_price' => 80]);
+        ProductStockAllocation::create(['product_id' => $original->id, 'online' => 0]);
+        ProductStockAllocation::create(['product_id' => $replacement->id, 'online' => 5]);
+        [$sale, $item] = $this->sale($admin, $hub, $original, 'online', 'not_applicable');
+        $sale->update(['proof_amount' => 100]);
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'online',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-23',
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)->post(route('hub.report.online.replacement.store', [$hub, $sale, $item]), [
+            'replacement_product_id' => $replacement->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'replacement_shipping_fee_type' => 'Custom Amount',
+            'replacement_shipping_fee_amount' => 5,
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $request = ProductReplacement::sole();
+        $this->assertSame('85.00', $request->exchange_total);
+        $this->assertSame('0.00', $request->additional_payment_due);
+
+        $original->increment('stock');
+        $original->stockAllocation->increment('online');
+        $this->post(route('wholesale-replacements.approve', $request))
+            ->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertSame('100.00', $sale->fresh()->proof_amount);
+        $this->assertSame('5.00', $sale->fresh()->shipping_fee_amount);
+        $this->assertSame('100.00', $sale->fresh()->grand_total);
+        $this->assertDatabaseCount('sales_payment_records', 0);
     }
 
     public function test_online_replacement_quantity_cannot_exceed_received_return_quantity(): void

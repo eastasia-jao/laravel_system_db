@@ -64,9 +64,11 @@ class ExchangePolicyTest extends TestCase
                 ]);
             }
 
-            $this->actingAs($admin)->post($url, [
-                'replacement_product_id' => $lower->id, 'quantity' => 1, 'replacement_quantity' => 1,
-            ])->assertSessionHasErrors('replacement_product_id');
+            if ($channel !== 'online') {
+                $this->actingAs($admin)->post($url, [
+                    'replacement_product_id' => $lower->id, 'quantity' => 1, 'replacement_quantity' => 1,
+                ])->assertSessionHasErrors('replacement_product_id');
+            }
 
             $this->post($url, [
                 'replacement_product_id' => $lower->id, 'quantity' => 1, 'replacement_quantity' => 1,

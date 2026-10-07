@@ -22,7 +22,7 @@
     <div class="card border-primary-subtle bg-primary-subtle mt-3">
         <div class="card-body">
             <div class="fw-semibold text-primary mb-1"><i class="fa-solid fa-money-bill-transfer me-1"></i>Additional payment</div>
-            <p class="small text-muted mb-3">Complete this section only when the replacement basket exceeds the exchange credit. The amount must exactly match the excess and is posted only after inventory approval.</p>
+            <p class="small text-muted mb-3">The amount is calculated from the replacement basket and exchange credit. Any additional payment is posted only after inventory approval.</p>
             <div class="row g-2">
                 <div class="col-md-4"><label class="form-label small fw-semibold">Amount</label><input type="number" name="exchange_payment_amount" class="form-control" min="0" step="0.01" value="0.00"></div>
                 <div class="col-md-4"><label class="form-label small fw-semibold">Mode of payment</label><select name="exchange_payment_method" class="form-select" data-exchange-mop><option value="">Select MOP</option><option value="CASH">Cash</option><option value="GCASH">GCash</option><option value="PAYMAYA">PayMaya</option>@if($exchangeChannel === 'walk_in')<option value="QRPH">QRPH</option><option value="BPI">BPI</option><option value="BDO">BDO</option><option value="METROBANK">Metrobank</option>@endif<option value="BANK_TRANSFER">Bank transfer</option>@unless($exchangeChannel === 'walk_in')<option value="DATED_CHECK">Dated check</option><option value="POST_DATED_CHECK">Post-dated check</option><option value="COD">COD</option>@endunless<option value="OTHERS">Other (Specify MOP)</option></select></div>

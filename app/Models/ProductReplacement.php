@@ -20,6 +20,7 @@ class ProductReplacement extends Model
         'exchange_credit' => 'decimal:2',
         'exchange_total' => 'decimal:2',
         'additional_payment_due' => 'decimal:2',
+        'replacement_shipping_fee_amount' => 'decimal:2',
         'exchange_payment_amount' => 'decimal:2',
         'exchange_payment_proofs' => 'array',
         'exchange_check_date' => 'date',

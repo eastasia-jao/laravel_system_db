@@ -364,6 +364,19 @@
                                         <div class="form-text">Optional discount applied to the replacement product price after approval.</div>
                                     </div>
                                 </div>
+                                <div class="row g-2 mt-2">
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold">Replacement delivery</label>
+                                        <select name="replacement_shipping_fee_type" class="form-select" data-online-replacement-shipping-type>
+                                            <option value="Free">Free delivery</option>
+                                            <option value="Custom Amount">Custom amount</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 d-none" data-online-replacement-shipping-amount-wrap>
+                                        <label class="form-label fw-semibold">Shipping fee (₱)</label>
+                                        <input type="number" name="replacement_shipping_fee_amount" class="form-control" min="0" step="0.01" value="0.00" disabled>
+                                    </div>
+                                </div>
                                 <div class="card border-0 bg-light mt-3" data-online-exchange-summary>
                                     <div class="card-body p-3">
                                         <div class="d-flex align-items-center justify-content-between mb-2"><strong><i class="fa-solid fa-calculator text-primary me-2"></i>Exchange calculation</strong><span class="badge bg-secondary" data-online-exchange-status>Select a replacement</span></div>
@@ -372,6 +385,7 @@
                                             <div class="col-6 col-md-3"><span class="text-muted d-block">Main replacement</span><strong data-online-exchange-main-total>₱0.00</strong></div>
                                             <div class="col-6 col-md-3"><span class="text-muted d-block">Additional products</span><strong data-online-exchange-extra-total>₱0.00</strong></div>
                                             <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement basket</span><strong data-online-exchange-basket-total>₱0.00</strong></div>
+                                            <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement shipping</span><strong data-online-exchange-shipping>₱0.00</strong></div>
                                         </div>
                                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top mt-3 pt-3">
                                             <span class="text-muted small" data-online-exchange-message>Choose replacement products to calculate.</span>
@@ -426,6 +440,9 @@
         const originalReturnedQuantity = modal.querySelector('[name="quantity"]');
         const paymentAmount = modal.querySelector('[name="exchange_payment_amount"]');
         const exchangeSummary = modal.querySelector('[data-online-exchange-summary]');
+        const shippingType = modal.querySelector('[data-online-replacement-shipping-type]');
+        const shippingAmountInput = modal.querySelector('[name="replacement_shipping_fee_amount"]');
+        const shippingAmountWrap = modal.querySelector('[data-online-replacement-shipping-amount-wrap]');
         const originalProductId = modal.dataset.originalProductId;
         const products = new Map();
         let timer;
@@ -442,6 +459,10 @@
             stockHelp.textContent = 'Search by Item ID, barcode, or product name. Online allocation is checked during verification.';
             replacementPrice.textContent = '';
             paymentAmount.value = '0.00';
+            shippingType.value = 'Free';
+            shippingAmountInput.value = '0.00';
+            shippingAmountInput.disabled = true;
+            shippingAmountWrap.classList.add('d-none');
             modal.querySelector('[data-exchange-line-list]')?.replaceChildren();
             updateExchangeCalculation();
         });
@@ -462,23 +483,36 @@
                 extraTotal += roundMoney(unitPrice * (1 - lineDiscount / 100) * quantity);
             });
             extraTotal = roundMoney(extraTotal);
-            const basketTotal = roundMoney(mainTotal + extraTotal);
+            const shippingFee = shippingType.value === 'Custom Amount'
+                ? roundMoney(Math.max(0, Number(shippingAmountInput.value || 0)))
+                : 0;
+            const basketTotal = roundMoney(mainTotal + extraTotal + shippingFee);
             const amountDue = roundMoney(Math.max(0, basketTotal - credit));
             const shortfall = roundMoney(Math.max(0, credit - basketTotal));
             exchangeSummary.querySelector('[data-online-exchange-credit]').textContent = money(credit);
             exchangeSummary.querySelector('[data-online-exchange-main-total]').textContent = money(mainTotal);
             exchangeSummary.querySelector('[data-online-exchange-extra-total]').textContent = money(extraTotal);
             exchangeSummary.querySelector('[data-online-exchange-basket-total]').textContent = money(basketTotal);
+            exchangeSummary.querySelector('[data-online-exchange-shipping]').textContent = money(shippingFee);
             exchangeSummary.querySelector('[data-online-exchange-amount-due]').textContent = `Additional payment: ${money(amountDue)}`;
             const message = exchangeSummary.querySelector('[data-online-exchange-message]');
             message.textContent = shortfall > 0
-                ? `Add ${money(shortfall)} more in products to meet the exchange credit.`
+                ? 'No additional payment is due. The original proof amount stays unchanged.'
                 : (amountDue > 0 ? `Customer adds ${money(amountDue)}.` : 'Replacement basket matches the exchange credit.');
             const status = exchangeSummary.querySelector('[data-online-exchange-status]');
-            status.className = `badge ${shortfall > 0 ? 'bg-warning text-dark' : (amountDue > 0 ? 'bg-danger' : 'bg-success')}`;
-            status.textContent = shortfall > 0 ? `Add ${money(shortfall)} more` : (amountDue > 0 ? `Additional payment ${money(amountDue)}` : 'Credit fully used');
+            status.className = `badge ${amountDue > 0 ? 'bg-danger' : 'bg-success'}`;
+            status.textContent = amountDue > 0 ? `Additional payment ${money(amountDue)}` : 'No additional payment';
             paymentAmount.value = amountDue.toFixed(2);
         };
+        const updateReplacementShipping = () => {
+            const custom = shippingType.value === 'Custom Amount';
+            shippingAmountWrap.classList.toggle('d-none', !custom);
+            shippingAmountInput.disabled = !custom;
+            if (!custom) shippingAmountInput.value = '0.00';
+            updateExchangeCalculation();
+        };
+        shippingType.addEventListener('change', updateReplacementShipping);
+        shippingAmountInput.addEventListener('input', updateExchangeCalculation);
         const updateReplacementPrice = () => {
             const selected = products.get(search.value);
             if (!selected) {
@@ -510,7 +544,8 @@
             const query = search.value.trim();
             options.replaceChildren();
             products.clear();
-            stockHelp.textContent = query ? 'Searching products...' : 'Search by Item ID or product name.';
+            updateExchangeCalculation();
+            stockHelp.textContent = query ? 'Searching products...' : 'Search by Item ID, barcode, or product name.';
             if (!query) return;
             timer = setTimeout(async () => {
                 try {

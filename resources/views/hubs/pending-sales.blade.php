@@ -114,7 +114,13 @@
                                         @endif
                                     </div>
                                 @endif
-                            </div>@endforeach<div class="small fw-semibold mt-2">Basket total ₱{{ number_format($charge, 2) }} · Additional payment ₱{{ number_format(max(0, $difference), 2) }}</div></div>
+                            </div>@endforeach<div class="small fw-semibold mt-2">Replacement total (including shipping) ₱{{ number_format($charge, 2) }} · Additional payment ₱{{ number_format(max(0, $difference), 2) }}</div>
+                                @if((float) ($replacement->replacement_shipping_fee_amount ?? 0) > 0)
+                                    <div class="small text-muted">Replacement shipping ({{ $replacement->replacement_shipping_fee_type ?: 'Custom Amount' }}): ₱{{ number_format($replacement->replacement_shipping_fee_amount, 2) }}</div>
+                                @else
+                                    <div class="small text-muted">Replacement shipping: Free delivery</div>
+                                @endif
+                            </div>
                             <div class="col-md-2"><div class="meta-label">Reason</div><div class="meta-value">{{ $replacement->reason ?: '—' }}</div></div>
                         </div>
                         @if((float) ($replacement->additional_payment_due ?? 0) > 0)
