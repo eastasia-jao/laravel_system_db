@@ -64,8 +64,15 @@
             @forelse($transactions as $transaction)
                     @php
                         $saleAmount = $transaction->netOrderTotal((float) ($transaction->sub_total ?: $transaction->items->sum('line_total')));
-                        $difference = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount - (float) ($transaction->sub_total ?: $saleAmount);
                         $saleReplacements = $transaction->items->flatMap(fn ($item) => $item->replacements);
+                        $replacementDeliveryFee = (float) $saleReplacements
+                            ->where('status', 'approved')
+                            ->sum('replacement_shipping_fee_amount');
+                        $difference = $transaction->proof_amount === null
+                            ? null
+                            : (float) $transaction->proof_amount
+                                - (float) ($transaction->sub_total ?: $saleAmount)
+                                - $replacementDeliveryFee;
                     @endphp
                     <div class="col-12">
                         <article class="card online-order-card overflow-hidden">
@@ -177,11 +184,34 @@
 
 @foreach($transactions as $transaction)
     @php
-        $detailSaleAmount = $transaction->netOrderTotal((float) ($transaction->sub_total ?: $transaction->items->sum('line_total')));
+        $detailBaseSubtotal = (float) ($transaction->sub_total ?: $transaction->items->sum('line_total'));
+        $detailReturnDeduction = $transaction->items->sum(function ($item) {
+            $quantity = max(1, (int) $item->quantity);
+            $approvedReplacementQuantity = min(
+                $item->returnedQuantity(),
+                (int) $item->replacements->where('status', 'approved')->sum('quantity')
+            );
+            $unreplacedReturnedQuantity = max(0, $item->returnedQuantity() - $approvedReplacementQuantity);
+            $unreplacedReturnAmount = round((float) $item->line_total * ($unreplacedReturnedQuantity / $quantity), 2);
+
+            return max($unreplacedReturnAmount, $item->refundCostAmount());
+        });
+        $unlinkedReturnRefund = (float) $transaction->inventoryReturns
+            ->whereNull('transaction_item_id')
+            ->sum('refund_amount');
+        $detailReturnDeduction = max($detailReturnDeduction, $unlinkedReturnRefund);
+        $detailSaleAmount = max(0, $detailBaseSubtotal - $detailReturnDeduction);
         $detailShippingFee = (float) $transaction->shipping_fee_amount;
-        $detailOrderTotal = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->total_amount ?: ($detailSaleAmount + $detailShippingFee)));
+        $detailBaseTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: ($detailBaseSubtotal + $detailShippingFee));
+        $detailOrderTotal = max(0, $detailBaseTotal - $detailReturnDeduction);
         $detailProofAmount = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount;
-        $detailDifference = $detailProofAmount === null ? null : $detailProofAmount - (float) ($transaction->sub_total ?: $detailSaleAmount);
+        $detailReplacementDeliveryFee = (float) $transaction->items
+            ->flatMap(fn ($item) => $item->replacements)
+            ->where('status', 'approved')
+            ->sum('replacement_shipping_fee_amount');
+        $detailDifference = $detailProofAmount === null
+            ? null
+            : $detailProofAmount - (float) ($transaction->sub_total ?: $detailSaleAmount) - $detailReplacementDeliveryFee;
         $detailRefundTotal = $transaction->items->sum(fn ($item) => $item->refundCostAmount())
             + $transaction->inventoryReturns->whereNull('transaction_item_id')->sum('refund_amount');
         $detailPaymentLabel = strtoupper($transaction->mode_of_payment ?: 'Unspecified');
@@ -223,7 +253,7 @@
                                 @foreach($transaction->items as $item)
                                     @php
                                         $detailReturns = $item->inventoryReturns;
-                                        $detailReturnedQuantity = max((int) ($item->returned_quantity ?? 0), (int) $detailReturns->sum('quantity'));
+                                        $detailReturnedQuantity = $item->returnedQuantity();
                                         $detailReturnStatus = $detailReturns->isNotEmpty() ? 'received' : ($item->return_status ?: 'none');
                                         $detailAvailableReplacementQuantity = min(
                                             (int) $item->remaining_replaceable_quantity,
@@ -237,20 +267,15 @@
                                             default => 'NO RETURN',
                                         };
                                         $detailReplacements = $item->replacements->sortByDesc('created_at');
-                                        $approvedReplacement = $detailReplacements->firstWhere('status', 'approved');
-                                        $displayUnitPrice = $approvedReplacement
-                                            ? (float) $approvedReplacement->replacement_unit_price
-                                                * (1 - ((float) ($approvedReplacement->replacement_discount_percentage ?? 0) / 100))
-                                            : (float) $item->unit_price;
-                                        $displayItemTotal = $approvedReplacement
-                                            ? $displayUnitPrice * (int) ($approvedReplacement->replacement_quantity ?: $approvedReplacement->quantity)
-                                            : max(0, (float) $item->line_total - $item->returnedNetAmount());
+                                        $displayQuantity = max(0, (int) $item->quantity - $detailReturnedQuantity);
+                                        $displayUnitPrice = (float) $item->unit_price;
+                                        $displayItemTotal = max(0, (float) $item->line_total - $item->returnedNetAmount());
                                     @endphp
                                     <tr>
                                         <td><div class="fw-semibold">{{ $item->product?->name ?? 'Product #'.$item->product_id }}</div><small class="text-muted">Item ID: {{ $item->product?->item_id ?? '—' }}</small></td>
-                                        <td class="text-center fw-semibold">{{ number_format($item->quantity) }}</td>
-                                        <td class="text-end">₱{{ number_format($displayUnitPrice, 2) }}@if($approvedReplacement)<div class="small text-muted">replacement price</div>@endif</td>
-                                        <td class="text-end fw-bold">₱{{ number_format($displayItemTotal, 2) }}@if($approvedReplacement && (float) ($approvedReplacement->replacement_discount_percentage ?? 0) > 0)<div class="small text-success">{{ number_format($approvedReplacement->replacement_discount_percentage, 2) }}% discount</div>@endif</td>
+                                        <td class="text-center fw-semibold">{{ number_format($displayQuantity) }}</td>
+                                        <td class="text-end">₱{{ number_format($displayUnitPrice, 2) }}</td>
+                                        <td class="text-end fw-bold">₱{{ number_format($displayItemTotal, 2) }}</td>
                                         <td>
                                             <span class="badge {{ $detailReturnStatus === 'received' ? 'bg-info text-dark' : ($detailReturnStatus === 'requested' ? 'bg-warning text-dark' : ($detailReturnStatus === 'rejected' ? 'bg-danger' : 'bg-secondary')) }}">{{ $detailReturnLabel }}</span>
                                             @if($detailReturnedQuantity > 0)<div class="small mt-1">Quantity returned: {{ $detailReturnedQuantity }}</div>@endif

@@ -252,6 +252,10 @@ class SalesReportController extends Controller
         $resolveTotal = fn (SalesTransaction $transaction): float => $transaction->netOrderTotal(
             $this->resolveReportedTotal($transaction)
         );
+        $replacementDeliveryFee = fn (SalesTransaction $transaction): float => (float) $transaction->items
+            ->sum(fn ($item) => $item->replacements
+                ->where('status', 'approved')
+                ->sum('replacement_shipping_fee_amount'));
         $currentGross = function (SalesTransaction $transaction): float {
             $gross = (float) $transaction->items->sum(fn ($item) => (float) $item->unit_price * ((int) $item->quantity - $item->returnedQuantity()));
             $gross -= (float) $transaction->replacements->where('status', 'approved')->sum(fn ($replacement) => (float) $replacement->original_unit_price * (int) $replacement->quantity);
@@ -403,7 +407,7 @@ class SalesReportController extends Controller
             'customer_refund_amount' => $allTransactions->sum(fn ($transaction) => $transaction->completedCustomerRefunds()),
             'pending_payouts' => $allTransactions->whereNull('sales_after_transaction_fee')->count(),
             'proof_amount' => $allTransactions->sum('proof_amount'),
-            'difference' => $allTransactions->sum(function ($transaction) use ($resolveTotal) {
+            'difference' => $allTransactions->sum(function ($transaction) use ($resolveTotal, $replacementDeliveryFee) {
                 if ($transaction->proof_amount === null) {
                     return 0;
                 }
@@ -411,7 +415,8 @@ class SalesReportController extends Controller
                 $saleAmount = (float) ($transaction->sub_total ?: $resolveTotal($transaction));
 
                 return (float) $transaction->proof_amount
-                    - $saleAmount;
+                    - $saleAmount
+                    - $replacementDeliveryFee($transaction);
             }),
             'replacement_count' => $replacementCount,
             'return_count' => $returnCount,

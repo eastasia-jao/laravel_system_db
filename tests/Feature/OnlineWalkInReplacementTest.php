@@ -25,7 +25,8 @@ class OnlineWalkInReplacementTest extends TestCase
         ProductStockAllocation::create(['product_id' => $original->id, 'online' => 0]);
         ProductStockAllocation::create(['product_id' => $replacement->id, 'online' => 5]);
         [$sale, $item] = $this->sale($admin, $hub, $original, 'online', 'not_applicable');
-        $sale->update(['proof_amount' => 100]);
+        $item->update(['quantity' => 2, 'line_total' => 200]);
+        $sale->update(['sub_total' => 200, 'total_amount' => 200, 'grand_total' => 200, 'proof_amount' => 200]);
 
         $this->actingAs($admin)->getJson(route('hub.products.search.ajax', [
             'hubId' => $hub->id,
@@ -115,9 +116,9 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $this->assertSame('approved', $request->fresh()->status);
-        $this->assertSame('135.00', $sale->fresh()->grand_total);
+        $this->assertSame('235.00', $sale->fresh()->grand_total);
         $this->assertSame('15.00', $sale->fresh()->shipping_fee_amount);
-        $this->assertSame('135.00', $sale->fresh()->proof_amount);
+        $this->assertSame('235.00', $sale->fresh()->proof_amount);
         $this->assertSame('not_applicable', $sale->fresh()->payment_status);
         $this->assertSame(4, $replacement->fresh()->stock);
         $this->assertSame(1, $original->stockAllocation->fresh()->online);
@@ -137,9 +138,14 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertOk()
             ->assertSee('Replacement: APPROVED')
             ->assertSee('Online Replacement')
-            ->assertSee('ONLINE-ORDER');
+            ->assertSee('ONLINE-ORDER')
+            ->assertSee('Product subtotal')
+            ->assertSee('>₱220.00</div>', false)
+            ->assertSee('class="text-center fw-semibold">1</td>', false)
+            ->assertSee('class="text-end fw-bold">₱100.00</td>', false);
         $this->assertSame(1, $report->viewData('totalTransactions'));
-        $this->assertSame(35.0, (float) $report->viewData('metrics')['total_sales']);
+        $this->assertSame(135.0, (float) $report->viewData('metrics')['total_sales']);
+        $this->assertSame(0.0, (float) $report->viewData('metrics')['difference']);
         $this->assertSame(1, (int) $report->viewData('metrics')['replacement_count']);
         $this->assertDatabaseCount('sales_transactions', 1);
     }
@@ -170,12 +176,11 @@ class OnlineWalkInReplacementTest extends TestCase
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
             'replacement_quantity' => 1,
-            'replacement_shipping_fee_type' => 'Custom Amount',
-            'replacement_shipping_fee_amount' => 5,
+            'replacement_shipping_fee_type' => 'Free',
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $request = ProductReplacement::sole();
-        $this->assertSame('85.00', $request->exchange_total);
+        $this->assertSame('80.00', $request->exchange_total);
         $this->assertSame('0.00', $request->additional_payment_due);
 
         $original->increment('stock');
@@ -184,8 +189,10 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $this->assertSame('100.00', $sale->fresh()->proof_amount);
-        $this->assertSame('5.00', $sale->fresh()->shipping_fee_amount);
+        $this->assertSame('0.00', $sale->fresh()->shipping_fee_amount);
         $this->assertSame('100.00', $sale->fresh()->grand_total);
+        $report = $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))->assertOk();
+        $this->assertSame(20.0, (float) $report->viewData('metrics')['difference']);
         $this->assertDatabaseCount('sales_payment_records', 0);
     }
 
