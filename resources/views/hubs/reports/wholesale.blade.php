@@ -99,11 +99,13 @@
                         $paymentStatus = $transaction->payment_status ?? 'unpaid';
                         $deliveryStatus = $transaction->delivery_status ?? 'pending';
                         $withholdingAmount = $transaction->withholding_tax_amount === null ? null : (float) $transaction->withholding_tax_amount;
-                        $withholdingTax = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->wholesale_withholding_tax;
+                        $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0) > 0
+                            ? (float) $transaction->wholesale_withholding_tax
+                            : null;
                         // Withholding Tax is a reporting reference. When supplied, it is
                         // the displayed Order Value; payment always uses the product total.
                         $productPaymentTotal = max(0, $invoiceTotal - $shippingFee);
-                        $total = $withholdingTax ?? $productPaymentTotal;
+                        $total = $withholdingTax ?? max(0, (float) ($transaction->amount_paid ?? 0));
                         // Collected is always the amount actually paid by the customer.
                         // It must not be replaced or capped by the withholding breakdown.
                         $collected = min($productPaymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
@@ -314,10 +316,11 @@
                                 $invoiceTotal = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
 
                                 $productPaymentTotal = max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0));
+                                $withholdingTax = (float) ($sale->wholesale_withholding_tax ?? 0);
 
-                                return $sale->wholesale_withholding_tax === null
-                                    ? $productPaymentTotal
-                                    : (float) $sale->wholesale_withholding_tax;
+                                return $withholdingTax > 0
+                                    ? $withholdingTax
+                                    : min($productPaymentTotal, max(0, (float) ($sale->amount_paid ?? 0)));
                             });
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
@@ -442,10 +445,11 @@
                     $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
 
                     $productPaymentTotal = max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0));
+                    $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0);
 
-                    return $transaction->wholesale_withholding_tax === null
-                        ? $productPaymentTotal
-                        : (float) $transaction->wholesale_withholding_tax;
+                    return $withholdingTax > 0
+                        ? $withholdingTax
+                        : min($productPaymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
                 };
                 $kpiOrderValue = $allTransactions->sum($wholesaleSalesValue);
                 $kpiCollected = $wholesaleCollectedSales;
