@@ -345,7 +345,6 @@
                                     <select id="wholesaleShippingType" name="shipping_fee_type" class="form-select">
                                         <option value="Free">Free</option>
                                         <option value="COD">COD</option>
-                                        <option value="Custom Amount">Custom Amount</option>
                                     </select>
                                 </div>
 
@@ -1072,10 +1071,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const addDiscPercent = addDiscInput ? parseFloat(addDiscInput.value) || 0 : 0;
             
             const shipType = shipTypeSelect ? shipTypeSelect.value : 'Free';
-            const shipAmount = (shipType === 'Custom Amount' || shipType === 'COD') ? (shipFeeInput ? parseFloat(shipFeeInput.value) || 0 : 0) : 0;
-
             const discountedSubTotal = cumulativeSubTotal * (1 - (addDiscPercent / 100));
-            const wholesaleGrandTotal = discountedSubTotal + shipAmount;
+            const wholesaleGrandTotal = discountedSubTotal;
 
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
             if (subTotalDisplay) subTotalDisplay.value = '₱' + cumulativeSubTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1397,7 +1394,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateWholesaleShippingState(val) {
         const courierContainer = document.getElementById('wholesaleCourierContainer');
-        if (val === 'Custom Amount' || val === 'COD') {
+        if (val === 'COD') {
             if (shippingContainer) shippingContainer.style.display = 'block';
             courierContainer?.classList.remove('col-md-8');
             courierContainer?.classList.add('col-md-4');

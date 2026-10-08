@@ -286,7 +286,14 @@ class SalesReportController extends Controller
             foreach ($linkedReturns as $return) {
                 $matchedReturnIds->push($return->id);
             }
-            $itemRefunds = $transaction->items->sum(fn ($item) => $item->refundCostAmount());
+            $replacedItemIds = $transaction->items
+                ->filter(fn ($item) => $item->replacements->isNotEmpty())
+                ->modelKeys();
+            $linkedReturns = $linkedReturns->reject(fn ($return) => $return->product_replacement_id
+                || ($return->transaction_item_id && in_array((int) $return->transaction_item_id, $replacedItemIds, true)));
+            $itemRefunds = $transaction->items
+                ->reject(fn ($item) => $item->replacements->isNotEmpty())
+                ->sum(fn ($item) => $item->refundCostAmount());
 
             return max($itemRefunds, (float) $linkedReturns->sum('refund_amount'));
         });

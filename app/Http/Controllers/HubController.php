@@ -297,7 +297,7 @@ class HubController extends Controller
                 'transactions' => $channelSales->sum('transaction_count'),
                 'total' => $channelSales->sum('reported_total'),
                 'refund_total' => $channelSales->sum(fn ($sale) => max(
-                    (float) $sale->items->sum(fn ($item) => $item->refundCostAmount()),
+                    (float) $sale->items->reject(fn ($item) => $item->replacements->isNotEmpty())->sum(fn ($item) => $item->refundCostAmount()),
                     (float) $sale->inventoryReturns->whereNull('transaction_item_id')->sum('refund_amount')
                 )),
                 'total_customers' => count($firstCustomerOrders),

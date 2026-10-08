@@ -1,11 +1,14 @@
 <style>
     .wholesale-report-card { border: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 28px rgba(30, 64, 175, .08); }
     .wholesale-report-card .card-header { background: linear-gradient(135deg, #eff6ff, #f8fafc); border-bottom: 1px solid #dbeafe; padding: 1rem 1.25rem; }
-    .wholesale-report-card .table { min-width: 820px; width: 100%; table-layout: fixed; }
-    .wholesale-report-card th:nth-child(1) { width: 30%; }
-    .wholesale-report-card th:nth-child(2) { width: 17%; }
-    .wholesale-report-card th:nth-child(4), .wholesale-report-card th:nth-child(5) { width: 14%; }
-    .wholesale-report-card th:nth-child(6), .wholesale-report-card th:nth-child(9), .wholesale-report-card th:nth-child(11) { width: 12.5%; }
+    .wholesale-report-card .table { min-width: 1120px; width: 100%; table-layout: fixed; }
+    .wholesale-report-card th:nth-child(1) { width: 25%; }
+    .wholesale-report-card th:nth-child(2) { width: 14%; }
+    .wholesale-report-card th:nth-child(4), .wholesale-report-card th:nth-child(5) { width: 11%; }
+    .wholesale-report-card th:nth-child(6) { width: 13%; }
+    .wholesale-report-card th:nth-child(7) { width: 10%; }
+    .wholesale-report-card th:nth-child(8) { width: 14%; }
+    .wholesale-report-card th:nth-child(9), .wholesale-report-card th:nth-child(11) { width: 10%; }
     .wholesale-report-card thead th { background: #dbeafe; color: #1e3a8a; border-color: #bfdbfe; font-size: .72rem; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
     .wholesale-report-card tbody td { border-color: #e5e7eb; font-size: .82rem; vertical-align: middle; }
     .wholesale-report-card tbody tr:hover { background: #f8fbff; }
@@ -16,8 +19,6 @@
     .wholesale-report-card .wholesale-items > details { display: none; }
     .wholesale-status { min-width: 260px; }
     .wholesale-report-card th:nth-child(3), .wholesale-report-card td:nth-child(3),
-    .wholesale-report-card th:nth-child(7), .wholesale-report-card td:nth-child(7),
-    .wholesale-report-card th:nth-child(8), .wholesale-report-card td:nth-child(8),
     .wholesale-report-card th:nth-child(10), .wholesale-report-card td:nth-child(10),
     .wholesale-report-card th:nth-child(12), .wholesale-report-card td:nth-child(12),
     .wholesale-report-card th:nth-child(13), .wholesale-report-card td:nth-child(13),
@@ -86,7 +87,7 @@
     <div class="table-responsive">
         <table class="table table-bordered table-sm align-middle mb-0">
             <thead class="table-success">
-                <tr><th>Company/Customer</th><th>Purchase Date</th><th>MOP</th><th class="text-end">Order Value</th><th class="text-end">Collected</th><th class="text-end">Shipping Fee</th><th class="text-end">Withholding Tax Amount</th><th>Invoice #</th><th>Payment</th><th>Order</th><th>Delivery</th><th>Delivery/Pickup Date</th><th>Type</th><th>Courier</th><th>Check Date</th><th class="text-end">Withholding Tax</th><th>Update Status</th></tr>
+                <tr><th>Company/Customer</th><th>Purchase Date</th><th>MOP</th><th class="text-end">Order Value</th><th class="text-end">Collected</th><th class="text-end">Shipping Fee</th><th>Type of Delivery</th><th>Invoice #</th><th>Payment</th><th>Order</th><th>Delivery</th><th>Delivery/Pickup Date</th><th>Type</th><th>Courier</th><th>Check Date</th><th class="text-end">Withholding Tax</th><th>Update Status</th></tr>
             </thead>
             <tbody>
                 @php
@@ -249,8 +250,8 @@
                         <td class="text-end fw-bold">₱{{ number_format($total, 2) }}</td>
                         <td class="text-end fw-bold text-success">₱{{ number_format($collected, 2) }}</td>
                         <td class="text-end">₱{{ number_format($shippingFee, 2) }}@if($approvedReplacementShipping > 0)<small class="d-block text-muted">Includes ₱{{ number_format($approvedReplacementShipping, 2) }} replacement shipping</small>@endif</td>
-                        <td class="text-end">{{ $withholdingAmount === null ? '—' : '₱'.number_format($withholdingAmount, 2) }}</td>
-                        <td>{{ $transaction->order_number }}</td>
+                        <td>{{ strtoupper($transaction->shipping_fee_type ?: '—') }}</td>
+                        <td>{{ $transaction->invoice_number ?: '—' }}</td>
                         <td class="text-center"><span class="wholesale-table-status {{ $paymentStatus === 'paid' ? 'bg-success-subtle text-success' : ($paymentStatus === 'partial' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-secondary-subtle text-secondary-emphasis') }}">{{ strtoupper($paymentStatus) }}</span></td>
                         <td>{{ strtoupper($transaction->status ?? 'confirmed') }}</td>
                         <td class="text-center"><span class="wholesale-table-status {{ $deliveryStatus === 'delivered' ? 'bg-success-subtle text-success' : ($deliveryStatus === 'cancelled' ? 'bg-danger-subtle text-danger' : 'bg-info-subtle text-info-emphasis') }}">{{ strtoupper($deliveryStatus) }}</span></td>
@@ -285,6 +286,9 @@
                                         <input type="hidden" name="amount_paid" value="{{ number_format($collected, 2, '.', '') }}">
                                     @endif
                                     <button type="submit" class="btn btn-primary">Save</button>
+                                </div>
+                                <div class="input-group input-group-sm mt-2">
+                                    <input type="text" name="invoice_number" class="form-control" value="{{ $transaction->invoice_number }}" placeholder="Add Invoice #">
                                 </div>
                                 <div class="row g-1 mt-2">
                                     <div class="col-6">
@@ -325,13 +329,11 @@
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
                         <tr class="table-primary-subtle fw-semibold wholesale-month-subtotal">
-                            <td colspan="5" class="text-end">
-                                {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} shipping fee total:
-                            </td>
-                            <td class="text-end">₱{{ number_format($monthShippingFees, 2) }}</td>
-                            <td colspan="11" class="text-end">
+                            <td colspan="3"></td>
+                            <td class="text-end">
                                 {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal: ₱{{ number_format($monthCustomerPayable, 2) }}
                             </td>
+                            <td colspan="13"></td>
                         </tr>
                     @endif
                 @empty

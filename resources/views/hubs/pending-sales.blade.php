@@ -529,7 +529,7 @@
                             </table>
                         </div>
 
-                        @if(!$isTiktok)
+                        @if(!$isTiktok && !$isWholesale)
                             @php
                                 $finalGrandTotal = ($sale->grand_total > 0)
                                     ? $sale->grand_total

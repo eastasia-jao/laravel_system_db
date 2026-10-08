@@ -414,7 +414,8 @@ class SalesController extends Controller
             $withholdingTaxAmount = $withholdingTaxAmount ?? 0;
 
             $discountAmount = $subTotal * ($additionalDiscountPct / 100);
-            $grandTotal = max(0, ($subTotal - $discountAmount) + $shippingFee - $withholdingTaxAmount);
+            // Wholesale shipping is tracked separately and must not increase the sale total.
+            $grandTotal = max(0, ($subTotal - $discountAmount) - $withholdingTaxAmount);
             $paymentStatus = in_array($channel, ['wholesale', 'walk_in'], true)
                 ? $request->input('payment_status', $channel === 'walk_in' ? 'paid' : 'unpaid')
                 : 'not_applicable';
@@ -949,6 +950,7 @@ class SalesController extends Controller
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
             'withholding_tax_amount' => ['nullable', 'numeric', 'min:0'],
             'wholesale_withholding_tax' => ['nullable', 'numeric', 'min:0'],
+            'invoice_number' => ['nullable', 'string', 'max:100'],
         ]);
 
         if ($channel === 'online') {
@@ -1002,6 +1004,9 @@ class SalesController extends Controller
             'delivery_status' => $channel === 'wholesale'
                 ? $validated['delivery_status']
                 : 'not_applicable',
+            'invoice_number' => $channel === 'wholesale'
+                ? (($validated['invoice_number'] ?? null) ?: $sale->invoice_number)
+                : $sale->invoice_number,
             ...$wholesaleWithholding,
         ]);
 
