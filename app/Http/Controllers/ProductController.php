@@ -341,7 +341,9 @@ class ProductController extends Controller
             file_get_contents($request->file('file')->getRealPath())
         );
 
-        DB::transaction(function () use ($csv, $request, $hub) {
+        $record = null;
+
+        DB::transaction(function () use ($csv, $request, $hub, &$record) {
             // This record is internal queue storage, not an approval request.
             // The submitting inventory user automatically authorizes the import.
             $record = ProductFileRequest::create([
@@ -365,6 +367,17 @@ class ProductController extends Controller
                 'submitted_by' => auth()->id(),
             ]);
         });
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'import' => [
+                    'id' => $record->id,
+                    'status' => $record->processing_status,
+                    'file_name' => $record->file_name,
+                    'total_rows' => $record->total_rows,
+                ],
+            ], 202);
+        }
 
         return redirect()->route('hub.dashboard', $hub->id)->with(
             'success',

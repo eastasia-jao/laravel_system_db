@@ -162,6 +162,22 @@ class ProductFileRequestTest extends TestCase
         Queue::assertPushed(\App\Jobs\ProcessProductFileRequest::class, 1);
     }
 
+    public function test_inventory_staff_receives_queued_import_data_for_the_live_import_modal(): void
+    {
+        Queue::fake();
+        $hub = StoreHub::create(['name' => 'Branch', 'code' => 'BR', 'status' => 'active']);
+        $staff = User::factory()->create(['role' => 'inventory_staff']);
+
+        $this->actingAs($staff)
+            ->postJson(route('hub.products.import', $hub), [
+                'file' => UploadedFile::fake()->createWithContent('products.csv', $this->csv()),
+            ])
+            ->assertStatus(202)
+            ->assertJsonPath('import.status', 'queued')
+            ->assertJsonPath('import.file_name', 'products.csv')
+            ->assertJsonPath('import.total_rows', 1);
+    }
+
     public function test_import_waits_for_staff_approval_and_cannot_be_applied_twice(): void
     {
         [$hub, $associate, $staff] = $this->setupUsers();

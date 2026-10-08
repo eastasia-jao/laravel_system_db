@@ -46,21 +46,56 @@
                 fileName: '',
                 elapsed: 0,
                 activeStep: 0,
+                importStatus: 'uploading',
+                importResult: null,
                 elapsedTimer: null,
-                stepTimer: null,
+                pollTimer: null,
                 steps: ['Uploading the CSV file', 'Checking the file format', 'Applying product updates', 'Recording the import activity'],
-                startImport() {
+                async startImport() {
                     if (this.importing) return;
                     this.importing = true;
                     this.elapsed = 0;
                     this.activeStep = 0;
+                    this.importStatus = 'uploading';
+                    this.importResult = null;
                     this.elapsedTimer = setInterval(() => this.elapsed++, 1000);
-                    this.stepTimer = setInterval(() => {
-                        if (this.activeStep < this.steps.length - 1) this.activeStep++;
-                    }, 2200);
+                    const form = this.$root.querySelector('#storeHubImportForm');
+                    try {
+                        const response = await fetch(form.action, {
+                            method: 'POST', body: new FormData(form),
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
+                        });
+                        const payload = await response.json();
+                        if (!response.ok) throw new Error(payload.message || 'The import could not be started.');
+                        this.fileName = payload.import.file_name || this.fileName;
+                        this.updateImportStatus(payload.import);
+                        this.pollTimer = setInterval(() => this.refreshImportStatus(), 2000);
+                    } catch (error) {
+                        this.importStatus = 'failed';
+                        this.importResult = { error: error.message || 'The import could not be started.' };
+                        clearInterval(this.elapsedTimer);
+                    }
+                },
+                updateImportStatus(record) {
+                    this.importStatus = record.status;
+                    this.importResult = record;
+                    this.activeStep = { queued: 1, processing: 2, completed: 3, failed: 3 }[record.status] ?? 0;
+                    if (['completed', 'failed'].includes(record.status)) {
+                        clearInterval(this.elapsedTimer);
+                        clearInterval(this.pollTimer);
+                    }
+                },
+                async refreshImportStatus() {
+                    try {
+                        const response = await fetch('{{ route('hub.products.import-status', $hub->id) }}', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+                        if (!response.ok) return;
+                        const record = (await response.json()).import;
+                        if (record) this.updateImportStatus(record);
+                    } catch (_) { }
                 }
             }">
-                <form id="storeHubImportForm" @submit.prevent="startImport(); $el.submit()" action="{{ route('hub.products.import', $hub->id) }}" method="POST" enctype="multipart/form-data">
+                <form id="storeHubImportForm" @submit.prevent @hub-import-approved="startImport()" action="{{ route('hub.products.import', $hub->id) }}" method="POST" enctype="multipart/form-data">
                     @csrf
 
                     <div class="modal-header border-0 px-4 pt-4 pb-2">
@@ -92,7 +127,7 @@
                                 </div>
 
                                 <div class="text-center mb-3">
-                                    <h6 class="fw-bold mb-1">Importing products</h6>
+                                    <h6 class="fw-bold mb-1" x-text="importStatus === 'completed' ? 'Import completed' : (importStatus === 'failed' ? 'Import failed' : 'Importing products')"></h6>
                                     <div class="small text-muted text-truncate" x-text="fileName || 'Selected CSV file'"></div>
                                 </div>
 
@@ -111,7 +146,7 @@
 
                                 <div class="alert alert-light border small text-muted mt-4 mb-0 py-2">
                                     <i class="fa-solid fa-circle-info me-1 text-primary"></i>
-                                    Keep this window open while the import completes. Large files may take several minutes.
+                                    <span x-text="importStatus === 'queued' ? 'Queued — waiting for the import worker.' : (importStatus === 'processing' ? 'The file is being imported now.' : (importStatus === 'completed' ? 'Import completed. You can close this window.' : (importStatus === 'failed' ? (importResult?.error || 'The import did not finish. Please try again.') : 'Uploading and validating the CSV file.'))"></span>
                                     <span class="float-end font-monospace" x-text="Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')"></span>
                                 </div>
                             </div>
@@ -121,6 +156,9 @@
                     <div class="modal-footer border-0 px-4 pb-4 pt-0" x-show="!importing">
                         <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-success px-4"><i class="fa-solid fa-play me-2"></i>Start Import</button>
+                    </div>
+                    <div class="modal-footer border-0 px-4 pb-4 pt-0" x-show="importing && ['completed', 'failed'].includes(importStatus)" style="display: none;">
+                        <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Done</button>
                     </div>
                 </form>
             </div>
