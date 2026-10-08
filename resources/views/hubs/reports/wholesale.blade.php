@@ -420,6 +420,7 @@
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Main replacement total</span><strong data-exchange-main-total>₱0.00</strong></div>
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Additional products</span><strong data-exchange-extra-total>₱0.00</strong></div>
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement basket total</span><strong data-exchange-basket-total>₱0.00</strong></div>
+                            <div class="col-6 col-md-3"><span class="text-muted d-block">Remaining store credit</span><strong data-exchange-store-credit>₱0.00</strong></div>
                         </div>
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top mt-3 pt-3">
                             <span class="text-muted small" data-exchange-formula>Choose a replacement product to calculate the total.</span>
@@ -718,22 +719,25 @@
                 const amountDue = isPartialWholesale
                     ? Math.max(0, revisedOrderTotal - amountAlreadyPaid)
                     : Math.max(0, basketTotal - credit);
-                const appliedCredit = isPartialWholesale ? Math.max(0, basketTotal - amountDue) : credit;
-                const shortfall = Math.max(0, credit - basketTotal);
+                const remainingStoreCredit = isPartialWholesale ? 0 : Math.max(0, credit - basketTotal);
+                const appliedCredit = isPartialWholesale ? Math.max(0, basketTotal - amountDue) : credit - remainingStoreCredit;
                 summary.querySelector('[data-exchange-credit]').textContent = money(appliedCredit);
                 summary.querySelector('[data-exchange-main-total]').textContent = money(mainTotal);
                 summary.querySelector('[data-exchange-extra-total]').textContent = money(extraTotal);
                 summary.querySelector('[data-exchange-basket-total]').textContent = money(basketTotal);
                 summary.querySelector('[data-exchange-shipping]').textContent = money(shippingFee);
-                summary.querySelector('[data-exchange-amount-due]').textContent = `Customer adds ${money(amountDue)}`;
+                summary.querySelector('[data-exchange-store-credit]').textContent = money(remainingStoreCredit);
+                summary.querySelector('[data-exchange-amount-due]').textContent = remainingStoreCredit > 0
+                    ? `Store credit remains ${money(remainingStoreCredit)}`
+                    : `Customer adds ${money(amountDue)}`;
                 summary.querySelector('[data-exchange-formula]').textContent = mainUnitPrice > 0
                     ? (isPartialWholesale
                         ? `Revised order total ${money(revisedOrderTotal)} less payment already received ${money(amountAlreadyPaid)}.`
                         : `${money(mainUnitPrice)} × ${mainQuantity} less ${mainDiscount.toFixed(2)}% discount, plus additional products.`)
                     : 'Choose a replacement product to calculate the total.';
                 const status = summary.querySelector('[data-exchange-calculation-status]');
-                status.className = `badge ${shortfall > 0 ? 'bg-warning text-dark' : (amountDue > 0 ? 'bg-danger' : 'bg-success')}`;
-                status.textContent = shortfall > 0 ? `Add ${money(shortfall)} more` : (amountDue > 0 ? `Additional payment ${money(amountDue)}` : 'Credit fully used');
+                status.className = `badge ${remainingStoreCredit > 0 ? 'bg-info text-dark' : (amountDue > 0 ? 'bg-danger' : 'bg-success')}`;
+                status.textContent = remainingStoreCredit > 0 ? `Store credit ${money(remainingStoreCredit)}` : (amountDue > 0 ? `Additional payment ${money(amountDue)}` : 'Credit fully used');
                 paymentAmount.value = amountDue.toFixed(2);
             };
 

@@ -975,14 +975,9 @@ class SalesReportController extends Controller
                 ? max(0, round($exchangeTotal - max(0, $revisedOrderTotal - $existingPaid), 2))
                 : $returnedItemValue;
             $usesExchangeCredit = $credit > 0;
-            $allowsLowerValueExchange = $channel === 'online'
-                || ($channel === 'walk_in' && $storeHub->is_head_office)
-                || $isPartialWholesale;
-            if (! $allowsLowerValueExchange && $exchangeTotal + 0.0001 < $credit) {
-                throw ValidationException::withMessages([
-                    'replacement_product_id' => 'The replacement basket must equal or exceed the exchange credit of ₱'.number_format($credit, 2).'. Add another product or increase a quantity.',
-                ]);
-            }
+            // A cheaper replacement is allowed. The unused credit stays on the
+            // replacement record for staff reference; it is never auto-refunded.
+            $remainingStoreCredit = max(0, round($credit - $exchangeTotal, 2));
 
             // A partial Wholesale payment is applied to the revised order. It is never
             // charged again, and a Free replacement delivery option contributes zero.
@@ -1009,7 +1004,7 @@ class SalesReportController extends Controller
             $replacementOrderSlip = $request->file('replacement_order_slip')?->store('replacement_order_slips', 'public');
 
             $exchangeReference = (string) Str::uuid();
-            $created = $pricedLines->map(function ($line, $index) use ($sale, $transactionItem, $originalProduct, $quantity, $originalUnitPrice, $usesExchangeCredit, $credit, $exchangeTotal, $additionalPaymentDue, $replacementShippingFeeType, $replacementShippingFee, $paymentAmount, $paymentMethod, $paymentProofs, $replacementOrderSlip, $exchangeReference, $validated) {
+            $created = $pricedLines->map(function ($line, $index) use ($sale, $transactionItem, $originalProduct, $quantity, $originalUnitPrice, $usesExchangeCredit, $credit, $remainingStoreCredit, $exchangeTotal, $additionalPaymentDue, $replacementShippingFeeType, $replacementShippingFee, $paymentAmount, $paymentMethod, $paymentProofs, $replacementOrderSlip, $exchangeReference, $validated) {
                 return ProductReplacement::create([
                     'exchange_reference' => $exchangeReference,
                     'transaction_id' => $sale->id,
@@ -1022,6 +1017,7 @@ class SalesReportController extends Controller
                     'replacement_unit_price' => $line['unit_price'],
                     'replacement_discount_percentage' => $line['discount_percentage'],
                     'exchange_credit' => $credit,
+                    'remaining_store_credit' => $remainingStoreCredit,
                     'uses_exchange_credit' => $usesExchangeCredit,
                     'exchange_total' => $exchangeTotal,
                     'additional_payment_due' => $additionalPaymentDue,
