@@ -38,6 +38,8 @@
     #recordSaleModal #wholesaleExtraFields .sale-attachment-field { padding: .7rem; }
     #recordSaleModal #wholesaleExtraFields .sale-attachment-field .form-text { font-size: .75rem; line-height: 1.3; }
     #recordSaleModal #wholesaleExtraFields .sale-attachment-field .form-label { font-size: .82rem; margin-bottom: .35rem; }
+    #recordSaleModal #wholesaleExtraFields .wholesale-payment-guide { display: flex; align-items: center; min-height: 72px; padding: .85rem 1rem; border: 1px solid #dbeafe; border-radius: 11px; background: #eff6ff; color: #475569; font-size: .8rem; line-height: 1.45; }
+    #recordSaleModal #wholesaleExtraFields .wholesale-payment-guide i { color: #2563eb; font-size: 1rem; margin-right: .65rem; }
     #recordSaleModal #onlineExtraFields { margin-top: 1rem !important; }
     #recordSaleModal #onlineExtraFields .form-control[readonly] { background-color: #f8fafc !important; }
     #productRowsContainer { max-height: 230px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 0 .75rem .5rem; border: 1px solid #e5e7eb; border-radius: .6rem; background: #fff; }
@@ -279,7 +281,7 @@
                             <div class="row g-3">
                                 <div class="col-12 sale-field-heading">Payment details</div>
                                 <!-- Mode of Payment -->
-                                <div class="col-md-5 col-lg-4">
+                                <div class="col-md-6">
                                     <label class="form-label fw-bold">Mode of Payment (MOP)</label>
                                     <select name="mode_of_payment" class="form-select wholesale-mop-select" required>
                                         <option value="" selected disabled>-- Select MOP --</option>
@@ -289,6 +291,9 @@
                                         <option value="POST_DATED_CHECK">Post-Dated Check</option>
                                         <option value="OTHERS">Others</option>
                                     </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="wholesale-payment-guide" data-wholesale-payment-guide><i class="fa-solid fa-circle-info"></i><span>Select a payment method to show its required payment details and proof.</span></div>
                                 </div>
 
                                 <!-- Custom MOP Input (Shown when MOP is OTHERS) -->
@@ -337,7 +342,7 @@
                                 </div>
 
                                 <!-- Delivery Date -->
-                                <div class="col-md-4 wholesale-adjustment-field">
+                                <div class="col-md-4">
                                     <label class="form-label fw-bold">Delivery Date</label>
                                     <input type="date" name="delivery_date" class="form-control">
                                 </div>
@@ -386,7 +391,7 @@
 
                                 <!-- Sub Total & Total Amount Summary Row -->
                                 <div class="col-12 sale-field-heading">Order total</div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="sale-summary-card">
                                     <label class="form-label fw-bold">Sub Total</label>
                                     <input type="text" id="wholesaleSubTotalDisplay" class="form-control bg-white fw-bold" readonly value="₱0.00">
@@ -394,7 +399,7 @@
                                     </div>
                                 </div>
 
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="sale-summary-card sale-summary-card-highlight">
                                     <label class="form-label fw-bold text-success">Total Amount</label>
                                     <input type="text" id="wholesaleGrandTotal" name="grand_total" class="form-control bg-white fw-bold text-success fs-5" readonly value="₱0.00">
