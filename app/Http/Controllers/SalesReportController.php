@@ -300,9 +300,12 @@ class SalesReportController extends Controller
                     return 0;
                 }
 
-                $orderTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
+                $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
+                $salesTotal = $transaction->wholesale_withholding_tax === null
+                    ? max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0))
+                    : (float) $transaction->wholesale_withholding_tax;
 
-                return min($orderTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                return min($salesTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
             })
             : 0;
         $totalTransactions = $allTransactions->count();

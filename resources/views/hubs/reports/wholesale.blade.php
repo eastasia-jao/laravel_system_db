@@ -5,7 +5,7 @@
     .wholesale-report-card th:nth-child(1) { width: 30%; }
     .wholesale-report-card th:nth-child(2) { width: 17%; }
     .wholesale-report-card th:nth-child(4), .wholesale-report-card th:nth-child(5) { width: 14%; }
-    .wholesale-report-card th:nth-child(8), .wholesale-report-card th:nth-child(10) { width: 12.5%; }
+    .wholesale-report-card th:nth-child(6), .wholesale-report-card th:nth-child(9), .wholesale-report-card th:nth-child(11) { width: 12.5%; }
     .wholesale-report-card thead th { background: #dbeafe; color: #1e3a8a; border-color: #bfdbfe; font-size: .72rem; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
     .wholesale-report-card tbody td { border-color: #e5e7eb; font-size: .82rem; vertical-align: middle; }
     .wholesale-report-card tbody tr:hover { background: #f8fbff; }
@@ -16,10 +16,9 @@
     .wholesale-report-card .wholesale-items > details { display: none; }
     .wholesale-status { min-width: 260px; }
     .wholesale-report-card th:nth-child(3), .wholesale-report-card td:nth-child(3),
-    .wholesale-report-card th:nth-child(6), .wholesale-report-card td:nth-child(6),
     .wholesale-report-card th:nth-child(7), .wholesale-report-card td:nth-child(7),
-    .wholesale-report-card th:nth-child(9), .wholesale-report-card td:nth-child(9),
-    .wholesale-report-card th:nth-child(11), .wholesale-report-card td:nth-child(11),
+    .wholesale-report-card th:nth-child(8), .wholesale-report-card td:nth-child(8),
+    .wholesale-report-card th:nth-child(10), .wholesale-report-card td:nth-child(10),
     .wholesale-report-card th:nth-child(12), .wholesale-report-card td:nth-child(12),
     .wholesale-report-card th:nth-child(13), .wholesale-report-card td:nth-child(13),
     .wholesale-report-card th:nth-child(14), .wholesale-report-card td:nth-child(14),
@@ -86,7 +85,7 @@
     <div class="table-responsive">
         <table class="table table-bordered table-sm align-middle mb-0">
             <thead class="table-success">
-                <tr><th>Company/Customer</th><th>Purchase Date</th><th>MOP</th><th class="text-end">Order Value</th><th class="text-end">Collected</th><th class="text-end">Withholding Tax Amount</th><th>Invoice #</th><th>Payment</th><th>Order</th><th>Delivery</th><th>Delivery/Pickup Date</th><th>Type</th><th class="text-end">Shipping Amount</th><th>Courier</th><th>Check Date</th><th class="text-end">Withholding Tax</th><th>Update Status</th></tr>
+                <tr><th>Company/Customer</th><th>Purchase Date</th><th>MOP</th><th class="text-end">Order Value</th><th class="text-end">Collected</th><th class="text-end">Shipping Fee</th><th class="text-end">Withholding Tax Amount</th><th>Invoice #</th><th>Payment</th><th>Order</th><th>Delivery</th><th>Delivery/Pickup Date</th><th>Type</th><th>Courier</th><th>Check Date</th><th class="text-end">Withholding Tax</th><th>Update Status</th></tr>
             </thead>
             <tbody>
                 @php
@@ -95,14 +94,15 @@
                 @forelse($pagedTransactions as $transaction)
                     @php
                         $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
+                        $shippingFee = (float) ($transaction->shipping_fee_amount ?? 0);
                         $paymentStatus = $transaction->payment_status ?? 'unpaid';
                         $deliveryStatus = $transaction->delivery_status ?? 'pending';
                         $withholdingAmount = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->withholding_tax_amount;
                         $withholdingTax = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->wholesale_withholding_tax;
-                        $total = $withholdingTax ?? $invoiceTotal;
+                        $total = $withholdingTax ?? max(0, $invoiceTotal - $shippingFee);
                         // Collected is always the amount actually paid by the customer.
                         // It must not be replaced or capped by the withholding breakdown.
-                        $collected = min($invoiceTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                        $collected = min($total, max(0, (float) ($transaction->amount_paid ?? 0)));
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
@@ -242,6 +242,7 @@
                         </td>
                         <td class="text-end fw-bold">₱{{ number_format($total, 2) }}</td>
                         <td class="text-end fw-bold text-success">₱{{ number_format($collected, 2) }}</td>
+                        <td class="text-end">₱{{ number_format($shippingFee, 2) }}@if($approvedReplacementShipping > 0)<small class="d-block text-muted">Includes ₱{{ number_format($approvedReplacementShipping, 2) }} replacement shipping</small>@endif</td>
                         <td class="text-end">{{ $withholdingAmount === null ? '—' : '₱'.number_format($withholdingAmount, 2) }}</td>
                         <td>{{ $transaction->order_number }}</td>
                         <td><span class="wholesale-table-status {{ $paymentStatus === 'paid' ? 'bg-success-subtle text-success' : ($paymentStatus === 'partial' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-secondary-subtle text-secondary-emphasis') }}">{{ strtoupper($paymentStatus) }}</span></td>
@@ -249,7 +250,6 @@
                         <td><span class="wholesale-table-status {{ $deliveryStatus === 'delivered' ? 'bg-success-subtle text-success' : ($deliveryStatus === 'cancelled' ? 'bg-danger-subtle text-danger' : 'bg-info-subtle text-info-emphasis') }}">{{ strtoupper($deliveryStatus) }}</span></td>
                         <td>{{ optional($transaction->delivery_date ?? $transaction->date_of_arrangement)->format('F d, Y') ?? '—' }}</td>
                         <td>{{ strtoupper($transaction->shipping_fee_type ?: '—') }}</td>
-                        <td class="text-end">₱{{ number_format($transaction->shipping_fee_amount, 2) }}@if($approvedReplacementShipping > 0)<small class="d-block text-muted">Includes ₱{{ number_format($approvedReplacementShipping, 2) }} replacement shipping</small>@endif</td>
                         <td>{{ $transaction->courier ?: '—' }}</td>
                         <td>{{ optional($transaction->check_date)->format('F d, Y') ?? '—' }}</td>
                         <td class="text-end">{{ $withholdingTax === null ? '—' : '₱'.number_format($withholdingTax, 2) }}</td>
@@ -307,16 +307,11 @@
                                 fn ($sale) => (optional($sale->order_date)->format('Y-m') ?? 'undated') === $monthKey
                             );
                             $monthCustomerPayable = $monthTransactions->sum(function ($sale) {
-                                $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
+                                $invoiceTotal = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
 
                                 return $sale->wholesale_withholding_tax === null
-                                    ? $orderValue
+                                    ? max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0))
                                     : (float) $sale->wholesale_withholding_tax;
-                            });
-                            $monthCollected = $monthTransactions->sum(function ($sale) {
-                                $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
-
-                                return min($orderValue, max(0, (float) ($sale->amount_paid ?? 0)));
                             });
                         @endphp
                         <tr class="table-primary-subtle fw-semibold">
@@ -432,8 +427,16 @@
 @endcan
     <div class="sales-report-print-only" id="wholesaleReportImageSource">
             @php
-                $kpiOrderValue = $allTransactions->sum(fn ($transaction) => (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total')));
+                $wholesaleSalesValue = function ($transaction): float {
+                    $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
+
+                    return $transaction->wholesale_withholding_tax === null
+                        ? max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0))
+                        : (float) $transaction->wholesale_withholding_tax;
+                };
+                $kpiOrderValue = $allTransactions->sum($wholesaleSalesValue);
                 $kpiCollected = $wholesaleCollectedSales;
+                $kpiShippingFees = $allTransactions->sum('shipping_fee_amount');
                 $kpiOutstanding = max(0, $kpiOrderValue - $kpiCollected);
                 $kpiCollectionRate = $kpiOrderValue > 0 ? ($kpiCollected / $kpiOrderValue) * 100 : 0;
                 $kpiPaidOrders = $allTransactions->where('payment_status', 'paid')->count();
@@ -459,6 +462,7 @@
                 @foreach([
                     ['label' => 'Discounts', 'value' => $metrics['discounts'], 'class' => 'text-danger', 'accent' => '#dc2626', 'icon' => 'fa-tag'],
                     ['label' => 'Total Sales', 'value' => $kpiCollected, 'class' => 'text-success', 'accent' => '#059669', 'icon' => 'fa-credit-card'],
+                    ['label' => 'Shipping Fees', 'value' => $kpiShippingFees, 'class' => 'text-primary', 'accent' => '#2563eb', 'icon' => 'fa-truck'],
                     ['label' => 'Outstanding', 'value' => $kpiOutstanding, 'class' => 'text-warning-emphasis', 'accent' => '#d97706', 'icon' => 'fa-hourglass-half'],
                     ['label' => 'Refund Cost', 'value' => $metrics['refund_total'], 'class' => 'text-danger', 'accent' => '#dc2626', 'icon' => 'fa-money-bill-transfer'],
                     ['label' => 'Total Customers', 'value' => $customerMetrics['total'], 'class' => 'text-primary', 'accent' => '#2563eb', 'money' => false, 'icon' => 'fa-users'],
@@ -513,7 +517,7 @@
             const subtitle = document.getElementById('wholesaleDetailsSubtitle');
             if (!modalElement || !content) return;
 
-            const labels = ['Company / Customer', 'Purchase Date', 'Mode of Payment', 'Order Value', 'Collected', 'Withholding Tax Amount', 'Invoice Number', 'Payment Status', 'Order Status', 'Delivery Status', 'Delivery / Pickup Date', 'Shipping Type', 'Shipping Amount', 'Courier', 'Check Date', 'Withholding Tax', 'Update Status'];
+            const labels = ['Company / Customer', 'Purchase Date', 'Mode of Payment', 'Order Value', 'Collected', 'Shipping Fee', 'Withholding Tax Amount', 'Invoice Number', 'Payment Status', 'Order Status', 'Delivery Status', 'Delivery / Pickup Date', 'Shipping Type', 'Courier', 'Check Date', 'Withholding Tax', 'Update Status'];
 
             modalElement.addEventListener('show.bs.modal', event => {
                 const button = event.relatedTarget;
@@ -557,12 +561,12 @@
                     return panel;
                 };
 
-                content.append(buildPanel('Financial Summary', 'fa-chart-line', [3, 4, 5, 15], 'wholesale-financial-panel'));
+                content.append(buildPanel('Financial Summary', 'fa-chart-line', [3, 4, 5, 6, 15], 'wholesale-financial-panel'));
                 const groups = document.createElement('div');
                 groups.className = 'wholesale-detail-groups';
                 groups.append(
-                    buildPanel('Order Information', 'fa-file-invoice', [1, 6, 7, 8]),
-                    buildPanel('Fulfillment Details', 'fa-truck', [9, 10, 11, 12, 13, 14]),
+                    buildPanel('Order Information', 'fa-file-invoice', [1, 7, 8, 9]),
+                    buildPanel('Fulfillment Details', 'fa-truck', [10, 11, 12, 13, 14]),
                     buildPanel('Update Status', 'fa-sliders', [16], 'wholesale-status-panel')
                 );
                 content.append(groups);

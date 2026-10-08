@@ -974,9 +974,10 @@ class SalesController extends Controller
                     'withholding_tax_amount' => 'Enter both Withholding Tax Amount and Withholding Tax, or leave both blank.',
                 ])->withInput();
             }
-            if (abs(((float) $withholdingAmount + (float) $customerPayable) - $grandTotal) > 0.01) {
+            $salesAmountExcludingShipping = max(0, $grandTotal - (float) ($sale->shipping_fee_amount ?? 0));
+            if (abs(((float) $withholdingAmount + (float) $customerPayable) - $salesAmountExcludingShipping) > 0.01) {
                 return back()->withErrors([
-                    'withholding_tax_amount' => 'Withholding Tax Amount plus Withholding Tax must equal the invoice total of ₱'.number_format($grandTotal, 2).'.',
+                    'withholding_tax_amount' => 'Withholding Tax Amount plus Withholding Tax must equal the product total excluding shipping of ₱'.number_format($salesAmountExcludingShipping, 2).'.',
                 ])->withInput();
             }
             $wholesaleWithholding = [
