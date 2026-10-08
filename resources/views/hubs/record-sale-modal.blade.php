@@ -35,6 +35,9 @@
     #recordSaleModal #wholesaleExtraFields .check-details-fields { margin: 0; }
     #recordSaleModal #wholesaleExtraFields .wholesale-adjustment-card { padding: .9rem; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; height: 100%; }
     #recordSaleModal #wholesaleExtraFields .wholesale-adjustment-card .form-text { margin-bottom: 0; }
+    #recordSaleModal #wholesaleExtraFields .sale-attachment-field { padding: .7rem; }
+    #recordSaleModal #wholesaleExtraFields .sale-attachment-field .form-text { font-size: .75rem; line-height: 1.3; }
+    #recordSaleModal #wholesaleExtraFields .sale-attachment-field .form-label { font-size: .82rem; margin-bottom: .35rem; }
     #recordSaleModal #onlineExtraFields { margin-top: 1rem !important; }
     #recordSaleModal #onlineExtraFields .form-control[readonly] { background-color: #f8fafc !important; }
     #productRowsContainer { max-height: 230px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 0 .75rem .5rem; border: 1px solid #e5e7eb; border-radius: .6rem; background: #fff; }
@@ -334,7 +337,7 @@
                                 </div>
 
                                 <!-- Delivery Date -->
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label fw-bold">Delivery Date</label>
                                     <input type="date" name="delivery_date" class="form-control">
                                 </div>
@@ -361,7 +364,7 @@
                                 </div>
 
                                 <div class="col-12 sale-field-heading">Order adjustment &amp; documents</div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <div class="wholesale-adjustment-card">
                                         <label class="form-label fw-bold text-danger">Order Discount (%)</label>
                                         <input type="number" step="0.01" min="0" max="100" id="wholesaleAdditionalDiscount" name="additional_discount_percentage" class="form-control calc-trigger" value="0.00">
@@ -370,12 +373,12 @@
                                 </div>
 
                                 <!-- Payment Proof Container -->
-                                <div class="col-md-8 sale-attachment-field payment-proof-container" style="display: none;">
+                                <div class="col-md-5 sale-attachment-field payment-proof-container" style="display: none;">
                                     <label class="form-label fw-bold">Payment Proof / Deposit Slip (Image/PDF)</label>
                                     <input type="file" name="proof_of_payment" class="form-control" accept="image/*,application/pdf" disabled>
                                 </div>
 
-                                <div class="col-md-8 sale-attachment-field">
+                                <div class="col-md-4 sale-attachment-field">
                                     <label class="form-label fw-bold">Order Attachment (Image/PDF)</label>
                                     <input type="file" name="order_slip" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf">
                                     <div class="form-text">Optional. Attach the customer order document for inventory verification (up to 5 MB).</div>
@@ -383,7 +386,7 @@
 
                                 <!-- Sub Total & Total Amount Summary Row -->
                                 <div class="col-12 sale-field-heading">Order total</div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="sale-summary-card">
                                     <label class="form-label fw-bold">Sub Total</label>
                                     <input type="text" id="wholesaleSubTotalDisplay" class="form-control bg-white fw-bold" readonly value="₱0.00">
@@ -391,7 +394,7 @@
                                     </div>
                                 </div>
 
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="sale-summary-card sale-summary-card-highlight">
                                     <label class="form-label fw-bold text-success">Total Amount</label>
                                     <input type="text" id="wholesaleGrandTotal" name="grand_total" class="form-control bg-white fw-bold text-success fs-5" readonly value="₱0.00">
