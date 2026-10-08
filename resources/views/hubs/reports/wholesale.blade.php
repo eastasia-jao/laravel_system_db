@@ -100,7 +100,9 @@
                         $withholdingAmount = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->withholding_tax_amount;
                         $withholdingTax = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->wholesale_withholding_tax;
                         $total = $withholdingTax ?? $invoiceTotal;
-                        $collected = min($total, max(0, (float) ($transaction->amount_paid ?? 0)));
+                        // Collected is always the amount actually paid by the customer.
+                        // It must not be replaced or capped by the withholding breakdown.
+                        $collected = min($invoiceTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
