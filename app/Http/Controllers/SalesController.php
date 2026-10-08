@@ -964,31 +964,25 @@ class SalesController extends Controller
         }
 
         $grandTotal = (float) ($sale->grand_total ?? $sale->total_amount ?? $sale->total ?? 0);
+        $paymentTotal = $channel === 'wholesale'
+            ? max(0, $grandTotal - (float) ($sale->shipping_fee_amount ?? 0))
+            : $grandTotal;
         $amountPaid = (float) ($validated['amount_paid'] ?? 0);
         $wholesaleWithholding = [];
-        if ($channel === 'wholesale' && ($request->filled('withholding_tax_amount') || $request->filled('wholesale_withholding_tax'))) {
-            $withholdingAmount = $validated['withholding_tax_amount'];
-            $customerPayable = $validated['wholesale_withholding_tax'];
-            if ($withholdingAmount === null || $customerPayable === null) {
-                return back()->withErrors([
-                    'withholding_tax_amount' => 'Enter both Withholding Tax Amount and Withholding Tax, or leave both blank.',
-                ])->withInput();
-            }
-            $salesAmountExcludingShipping = max(0, $grandTotal - (float) ($sale->shipping_fee_amount ?? 0));
-            if (abs(((float) $withholdingAmount + (float) $customerPayable) - $salesAmountExcludingShipping) > 0.01) {
-                return back()->withErrors([
-                    'withholding_tax_amount' => 'Withholding Tax Amount plus Withholding Tax must equal the product total excluding shipping of ₱'.number_format($salesAmountExcludingShipping, 2).'.',
-                ])->withInput();
-            }
+        if ($channel === 'wholesale') {
             $wholesaleWithholding = [
                 'withholding_tax' => 0,
-                'withholding_tax_amount' => round((float) $withholdingAmount, 2),
-                'wholesale_withholding_tax' => round((float) $customerPayable, 2),
+                'withholding_tax_amount' => $request->filled('withholding_tax_amount')
+                    ? round((float) $validated['withholding_tax_amount'], 2)
+                    : null,
+                'wholesale_withholding_tax' => $request->filled('wholesale_withholding_tax')
+                    ? round((float) $validated['wholesale_withholding_tax'], 2)
+                    : null,
             ];
         }
 
         if ($validated['payment_status'] === 'paid') {
-            $amountPaid = $grandTotal;
+            $amountPaid = $paymentTotal;
         } elseif ($validated['payment_status'] === 'unpaid') {
             if ($amountPaid > 0) {
                 return back()->withErrors([
@@ -996,9 +990,9 @@ class SalesController extends Controller
                 ])->withInput();
             }
             $amountPaid = 0;
-        } elseif ($amountPaid <= 0 || $amountPaid >= $grandTotal) {
+        } elseif ($amountPaid <= 0 || $amountPaid >= $paymentTotal) {
             return back()->withErrors([
-                'amount_paid' => 'For a partially paid order, the amount paid must be greater than zero and less than the grand total.',
+                'amount_paid' => 'For a partially paid order, the amount paid must be greater than zero and less than the product total.',
             ]);
         }
 

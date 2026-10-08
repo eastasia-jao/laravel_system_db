@@ -98,9 +98,9 @@
                         $shippingFee = (float) ($transaction->shipping_fee_amount ?? 0);
                         $paymentStatus = $transaction->payment_status ?? 'unpaid';
                         $deliveryStatus = $transaction->delivery_status ?? 'pending';
-                        $withholdingAmount = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->withholding_tax_amount;
+                        $withholdingAmount = $transaction->withholding_tax_amount === null ? null : (float) $transaction->withholding_tax_amount;
                         $withholdingTax = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->wholesale_withholding_tax;
-                        $total = $withholdingTax ?? max(0, $invoiceTotal - $shippingFee);
+                        $total = max(0, $invoiceTotal - $shippingFee);
                         // Collected is always the amount actually paid by the customer.
                         // It must not be replaced or capped by the withholding breakdown.
                         $collected = min($total, max(0, (float) ($transaction->amount_paid ?? 0)));
@@ -284,14 +284,14 @@
                                 <div class="row g-1 mt-2">
                                     <div class="col-6">
                                         <label class="form-label small mb-1">Withholding Tax Amount</label>
-                                        <input type="number" name="withholding_tax_amount" class="form-control form-control-sm" min="0" max="{{ $total }}" step="0.01" value="{{ $withholdingAmount === null ? '' : number_format($withholdingAmount, 2, '.', '') }}" placeholder="₱ amount">
+                                        <input type="number" name="withholding_tax_amount" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingAmount === null ? '' : number_format($withholdingAmount, 2, '.', '') }}" placeholder="Reference amount">
                                     </div>
                                     <div class="col-6">
                                         <label class="form-label small mb-1">Withholding Tax</label>
-                                        <input type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" max="{{ $total }}" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Customer payable">
+                                        <input type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Reference amount">
                                     </div>
                                 </div>
-                                <small class="text-muted d-block mt-1">The two amounts must equal the Order Value of ₱{{ number_format($total, 2) }}.</small>
+                                <small class="text-muted d-block mt-1">Reference only. These values do not change the Order Value or Collected amount.</small>
                                 <small class="text-muted payment-balance-help">{{ $paymentLocked ? 'Payment is fully paid and locked. Delivery status remains editable.' : 'For Partial, enter an amount below ₱'.number_format($total, 2).'.' }}</small>
                                 <small class="text-danger d-none payment-amount-error">An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.</small>
                             </form>
@@ -310,9 +310,7 @@
                             $monthCustomerPayable = $monthTransactions->sum(function ($sale) {
                                 $invoiceTotal = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
 
-                                return $sale->wholesale_withholding_tax === null
-                                    ? max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0))
-                                    : (float) $sale->wholesale_withholding_tax;
+                                return max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0));
                             });
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
@@ -436,9 +434,7 @@
                 $wholesaleSalesValue = function ($transaction): float {
                     $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
 
-                    return $transaction->wholesale_withholding_tax === null
-                        ? max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0))
-                        : (float) $transaction->wholesale_withholding_tax;
+                    return max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0));
                 };
                 $kpiOrderValue = $allTransactions->sum($wholesaleSalesValue);
                 $kpiCollected = $wholesaleCollectedSales;
