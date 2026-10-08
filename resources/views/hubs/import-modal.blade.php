@@ -27,6 +27,7 @@
         content: ''; display: block; width: 38%; height: 100%; border-radius: inherit;
         background: linear-gradient(90deg, #2563eb, #60a5fa); animation: importProgress 1.4s ease-in-out infinite;
     }
+    .import-indeterminate.import-complete::before { width: 100%; transform: none; background: #198754; animation: none; }
     .import-step-dot {
         width: 22px; height: 22px; display: inline-grid; place-items: center;
         border-radius: 50%; flex: 0 0 auto; font-size: 10px;
@@ -50,6 +51,7 @@
                 importResult: null,
                 elapsedTimer: null,
                 pollTimer: null,
+                successTimer: null,
                 steps: ['Uploading the CSV file', 'Checking the file format', 'Applying product updates', 'Recording the import activity'],
                 async startImport() {
                     if (this.importing) return;
@@ -84,6 +86,9 @@
                     if (['completed', 'failed'].includes(record.status)) {
                         clearInterval(this.elapsedTimer);
                         clearInterval(this.pollTimer);
+                    }
+                    if (record.status === 'completed' && !this.successTimer) {
+                        this.successTimer = setTimeout(() => window.location.reload(), 3000);
                     }
                 },
                 async refreshImportStatus() {
@@ -131,13 +136,13 @@
                                     <div class="small text-muted text-truncate" x-text="fileName || 'Selected CSV file'"></div>
                                 </div>
 
-                                <div class="import-indeterminate mb-4" role="progressbar" aria-label="Import in progress"></div>
+                                <div class="import-indeterminate mb-4" :class="{ 'import-complete': importStatus === 'completed' }" role="progressbar" aria-label="Import progress"></div>
 
                                 <div class="d-flex flex-column gap-2">
                                     <template x-for="(step, index) in steps" :key="index">
                                         <div class="d-flex align-items-center gap-2 small" :class="index > activeStep ? 'text-muted opacity-50' : 'text-dark'">
-                                            <span class="import-step-dot" :class="index < activeStep ? 'bg-success text-white' : (index === activeStep ? 'bg-primary text-white' : 'bg-secondary-subtle text-secondary')">
-                                                <i class="fa-solid" :class="index < activeStep ? 'fa-check' : (index === activeStep ? 'fa-spinner fa-spin' : 'fa-circle')"></i>
+                                            <span class="import-step-dot" :class="(importStatus === 'completed' || index < activeStep) ? 'bg-success text-white' : (index === activeStep ? 'bg-primary text-white' : 'bg-secondary-subtle text-secondary')">
+                                                <i class="fa-solid" :class="(importStatus === 'completed' || index < activeStep) ? 'fa-check' : (index === activeStep ? 'fa-spinner fa-spin' : 'fa-circle')"></i>
                                             </span>
                                             <span x-text="step" :class="index === activeStep ? 'fw-semibold' : ''"></span>
                                         </div>
@@ -146,8 +151,13 @@
 
                                 <div class="alert alert-light border small text-muted mt-4 mb-0 py-2">
                                     <i class="fa-solid fa-circle-info me-1 text-primary"></i>
-                                    <span x-text="importStatus === 'queued' ? 'Queued — waiting for the import worker.' : (importStatus === 'processing' ? 'The file is being imported now.' : (importStatus === 'completed' ? 'Import completed. You can close this window.' : (importStatus === 'failed' ? (importResult?.error || 'The import did not finish. Please try again.') : 'Uploading and validating the CSV file.'))"></span>
+                                    <span x-text="importStatus === 'queued' ? 'Queued — waiting for the import worker.' : (importStatus === 'processing' ? 'The file is being imported now.' : (importStatus === 'completed' ? 'Import completed successfully. Refreshing the dashboard…' : (importStatus === 'failed' ? (importResult?.error || 'The import did not finish. Please try again.') : 'Uploading and validating the CSV file.'))"></span>
                                     <span class="float-end font-monospace" x-text="Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')"></span>
+                                </div>
+                                <div class="row row-cols-3 g-2 text-center mt-3" x-show="importStatus === 'completed'" style="display: none;">
+                                    <div class="col"><div class="border rounded p-2 small text-muted">Created<strong class="d-block fs-5 text-success" x-text="importResult?.created_count ?? 0"></strong></div></div>
+                                    <div class="col"><div class="border rounded p-2 small text-muted">Updated<strong class="d-block fs-5 text-primary" x-text="importResult?.updated_count ?? 0"></strong></div></div>
+                                    <div class="col"><div class="border rounded p-2 small text-muted">Skipped<strong class="d-block fs-5 text-secondary" x-text="importResult?.skipped_count ?? 0"></strong></div></div>
                                 </div>
                             </div>
                         </div>
@@ -157,8 +167,8 @@
                         <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-success px-4"><i class="fa-solid fa-play me-2"></i>Start Import</button>
                     </div>
-                    <div class="modal-footer border-0 px-4 pb-4 pt-0" x-show="importing && ['completed', 'failed'].includes(importStatus)" style="display: none;">
-                        <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Done</button>
+                    <div class="modal-footer border-0 px-4 pb-4 pt-0" x-show="importing && importStatus === 'failed'" style="display: none;">
+                        <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Close</button>
                     </div>
                 </form>
             </div>
