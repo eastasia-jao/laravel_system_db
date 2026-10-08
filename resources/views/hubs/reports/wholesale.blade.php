@@ -280,9 +280,9 @@
                                 </div>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $productPaymentTotal }}" step="0.01" value="{{ $transaction->amount_paid ?? 0 }}" placeholder="Amount paid" data-order-total="{{ $productPaymentTotal }}" @disabled($paymentLocked)>
+                                    <input type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $productPaymentTotal }}" step="0.01" value="{{ number_format($collected, 2, '.', '') }}" placeholder="Amount paid" data-order-total="{{ $productPaymentTotal }}" @disabled($paymentLocked)>
                                     @if($paymentLocked)
-                                        <input type="hidden" name="amount_paid" value="{{ $transaction->amount_paid ?? $productPaymentTotal }}">
+                                        <input type="hidden" name="amount_paid" value="{{ number_format($collected, 2, '.', '') }}">
                                     @endif
                                     <button type="submit" class="btn btn-primary">Save</button>
                                 </div>
