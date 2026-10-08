@@ -337,7 +337,7 @@
                                 </div>
 
                                 <!-- Delivery Date -->
-                                <div class="col-md-3">
+                                <div class="col-md-4 wholesale-adjustment-field">
                                     <label class="form-label fw-bold">Delivery Date</label>
                                     <input type="date" name="delivery_date" class="form-control">
                                 </div>
@@ -364,7 +364,7 @@
                                 </div>
 
                                 <div class="col-12 sale-field-heading">Order adjustment &amp; documents</div>
-                                <div class="col-md-3">
+                                <div class="col-md-4 wholesale-adjustment-field">
                                     <div class="wholesale-adjustment-card">
                                         <label class="form-label fw-bold text-danger">Order Discount (%)</label>
                                         <input type="number" step="0.01" min="0" max="100" id="wholesaleAdditionalDiscount" name="additional_discount_percentage" class="form-control calc-trigger" value="0.00">
@@ -378,7 +378,7 @@
                                     <input type="file" name="proof_of_payment" class="form-control" accept="image/*,application/pdf" disabled>
                                 </div>
 
-                                <div class="col-md-4 sale-attachment-field">
+                                <div class="col-md-8 sale-attachment-field wholesale-order-attachment">
                                     <label class="form-label fw-bold">Order Attachment (Image/PDF)</label>
                                     <input type="file" name="order_slip" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf">
                                     <div class="form-text">Optional. Attach the customer order document for inventory verification (up to 5 MB).</div>
@@ -1126,6 +1126,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const customMopInput = extraContainer.querySelector('.custom-mop-input');
         const proofContainer = extraContainer.querySelector('.payment-proof-container');
         const proofInput = proofContainer ? proofContainer.querySelector('input') : null;
+        const adjustmentField = extraContainer.querySelector('.wholesale-adjustment-field');
+        const orderAttachment = extraContainer.querySelector('.wholesale-order-attachment');
+        const reflowDocuments = () => {
+            const proofVisible = proofContainer && proofContainer.style.display !== 'none';
+            adjustmentField?.classList.toggle('col-md-4', !proofVisible);
+            adjustmentField?.classList.toggle('col-md-3', proofVisible);
+            orderAttachment?.classList.toggle('col-md-8', !proofVisible);
+            orderAttachment?.classList.toggle('col-md-4', proofVisible);
+        };
 
         if (mopVal === 'CASH') {
             if (bankContainer) bankContainer.style.display = 'none';
@@ -1194,6 +1203,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (proofContainer) proofContainer.style.display = 'block';
             if (proofInput) { proofInput.disabled = false; proofInput.required = true; }
         }
+        reflowDocuments();
     }
 
     function evaluateOnlineMop(selectElement) {
