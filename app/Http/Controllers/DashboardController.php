@@ -7,6 +7,7 @@ use App\Models\FullyBookedOrder;
 use App\Models\Product;
 use App\Models\ProductFileRequest;
 use App\Models\ProductReplacement;
+use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -48,6 +49,10 @@ class DashboardController extends Controller
             ->where('type', 'import')
             ->latest('id')
             ->first();
+        $totalProducts = Product::where('store_hub_id', $id)->count();
+        $totalSales = SalesTransaction::where('store_hub_id', $id)
+            ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) NOT IN ('shopee', 'lazada', 'tiktok')")
+            ->sum('grand_total');
 
         // Monthly filter handling for Top 10 Products
         $selectedMonth = $request->input('month', now()->format('Y-m'));
@@ -76,6 +81,8 @@ class DashboardController extends Controller
             'walkInHubs',
             'pendingSalesCount',
             'latestImport',
+            'totalProducts',
+            'totalSales',
             'selectedMonth'
         ));
     }
