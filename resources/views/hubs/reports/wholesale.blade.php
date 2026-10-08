@@ -270,7 +270,6 @@
                     <tr><td colspan="16" class="text-center text-muted py-4">No wholesale sales found.</td></tr>
                 @endforelse
             </tbody>
-            <tfoot class="table-light fw-bold"><tr><td colspan="4">TOTAL ORDER VALUE / {{ number_format($totalTransactions) }} TRANSACTIONS</td><td class="text-end text-success">₱{{ number_format($allTransactions->sum(fn ($transaction) => (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'))), 2) }}</td><td colspan="11"></td></tr></tfoot>
         </table>
     </div>
 </div>
