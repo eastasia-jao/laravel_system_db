@@ -33,6 +33,8 @@
     #recordSaleModal #wholesaleExtraFields .row,
     #recordSaleModal #onlineExtraFields .row { --bs-gutter-x: 1rem; --bs-gutter-y: .9rem; }
     #recordSaleModal #wholesaleExtraFields .check-details-fields { margin: 0; }
+    #recordSaleModal #wholesaleExtraFields .wholesale-adjustment-card { padding: .9rem; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; height: 100%; }
+    #recordSaleModal #wholesaleExtraFields .wholesale-adjustment-card .form-text { margin-bottom: 0; }
     #recordSaleModal #onlineExtraFields { margin-top: 1rem !important; }
     #recordSaleModal #onlineExtraFields .form-control[readonly] { background-color: #f8fafc !important; }
     #productRowsContainer { max-height: 230px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 0 .75rem .5rem; border: 1px solid #e5e7eb; border-radius: .6rem; background: #fff; }
@@ -274,7 +276,7 @@
                             <div class="row g-3">
                                 <div class="col-12 sale-field-heading">Payment details</div>
                                 <!-- Mode of Payment -->
-                                <div class="col-md-4">
+                                <div class="col-md-5 col-lg-4">
                                     <label class="form-label fw-bold">Mode of Payment (MOP)</label>
                                     <select name="mode_of_payment" class="form-select wholesale-mop-select" required>
                                         <option value="" selected disabled>-- Select MOP --</option>
@@ -354,27 +356,27 @@
                                 </div>
 
                                 <!-- Courier -->
-                                <div class="col-md-4">
+                                <div class="col-md-4" id="wholesaleCourierContainer">
                                     <label class="form-label fw-bold">Courier / Delivered By</label>
                                     <input type="text" id="wholesaleCourier" name="courier" class="form-control uppercase-input" placeholder="e.g. Lalamove, AP Cargo">
                                 </div>
 
-                                <div class="col-12 sale-field-heading">Order adjustments</div>
-                                <!-- Additional Discount (%) -->
+                                <div class="col-12 sale-field-heading">Order adjustment &amp; documents</div>
                                 <div class="col-md-4">
-                                    <label class="form-label fw-bold text-danger">Order Discount (%)</label>
-                                    <input type="number" step="0.01" min="0" max="100" id="wholesaleAdditionalDiscount" name="additional_discount_percentage" class="form-control calc-trigger" value="0.00">
-                                    <div class="form-text">Applies to the whole order. Leave as 0 if there is no discount.</div>
+                                    <div class="wholesale-adjustment-card">
+                                        <label class="form-label fw-bold text-danger">Order Discount (%)</label>
+                                        <input type="number" step="0.01" min="0" max="100" id="wholesaleAdditionalDiscount" name="additional_discount_percentage" class="form-control calc-trigger" value="0.00">
+                                        <div class="form-text">Applies to the whole order. Leave as 0 if there is no discount.</div>
+                                    </div>
                                 </div>
 
-                                <div class="col-12 sale-field-heading">Documents</div>
                                 <!-- Payment Proof Container -->
-                                <div class="col-md-6 payment-proof-container" style="display: none;">
+                                <div class="col-md-8 sale-attachment-field payment-proof-container" style="display: none;">
                                     <label class="form-label fw-bold">Payment Proof / Deposit Slip (Image/PDF)</label>
                                     <input type="file" name="proof_of_payment" class="form-control" accept="image/*,application/pdf" disabled>
                                 </div>
 
-                                <div class="col-md-6 sale-attachment-field">
+                                <div class="col-md-8 sale-attachment-field">
                                     <label class="form-label fw-bold">Order Attachment (Image/PDF)</label>
                                     <input type="file" name="order_slip" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf">
                                     <div class="form-text">Optional. Attach the customer order document for inventory verification (up to 5 MB).</div>
@@ -1394,8 +1396,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function updateWholesaleShippingState(val) {
+        const courierContainer = document.getElementById('wholesaleCourierContainer');
         if (val === 'Custom Amount' || val === 'COD') {
             if (shippingContainer) shippingContainer.style.display = 'block';
+            courierContainer?.classList.remove('col-md-8');
+            courierContainer?.classList.add('col-md-4');
             if (shippingFeeInput) {
                 shippingFeeInput.disabled = false;
                 shippingFeeInput.type = 'number';
@@ -1404,6 +1409,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         } else {
             if (shippingContainer) shippingContainer.style.display = 'none';
+            courierContainer?.classList.remove('col-md-4');
+            courierContainer?.classList.add('col-md-8');
             if (shippingFeeInput) {
                 shippingFeeInput.value = '0.00';
                 shippingFeeInput.disabled = true;
