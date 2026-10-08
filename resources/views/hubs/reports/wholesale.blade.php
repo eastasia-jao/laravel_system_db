@@ -94,12 +94,13 @@
                 @endphp
                 @forelse($pagedTransactions as $transaction)
                     @php
-                        $total = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
+                        $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
                         $paymentStatus = $transaction->payment_status ?? 'unpaid';
                         $deliveryStatus = $transaction->delivery_status ?? 'pending';
-                        $collected = min($total, max(0, (float) ($transaction->amount_paid ?? 0)));
                         $withholdingAmount = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->withholding_tax_amount;
                         $withholdingTax = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->wholesale_withholding_tax;
+                        $total = $withholdingTax ?? $invoiceTotal;
+                        $collected = min($total, max(0, (float) ($transaction->amount_paid ?? 0)));
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
@@ -318,8 +319,7 @@
                         @endphp
                         <tr class="table-primary-subtle fw-semibold">
                             <td colspan="17" class="text-end">
-                                {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal:
-                                Customer Payable ₱{{ number_format($monthCustomerPayable, 2) }} · Collected ₱{{ number_format($monthCollected, 2) }}
+                                {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal: ₱{{ number_format($monthCustomerPayable, 2) }}
                             </td>
                         </tr>
                     @endif
