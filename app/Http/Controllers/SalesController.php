@@ -402,8 +402,11 @@ class SalesController extends Controller
             $shippingFee = $request->input('shipping_fee_amount') ?? $request->input('shipping_fee') ?? $request->input('delivery_fee') ?? 0;
             $additionalDiscountPct = $request->input('additional_discount_percentage') ?? 0;
             $channel = strtolower((string) ($request->sales_channel ?? $request->channel_type ?? 'online'));
-            $withholdingTaxPct = $request->input('withholding_tax') ?? 0;
-            $withholdingTaxAmount = $request->input('withholding_tax_amount');
+            // Wholesale withholding values are entered later in the Wholesale
+            // report as peso amounts. Do not accept legacy percentage fields
+            // from the record-sale form or a manipulated request.
+            $withholdingTaxPct = $channel === 'wholesale' ? 0 : ($request->input('withholding_tax') ?? 0);
+            $withholdingTaxAmount = $channel === 'wholesale' ? 0 : $request->input('withholding_tax_amount');
 
             if (! $withholdingTaxAmount && $withholdingTaxPct > 0) {
                 $withholdingTaxAmount = $subTotal * ($withholdingTaxPct / 100);
@@ -944,6 +947,8 @@ class SalesController extends Controller
             'payment_status' => [Rule::requiredIf($channel !== 'online'), 'nullable', Rule::in(['unpaid', 'partial', 'paid'])],
             'delivery_status' => [Rule::requiredIf(in_array($channel, ['wholesale', 'online'], true)), 'nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'])],
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
+            'withholding_tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'wholesale_withholding_tax' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         if ($channel === 'online') {
@@ -960,6 +965,26 @@ class SalesController extends Controller
 
         $grandTotal = (float) ($sale->grand_total ?? $sale->total_amount ?? $sale->total ?? 0);
         $amountPaid = (float) ($validated['amount_paid'] ?? 0);
+        $wholesaleWithholding = [];
+        if ($channel === 'wholesale' && ($request->filled('withholding_tax_amount') || $request->filled('wholesale_withholding_tax'))) {
+            $withholdingAmount = $validated['withholding_tax_amount'];
+            $customerPayable = $validated['wholesale_withholding_tax'];
+            if ($withholdingAmount === null || $customerPayable === null) {
+                return back()->withErrors([
+                    'withholding_tax_amount' => 'Enter both Withholding Tax Amount and Withholding Tax, or leave both blank.',
+                ])->withInput();
+            }
+            if (abs(((float) $withholdingAmount + (float) $customerPayable) - $grandTotal) > 0.01) {
+                return back()->withErrors([
+                    'withholding_tax_amount' => 'Withholding Tax Amount plus Withholding Tax must equal the invoice total of ₱'.number_format($grandTotal, 2).'.',
+                ])->withInput();
+            }
+            $wholesaleWithholding = [
+                'withholding_tax' => 0,
+                'withholding_tax_amount' => round((float) $withholdingAmount, 2),
+                'wholesale_withholding_tax' => round((float) $customerPayable, 2),
+            ];
+        }
 
         if ($validated['payment_status'] === 'paid') {
             $amountPaid = $grandTotal;
@@ -982,6 +1007,7 @@ class SalesController extends Controller
             'delivery_status' => $channel === 'wholesale'
                 ? $validated['delivery_status']
                 : 'not_applicable',
+            ...$wholesaleWithholding,
         ]);
 
         $successMessage = $channel === 'wholesale'

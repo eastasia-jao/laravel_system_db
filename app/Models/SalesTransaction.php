@@ -26,6 +26,7 @@ class SalesTransaction extends Model
         'additional_discount_percentage' => 'decimal:2',
         'withholding_tax' => 'decimal:2',
         'withholding_tax_amount' => 'decimal:2',
+        'wholesale_withholding_tax' => 'decimal:2',
         'sub_total' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'grand_total' => 'decimal:2',

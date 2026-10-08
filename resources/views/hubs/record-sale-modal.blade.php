@@ -367,18 +367,6 @@
                                     <div class="form-text">Applies to the whole order. Leave as 0 if there is no discount.</div>
                                 </div>
 
-                                <!-- Withholding Tax (%) -->
-                                <div class="col-md-4">
-                                    <label class="form-label fw-bold text-warning-emphasis">Withholding Tax (%)</label>
-                                    <input type="number" step="0.01" id="wholesaleWithholdingTaxPercent" name="withholding_tax" class="form-control calc-trigger" value="0.00" placeholder="e.g. 1% or 2%">
-                                </div>
-
-                                <!-- Withholding Tax Amount (Display only) -->
-                                <div class="col-md-4">
-                                    <label class="form-label fw-bold text-warning-emphasis">Withholding Tax Amt (₱)</label>
-                                    <input type="text" id="wholesaleWithholdingTaxAmount" name="withholding_tax_amount" class="form-control bg-white fw-bold text-danger" readonly value="₱0.00">
-                                </div>
-
                                 <div class="col-12 sale-field-heading">Documents</div>
                                 <!-- Payment Proof Container -->
                                 <div class="col-md-6 payment-proof-container" style="display: none;">
@@ -883,7 +871,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (activeContainer) {
                 activeContainer.style.display = 'block';
                 activeContainer.querySelectorAll('input, select, textarea').forEach(el => {
-                    if (el.id === 'onlineSubTotal' || el.id === 'walkInSubTotal' || el.id === 'walkInGrandTotal' || el.id === 'shopeeSubTotal' || el.id === 'wholesaleSubTotal' || el.id === 'wholesaleGrandTotal' || el.id === 'wholesaleWithholdingTaxAmount') {
+                    if (el.id === 'onlineSubTotal' || el.id === 'walkInSubTotal' || el.id === 'walkInGrandTotal' || el.id === 'shopeeSubTotal' || el.id === 'wholesaleSubTotal' || el.id === 'wholesaleGrandTotal') {
                         el.disabled = true;
                     } else {
                         el.disabled = false;
@@ -1079,28 +1067,16 @@ document.addEventListener('DOMContentLoaded', function () {
             const shipTypeSelect = document.getElementById('wholesaleShippingType');
             const shipFeeInput = document.getElementById('wholesaleShippingFeeAmount');
             
-            // Withholding fields
-            const wTaxPercentInput = document.getElementById('wholesaleWithholdingTaxPercent');
-            const wTaxAmountDisplay = document.getElementById('wholesaleWithholdingTaxAmount');
-
             const addDiscPercent = addDiscInput ? parseFloat(addDiscInput.value) || 0 : 0;
-            const wTaxPercent = wTaxPercentInput ? parseFloat(wTaxPercentInput.value) || 0 : 0;
             
             const shipType = shipTypeSelect ? shipTypeSelect.value : 'Free';
             const shipAmount = (shipType === 'Custom Amount' || shipType === 'COD') ? (shipFeeInput ? parseFloat(shipFeeInput.value) || 0 : 0) : 0;
 
             const discountedSubTotal = cumulativeSubTotal * (1 - (addDiscPercent / 100));
-            const withholdingTaxAmount = discountedSubTotal * (wTaxPercent / 100);
-            
-            // Total Amount excludes withholding tax deduction per your preference
             const wholesaleGrandTotal = discountedSubTotal + shipAmount;
 
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
             if (subTotalDisplay) subTotalDisplay.value = '₱' + cumulativeSubTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            
-            if (wTaxAmountDisplay) {
-                wTaxAmountDisplay.value = '₱' + withholdingTaxAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
             
             if (grandTotalInput) {
                 grandTotalInput.value = '₱' + wholesaleGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

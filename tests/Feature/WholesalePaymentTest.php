@@ -47,9 +47,12 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame('0.00', $sale->fresh()->amount_paid);
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'partial', 'amount_paid' => '47.20', 'delivery_status' => 'pending',
+            'withholding_tax_amount' => '5.47', 'wholesale_withholding_tax' => '541.73',
         ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionHas('success');
         $this->assertSame('partial', $sale->fresh()->payment_status);
         $this->assertSame('47.20', $sale->fresh()->amount_paid);
+        $this->assertSame('5.47', $sale->fresh()->withholding_tax_amount);
+        $this->assertSame('541.73', $sale->fresh()->wholesale_withholding_tax);
         $this->get($report)->assertOk()->assertSee('PARTIAL')->assertViewHas('totalSales', 47.20);
 
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
