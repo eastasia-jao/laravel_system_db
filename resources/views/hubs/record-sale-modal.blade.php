@@ -1,16 +1,16 @@
 <style>
-    #recordSaleModal .modal-dialog { max-width: 980px; }
-    #recordSaleModal .modal-content { border: 0; border-radius: .85rem; }
+    #recordSaleModal .modal-dialog { max-width: 1140px; }
+    #recordSaleModal .modal-content { border: 0; border-radius: 18px; overflow: hidden; box-shadow: 0 24px 70px rgba(15, 23, 42, .22); }
     #recordSaleForm { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-    #recordSaleModal .modal-header, #recordSaleModal .modal-footer { padding: .85rem 1.1rem; }
-    #recordSaleModal .modal-header { background: #fff; border-bottom: 1px solid #e5e7eb; }
+    #recordSaleModal .modal-header, #recordSaleModal .modal-footer { padding: .9rem 1.25rem; }
+    #recordSaleModal .modal-header { background: linear-gradient(135deg, #fff, #f8fbff); border-bottom: 1px solid #dbeafe; }
     #recordSaleModal .modal-title { font-size: 1.05rem; color: #253247; }
-    #recordSaleModal .modal-body { padding: 1.1rem; }
+    #recordSaleModal .modal-body { padding: 1.25rem; background: #f8fafc; }
     #recordSaleModal .form-label { font-size: .8rem; margin-bottom: .3rem; font-weight: 500 !important; }
     #recordSaleModal .form-control, #recordSaleModal .form-select { font-size: .85rem; min-height: 36px; border-color: #dce1e7; border-radius: .4rem; }
     #recordSaleModal h6 { font-size: .875rem; color: #374151 !important; }
     #recordSaleModal hr { margin: 1rem 0 !important; color: #dce1e7; opacity: 1; }
-    #recordSaleModal .extra-fields-container { padding: 1rem; margin-top: 1rem !important; background: #f8fafb !important; border: 1px solid #e5e7eb; border-radius: .6rem !important; }
+    #recordSaleModal .extra-fields-container { padding: 1rem; margin-top: 1rem !important; background: #fff !important; border: 1px solid #dbe5ef; border-radius: 16px !important; }
     #recordSaleModal .extra-fields-container .shadow-sm { box-shadow: none !important; }
     #recordSaleModal .channel-detail-panel { padding: 1.25rem; border: 1px solid #dce5ef; border-radius: 14px; background: linear-gradient(145deg, #fff, #f8fbff); box-shadow: 0 5px 18px rgba(15, 23, 42, .045); }
     #recordSaleModal .channel-detail-header { display: flex; align-items: flex-start; gap: .8rem; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid #e8eef5; }
@@ -22,6 +22,9 @@
     #recordSaleModal .sale-summary-card .form-control { border: 0; padding-left: 0; padding-right: 0; box-shadow: none; }
     #recordSaleModal .sale-summary-card-highlight { border-color: #bbf7d0; background: linear-gradient(145deg, #f0fdf4, #fff); }
     #recordSaleModal .sale-summary-card-highlight .form-control { color: #15803d !important; font-size: 1.15rem; }
+    #recordSaleModal .sale-summary-card { min-height: 96px; display: flex; flex-direction: column; justify-content: center; }
+    #recordSaleModal .extra-fields-container .row > [class*="col-"] { min-width: 0; }
+    #recordSaleModal .modal-footer { position: sticky; bottom: 0; z-index: 3; background: rgba(255,255,255,.96); border-top: 1px solid #dbe5ef; box-shadow: 0 -8px 22px rgba(15, 23, 42, .05); }
     #recordSaleModal .online-reconciliation-grid .sale-summary-card { display: flex; flex-direction: column; justify-content: center; min-height: 84px; }
     #recordSaleModal .online-reconciliation-grid .sale-summary-card .form-control { min-height: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
     #recordSaleModal .online-reconciliation-grid .sale-summary-card-highlight .form-control { font-size: 1.3rem; }
@@ -55,6 +58,19 @@
         transform: none !important;
     }
     @media (max-width: 767.98px) {
+        #recordSaleModal .modal-dialog { max-width: none; min-height: 100dvh; margin: 0; }
+        #recordSaleModal .modal-content { min-height: 100dvh; border-radius: 0; }
+        #recordSaleModal .modal-header { padding: .8rem 1rem; }
+        #recordSaleModal .modal-body { padding: .75rem; }
+        #recordSaleModal .extra-fields-container, #recordSaleModal .channel-detail-panel { padding: .85rem; border-radius: 12px !important; }
+        #recordSaleModal .channel-detail-header { margin-bottom: 1rem; padding-bottom: .8rem; }
+        #recordSaleModal .channel-detail-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; }
+        #recordSaleModal .channel-detail-panel .row { --bs-gutter-x: .7rem; --bs-gutter-y: .7rem; }
+        #recordSaleModal .channel-detail-panel .row > [class*="col-md-"],
+        #recordSaleModal .channel-detail-panel .row > [class*="col-lg-"] { width: 100%; }
+        #recordSaleModal .sale-summary-card { min-height: 78px; }
+        #recordSaleModal .modal-footer { padding: .75rem 1rem; }
+        #recordSaleModal .modal-footer .btn { flex: 1 1 auto; }
         #productRowsContainer { max-height: 300px; padding-top: .75rem; }
         #recordSaleModal .modal-footer { gap: .5rem; }
     }
