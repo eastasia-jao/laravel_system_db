@@ -303,9 +303,13 @@
                             $monthTransactions = $pagedTransactions->filter(
                                 fn ($sale) => (optional($sale->order_date)->format('Y-m') ?? 'undated') === $monthKey
                             );
-                            $monthOrderValue = $monthTransactions->sum(
-                                fn ($sale) => (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'))
-                            );
+                            $monthCustomerPayable = $monthTransactions->sum(function ($sale) {
+                                $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
+
+                                return $sale->wholesale_withholding_tax === null
+                                    ? $orderValue
+                                    : (float) $sale->wholesale_withholding_tax;
+                            });
                             $monthCollected = $monthTransactions->sum(function ($sale) {
                                 $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
 
@@ -315,7 +319,7 @@
                         <tr class="table-primary-subtle fw-semibold">
                             <td colspan="17" class="text-end">
                                 {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal:
-                                Order Value ₱{{ number_format($monthOrderValue, 2) }} · Collected ₱{{ number_format($monthCollected, 2) }}
+                                Customer Payable ₱{{ number_format($monthCustomerPayable, 2) }} · Collected ₱{{ number_format($monthCollected, 2) }}
                             </td>
                         </tr>
                     @endif
