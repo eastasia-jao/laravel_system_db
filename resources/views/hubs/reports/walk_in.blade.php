@@ -100,7 +100,7 @@
         <div class="table-responsive" data-walk-in-detail-table><table class="table table-hover align-middle mb-0">
             <thead>
                 @if($hub->is_head_office)
-                    <tr><th>Order Date</th><th>Order ID</th><th data-walk-in-preview-remove>Customer Name</th><th data-walk-in-preview-remove>Items</th><th data-walk-in-preview-remove>Payment</th><th class="text-end">Proof Amount</th><th data-walk-in-screen-only>Action</th></tr>
+                    <tr><th>Order Date</th><th>Order ID</th><th data-walk-in-preview-remove>Customer Name</th><th data-walk-in-preview-remove>Items</th><th data-walk-in-preview-remove>Payment</th><th class="text-center">Proof Amount</th><th data-walk-in-screen-only>Action</th></tr>
                 @else
                     <tr><th>Date</th><th data-walk-in-preview-remove>Customer</th><th data-walk-in-preview-remove>Items</th><th>MOP</th><th data-walk-in-preview-remove>Payment</th><th class="text-end">Gross</th><th class="text-end">Discount</th><th class="text-end">Net Sales</th><th data-walk-in-screen-only>Action</th></tr>
                 @endif
@@ -121,7 +121,7 @@
                             <td data-walk-in-preview-remove class="fw-semibold">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge')</td>
                             <td data-walk-in-preview-remove>{{ $transaction->items->count() }} product(s)<small class="d-block text-muted">{{ $transaction->items->sum(fn ($item) => (int) $item->quantity - $item->returnedQuantity()) }} remaining unit(s)</small></td>
                             <td data-walk-in-preview-remove><div>{{ strtoupper($transaction->mode_of_payment ?: '—') }}</div><span class="badge mt-1 {{ ($transaction->payment_status ?? 'paid') === 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">{{ strtoupper($transaction->payment_status ?? 'paid') }}</span></td>
-                            <td class="text-end fw-semibold">₱{{ number_format($walkInOrderTotal, 2) }}</td>
+                            <td class="text-center fw-semibold">₱{{ number_format($walkInOrderTotal, 2) }}</td>
                         @else
                             <td data-walk-in-preview-remove class="fw-semibold">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge')</td>
                             <td data-walk-in-preview-remove>{{ $transaction->items->count() }} product(s)<small class="d-block text-muted">{{ $transaction->items->sum(fn ($item) => (int) $item->quantity - $item->returnedQuantity()) }} remaining unit(s)</small></td>
