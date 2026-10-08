@@ -172,7 +172,13 @@ class HubController extends Controller
                 $resolvedTotal = min((float) ($sale->amount_paid ?? 0), $resolvedTotal);
             }
 
-            return $sale->netOrderTotal($resolvedTotal);
+            // Online collection is the amount received for the order.  Returns/refunds
+            // remain visible as their own metric instead of silently reducing this figure.
+            // Walk-In keeps its established net-sales calculation, while wholesale above
+            // remains limited to the amount actually paid for partial orders.
+            return $channel === 'online'
+                ? $resolvedTotal
+                : $sale->netOrderTotal($resolvedTotal);
         };
         $dashboardRelations = ['items.inventoryReturns', 'items.replacements.inventoryReturns', 'inventoryReturns'];
         $salesTotals = collect($periods)->map(fn ($start) => (float) (clone $salesQuery)
@@ -412,14 +418,8 @@ class HubController extends Controller
                     $originalRemaining = max(0, (int) $item->quantity - $removedOriginalQuantity);
                     $units[$item->product_id] = ($units[$item->product_id] ?? 0) + $originalRemaining;
 
-                    foreach ($approvedReplacements as $replacement) {
-                        $replacementReturnedQuantity = (int) $replacement->inventoryReturns->sum('quantity');
-                        $replacementRemaining = max(
-                            0,
-                            (int) ($replacement->replacement_quantity ?: $replacement->quantity) - $replacementReturnedQuantity
-                        );
-                        $units[$replacement->replacement_product_id] = ($units[$replacement->replacement_product_id] ?? 0) + $replacementRemaining;
-                    }
+                    // A replacement fulfils units already sold on this order. It must not
+                    // be counted as an additional sold item in the dashboard total.
                 }
             }
 

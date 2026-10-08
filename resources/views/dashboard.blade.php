@@ -377,6 +377,7 @@
                             <div class="small text-uppercase fw-bold">Total collected</div>
                             <div class="fs-5 fw-bold">₱{{ number_format($channelPaymentOverview['total'], 2) }}</div>
                             <div class="marketplace-mop-count">{{ number_format($channelPaymentOverview['transactions']) }} transactions</div>
+                            @if($dashboardChannel === 'online')<div class="marketplace-mop-count">Before refunds · refunds shown separately</div>@endif
                         </div>
                     </div>
                     @php($activePaymentMethods = collect($channelPaymentOverview['amounts'])->filter(fn ($amount, $method) => $channelPaymentOverview['counts'][$method] > 0))

@@ -11,6 +11,14 @@
     .walk-in-order-totals-list { display: grid; flex: 1; grid-template-rows: repeat(2, minmax(78px, 1fr)); gap: .5rem; }
     .walk-in-replacement-impact-list { grid-template-rows: minmax(78px, 1fr); }
     .walk-in-order-totals-list .walk-in-order-summary { display: flex; flex-direction: column; justify-content: center; margin: 0 !important; }
+    .walk-in-order-ledger { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .65rem; padding: .85rem; border: 1px solid #e7e5e4; border-radius: 12px; background: #fff; }
+    .walk-in-order-ledger-card { min-height: 104px; padding: .8rem; border-radius: 10px; background: #fafaf9; border: 1px solid #e7e5e4; }
+    .walk-in-order-ledger-card .label { color: #78716c; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .walk-in-order-ledger-card .value { margin-top: .35rem; font-size: 1.08rem; font-weight: 800; line-height: 1.2; }
+    .walk-in-order-ledger-card .detail { margin-top: .3rem; color: #78716c; font-size: .72rem; line-height: 1.35; }
+    .walk-in-order-ledger-card.is-replacement { background: #eff6ff; border-color: #bfdbfe; }
+    .walk-in-order-ledger-card.is-refund { background: #fef2f2; border-color: #fecaca; }
+    .walk-in-order-ledger-card.is-net { background: #ecfdf5; border-color: #86efac; }
     .walk-in-order-modal .modal-header { background: linear-gradient(135deg, #fff7ed, #fffbeb); border-bottom: 1px solid #fed7aa; }
     .walk-in-order-modal .modal-body { background: #fafaf9; }
     .walk-in-order-modal .walk-in-order-items { display: grid; gap: .85rem; }
@@ -66,7 +74,9 @@
     .walk-in-replacement-modal .form-text { font-size: .72rem; }
     .walk-in-replacement-modal textarea { resize: vertical; }
     @media (max-width: 900px) { .walk-in-report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 900px) { .walk-in-order-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 520px) { .walk-in-report-summary { grid-template-columns: 1fr; } }
+    @media (max-width: 520px) { .walk-in-order-ledger { grid-template-columns: 1fr; } }
 </style>
 
 <div id="walkInReportImageSource">
@@ -131,6 +141,8 @@
     @php
         $approvedWalkInReplacements = $transaction->replacements->where('status', 'approved');
         $walkInReplacementShippingFee = round((float) $approvedWalkInReplacements->sum('replacement_shipping_fee_amount'), 2);
+        $walkInOriginalGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * (int) $item->quantity);
+        $walkInReplacementTotal = $approvedWalkInReplacements->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
         $walkInGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * max(0, (int) $item->quantity - $item->returnedQuantity()))
             + $approvedWalkInReplacements->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
         $walkInNet = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->sub_total ?: $transaction->items->sum('line_total')));
@@ -152,34 +164,16 @@
             <div class="modal-header bg-warning-subtle"><div><h5 class="modal-title" id="walk-in-title-{{ $transaction->id }}"><i class="fa-solid fa-receipt me-2"></i>Walk-In Order #{{ $transaction->order_number ?: $transaction->id }}</h5><small class="text-muted">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge') · {{ optional($transaction->order_date)->format('M d, Y') }} · {{ strtoupper($transaction->mode_of_payment ?: '—') }}</small></div></div>
             <div class="modal-body">
                 <div class="row g-3 mb-4"><div class="col-12">@include('hubs.reports._payment-proof', ['paymentRecord' => $transaction])</div></div>
-                <div class="row g-3 mb-4">
-                    <div class="col-12 col-lg-4">
-                        <div class="walk-in-order-summary-section walk-in-order-totals">
-                            <div class="section-title"><i class="fa-solid fa-receipt me-1"></i>Order totals</div>
-                            <div class="walk-in-order-totals-list">
-                                <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Current gross amount</div><div class="fs-5 fw-bold">₱{{ number_format($walkInGross, 2) }}</div></div>
-                                <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Total discounts</div><div class="fs-5 fw-bold text-danger">₱{{ number_format(max(0, $walkInGross - $walkInNet), 2) }}</div></div>
-                            </div>
-                        </div>
+                <section class="mb-4">
+                    <div class="section-title mb-2"><i class="fa-solid fa-scale-balanced me-1"></i>Order payment breakdown</div>
+                    <div class="walk-in-order-ledger">
+                        <div class="walk-in-order-ledger-card"><div class="label">Original order</div><div class="value">₱{{ number_format($walkInOriginalGross, 2) }}</div><div class="detail">{{ number_format($transaction->items->sum('quantity')) }} item(s) ordered</div></div>
+                        <div class="walk-in-order-ledger-card is-replacement"><div class="label">Replacement value</div><div class="value">₱{{ number_format($walkInReplacementTotal, 2) }}</div><div class="detail">Adjustment: {{ $walkInReplacementAdjustment >= 0 ? '+' : '' }}₱{{ number_format($walkInReplacementAdjustment, 2) }}</div></div>
+                        <div class="walk-in-order-ledger-card is-refund"><div class="label">Returned / refunded</div><div class="value">-₱{{ number_format($walkInRefund, 2) }}</div><div class="detail">{{ number_format($walkInReturnedQty) }} item(s) returned</div></div>
+                        <div class="walk-in-order-ledger-card is-net"><div class="label">Current order value</div><div class="value">₱{{ number_format($walkInNet, 2) }}</div><div class="detail">After returns and approved replacements</div></div>
+                        <div class="walk-in-order-ledger-card"><div class="label">Amount paid</div><div class="value text-primary">₱{{ number_format($walkInPaid, 2) }}</div><div class="detail">{{ $walkInBalance > 0 ? 'Balance: ₱'.number_format($walkInBalance, 2) : 'No outstanding balance' }}</div></div>
                     </div>
-                    <div class="col-12 col-lg-4">
-                        <div class="walk-in-order-summary-section walk-in-order-totals">
-                            <div class="section-title"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Replacement impact</div>
-                            <div class="walk-in-order-totals-list walk-in-replacement-impact-list">
-                                <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Replacement adjustment</div><div class="fs-5 fw-bold {{ $walkInReplacementAdjustment > 0 ? 'text-danger' : 'text-success' }}">{{ $walkInReplacementAdjustment >= 0 ? '+' : '' }}₱{{ number_format($walkInReplacementAdjustment, 2) }}</div></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-lg-4">
-                        <div class="walk-in-order-summary-section walk-in-order-totals">
-                            <div class="section-title"><i class="fa-solid fa-money-check-dollar me-1"></i>Payment status</div>
-                            <div class="walk-in-order-totals-list">
-                                <div class="walk-in-order-summary rounded p-3"><div class="small text-muted">Amount paid</div><div class="fs-5 fw-bold text-primary">₱{{ number_format($walkInPaid, 2) }}</div></div>
-                                <div class="walk-in-order-summary rounded p-3 border-success"><div class="small text-muted">Total Returns (Qty) / Refunds</div><div class="fs-5 fw-bold text-success">{{ number_format($walkInReturnedQty) }} item(s)</div><div class="small text-muted mt-1">Refunds: ₱{{ number_format($walkInRefund, 2) }}</div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                </section>
                 @if($walkInBalance > 0 && $approvedWalkInReplacements->isNotEmpty())
                     <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
                         <div><strong>Replacement balance is still unpaid.</strong><div class="small">Record the additional payment of ₱{{ number_format($walkInBalance, 2) }} to mark this order as paid.</div></div>

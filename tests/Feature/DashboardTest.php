@@ -697,6 +697,37 @@ class DashboardTest extends TestCase
         $this->assertSame(3, $response->viewData('soldItemCount'));
     }
 
+    public function test_dashboard_does_not_count_replacement_units_as_additional_sold_items(): void
+    {
+        $hub = StoreHub::create(['name' => 'Replacement Count Hub', 'code' => 'REPLACE-COUNT', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $original = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ORIGINAL-COUNT', 'name' => 'Original Count Product', 'stock' => 10, 'status' => 'active']);
+        $replacement = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'REPLACEMENT-COUNT', 'name' => 'Replacement Count Product', 'stock' => 10, 'status' => 'active']);
+        $sale = SalesTransaction::create([
+            'user_id' => $user->id, 'store_hub_id' => $hub->id, 'customer_name' => 'Replacement Customer',
+            'channel_type' => 'online', 'order_number' => 'REPLACE-COUNT-001', 'order_date' => '2026-10-05',
+            'grand_total' => 1000, 'status' => 'confirmed',
+        ]);
+        $item = $sale->items()->create(['product_id' => $original->id, 'quantity' => 10, 'unit_price' => 100, 'line_total' => 1000]);
+        \App\Models\InventoryTransaction::create([
+            'type' => 'return', 'reference' => $sale->order_number, 'store_hub_id' => $hub->id,
+            'product_id' => $original->id, 'sales_transaction_id' => $sale->id, 'transaction_item_id' => $item->id,
+            'channel' => 'online', 'condition' => 'good', 'quantity' => 4, 'occurred_on' => '2026-10-06', 'created_by' => $user->id,
+        ]);
+        \App\Models\ProductReplacement::create([
+            'transaction_id' => $sale->id, 'transaction_item_id' => $item->id,
+            'original_product_id' => $original->id, 'replacement_product_id' => $replacement->id,
+            'quantity' => 4, 'replacement_quantity' => 4, 'status' => 'approved',
+        ]);
+
+        $response = $this->actingAs($user)->get(route('dashboard', [
+            'hub_id' => $hub->id, 'from' => '2026-10-01', 'to' => '2026-10-07', 'channel' => 'online',
+        ]))->assertOk();
+
+        $this->assertSame(6, $response->viewData('soldItemCount'));
+        $this->assertSame([['name' => 'Original Count Product', 'units' => 6]], $response->viewData('topProducts')->all());
+    }
+
     public function test_slow_moving_items_only_include_in_stock_products_and_paginate_ten_per_page(): void
     {
         $hub = StoreHub::create(['name' => 'Slow Items Branch', 'code' => 'SLOW-ITEMS', 'status' => 'active']);
@@ -778,8 +809,8 @@ class DashboardTest extends TestCase
 
         $dashboard = $this->actingAs($user)->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-28', 'channel' => 'online']));
         $dashboard->assertOk()->assertSee('Refund cost');
-        $this->assertEquals(180, $dashboard->viewData('salesTotals')['Daily']);
-        $this->assertEquals(180, $dashboard->viewData('channelSummaries')->first()['total']);
+        $this->assertEquals(270, $dashboard->viewData('salesTotals')['Daily']);
+        $this->assertEquals(270, $dashboard->viewData('channelSummaries')->first()['total']);
         $this->assertEquals(90, $dashboard->viewData('channelSummaries')->first()['refund_total']);
 
         $report = $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'online']));
