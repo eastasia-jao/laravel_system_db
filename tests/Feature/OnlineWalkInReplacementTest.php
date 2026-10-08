@@ -336,7 +336,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertOk()->assertSee('APPROVED')->assertSee('REJECTED')->assertSee('Walk-In Replacement')
             ->assertSee('walk-in-item-card', false)
             ->assertSee('Replacement history')
-            ->assertSee('Total Returns (Qty) / Refunds')
+            ->assertSee('Order payment breakdown')
+            ->assertSee('Returned / refunded')
             ->assertSee('View order slip')
             ->assertSee('Replacement item did not pass inspection.');
     }
@@ -345,6 +346,7 @@ class OnlineWalkInReplacementTest extends TestCase
     {
         [$hub, $admin, $original, $replacement] = $this->fixtures('WALK-HO');
         [$sale, $item] = $this->sale($admin, $hub, $original, 'walk_in', 'paid');
+        $sale->update(['proof_amount' => 123.45]);
 
         $this->actingAs($admin)->get(route('hub.dashboard', $hub->id))
             ->assertOk()
@@ -356,7 +358,9 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Available after inventory receives the returned item')
             ->assertSee('<button type="button" class="btn btn-sm btn-warning text-nowrap" disabled title="Available after inventory receives the returned item"', false)
             ->assertDontSee('walk-in-replacement-'.$item->id, false)
-            ->assertDontSee('TOTAL GROSS SALES');
+            ->assertDontSee('TOTAL GROSS SALES')
+            ->assertSee('Proof Amount')
+            ->assertSee('₱123.45');
 
         $payload = [
             'replacement_product_id' => $replacement->id,
