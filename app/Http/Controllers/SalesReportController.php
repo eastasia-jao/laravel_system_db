@@ -940,7 +940,7 @@ class SalesReportController extends Controller
                 $line['total'] = round($unitPrice * (1 - ($line['discount_percentage'] / 100)) * $line['quantity'], 2);
                 return $line;
             });
-            $supportsReplacementShipping = $channel === 'online'
+            $supportsReplacementShipping = in_array($channel, ['online', 'wholesale'], true)
                 || ($channel === 'walk_in' && $storeHub->is_head_office);
             $replacementShippingFeeType = $supportsReplacementShipping
                 ? (string) ($validated['replacement_shipping_fee_type'] ?? 'Free')
@@ -1185,7 +1185,7 @@ class SalesReportController extends Controller
             $charge = round((float) $records->sum(fn ($line) => (float) $line->replacement_unit_price
                 * (1 - ((float) ($line->replacement_discount_percentage ?? 0) / 100))
                 * (int) ($line->replacement_quantity ?: $line->quantity)), 2);
-            $supportsReplacementShipping = $channel === 'online'
+            $supportsReplacementShipping = in_array($channel, ['online', 'wholesale'], true)
                 || ($channel === 'walk_in' && (bool) $sale->storeHub()->value('is_head_office'));
             $replacementShippingFee = $supportsReplacementShipping
                 ? (float) ($records->firstWhere('replacement_shipping_fee_amount', '>', 0)?->replacement_shipping_fee_amount ?? 0)

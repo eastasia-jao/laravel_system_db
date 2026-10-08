@@ -35,6 +35,7 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame(1, $xpath->query('//form[contains(@class,"status-update-form")]//select[@name="payment_status" and not(@disabled)]')->length);
         $this->assertSame('547.2', $xpath->query('//form[contains(@class,"status-update-form")]//input[@name="amount_paid"]')->item(0)->getAttribute('max'));
         $this->assertStringContainsString('amountInput.value = Number(amountInput.dataset.orderTotal || 0).toFixed(2);', $html);
+        $this->assertStringContainsString('data-wholesale-replacement-shipping-type', $html);
         $this->assertStringContainsString('Preview / Save PNG', $html);
         $this->assertStringNotContainsString('Print / Save PDF', $html);
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
@@ -82,7 +83,9 @@ class WholesalePaymentTest extends TestCase
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
             'replacement_quantity' => 2,
-            'exchange_payment_amount' => 140,
+            'replacement_shipping_fee_type' => 'Custom Amount',
+            'replacement_shipping_fee_amount' => 20,
+            'exchange_payment_amount' => 160,
             'exchange_payment_method' => 'CASH',
             'reason' => 'Customer requested a different item.',
         ])->assertRedirect($reportUrl)->assertSessionHasErrors('quantity');
@@ -107,7 +110,9 @@ class WholesalePaymentTest extends TestCase
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
             'replacement_quantity' => 2,
-            'exchange_payment_amount' => 140,
+            'replacement_shipping_fee_type' => 'Custom Amount',
+            'replacement_shipping_fee_amount' => 20,
+            'exchange_payment_amount' => 160,
             'exchange_payment_method' => 'CASH',
             'reason' => 'Customer requested a different item.',
         ])->assertRedirect($reportUrl)->assertSessionHasNoErrors()->assertSessionHas('success');
@@ -132,9 +137,9 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame(3, $replacement->fresh()->stock);
         $this->assertSame(0, InventoryTransaction::where('type', 'replacement_return')->count());
         $this->assertSame(1, InventoryTransaction::where('type', 'replacement_out')->count());
-        $this->assertSame('340.00', $sale->fresh()->grand_total);
+        $this->assertSame('360.00', $sale->fresh()->grand_total);
         $this->assertSame('paid', $sale->fresh()->payment_status);
-        $this->assertSame('340.00', $sale->fresh()->amount_paid);
+        $this->assertSame('360.00', $sale->fresh()->amount_paid);
 
         ProductStockAllocation::create(['product_id' => $original->id, 'wholesale' => 2]);
         ProductStockAllocation::create(['product_id' => $replacement->id, 'wholesale' => 5]);
@@ -164,6 +169,45 @@ class WholesalePaymentTest extends TestCase
             ->assertSee('APPROVED')
             ->assertSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
             ->assertDontSee('Gross Sales');
+    }
+
+    public function test_return_lookup_includes_paid_and_partial_wholesale_orders_but_excludes_unpaid_orders(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Returns', 'code' => 'WH-R', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $orders = collect([
+            ['number' => 'WHOLESALE-UNPAID', 'payment_status' => 'unpaid', 'amount_paid' => 0],
+            ['number' => 'WHOLESALE-PARTIAL', 'payment_status' => 'partial', 'amount_paid' => 50],
+            ['number' => 'WHOLESALE-PAID', 'payment_status' => 'paid', 'amount_paid' => 100],
+        ])->map(fn (array $order) => SalesTransaction::create([
+            'user_id' => $user->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'customer_name' => 'Wholesale Return Customer',
+            'order_number' => $order['number'],
+            'order_date' => '2026-10-08',
+            'grand_total' => 100,
+            'status' => 'confirmed',
+            'payment_status' => $order['payment_status'],
+            'amount_paid' => $order['amount_paid'],
+        ]));
+
+        $url = route('inventory-transactions.return.sales', [
+            'hub_id' => $hub->id,
+            'channel' => 'wholesale',
+            'customer' => 'Wholesale Return Customer',
+        ]);
+        $this->actingAs($user)->getJson($url)
+            ->assertOk()
+            ->assertJsonCount(2, 'orders')
+            ->assertJsonPath('orders.0.order_number', 'WHOLESALE-PAID')
+            ->assertJsonPath('orders.1.order_number', 'WHOLESALE-PARTIAL');
+
+        $this->actingAs($user)->getJson(route('inventory-transactions.return.sales', [
+            'hub_id' => $hub->id,
+            'channel' => 'wholesale',
+            'transaction_id' => $orders->first()->id,
+        ]))->assertNotFound();
     }
 
     public function test_wholesale_replacement_can_be_requested_after_inventory_recorded_the_return(): void

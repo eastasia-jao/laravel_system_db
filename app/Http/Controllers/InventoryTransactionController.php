@@ -131,6 +131,7 @@ class InventoryTransactionController extends Controller
         $query = SalesTransaction::query()
             ->where('store_hub_id', $validated['hub_id'])
             ->whereIn(DB::raw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_'))"), $channelValues)
+            ->when($normalizedChannel === 'wholesale', fn ($query) => $query->whereIn('payment_status', ['partial', 'paid']))
             ->when($validated['date'] ?? null, fn ($query, $date) => $query
                 ->where('order_date', '>=', $date)
                 ->where('order_date', '<', Carbon::parse($date)->addDay()->toDateString()))
@@ -1254,6 +1255,11 @@ class InventoryTransactionController extends Controller
                 || (($validated['channel'] === 'fully_booked') !== (str_replace(['-', ' '], '_', strtolower((string) $sale->channel_type)) === 'fully_booked'))) {
                 throw ValidationException::withMessages([
                     'channel' => 'The return channel must match the original sales channel.',
+                ]);
+            }
+            if ($returnChannel === 'wholesale' && ! in_array($sale->payment_status, ['partial', 'paid'], true)) {
+                throw ValidationException::withMessages([
+                    'sales_transaction_id' => 'Only partially paid or fully paid wholesale orders can be returned.',
                 ]);
             }
             $products = Product::where('store_hub_id', $validated['store_hub_id'])

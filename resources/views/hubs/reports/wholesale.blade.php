@@ -327,10 +327,24 @@
                         <div class="form-text">This discount applies only to the main replacement product.</div>
                     </div>
                 </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label fw-semibold">Replacement delivery</label>
+                        <select name="replacement_shipping_fee_type" class="form-select" data-wholesale-replacement-shipping-type>
+                            <option value="Free">Free delivery</option>
+                            <option value="Custom Amount">Custom amount</option>
+                        </select>
+                    </div>
+                    <div class="col-6 d-none" data-wholesale-replacement-shipping-amount-wrap>
+                        <label class="form-label fw-semibold">Shipping fee (₱)</label>
+                        <input type="number" name="replacement_shipping_fee_amount" class="form-control" min="0" step="0.01" value="0.00" disabled>
+                    </div>
+                </div>
                 <div class="card border-0 bg-light mb-3" id="wholesaleExchangeSummary">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between mb-2"><strong><i class="fa-solid fa-calculator text-primary me-2"></i>Exchange calculation</strong><span class="badge bg-secondary" data-exchange-calculation-status>Select a replacement</span></div>
                         <div class="row g-2 small">
+                            <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement shipping</span><strong data-exchange-shipping>₱0.00</strong></div>
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Original exchange credit</span><strong data-exchange-credit>₱0.00</strong></div>
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Main replacement total</span><strong data-exchange-main-total>₱0.00</strong></div>
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Additional products</span><strong data-exchange-extra-total>₱0.00</strong></div>
@@ -582,6 +596,9 @@
             const discount = document.getElementById('wholesaleReplacementDiscount');
             const summary = document.getElementById('wholesaleExchangeSummary');
             const paymentAmount = form.querySelector('[name="exchange_payment_amount"]');
+            const shippingType = form.querySelector('[data-wholesale-replacement-shipping-type]');
+            const shippingAmount = form.querySelector('[name="replacement_shipping_fee_amount"]');
+            const shippingAmountWrap = form.querySelector('[data-wholesale-replacement-shipping-amount-wrap]');
             const endpoint = @json(route('hub.products.search.ajax', $hub->id));
             let products = new Map();
             let originalProductId = null;
@@ -602,13 +619,17 @@
                     const rowDiscount = Math.min(100, Math.max(0, Number(row.querySelector('[data-exchange-discount]')?.value || 0)));
                     extraTotal += unitPrice * (1 - (rowDiscount / 100)) * rowQuantity;
                 });
-                const basketTotal = mainTotal + extraTotal;
+                const shippingFee = shippingType.value === 'Custom Amount'
+                    ? Math.max(0, Number(shippingAmount.value || 0))
+                    : 0;
+                const basketTotal = mainTotal + extraTotal + shippingFee;
                 const amountDue = Math.max(0, basketTotal - credit);
                 const shortfall = Math.max(0, credit - basketTotal);
                 summary.querySelector('[data-exchange-credit]').textContent = money(credit);
                 summary.querySelector('[data-exchange-main-total]').textContent = money(mainTotal);
                 summary.querySelector('[data-exchange-extra-total]').textContent = money(extraTotal);
                 summary.querySelector('[data-exchange-basket-total]').textContent = money(basketTotal);
+                summary.querySelector('[data-exchange-shipping]').textContent = money(shippingFee);
                 summary.querySelector('[data-exchange-amount-due]').textContent = `Customer adds ${money(amountDue)}`;
                 summary.querySelector('[data-exchange-formula]').textContent = mainUnitPrice > 0
                     ? `${money(mainUnitPrice)} × ${mainQuantity} less ${mainDiscount.toFixed(2)}% discount, plus additional products.`
@@ -617,6 +638,14 @@
                 status.className = `badge ${shortfall > 0 ? 'bg-warning text-dark' : (amountDue > 0 ? 'bg-danger' : 'bg-success')}`;
                 status.textContent = shortfall > 0 ? `Add ${money(shortfall)} more` : (amountDue > 0 ? `Additional payment ${money(amountDue)}` : 'Credit fully used');
                 paymentAmount.value = amountDue.toFixed(2);
+            };
+
+            const updateReplacementShipping = () => {
+                const custom = shippingType.value === 'Custom Amount';
+                shippingAmountWrap.classList.toggle('d-none', !custom);
+                shippingAmount.disabled = !custom;
+                if (!custom) shippingAmount.value = '0.00';
+                calculateExchange();
             };
 
             modal.addEventListener('show.bs.modal', event => {
@@ -637,6 +666,10 @@
                 optionsList.replaceChildren();
                 products.clear();
                 productId.dataset.unitPrice = '0';
+                shippingType.value = 'Free';
+                shippingAmount.value = '0.00';
+                shippingAmount.disabled = true;
+                shippingAmountWrap.classList.add('d-none');
                 form.querySelector('[data-exchange-line-list]')?.replaceChildren();
                 stockHelp.textContent = 'Choose an active product from this hub.';
                 form.querySelector('[name="reason"]').value = '';
@@ -686,6 +719,8 @@
             });
 
             [quantity, replacementQuantity, discount].forEach(input => input.addEventListener('input', calculateExchange));
+            shippingType.addEventListener('change', updateReplacementShipping);
+            shippingAmount.addEventListener('input', calculateExchange);
             form.addEventListener('exchange:changed', calculateExchange);
 
             form.addEventListener('submit', event => {
