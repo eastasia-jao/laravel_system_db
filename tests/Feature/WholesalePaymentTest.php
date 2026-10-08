@@ -210,6 +210,71 @@ class WholesalePaymentTest extends TestCase
         ]))->assertNotFound();
     }
 
+    public function test_partial_wholesale_return_restores_stock_without_an_automatic_refund(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Returns', 'code' => 'WH-RF', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $product = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'PARTIAL-RETURN', 'name' => 'Partial return item', 'stock' => 2, 'status' => 'active', 'wholesale_price' => 100]);
+        ProductStockAllocation::create(['product_id' => $product->id, 'wholesale' => 2]);
+        $sale = SalesTransaction::create([
+            'user_id' => $user->id, 'store_hub_id' => $hub->id, 'channel_type' => 'wholesale',
+            'customer_name' => 'Partial Customer', 'order_number' => 'PARTIAL-RETURN-1', 'order_date' => '2026-10-08',
+            'sub_total' => 100, 'grand_total' => 100, 'status' => 'confirmed', 'payment_status' => 'partial', 'amount_paid' => 50,
+        ]);
+        $item = $sale->items()->create(['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100]);
+
+        $this->actingAs($user)->post(route('inventory-transactions.return.store'), [
+            'type' => 'return', 'store_hub_id' => $hub->id, 'occurred_on' => '2026-10-08', 'channel' => 'wholesale',
+            'reference' => $sale->order_number, 'sales_transaction_id' => $sale->id,
+            'items' => [[
+                'product_id' => $product->id, 'transaction_item_id' => $item->id,
+                'good_quantity' => 1, 'damaged_quantity' => 0, 'refund_amount' => 100,
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('inventory_transactions', [
+            'sales_transaction_id' => $sale->id, 'transaction_item_id' => $item->id, 'quantity' => 1, 'refund_amount' => 0,
+        ]);
+    }
+
+    public function test_partial_wholesale_replacement_charges_the_full_replacement_basket_and_shipping(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Exchange', 'code' => 'WH-EX', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $original = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ORIGINAL', 'name' => 'Original item', 'stock' => 3, 'status' => 'active', 'wholesale_price' => 100]);
+        $replacement = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'REPLACEMENT', 'name' => 'Replacement item', 'stock' => 5, 'status' => 'active', 'wholesale_price' => 120]);
+        ProductStockAllocation::create(['product_id' => $original->id, 'wholesale' => 2]);
+        ProductStockAllocation::create(['product_id' => $replacement->id, 'wholesale' => 5]);
+        $sale = SalesTransaction::create([
+            'user_id' => $user->id, 'store_hub_id' => $hub->id, 'channel_type' => 'wholesale',
+            'customer_name' => 'Partial Exchange Customer', 'order_number' => 'PARTIAL-EXCHANGE-1', 'order_date' => '2026-10-08',
+            'sub_total' => 200, 'total_amount' => 200, 'grand_total' => 200, 'status' => 'confirmed', 'payment_status' => 'partial', 'amount_paid' => 100,
+        ]);
+        $item = $sale->items()->create(['product_id' => $original->id, 'quantity' => 2, 'unit_price' => 100, 'line_total' => 200]);
+        InventoryTransaction::create([
+            'type' => 'return', 'store_hub_id' => $hub->id, 'product_id' => $original->id, 'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id, 'channel' => 'wholesale', 'condition' => 'good', 'quantity' => 1,
+            'refund_amount' => 0, 'occurred_on' => '2026-10-08', 'created_by' => $user->id,
+        ]);
+
+        $url = route('hub.report.wholesale.replace', [$hub->id, $sale->id, $item->id]);
+        $this->actingAs($user)->post($url, [
+            'replacement_product_id' => $replacement->id, 'quantity' => 1, 'replacement_quantity' => 1,
+            'replacement_shipping_fee_type' => 'Custom Amount', 'replacement_shipping_fee_amount' => 20,
+            'exchange_payment_amount' => 140, 'exchange_payment_method' => 'CASH',
+        ])->assertSessionHasNoErrors();
+
+        $request = ProductReplacement::sole();
+        $this->assertSame('0.00', $request->exchange_credit);
+        $this->assertFalse($request->uses_exchange_credit);
+        $this->assertSame('140.00', $request->additional_payment_due);
+
+        $this->actingAs($user)->post(route('wholesale-replacements.approve', $request))->assertSessionHasNoErrors();
+        $this->assertSame('240.00', $sale->fresh()->grand_total);
+        $this->assertSame('240.00', $sale->fresh()->amount_paid);
+        $this->assertSame('paid', $sale->fresh()->payment_status);
+    }
+
     public function test_wholesale_replacement_can_be_requested_after_inventory_recorded_the_return(): void
     {
         $hub = StoreHub::create(['name' => 'Wholesale Returned Hub', 'code' => 'WH-RET', 'status' => 'active', 'is_head_office' => true]);

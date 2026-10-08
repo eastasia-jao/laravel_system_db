@@ -199,7 +199,8 @@
                 showFullyBookedAttachment(data.transaction?.fully_booked_attachment);
             }
             const items = data.transaction?.items || [];
-            const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada'].includes(channel.value);
+            const partialWholesaleReturn = channel.value === 'wholesale' && data.transaction?.payment_status === 'partial';
+            const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada'].includes(channel.value) && !partialWholesaleReturn;
             container.innerHTML = items.length ? items.map((item, index) => {
                 const remaining = Math.max(0, item.quantity - (item.returned_quantity || 0));
                 return `
@@ -210,6 +211,9 @@
                     ${supportsAutoRefund ? '<div class="return-refund-control"><label class="form-label">Auto refund</label><input type="number" name="items[' + index + '][refund_amount]" min="0" step="0.01" value="0" class="form-control refund-amount" readonly><div class="form-text refund-help">Calculated from returned quantity</div></div>' : ''}
                 </div>`;
             }).join('') : '<div class="alert alert-warning">This order has no products.</div>';
+            if (partialWholesaleReturn && items.length) {
+                container.insertAdjacentHTML('afterbegin', '<div class="alert alert-info small mb-3">This is a partially paid wholesale order. The item can be returned to stock, but no automatic cash refund is recorded. Its existing partial payment remains on the order.</div>');
+            }
             container.querySelectorAll('.return-item').forEach(row => {
                 if (!supportsAutoRefund) return;
                 const toggle = row.querySelector('.refund-toggle');

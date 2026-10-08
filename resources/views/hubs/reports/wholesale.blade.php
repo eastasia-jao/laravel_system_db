@@ -197,6 +197,7 @@
                                                         data-product="{{ $item->product?->name ?? 'Product #'.$item->product_id }}"
                                                         data-original-product-id="{{ $item->product_id }}"
                                                         data-original-unit-price="{{ round((float) $item->unit_price * (1 - ((float) ($item->discount_percentage ?? 0) / 100)), 2) }}"
+                                                        data-payment-status="{{ $paymentStatus }}"
                                                         data-remaining="{{ $wholesaleReplacementLimit }}">
                                                         <i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item
                                                     </button>
@@ -303,6 +304,7 @@
             </div>
             <div class="modal-body">
                 <div class="alert alert-info small">This request goes to Inventory Verification first. Stock and the order total change only after approval, using the quantities and wholesale prices below.</div>
+                <div class="alert alert-warning small d-none" data-wholesale-partial-payment-note>For a partially paid order, the original partial payment stays on the order. The customer pays the full replacement basket plus shipping.</div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="wholesaleReplacementSearch">Replacement product</label>
                     <input type="text" id="wholesaleReplacementSearch" class="form-control" list="wholesaleReplacementOptions" autocomplete="off" placeholder="Type at least 1 character or an Item ID" required>
@@ -604,10 +606,11 @@
             let originalProductId = null;
             let originalUnitPrice = 0;
             let remainingQuantity = 1;
+            let usesExchangeCredit = true;
             let timer;
             const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             const calculateExchange = () => {
-                const credit = originalUnitPrice * Math.max(1, Number(quantity.value || 1));
+                const credit = usesExchangeCredit ? originalUnitPrice * Math.max(1, Number(quantity.value || 1)) : 0;
                 const mainUnitPrice = Number(productId.dataset.unitPrice || 0);
                 const mainDiscount = Math.min(100, Math.max(0, Number(discount.value || 0)));
                 const mainQuantity = Math.max(1, Number(replacementQuantity.value || 1));
@@ -653,6 +656,8 @@
                 form.action = button.dataset.action;
                 originalProductId = String(button.dataset.originalProductId);
                 originalUnitPrice = Number(button.dataset.originalUnitPrice || 0);
+                usesExchangeCredit = button.dataset.paymentStatus !== 'partial';
+                form.querySelector('[data-wholesale-partial-payment-note]').classList.toggle('d-none', usesExchangeCredit);
                 remainingQuantity = Number(button.dataset.remaining || 1);
                 productHelp.textContent = `Original item: ${button.dataset.product}`;
                 quantity.max = remainingQuantity;

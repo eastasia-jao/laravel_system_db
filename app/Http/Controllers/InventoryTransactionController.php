@@ -150,6 +150,7 @@ class InventoryTransactionController extends Controller
                     'id' => $transaction->id,
                     'order_number' => $transaction->order_number,
                     'customer_name' => $transaction->customer_name,
+                    'payment_status' => $transaction->payment_status,
                     'fully_booked_attachment' => $fullyBookedOrder ? [
                         'url' => route('inventory-transactions.fully-booked.attachment', $fullyBookedOrder),
                         'file_name' => $fullyBookedOrder->original_filename,
@@ -1304,7 +1305,8 @@ class InventoryTransactionController extends Controller
                 $effectiveUnitPrice = round($unitPrice * (1 - ($discount / 100)), 2);
                 $refundQuantity = $quantity > 0 ? $quantity : $orderedQuantity;
                 $refundCap = round($effectiveUnitPrice * $refundQuantity, 2);
-                $refundAmount = in_array($returnChannel, ['fully_booked', 'tiktok', 'shopee', 'lazada'], true) ? 0 : ($quantity > 0
+                $refundAmount = in_array($returnChannel, ['fully_booked', 'tiktok', 'shopee', 'lazada'], true)
+                    || ($returnChannel === 'wholesale' && $sale->payment_status === 'partial') ? 0 : ($quantity > 0
                     ? $refundCap
                     : min((float) ($item['refund_amount'] ?? 0), $refundCap));
                 $alreadyReturned = InventoryTransaction::query()

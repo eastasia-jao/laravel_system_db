@@ -930,7 +930,8 @@ class SalesReportController extends Controller
                 ]);
             }
             $originalUnitPrice = round((float) $transactionItem->unit_price * (1 - ((float) ($transactionItem->discount_percentage ?? 0) / 100)), 2);
-            $credit = round($originalUnitPrice * $quantity, 2);
+            $usesExchangeCredit = ! ($channel === 'wholesale' && $sale->payment_status === 'partial');
+            $credit = $usesExchangeCredit ? round($originalUnitPrice * $quantity, 2) : 0.0;
             $pricedLines = $requestedLines->map(function ($line) use ($replacementProducts, $channel) {
                 $product = $replacementProducts->get($line['product_id']);
                 $unitPrice = (float) ($channel === 'wholesale'
@@ -985,7 +986,7 @@ class SalesReportController extends Controller
             $replacementOrderSlip = $request->file('replacement_order_slip')?->store('replacement_order_slips', 'public');
 
             $exchangeReference = (string) Str::uuid();
-            $created = $pricedLines->map(function ($line, $index) use ($sale, $transactionItem, $originalProduct, $quantity, $originalUnitPrice, $credit, $exchangeTotal, $additionalPaymentDue, $replacementShippingFeeType, $replacementShippingFee, $paymentAmount, $paymentMethod, $paymentProofs, $replacementOrderSlip, $exchangeReference, $validated) {
+            $created = $pricedLines->map(function ($line, $index) use ($sale, $transactionItem, $originalProduct, $quantity, $originalUnitPrice, $usesExchangeCredit, $credit, $exchangeTotal, $additionalPaymentDue, $replacementShippingFeeType, $replacementShippingFee, $paymentAmount, $paymentMethod, $paymentProofs, $replacementOrderSlip, $exchangeReference, $validated) {
                 return ProductReplacement::create([
                     'exchange_reference' => $exchangeReference,
                     'transaction_id' => $sale->id,
@@ -998,6 +999,7 @@ class SalesReportController extends Controller
                     'replacement_unit_price' => $line['unit_price'],
                     'replacement_discount_percentage' => $line['discount_percentage'],
                     'exchange_credit' => $credit,
+                    'uses_exchange_credit' => $usesExchangeCredit,
                     'exchange_total' => $exchangeTotal,
                     'additional_payment_due' => $additionalPaymentDue,
                     'replacement_shipping_fee_type' => $index === 0 ? $replacementShippingFeeType : null,
@@ -1181,7 +1183,7 @@ class SalesReportController extends Controller
                     ProductStockAllocation::where('product_id', $replacementProduct->id)->lockForUpdate()->first()?->decrement($channel, $requestedQuantity);
                 }
             }
-            $credit = (float) ($record->exchange_credit ?: round((float) $record->original_unit_price * $returnedQuantity, 2));
+            $returnedItemValue = round((float) $record->original_unit_price * $returnedQuantity, 2);
             $charge = round((float) $records->sum(fn ($line) => (float) $line->replacement_unit_price
                 * (1 - ((float) ($line->replacement_discount_percentage ?? 0) / 100))
                 * (int) ($line->replacement_quantity ?: $line->quantity)), 2);
@@ -1194,7 +1196,7 @@ class SalesReportController extends Controller
                 (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->sub_total),
                 2
             );
-            $newSubTotal = max(0, (float) $sale->sub_total - $credit + $charge);
+            $newSubTotal = max(0, (float) $sale->sub_total - $returnedItemValue + $charge);
             $newShippingFee = round((float) $sale->shipping_fee_amount + $replacementShippingFee, 2);
             $discount = $newSubTotal * ((float) $sale->additional_discount_percentage / 100);
             $withholding = $newSubTotal * ((float) $sale->withholding_tax / 100);

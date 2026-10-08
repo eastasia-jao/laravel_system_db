@@ -18,6 +18,7 @@ class ProductReplacement extends Model
         'replacement_discount_percentage' => 'decimal:2',
         'price_adjustment' => 'decimal:2',
         'exchange_credit' => 'decimal:2',
+        'uses_exchange_credit' => 'boolean',
         'exchange_total' => 'decimal:2',
         'additional_payment_due' => 'decimal:2',
         'replacement_shipping_fee_amount' => 'decimal:2',
