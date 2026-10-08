@@ -24,6 +24,12 @@
     #recordSaleModal .sale-summary-card-highlight .form-control { color: #15803d !important; font-size: 1.15rem; }
     #recordSaleModal .sale-summary-card { min-height: 96px; display: flex; flex-direction: column; justify-content: center; }
     #recordSaleModal .extra-fields-container .row > [class*="col-"] { min-width: 0; }
+    #recordSaleModal .order-header-grid { margin: 0; padding: 1rem; border: 1px solid #dbe5ef; border-radius: 14px; background: #fff; box-shadow: 0 4px 16px rgba(15, 23, 42, .035); }
+    #recordSaleModal .order-header-grid > [class*="col-"] { min-width: 0; }
+    #recordSaleModal #productRowsContainer { box-shadow: 0 4px 16px rgba(15, 23, 42, .035); }
+    #recordSaleModal #productRowsContainer .product-row { padding: .65rem; border: 1px solid #edf2f7; border-radius: 10px; background: #fff; }
+    #recordSaleModal #productRowsContainer .product-row:last-child { margin-bottom: 0 !important; }
+    #recordSaleModal .modal-footer .btn-primary, #recordSaleModal .modal-footer .btn-success { min-width: 190px; border-radius: 9px; font-weight: 700; }
     #recordSaleModal .modal-footer { position: sticky; bottom: 0; z-index: 3; background: rgba(255,255,255,.96); border-top: 1px solid #dbe5ef; box-shadow: 0 -8px 22px rgba(15, 23, 42, .05); }
     #recordSaleModal .online-reconciliation-grid .sale-summary-card { display: flex; flex-direction: column; justify-content: center; min-height: 84px; }
     #recordSaleModal .online-reconciliation-grid .sale-summary-card .form-control { min-height: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -62,12 +68,15 @@
         #recordSaleModal .modal-content { min-height: 100dvh; border-radius: 0; }
         #recordSaleModal .modal-header { padding: .8rem 1rem; }
         #recordSaleModal .modal-body { padding: .75rem; }
+        #recordSaleModal .order-header-grid { padding: .8rem; }
         #recordSaleModal .extra-fields-container, #recordSaleModal .channel-detail-panel { padding: .85rem; border-radius: 12px !important; }
         #recordSaleModal .channel-detail-header { margin-bottom: 1rem; padding-bottom: .8rem; }
         #recordSaleModal .channel-detail-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; }
         #recordSaleModal .channel-detail-panel .row { --bs-gutter-x: .7rem; --bs-gutter-y: .7rem; }
         #recordSaleModal .channel-detail-panel .row > [class*="col-md-"],
-        #recordSaleModal .channel-detail-panel .row > [class*="col-lg-"] { width: 100%; }
+        #recordSaleModal .channel-detail-panel .row > [class*="col-lg-"],
+        #recordSaleModal .extra-fields-container .row > [class*="col-md-"],
+        #recordSaleModal .extra-fields-container .row > [class*="col-lg-"] { width: 100%; }
         #recordSaleModal .sale-summary-card { min-height: 78px; }
         #recordSaleModal .modal-footer { padding: .75rem 1rem; }
         #recordSaleModal .modal-footer .btn { flex: 1 1 auto; }
@@ -109,9 +118,9 @@
                 </div>
                 
                 <div class="modal-body">
-                    <div class="row g-2">
+                    <div class="row g-3 order-header-grid">
                         <!-- Sales Channel -->
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <label class="form-label fw-bold">Sales Channel</label>
                             <select name="channel_type" id="channelTypeSelect" class="form-select" required onchange="handleChannelChange()" @if($singleAssignedChannel) style="display: none;" @endif>
                                 <option value="">-- Select Channel --</option>
@@ -127,12 +136,12 @@
                         </div>
 
                         <!-- Date -->
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <label class="form-label fw-bold">Date</label>
                             <input type="date" name="order_date" class="form-control" value="{{ date('Y-m-d') }}" required>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <div class="mb-2" id="platformOrderNumberField" style="display: none;">
                                 <label class="form-label fw-bold" id="platformOrderNumberLabel">Platform Order Number</label>
                                 <input type="text" name="order_number" class="form-control" placeholder="Enter the platform order number" disabled>
@@ -145,12 +154,13 @@
                         </div>
 
                         <!-- Customer Name -->
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <label class="form-label fw-bold">Customer Name</label>
                             <input type="text" name="customer_name" id="saleCustomerName" class="form-control customer-name-input" list="existingSaleCustomers" placeholder="Search existing customer or type a new name" autocomplete="name" required>
                             <datalist id="existingSaleCustomers"></datalist>
                             <div class="form-text">Choose an existing customer or type a new customer name.</div>
                         </div>
+                    </div>
                     <hr class="my-4">
 
                     <!-- Multiple Item Details Section -->
