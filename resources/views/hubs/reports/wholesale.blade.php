@@ -105,10 +105,10 @@
                         // Withholding Tax is a reporting reference. When supplied, it is
                         // the displayed Order Value; payment always uses the product total.
                         $productPaymentTotal = max(0, $invoiceTotal - $shippingFee);
-                        $total = $withholdingTax ?? max(0, (float) ($transaction->amount_paid ?? 0));
                         // Collected is always the amount actually paid by the customer.
                         // It must not be replaced or capped by the withholding breakdown.
                         $collected = min($productPaymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                        $total = $withholdingTax ?? $collected;
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
