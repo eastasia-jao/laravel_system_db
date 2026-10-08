@@ -329,11 +329,11 @@
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
                         <tr class="table-primary-subtle fw-semibold wholesale-month-subtotal">
-                            <td colspan="3"></td>
+                            <td colspan="2"></td>
                             <td class="text-end">
                                 {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal: ₱{{ number_format($monthCustomerPayable, 2) }}
                             </td>
-                            <td colspan="13"></td>
+                            <td colspan="14"></td>
                         </tr>
                     @endif
                 @empty
