@@ -53,7 +53,7 @@ class WholesalePaymentTest extends TestCase
 
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'paid', 'amount_paid' => '47.20', 'delivery_status' => 'pending',
-        ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionHas('success');
+        ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionHas('success', 'Customer payment has been marked as fully paid.');
         $this->assertSame('paid', $sale->fresh()->payment_status);
         $this->assertSame('547.20', $sale->fresh()->amount_paid);
     }

@@ -984,9 +984,13 @@ class SalesController extends Controller
                 : 'not_applicable',
         ]);
 
-        return back()->with('success', $channel === 'wholesale'
-            ? 'Wholesale payment and delivery statuses updated.'
-            : 'Walk-In payment status updated.');
+        $successMessage = $channel === 'wholesale'
+            ? ($validated['payment_status'] === 'paid'
+                ? 'Customer payment has been marked as fully paid.'
+                : 'Wholesale payment and delivery statuses updated.')
+            : 'Walk-In payment status updated.';
+
+        return back()->with('success', $successMessage);
     }
 
     public function pendingSalesIndex(Request $request, $hubId = null)
