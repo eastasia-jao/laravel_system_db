@@ -26,8 +26,18 @@
     #recordSaleModal .extra-fields-container .row > [class*="col-"] { min-width: 0; }
     #recordSaleModal .order-header-grid { margin: 0; padding: 1rem; border: 1px solid #dbe5ef; border-radius: 14px; background: #fff; box-shadow: 0 4px 16px rgba(15, 23, 42, .035); }
     #recordSaleModal .order-header-grid > [class*="col-"] { min-width: 0; }
-    #recordSaleModal #productRowsContainer { box-shadow: 0 4px 16px rgba(15, 23, 42, .035); }
-    #recordSaleModal #productRowsContainer .product-row { padding: .65rem; border: 1px solid #edf2f7; border-radius: 10px; background: #fff; }
+    #recordSaleModal .order-items-toolbar { padding: .15rem .15rem .2rem; }
+    #recordSaleModal .order-items-toolbar h6 { color: #172b4d !important; font-size: 1rem; }
+    #recordSaleModal .order-items-toolbar .btn { border-radius: 9px; font-weight: 700; padding: .42rem .78rem; }
+    #recordSaleModal #productRowsContainer { box-shadow: none; border: 0; border-radius: 0; background: transparent; padding: 0; max-height: 350px; }
+    #recordSaleModal #productRowsContainer > .row:first-child { margin: 0 0 .55rem; padding: .55rem .8rem; border: 1px solid #dbe5ef; border-radius: 9px; background: #eff6ff; color: #475569 !important; letter-spacing: .025em; }
+    #recordSaleModal #productRowsContainer .product-row { margin: 0 0 .7rem !important; padding: .85rem; border: 1px solid #e2e8f0 !important; border-radius: 12px; background: #fff; box-shadow: 0 3px 12px rgba(15, 23, 42, .035); transition: border-color .18s ease, box-shadow .18s ease; }
+    #recordSaleModal #productRowsContainer .product-row:focus-within { border-color: #93c5fd !important; box-shadow: 0 5px 18px rgba(37, 99, 235, .10); }
+    #recordSaleModal #productRowsContainer .product-row .form-control { background: #fff; }
+    #recordSaleModal #productRowsContainer .product-row .item-total-display { border-color: #bbf7d0; background: #f0fdf4 !important; color: #047857 !important; }
+    #recordSaleModal #productRowsContainer .product-row .item-price-display { background: #f8fafc !important; }
+    #recordSaleModal #productRowsContainer .remove-row-btn { min-height: 36px; border-color: #fecdd3; background: #fff5f5; color: #e11d48; }
+    #recordSaleModal #productRowsContainer .remove-row-btn:hover { border-color: #fb7185; background: #fff1f2; color: #be123c; }
     #recordSaleModal #productRowsContainer .product-row:last-child { margin-bottom: 0 !important; }
     #recordSaleModal .modal-footer .btn-primary, #recordSaleModal .modal-footer .btn-success { min-width: 190px; border-radius: 9px; font-weight: 700; }
     #recordSaleModal .modal-footer { position: sticky; bottom: 0; z-index: 3; background: rgba(255,255,255,.96); border-top: 1px solid #dbe5ef; box-shadow: 0 -8px 22px rgba(15, 23, 42, .05); }
@@ -51,10 +61,9 @@
     #recordSaleModal #wholesaleExtraFields .wholesale-payment-guide i { color: #2563eb; font-size: 1rem; margin-right: .65rem; }
     #recordSaleModal #onlineExtraFields { margin-top: 1rem !important; }
     #recordSaleModal #onlineExtraFields .form-control[readonly] { background-color: #f8fafc !important; }
-    #productRowsContainer { max-height: 230px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 0 .75rem .5rem; border: 1px solid #e5e7eb; border-radius: .6rem; background: #fff; }
-    #productRowsContainer > .row:first-child { position: sticky; top: 0; z-index: 2; background: #f8fafb; padding-top: .65rem; padding-bottom: .65rem; font-size: .75rem; }
-    #productRowsContainer .product-row { margin-bottom: .5rem !important; padding-bottom: .5rem !important; }
-    #productRowsContainer .product-row:last-child { border-bottom: 0 !important; }
+    #productRowsContainer { overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
+    #productRowsContainer > .row:first-child { position: sticky; top: 0; z-index: 2; font-size: .75rem; }
+    #productRowsContainer .product-row:last-child { margin-bottom: 0 !important; }
     #productRowsContainer .item-price-display { color: #475569 !important; font-weight: 500 !important; }
     #recordSaleModal .marketplace-mop-menu { max-height: 210px; overflow-y: auto; min-width: 100%; scrollbar-gutter: stable; }
     #recordSaleModal .marketplace-mop-menu .dropdown-item { font-size: .85rem; padding: .55rem .75rem; }
@@ -77,6 +86,13 @@
         #recordSaleModal .channel-detail-panel .row > [class*="col-lg-"],
         #recordSaleModal .extra-fields-container .row > [class*="col-md-"],
         #recordSaleModal .extra-fields-container .row > [class*="col-lg-"] { width: 100%; }
+        #recordSaleModal .order-items-toolbar { align-items: flex-start !important; gap: .7rem; }
+        #recordSaleModal .order-items-toolbar .btn { white-space: nowrap; }
+        #recordSaleModal #productRowsContainer { max-height: none; }
+        #recordSaleModal #productRowsContainer > .row:first-child { display: none; }
+        #recordSaleModal #productRowsContainer .product-row { padding: .8rem; }
+        #recordSaleModal #productRowsContainer .product-row > [class*="col-md-"] { width: 100%; }
+        #recordSaleModal #productRowsContainer .remove-row-btn { width: 100% !important; }
         #recordSaleModal .sale-summary-card { min-height: 78px; }
         #recordSaleModal .modal-footer { padding: .75rem 1rem; }
         #recordSaleModal .modal-footer .btn { flex: 1 1 auto; }
@@ -164,10 +180,10 @@
                     <hr class="my-4">
 
                     <!-- Multiple Item Details Section -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3 order-items-toolbar">
                         <h6 class="fw-bold text-secondary m-0"><i class="fa-solid fa-boxes-stacked me-1"></i> Order Items</h6>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="addItemRowBtn">
-                            <i class="fa-solid fa-plus me-1"></i> Add Another Item
+                            <i class="fa-solid fa-plus me-1"></i> Add item
                         </button>
                     </div>
 
