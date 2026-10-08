@@ -1241,9 +1241,12 @@ class SalesReportController extends Controller
                 $amountPaid = round($amountPaid + $exchangePayment, 2);
             }
 
+            $paymentTotal = $channel === 'wholesale'
+                ? max(0, $newGrandTotal - $newShippingFee)
+                : $newGrandTotal;
             $paymentStatus = in_array($channel, ['online', 'tiktok'], true)
                 ? $sale->payment_status
-                : ($amountPaid <= 0 ? 'unpaid' : ($amountPaid + 0.0001 >= $newGrandTotal ? 'paid' : 'partial'));
+                : ($amountPaid <= 0 ? 'unpaid' : ($amountPaid + 0.0001 >= $paymentTotal ? 'paid' : 'partial'));
             $sale->update([
                 'sub_total' => $newSubTotal,
                 'total_amount' => $newGrandTotal,

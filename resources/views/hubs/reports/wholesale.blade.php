@@ -100,10 +100,13 @@
                         $deliveryStatus = $transaction->delivery_status ?? 'pending';
                         $withholdingAmount = $transaction->withholding_tax_amount === null ? null : (float) $transaction->withholding_tax_amount;
                         $withholdingTax = $transaction->wholesale_withholding_tax === null ? null : (float) $transaction->wholesale_withholding_tax;
-                        $total = max(0, $invoiceTotal - $shippingFee);
+                        // Withholding Tax is a reporting reference. When supplied, it is
+                        // the displayed Order Value; payment always uses the product total.
+                        $productPaymentTotal = max(0, $invoiceTotal - $shippingFee);
+                        $total = $withholdingTax ?? $productPaymentTotal;
                         // Collected is always the amount actually paid by the customer.
                         // It must not be replaced or capped by the withholding breakdown.
-                        $collected = min($total, max(0, (float) ($transaction->amount_paid ?? 0)));
+                        $collected = min($productPaymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
@@ -275,9 +278,9 @@
                                 </div>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $total }}" step="0.01" value="{{ $transaction->amount_paid ?? 0 }}" placeholder="Amount paid" data-order-total="{{ $total }}" @disabled($paymentLocked)>
+                                    <input type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $productPaymentTotal }}" step="0.01" value="{{ $transaction->amount_paid ?? 0 }}" placeholder="Amount paid" data-order-total="{{ $productPaymentTotal }}" @disabled($paymentLocked)>
                                     @if($paymentLocked)
-                                        <input type="hidden" name="amount_paid" value="{{ $transaction->amount_paid ?? $total }}">
+                                        <input type="hidden" name="amount_paid" value="{{ $transaction->amount_paid ?? $productPaymentTotal }}">
                                     @endif
                                     <button type="submit" class="btn btn-primary">Save</button>
                                 </div>
@@ -291,8 +294,8 @@
                                         <input type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Reference amount">
                                     </div>
                                 </div>
-                                <small class="text-muted d-block mt-1">Reference only. These values do not change the Order Value or Collected amount.</small>
-                                <small class="text-muted payment-balance-help">{{ $paymentLocked ? 'Payment is fully paid and locked. Delivery status remains editable.' : 'For Partial, enter an amount below ₱'.number_format($total, 2).'.' }}</small>
+                                <small class="text-muted d-block mt-1">Withholding Tax changes the displayed Order Value and monthly subtotal only; it does not change customer payment or Collected.</small>
+                                <small class="text-muted payment-balance-help">{{ $paymentLocked ? 'Payment is fully paid and locked. Delivery status remains editable.' : 'For Partial, enter an amount below ₱'.number_format($productPaymentTotal, 2).'.' }}</small>
                                 <small class="text-danger d-none payment-amount-error">An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.</small>
                             </form>
                         </td>
@@ -310,7 +313,11 @@
                             $monthCustomerPayable = $monthTransactions->sum(function ($sale) {
                                 $invoiceTotal = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
 
-                                return max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0));
+                                $productPaymentTotal = max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0));
+
+                                return $sale->wholesale_withholding_tax === null
+                                    ? $productPaymentTotal
+                                    : (float) $sale->wholesale_withholding_tax;
                             });
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
@@ -434,7 +441,11 @@
                 $wholesaleSalesValue = function ($transaction): float {
                     $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
 
-                    return max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0));
+                    $productPaymentTotal = max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0));
+
+                    return $transaction->wholesale_withholding_tax === null
+                        ? $productPaymentTotal
+                        : (float) $transaction->wholesale_withholding_tax;
                 };
                 $kpiOrderValue = $allTransactions->sum($wholesaleSalesValue);
                 $kpiCollected = $wholesaleCollectedSales;
