@@ -360,7 +360,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertDontSee('walk-in-replacement-'.$item->id, false)
             ->assertDontSee('TOTAL GROSS SALES')
             ->assertSee('Proof Amount')
-            ->assertSee('₱123.45');
+            ->assertSee('class="text-end fw-semibold">₱100.00</td>', false);
 
         $payload = [
             'replacement_product_id' => $replacement->id,

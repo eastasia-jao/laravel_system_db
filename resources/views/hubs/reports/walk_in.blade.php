@@ -111,6 +111,7 @@
                         $approvedReplacements = $transaction->replacements->where('status', 'approved');
                         $walkInGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * max(0, (int) $item->quantity - $item->returnedQuantity()))
                             + $approvedReplacements->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
+                        $walkInOrderTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->sub_total ?: $transaction->items->sum('line_total'));
                         $walkInNet = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->sub_total ?: $transaction->items->sum('line_total')));
                     @endphp
                     <tr>
@@ -120,7 +121,7 @@
                             <td data-walk-in-preview-remove class="fw-semibold">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge')</td>
                             <td data-walk-in-preview-remove>{{ $transaction->items->count() }} product(s)<small class="d-block text-muted">{{ $transaction->items->sum(fn ($item) => (int) $item->quantity - $item->returnedQuantity()) }} remaining unit(s)</small></td>
                             <td data-walk-in-preview-remove><div>{{ strtoupper($transaction->mode_of_payment ?: '—') }}</div><span class="badge mt-1 {{ ($transaction->payment_status ?? 'paid') === 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">{{ strtoupper($transaction->payment_status ?? 'paid') }}</span></td>
-                            <td class="text-end fw-semibold">{{ $transaction->proof_amount !== null ? '₱'.number_format($transaction->proof_amount, 2) : '—' }}</td>
+                            <td class="text-end fw-semibold">₱{{ number_format($walkInOrderTotal, 2) }}</td>
                         @else
                             <td data-walk-in-preview-remove class="fw-semibold">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge')</td>
                             <td data-walk-in-preview-remove>{{ $transaction->items->count() }} product(s)<small class="d-block text-muted">{{ $transaction->items->sum(fn ($item) => (int) $item->quantity - $item->returnedQuantity()) }} remaining unit(s)</small></td>
