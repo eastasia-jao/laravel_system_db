@@ -25,6 +25,7 @@
     .wholesale-report-card th:nth-child(15), .wholesale-report-card td:nth-child(15),
     .wholesale-report-card th:nth-child(16), .wholesale-report-card td:nth-child(16),
     .wholesale-report-card th:nth-child(17), .wholesale-report-card td:nth-child(17) { display: none; }
+    .wholesale-report-card .wholesale-month-subtotal td { display: table-cell !important; }
     .wholesale-report-card tbody td { padding: .65rem .6rem; }
     .wholesale-customer-summary { min-width: 0; }
     .wholesale-customer-summary .customer-copy { min-width: 0; }
@@ -245,9 +246,9 @@
                         <td class="text-end">₱{{ number_format($shippingFee, 2) }}@if($approvedReplacementShipping > 0)<small class="d-block text-muted">Includes ₱{{ number_format($approvedReplacementShipping, 2) }} replacement shipping</small>@endif</td>
                         <td class="text-end">{{ $withholdingAmount === null ? '—' : '₱'.number_format($withholdingAmount, 2) }}</td>
                         <td>{{ $transaction->order_number }}</td>
-                        <td><span class="wholesale-table-status {{ $paymentStatus === 'paid' ? 'bg-success-subtle text-success' : ($paymentStatus === 'partial' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-secondary-subtle text-secondary-emphasis') }}">{{ strtoupper($paymentStatus) }}</span></td>
+                        <td class="text-center"><span class="wholesale-table-status {{ $paymentStatus === 'paid' ? 'bg-success-subtle text-success' : ($paymentStatus === 'partial' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-secondary-subtle text-secondary-emphasis') }}">{{ strtoupper($paymentStatus) }}</span></td>
                         <td>{{ strtoupper($transaction->status ?? 'confirmed') }}</td>
-                        <td><span class="wholesale-table-status {{ $deliveryStatus === 'delivered' ? 'bg-success-subtle text-success' : ($deliveryStatus === 'cancelled' ? 'bg-danger-subtle text-danger' : 'bg-info-subtle text-info-emphasis') }}">{{ strtoupper($deliveryStatus) }}</span></td>
+                        <td class="text-center"><span class="wholesale-table-status {{ $deliveryStatus === 'delivered' ? 'bg-success-subtle text-success' : ($deliveryStatus === 'cancelled' ? 'bg-danger-subtle text-danger' : 'bg-info-subtle text-info-emphasis') }}">{{ strtoupper($deliveryStatus) }}</span></td>
                         <td>{{ optional($transaction->delivery_date ?? $transaction->date_of_arrangement)->format('F d, Y') ?? '—' }}</td>
                         <td>{{ strtoupper($transaction->shipping_fee_type ?: '—') }}</td>
                         <td>{{ $transaction->courier ?: '—' }}</td>
@@ -313,9 +314,14 @@
                                     ? max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0))
                                     : (float) $sale->wholesale_withholding_tax;
                             });
+                            $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
-                        <tr class="table-primary-subtle fw-semibold">
-                            <td colspan="17" class="text-end">
+                        <tr class="table-primary-subtle fw-semibold wholesale-month-subtotal">
+                            <td colspan="5" class="text-end">
+                                {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} shipping fee total:
+                            </td>
+                            <td class="text-end">₱{{ number_format($monthShippingFees, 2) }}</td>
+                            <td colspan="11" class="text-end">
                                 {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal: ₱{{ number_format($monthCustomerPayable, 2) }}
                             </td>
                         </tr>
