@@ -930,8 +930,7 @@ class SalesReportController extends Controller
                 ]);
             }
             $originalUnitPrice = round((float) $transactionItem->unit_price * (1 - ((float) ($transactionItem->discount_percentage ?? 0) / 100)), 2);
-            $usesExchangeCredit = ! ($channel === 'wholesale' && $sale->payment_status === 'partial');
-            $credit = $usesExchangeCredit ? round($originalUnitPrice * $quantity, 2) : 0.0;
+            $isPartialWholesale = $channel === 'wholesale' && $sale->payment_status === 'partial';
             $pricedLines = $requestedLines->map(function ($line) use ($replacementProducts, $channel) {
                 $product = $replacementProducts->get($line['product_id']);
                 $unitPrice = (float) ($channel === 'wholesale'
@@ -957,15 +956,31 @@ class SalesReportController extends Controller
             }
             $replacementProductsTotal = round((float) $pricedLines->sum('total'), 2);
             $exchangeTotal = round($replacementProductsTotal + $replacementShippingFee, 2);
+            $returnedItemValue = round($originalUnitPrice * $quantity, 2);
+            $newSubTotal = max(0, (float) $sale->sub_total - $returnedItemValue + $replacementProductsTotal);
+            $newShippingFee = round((float) $sale->shipping_fee_amount + $replacementShippingFee, 2);
+            $discount = $newSubTotal * ((float) $sale->additional_discount_percentage / 100);
+            $withholding = $newSubTotal * ((float) $sale->withholding_tax / 100);
+            $revisedOrderTotal = max(0, round($newSubTotal - $discount - $withholding + $newShippingFee, 2));
+            $existingPaid = max(0, round((float) $sale->amount_paid, 2));
+            $credit = $isPartialWholesale
+                ? max(0, round($exchangeTotal - max(0, $revisedOrderTotal - $existingPaid), 2))
+                : $returnedItemValue;
+            $usesExchangeCredit = $credit > 0;
             $allowsLowerValueExchange = $channel === 'online'
-                || ($channel === 'walk_in' && $storeHub->is_head_office);
+                || ($channel === 'walk_in' && $storeHub->is_head_office)
+                || $isPartialWholesale;
             if (! $allowsLowerValueExchange && $exchangeTotal + 0.0001 < $credit) {
                 throw ValidationException::withMessages([
                     'replacement_product_id' => 'The replacement basket must equal or exceed the exchange credit of ₱'.number_format($credit, 2).'. Add another product or increase a quantity.',
                 ]);
             }
 
-            $additionalPaymentDue = max(0, round($exchangeTotal - $credit, 2));
+            // A partial Wholesale payment is applied to the revised order. It is never
+            // charged again, and a Free replacement delivery option contributes zero.
+            $additionalPaymentDue = $isPartialWholesale
+                ? max(0, round($revisedOrderTotal - $existingPaid, 2))
+                : max(0, round($exchangeTotal - $credit, 2));
             $paymentAmount = round((float) ($validated['exchange_payment_amount'] ?? 0), 2);
             $paymentMethod = strtoupper(trim((string) ($validated['exchange_payment_method'] ?? '')));
             if (abs($paymentAmount - $additionalPaymentDue) > 0.0001) {
@@ -1201,8 +1216,11 @@ class SalesReportController extends Controller
             $discount = $newSubTotal * ((float) $sale->additional_discount_percentage / 100);
             $withholding = $newSubTotal * ((float) $sale->withholding_tax / 100);
             $calculatedGrandTotal = max(0, round($newSubTotal - $discount - $withholding + $newShippingFee, 2));
-            // A cheaper replacement does not reduce the original order obligation.
-            $newGrandTotal = max($originalOrderTotal, $calculatedGrandTotal);
+            // A partial Wholesale order must use its revised total so its existing
+            // payment is credited once, rather than being collected a second time.
+            $newGrandTotal = $channel === 'wholesale' && $sale->payment_status === 'partial'
+                ? $calculatedGrandTotal
+                : max($originalOrderTotal, $calculatedGrandTotal);
             $amountPaid = (float) $sale->amount_paid;
             $exchangePayment = round((float) ($record->exchange_payment_amount ?? 0), 2);
             if ($exchangePayment > 0) {

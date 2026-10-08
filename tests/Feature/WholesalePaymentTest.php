@@ -237,7 +237,7 @@ class WholesalePaymentTest extends TestCase
         ]);
     }
 
-    public function test_partial_wholesale_replacement_charges_the_full_replacement_basket_and_shipping(): void
+    public function test_partial_wholesale_replacement_charges_only_the_revised_balance_including_shipping(): void
     {
         $hub = StoreHub::create(['name' => 'Wholesale Exchange', 'code' => 'WH-EX', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);

@@ -198,6 +198,11 @@
                                                         data-original-product-id="{{ $item->product_id }}"
                                                         data-original-unit-price="{{ round((float) $item->unit_price * (1 - ((float) ($item->discount_percentage ?? 0) / 100)), 2) }}"
                                                         data-payment-status="{{ $paymentStatus }}"
+                                                        data-order-subtotal="{{ (float) ($transaction->sub_total ?: $transaction->items->sum('line_total')) }}"
+                                                        data-order-shipping="{{ (float) ($transaction->shipping_fee_amount ?? 0) }}"
+                                                        data-order-discount="{{ (float) ($transaction->additional_discount_percentage ?? 0) }}"
+                                                        data-order-withholding="{{ (float) ($transaction->withholding_tax ?? 0) }}"
+                                                        data-amount-paid="{{ (float) ($transaction->amount_paid ?? 0) }}"
                                                         data-remaining="{{ $wholesaleReplacementLimit }}">
                                                         <i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item
                                                     </button>
@@ -304,7 +309,7 @@
             </div>
             <div class="modal-body">
                 <div class="alert alert-info small">This request goes to Inventory Verification first. Stock and the order total change only after approval, using the quantities and wholesale prices below.</div>
-                <div class="alert alert-warning small d-none" data-wholesale-partial-payment-note>For a partially paid order, the original partial payment stays on the order. The customer pays the full replacement basket plus shipping.</div>
+                <div class="alert alert-warning small d-none" data-wholesale-partial-payment-note>For a partially paid order, the payment already received is applied once to the revised order. The customer pays only the remaining balance, including a replacement delivery fee when it is not Free.</div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="wholesaleReplacementSearch">Replacement product</label>
                     <input type="text" id="wholesaleReplacementSearch" class="form-control" list="wholesaleReplacementOptions" autocomplete="off" placeholder="Type at least 1 character or an Item ID" required>
@@ -347,7 +352,7 @@
                         <div class="d-flex align-items-center justify-content-between mb-2"><strong><i class="fa-solid fa-calculator text-primary me-2"></i>Exchange calculation</strong><span class="badge bg-secondary" data-exchange-calculation-status>Select a replacement</span></div>
                         <div class="row g-2 small">
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement shipping</span><strong data-exchange-shipping>₱0.00</strong></div>
-                            <div class="col-6 col-md-3"><span class="text-muted d-block">Original exchange credit</span><strong data-exchange-credit>₱0.00</strong></div>
+                            <div class="col-6 col-md-3"><span class="text-muted d-block" data-exchange-credit-label>Original exchange credit</span><strong data-exchange-credit>₱0.00</strong></div>
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Main replacement total</span><strong data-exchange-main-total>₱0.00</strong></div>
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Additional products</span><strong data-exchange-extra-total>₱0.00</strong></div>
                             <div class="col-6 col-md-3"><span class="text-muted d-block">Replacement basket total</span><strong data-exchange-basket-total>₱0.00</strong></div>
@@ -607,6 +612,12 @@
             let originalUnitPrice = 0;
             let remainingQuantity = 1;
             let usesExchangeCredit = true;
+            let isPartialWholesale = false;
+            let orderSubTotal = 0;
+            let orderShipping = 0;
+            let orderDiscount = 0;
+            let orderWithholding = 0;
+            let amountAlreadyPaid = 0;
             let timer;
             const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             const calculateExchange = () => {
@@ -626,16 +637,23 @@
                     ? Math.max(0, Number(shippingAmount.value || 0))
                     : 0;
                 const basketTotal = mainTotal + extraTotal + shippingFee;
-                const amountDue = Math.max(0, basketTotal - credit);
+                const revisedSubTotal = Math.max(0, orderSubTotal - (originalUnitPrice * Math.max(1, Number(quantity.value || 1))) + mainTotal + extraTotal);
+                const revisedOrderTotal = Math.max(0, revisedSubTotal - (revisedSubTotal * (orderDiscount / 100)) - (revisedSubTotal * (orderWithholding / 100)) + orderShipping + shippingFee);
+                const amountDue = isPartialWholesale
+                    ? Math.max(0, revisedOrderTotal - amountAlreadyPaid)
+                    : Math.max(0, basketTotal - credit);
+                const appliedCredit = isPartialWholesale ? Math.max(0, basketTotal - amountDue) : credit;
                 const shortfall = Math.max(0, credit - basketTotal);
-                summary.querySelector('[data-exchange-credit]').textContent = money(credit);
+                summary.querySelector('[data-exchange-credit]').textContent = money(appliedCredit);
                 summary.querySelector('[data-exchange-main-total]').textContent = money(mainTotal);
                 summary.querySelector('[data-exchange-extra-total]').textContent = money(extraTotal);
                 summary.querySelector('[data-exchange-basket-total]').textContent = money(basketTotal);
                 summary.querySelector('[data-exchange-shipping]').textContent = money(shippingFee);
                 summary.querySelector('[data-exchange-amount-due]').textContent = `Customer adds ${money(amountDue)}`;
                 summary.querySelector('[data-exchange-formula]').textContent = mainUnitPrice > 0
-                    ? `${money(mainUnitPrice)} × ${mainQuantity} less ${mainDiscount.toFixed(2)}% discount, plus additional products.`
+                    ? (isPartialWholesale
+                        ? `Revised order total ${money(revisedOrderTotal)} less payment already received ${money(amountAlreadyPaid)}.`
+                        : `${money(mainUnitPrice)} × ${mainQuantity} less ${mainDiscount.toFixed(2)}% discount, plus additional products.`)
                     : 'Choose a replacement product to calculate the total.';
                 const status = summary.querySelector('[data-exchange-calculation-status]');
                 status.className = `badge ${shortfall > 0 ? 'bg-warning text-dark' : (amountDue > 0 ? 'bg-danger' : 'bg-success')}`;
@@ -656,8 +674,15 @@
                 form.action = button.dataset.action;
                 originalProductId = String(button.dataset.originalProductId);
                 originalUnitPrice = Number(button.dataset.originalUnitPrice || 0);
-                usesExchangeCredit = button.dataset.paymentStatus !== 'partial';
-                form.querySelector('[data-wholesale-partial-payment-note]').classList.toggle('d-none', usesExchangeCredit);
+                isPartialWholesale = button.dataset.paymentStatus === 'partial';
+                usesExchangeCredit = !isPartialWholesale;
+                orderSubTotal = Number(button.dataset.orderSubtotal || 0);
+                orderShipping = Number(button.dataset.orderShipping || 0);
+                orderDiscount = Number(button.dataset.orderDiscount || 0);
+                orderWithholding = Number(button.dataset.orderWithholding || 0);
+                amountAlreadyPaid = Number(button.dataset.amountPaid || 0);
+                form.querySelector('[data-wholesale-partial-payment-note]').classList.toggle('d-none', !isPartialWholesale);
+                summary.querySelector('[data-exchange-credit-label]').textContent = isPartialWholesale ? 'Prior payment applied' : 'Original exchange credit';
                 remainingQuantity = Number(button.dataset.remaining || 1);
                 productHelp.textContent = `Original item: ${button.dataset.product}`;
                 quantity.max = remainingQuantity;
