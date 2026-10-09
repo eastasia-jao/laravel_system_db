@@ -15,36 +15,50 @@
         : 'walk_in';
 @endphp
 <style>
-    .hub-page { max-width: 1500px; }
-    .hub-hero { position: relative; overflow: hidden; border-radius: 24px; padding: 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 60%, #38bdf8); box-shadow: 0 16px 36px rgba(37, 99, 235, .2); }
-    .hub-hero::after { content: ''; position: absolute; width: 240px; height: 240px; right: -70px; top: -100px; border-radius: 50%; background: rgba(255,255,255,.12); }
-    .hub-hero-content { position: relative; z-index: 1; }
-    .hub-eyebrow { letter-spacing: .12em; font-size: .7rem; font-weight: 700; opacity: .75; }
-    .hub-mode { display: inline-flex; align-items: center; gap: .45rem; padding: .45rem .75rem; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; background: rgba(255,255,255,.13); font-size: .78rem; }
-    .hub-actions { margin-top: -1rem; position: relative; z-index: 2; }
-    .hub-action { min-height: 112px; border: 0; border-radius: 16px; background: #fff; color: #1e293b; box-shadow: 0 8px 24px rgba(15, 23, 42, .08); transition: transform .18s ease, box-shadow .18s ease; }
-    .hub-action:hover { color: #1d4ed8; transform: translateY(-3px); box-shadow: 0 14px 28px rgba(15, 23, 42, .13); }
-    .hub-action-icon { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #eff6ff; color: #2563eb; font-size: 1.05rem; }
-    .hub-action-label { display: block; margin-top: .65rem; font-size: .82rem; font-weight: 700; }
-    .hub-section-title { color: #64748b; font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .hub-action {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: 56px;
+        border: 1px solid var(--bs-primary);
+        border-radius: .375rem;
+        background: #fff;
+        color: var(--bs-primary);
+        box-shadow: var(--bs-box-shadow-sm);
+        text-decoration: none;
+    }
+    .hub-action:hover { background: var(--bs-primary); color: #fff; }
+    .hub-action-icon { margin-right: .5rem; }
+    .hub-action-label { font-weight: 600; }
 </style>
-<div class="container-fluid p-4 hub-page">
-    <div class="hub-hero mb-4">
-        <div class="hub-hero-content d-flex flex-wrap justify-content-between align-items-end gap-3">
-            <div>
-                <div class="hub-eyebrow mb-2">Sales Management Hub</div>
-                <h2 class="fw-bold mb-2">{{ $hub->name }}</h2>
-                <span class="hub-mode">
-                    <i class="fa-solid {{ $hub->is_head_office ? 'fa-building-columns' : 'fa-store' }}"></i>
-                    {{ $hub->is_head_office ? 'Head Office · Multi-channel' : 'Store · Walk-In' }}
-                </span>
-            </div>
-            <div class="small text-white-50"><i class="fa-solid fa-shield-halved me-1"></i> Verified workspace</div>
+<div class="container-fluid p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <div class="text-uppercase small fw-bold text-muted">Sales Management Hub</div>
+            <h2 class="mb-1 fw-bold text-primary">{{ $hub->name }}</h2>
+            <span class="badge rounded-pill {{ $hub->is_head_office ? 'bg-primary' : 'bg-secondary' }}">
+                <i class="fa-solid {{ $hub->is_head_office ? 'fa-building-columns' : 'fa-store' }} me-1"></i>
+                {{ $hub->is_head_office ? 'Head Office · Multi-channel' : 'Store · Walk-In' }}
+            </span>
         </div>
     </div>
 
-    <div class="hub-section-title mb-2">Quick actions</div>
-    <div class="row row-cols-2 row-cols-md-3 row-cols-xl-6 g-3 mb-4 hub-actions">
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show shadow-sm mb-4" role="alert">
+            <i class="fa-solid fa-circle-check me-2"></i> {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm mb-4" role="alert">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    <div class="row row-cols-1 row-cols-md-4 g-3 mb-4">
         <!-- Conditional Record Sale Button -->
         @can('record-channel-sales')
         @if(($hub->is_head_office && auth()->user()?->role !== 'sales_associate')
