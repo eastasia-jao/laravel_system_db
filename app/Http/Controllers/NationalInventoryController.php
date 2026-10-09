@@ -9,6 +9,7 @@ use App\Support\CsvIdentifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class NationalInventoryController extends Controller
@@ -181,6 +182,62 @@ class NationalInventoryController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
+    public function update(Request $request, NationalProduct $nationalProduct)
+    {
+        $hub = $this->headOffice($request);
+        $request->merge([
+            'item_id' => CsvIdentifier::read($request->input('item_id'), 'Item ID'),
+            'barcode' => CsvIdentifier::read($request->input('barcode'), 'Barcode') ?: null,
+        ]);
+        $validated = $request->validate([
+            'item_id' => ['required', 'string', 'max:255', Rule::unique('national_products', 'item_id')->ignore($nationalProduct->id)],
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'barcode' => ['nullable', 'string', 'max:255'],
+            'brand' => ['nullable', 'string', 'max:255'],
+            'stock' => ['required', 'integer', 'min:0'],
+            'unit_type' => ['nullable', 'string', 'max:255'],
+        ]);
+        $nationalProduct->update($validated);
+
+        $this->logAction($request, $hub, 'product_update', "Updated National product {$nationalProduct->item_id}.", $nationalProduct);
+
+        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
+            ->with('success', 'National product updated successfully.');
+    }
+
+    public function toggleStatus(Request $request, NationalProduct $nationalProduct)
+    {
+        $hub = $this->headOffice($request);
+        $nationalProduct->status = $nationalProduct->status === 'active' ? 'inactive' : 'active';
+        $nationalProduct->save();
+
+        $this->logAction($request, $hub, 'product_status_change', "Set National product {$nationalProduct->item_id} to {$nationalProduct->status}.", $nationalProduct);
+
+        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
+            ->with('success', "National product {$nationalProduct->status}.");
+    }
+
+    public function destroy(Request $request, NationalProduct $nationalProduct)
+    {
+        $hub = $this->headOffice($request);
+        $itemId = $nationalProduct->item_id;
+        $productId = $nationalProduct->id;
+        $nationalProduct->delete();
+
+        StaffActivityLog::create([
+            'user_id' => $request->user()->id,
+            'store_hub_id' => $hub->id,
+            'action_type' => 'product_delete',
+            'description' => "Deleted National product {$itemId}.",
+            'details' => ['inventory_scope' => 'national', 'product_id' => $productId, 'item_id' => $itemId],
+            'ip_address' => $request->ip(),
+        ]);
+
+        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
+            ->with('success', 'National product deleted.');
+    }
+
     private function headOffice(Request $request): StoreHub
     {
         $user = $request->user();
@@ -224,5 +281,17 @@ class NationalInventoryController extends Controller
         }
 
         return (int) $value;
+    }
+
+    private function logAction(Request $request, StoreHub $hub, string $actionType, string $description, NationalProduct $product): void
+    {
+        StaffActivityLog::create([
+            'user_id' => $request->user()->id,
+            'store_hub_id' => $hub->id,
+            'action_type' => $actionType,
+            'description' => $description,
+            'details' => ['inventory_scope' => 'national', 'product_id' => $product->id, 'item_id' => $product->item_id],
+            'ip_address' => $request->ip(),
+        ]);
     }
 }

@@ -102,4 +102,59 @@ class NationalInventoryTest extends TestCase
 
         $this->assertDatabaseCount('national_products', 0);
     }
+
+    public function test_head_office_staff_can_edit_toggle_and_delete_national_products(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
+        $branch = StoreHub::create(['name' => 'Branch', 'code' => 'BR-NATIONAL', 'status' => 'active', 'is_head_office' => false]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $headOffice->id]);
+        $branchStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $branch->id]);
+        $product = NationalProduct::create([
+            'item_id' => '00001',
+            'name' => 'National Brush',
+            'description' => 'Original description',
+            'barcode' => '001234567890',
+            'brand' => 'ArtCo',
+            'stock' => 5,
+            'unit_type' => 'PCS',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($inventoryStaff)
+            ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
+            ->assertOk()
+            ->assertSee('Edit National product')
+            ->assertSee('Deactivate National product')
+            ->assertSee('Delete National product');
+
+        $this->actingAs($inventoryStaff)
+            ->put(route('national-inventory.update', $product), [
+                'hub_id' => $headOffice->id,
+                'item_id' => '00001',
+                'name' => 'Updated National Brush',
+                'description' => 'Updated description',
+                'barcode' => '001234567890',
+                'brand' => 'Updated ArtCo',
+                'stock' => 12,
+                'unit_type' => 'BOX',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
+        $this->assertDatabaseHas('national_products', ['id' => $product->id, 'name' => 'Updated National Brush', 'stock' => 12, 'unit_type' => 'BOX']);
+
+        $this->actingAs($inventoryStaff)
+            ->patch(route('national-inventory.toggle', $product), ['hub_id' => $headOffice->id])
+            ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
+        $this->assertSame('inactive', $product->fresh()->status);
+
+        $this->actingAs($branchStaff)
+            ->delete(route('national-inventory.destroy', $product), ['hub_id' => $headOffice->id])
+            ->assertForbidden();
+        $this->assertDatabaseHas('national_products', ['id' => $product->id]);
+
+        $this->actingAs($inventoryStaff)
+            ->delete(route('national-inventory.destroy', $product), ['hub_id' => $headOffice->id])
+            ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
+        $this->assertDatabaseMissing('national_products', ['id' => $product->id]);
+    }
 }

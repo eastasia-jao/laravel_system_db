@@ -62,7 +62,7 @@
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 national-inventory-table">
-                <thead><tr><th class="text-center" style="width:48px"><input type="checkbox" class="form-check-input" id="nationalSelectAll" aria-label="Select all National products on this page"></th><th>Product</th><th>Item ID</th><th>Barcode</th><th>Brand</th><th>Unit Type</th><th class="text-center">Stock</th></tr></thead>
+                <thead><tr><th class="text-center" style="width:48px"><input type="checkbox" class="form-check-input" id="nationalSelectAll" aria-label="Select all National products on this page"></th><th>Product</th><th>Item ID</th><th>Barcode</th><th>Brand</th><th>Unit Type</th><th class="text-center">Stock</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
                 <tbody>
                     @forelse($nationalProducts as $product)
                     <tr>
@@ -73,9 +73,17 @@
                         <td>{{ $product->brand ?: '—' }}</td>
                         <td>{{ $product->unit_type ?: '—' }}</td>
                         <td class="text-center fw-bold">{{ number_format($product->stock) }}</td>
+                        <td><span class="badge {{ $product->status === 'active' ? 'text-bg-success' : 'text-bg-secondary' }}">{{ ucfirst($product->status) }}</span></td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" title="Edit National product" data-bs-toggle="modal" data-bs-target="#editNationalProductModal{{ $product->id }}"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button type="button" class="btn btn-sm {{ $product->status === 'active' ? 'btn-outline-warning' : 'btn-outline-success' }}" title="{{ $product->status === 'active' ? 'Deactivate' : 'Activate' }} National product" onclick="document.getElementById('toggle-national-product-{{ $product->id }}').submit()"><i class="fa-solid {{ $product->status === 'active' ? 'fa-toggle-on' : 'fa-toggle-off' }}"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" title="Delete National product" onclick="if (confirm('Delete this National product?')) document.getElementById('delete-national-product-{{ $product->id }}').submit()"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </td>
                     </tr>
                     @empty
-                    <tr><td colspan="7" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
+                    <tr><td colspan="9" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -83,6 +91,42 @@
         <div class="p-3 border-top">{{ $nationalProducts->links() }}</div>
     </form>
 </div>
+
+@foreach($nationalProducts as $product)
+    <form id="toggle-national-product-{{ $product->id }}" method="POST" action="{{ route('national-inventory.toggle', $product) }}" class="d-none">
+        @csrf @method('PATCH')
+        <input type="hidden" name="hub_id" value="{{ $hub->id }}">
+    </form>
+    <form id="delete-national-product-{{ $product->id }}" method="POST" action="{{ route('national-inventory.destroy', $product) }}" class="d-none">
+        @csrf @method('DELETE')
+        <input type="hidden" name="hub_id" value="{{ $hub->id }}">
+    </form>
+
+    <div class="modal fade" id="editNationalProductModal{{ $product->id }}" tabindex="-1" aria-labelledby="editNationalProductModalLabel{{ $product->id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <form class="modal-content" method="POST" action="{{ route('national-inventory.update', $product) }}">
+                @csrf @method('PUT')
+                <input type="hidden" name="hub_id" value="{{ $hub->id }}">
+                <div class="modal-header">
+                    <div><div class="small text-primary fw-bold text-uppercase">National Inventory</div><h5 class="modal-title" id="editNationalProductModalLabel{{ $product->id }}">Edit {{ $product->name }}</h5></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label fw-semibold">Item ID</label><input type="text" name="item_id" value="{{ $product->item_id }}" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Name</label><input type="text" name="name" value="{{ $product->name }}" class="form-control" required></div>
+                        <div class="col-12"><label class="form-label fw-semibold">Description</label><textarea name="description" rows="2" class="form-control">{{ $product->description }}</textarea></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Barcode</label><input type="text" name="barcode" value="{{ $product->barcode }}" class="form-control"></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Brand</label><input type="text" name="brand" value="{{ $product->brand }}" class="form-control"></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Stock</label><input type="number" name="stock" value="{{ $product->stock }}" min="0" step="1" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Unit Type</label><input type="text" name="unit_type" value="{{ $product->unit_type }}" class="form-control"></div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></div>
+            </form>
+        </div>
+    </div>
+@endforeach
 
 <div class="modal fade" id="nationalImportModal" tabindex="-1" aria-labelledby="nationalImportModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

@@ -222,6 +222,9 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::get('/products/national', [NationalInventoryController::class, 'index'])->name('national-inventory.index');
         Route::post('/products/national/import', [NationalInventoryController::class, 'import'])->name('national-inventory.import');
         Route::get('/products/national/export', [NationalInventoryController::class, 'export'])->name('national-inventory.export');
+        Route::put('/products/national/{nationalProduct}', [NationalInventoryController::class, 'update'])->name('national-inventory.update');
+        Route::patch('/products/national/{nationalProduct}/toggle', [NationalInventoryController::class, 'toggleStatus'])->name('national-inventory.toggle');
+        Route::delete('/products/national/{nationalProduct}', [NationalInventoryController::class, 'destroy'])->name('national-inventory.destroy');
         Route::prefix('products')->name('products.')->group(function () {
             Route::post('/bulk-destroy', [ProductController::class, 'bulkDestroy'])->middleware('can:full-access')->name('bulk-destroy');
             Route::patch('/{id}/toggle', [ProductController::class, 'toggleStatus'])->name('toggle');

@@ -14,6 +14,7 @@ class NationalProduct extends Model
         'brand',
         'unit_type',
         'stock',
+        'status',
     ];
 
     protected $casts = [
