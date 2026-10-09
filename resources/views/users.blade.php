@@ -3,6 +3,9 @@
 @section('content')
     <style>
         .users-page { max-width: 1500px; }
+        .users-page .page-hero { padding: 1rem 1.25rem; }
+        .users-page .table thead th { padding-block: .65rem; }
+        .users-page .table tbody td { padding-block: .55rem; }
         .users-card { border: 0; border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, .07); }
         .users-table thead th { color: #64748b; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
         .users-table tbody tr { border-color: #eef2f7; }
@@ -25,6 +28,11 @@
         .edit-staff-modal .form-control:focus, .edit-staff-modal .form-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 .2rem rgba(59, 130, 246, .12); }
         .staff-form-modal { border: 0; border-radius: 18px; overflow: hidden; box-shadow: 0 24px 70px rgba(15, 23, 42, .24); }
         .register-staff-header { background: linear-gradient(135deg, #064e3b, #059669); color: #fff; padding: 1.35rem 1.5rem; }
+        .staff-form-modal > .modal-header { padding: 1rem 1.25rem; }
+        .staff-form-modal > .modal-body { padding: 1rem !important; }
+        .staff-form-modal .edit-section { padding: .85rem; }
+        .staff-form-modal .edit-section-title { margin-bottom: .75rem; }
+        .staff-form-modal .modal-footer { padding: .75rem 1rem; }
         .register-staff-icon { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .3); font-size: 1.25rem; }
         .staff-form-modal .form-label { margin-bottom: .4rem; color: #334155; font-size: .8rem; font-weight: 600; }
         .staff-form-modal .form-control, .staff-form-modal .form-select { min-height: 44px; border-color: #dbe2ea; border-radius: 10px; }
@@ -62,8 +70,8 @@
         @media (max-width: 575.98px) { .create-assignment-panel { padding: .8rem; } .create-assignment-list { grid-template-columns: 1fr; max-height: 160px; } }
         @media (max-width: 575.98px) { .edit-assignment-panel { padding: .8rem; } .edit-assignment-list { grid-template-columns: 1fr; max-height: 160px; } }
     </style>
-    <div class="container-fluid px-4 py-4 users-page">
-        <x-page-header class="mb-4" eyebrow="Administration workspace" title="Staff Directory" description="Manage accounts, branch access, roles, and sales channels." icon="fa-users-gear">
+    <div class="container-fluid px-4 py-3 users-page">
+        <x-page-header class="mb-3" eyebrow="Administration workspace" title="Staff Directory" description="Manage accounts, branch access, roles, and sales channels." icon="fa-users-gear">
             <x-slot:actions><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registerStaffModal"><i class="bi bi-plus-lg me-1"></i> Register New Staff</button></x-slot:actions>
         </x-page-header>
 
@@ -174,8 +182,8 @@
                                 <label for="create_role" class="form-label">System Role</label>
                                 <select name="role" id="create_role" class="form-select role-selector" required>
                                     <option value="" disabled @selected(!old('role'))>Select a role</option>
-                                    @foreach($staffRoles as $staffRole)
-                                        <option value="{{ $staffRole->slug }}" @selected(old('role') === $staffRole->slug)>{{ $staffRole->name }}</option>
+                                    @foreach($staffRoles as $role => $roleName)
+                                        <option value="{{ $role }}" @selected(old('role') === $role)>{{ $roleName }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -292,8 +300,8 @@
                             <div class="col-md-6">
                                 <label for="edit_role" class="form-label">System Role</label>
                                 <select name="role" id="edit_role" class="form-select role-selector" required>
-                                    @foreach($staffRoles as $staffRole)
-                                        <option value="{{ $staffRole->slug }}">{{ $staffRole->name }}</option>
+                                    @foreach($staffRoles as $role => $roleName)
+                                        <option value="{{ $role }}">{{ $roleName }}</option>
                                     @endforeach
                                 </select>
                             </div>

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\StoreHub;
-use App\Models\StaffRole;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -17,7 +16,7 @@ class UserController extends Controller
     {
         $users = User::all();
         $hubs = StoreHub::all();
-        $staffRoles = StaffRole::where('is_system', true)->orderBy('name')->get();
+        $staffRoles = User::BUILT_IN_ROLES;
 
         return view('users', compact('users', 'hubs', 'staffRoles'));
     }

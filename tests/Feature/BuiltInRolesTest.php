@@ -25,9 +25,10 @@ class BuiltInRolesTest extends TestCase
             ->assertDontSee('Add Role with Selected Access');
     }
 
-    public function test_staff_forms_offer_only_the_four_built_in_roles(): void
+    public function test_staff_forms_offer_built_in_roles_when_role_records_are_missing(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
+        StaffRole::query()->delete();
 
         $this->actingAs($admin)
             ->get(route('users.index'))
