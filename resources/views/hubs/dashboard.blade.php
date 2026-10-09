@@ -35,7 +35,7 @@
 <div class="container-fluid p-4">
     <x-page-header class="mb-4" eyebrow="Sales management hub" :title="$hub->name" :description="$hub->is_head_office ? 'Head Office · Multi-channel operations' : 'Store · Walk-In operations'" :icon="$hub->is_head_office ? 'fa-building-columns' : 'fa-store'" />
 
-    @if(session('success'))
+    @if(session('success') && ($hub->is_head_office || !str_starts_with((string) session('success'), 'Walk-In sale submitted for inventory verification')))
         <div class="alert alert-success alert-dismissible fade show shadow-sm mb-4" role="alert">
             <i class="fa-solid fa-circle-check me-2"></i> {{ session('success') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>

@@ -259,17 +259,11 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Total Replacement')
             ->assertSee('View order')
             ->assertSee('Replace item')
-            ->assertSee('walk-in-replacement-'.$item->id, false)
-            ->assertSee('Exchange total')
-            ->assertSee('Additional replacement products')
-            ->assertSee('data-walk-in-amount-due', false)
-            ->assertSee('<option value="QRPH">QRPH</option>', false)
-            ->assertDontSee('<option value="DATED_CHECK">', false)
-            ->assertDontSee('<option value="POST_DATED_CHECK">', false)
-            ->assertDontSee('<option value="COD">', false)
+            ->assertSee('Available after inventory receives the returned item')
+            ->assertDontSee('walk-in-replacement-'.$item->id, false)
             ->assertSee('Return / refund');
 
-        $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), [
+        $replacementPayload = [
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,
             'replacement_quantity' => 1,
@@ -277,20 +271,11 @@ class OnlineWalkInReplacementTest extends TestCase
             'exchange_payment_method' => 'CASH',
             'reason' => 'Walk-in customer exchanged the item.',
             'replacement_order_slip' => UploadedFile::fake()->create('replacement-order.pdf', 100, 'application/pdf'),
-        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+        ];
+        $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $replacementPayload)
+            ->assertSessionHasErrors('quantity');
+        $this->assertDatabaseCount('product_replacements', 0);
 
-        $requestNotification = $admin->notifications()->latest()->firstOrFail();
-        $this->assertSame('Walk-In replacement verification needed', $requestNotification->data['title']);
-        $this->assertSame('walk_in', $requestNotification->data['channel']);
-
-        $request = ProductReplacement::sole();
-        $this->assertNotEmpty($request->replacement_order_slip);
-        Storage::disk('public')->assertExists($request->replacement_order_slip);
-        $this->actingAs($admin)->get(route('hub.sales.pending', $hub->id))
-            ->assertOk()
-            ->assertSee('Open replacement order slip')
-            ->assertSee('Inventory must record the original item as received');
-        $this->assertSame(9, $original->fresh()->stock);
         $original->increment('stock');
         InventoryTransaction::create([
             'type' => 'return',
@@ -305,6 +290,32 @@ class OnlineWalkInReplacementTest extends TestCase
             'occurred_on' => '2026-09-23',
             'created_by' => $admin->id,
         ]);
+        $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']))
+            ->assertOk()
+            ->assertSee('walk-in-replace-button', false)
+            ->assertSee('walk-in-replacement-'.$item->id, false)
+            ->assertSee('Exchange total')
+            ->assertSee('Additional replacement products')
+            ->assertSee('data-walk-in-amount-due', false)
+            ->assertSee('<option value="QRPH">QRPH</option>', false)
+            ->assertDontSee('<option value="DATED_CHECK">', false)
+            ->assertDontSee('<option value="POST_DATED_CHECK">', false)
+            ->assertDontSee('<option value="COD">', false);
+        $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $replacementPayload)
+            ->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $requestNotification = $admin->notifications()->latest()->firstOrFail();
+        $this->assertSame('Walk-In replacement verification needed', $requestNotification->data['title']);
+        $this->assertSame('walk_in', $requestNotification->data['channel']);
+
+        $request = ProductReplacement::sole();
+        $this->assertNotEmpty($request->replacement_order_slip);
+        Storage::disk('public')->assertExists($request->replacement_order_slip);
+        $this->actingAs($admin)->get(route('hub.sales.pending', $hub->id))
+            ->assertOk()
+            ->assertSee('Open replacement order slip')
+            ->assertDontSee('Inventory must record the original item as received');
+        $this->assertSame(10, $original->fresh()->stock);
         $this->actingAs($admin)->post(route('wholesale-replacements.approve', $request))
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
@@ -317,6 +328,19 @@ class OnlineWalkInReplacementTest extends TestCase
 
         [$rejectedSale, $rejectedItem] = $this->sale($admin, $hub, $original, 'walk_in', 'paid');
         $rejectedSale->update(['order_number' => 'WALK-IN-REJECTED']);
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $rejectedSale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $original->id,
+            'sales_transaction_id' => $rejectedSale->id,
+            'transaction_item_id' => $rejectedItem->id,
+            'channel' => 'walk_in',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-09-24',
+            'created_by' => $admin->id,
+        ]);
         $this->post(route('hub.report.walk-in.replacement.store', [$hub, $rejectedSale, $rejectedItem]), [
             'replacement_product_id' => $replacement->id,
             'quantity' => 1,

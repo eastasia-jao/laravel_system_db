@@ -267,8 +267,10 @@
                                             @else
                                                 <span class="small text-muted">Unavailable</span>
                                             @endif
-                                        @elseif($walkReturnStatus !== 'received' && $walkReturns->isEmpty() && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+                                        @elseif($item->remaining_returned_replaceable_quantity > 0 && $item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
                                             <button type="button" class="btn btn-sm btn-warning text-nowrap walk-in-replace-button" data-replacement-target="#walk-in-replacement-{{ $item->id }}" aria-label="Replace {{ $item->product?->name ?? 'item' }}" title="Request a replacement for this item"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item</button>
+                                        @elseif($item->remaining_replaceable_quantity > 0 && in_array($transaction->status, ['confirmed', 'completed'], true))
+                                            <button type="button" class="btn btn-sm btn-warning text-nowrap" disabled title="Available after inventory receives the returned item"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Replace item</button>
                                         @else
                                             <span class="small text-muted">Unavailable</span>
                                         @endif
@@ -350,19 +352,17 @@
     @php
         $walkInReplacementLimit = min(
             (int) $item->remaining_replaceable_quantity,
-            $hub->is_head_office
-                ? (int) $item->remaining_returned_replaceable_quantity
-                : (int) $item->remaining_replaceable_quantity
+            (int) $item->remaining_returned_replaceable_quantity
         );
         $walkInReplacementAvailable = $hub->is_head_office
             ? $walkInReplacementLimit > 0 && auth()->user()?->role !== 'sales_associate'
-            : ($item->return_status ?? 'none') !== 'received' && $item->inventoryReturns->isEmpty() && $walkInReplacementLimit > 0;
+            : $walkInReplacementLimit > 0;
     @endphp
     @if($walkInReplacementAvailable && in_array($transaction->status, ['confirmed', 'completed'], true))
         <div class="modal fade walk-in-replacement-modal" id="walk-in-replacement-{{ $item->id }}" data-walk-in-replacement-modal data-bs-backdrop="static" data-bs-keyboard="false" data-original-product-id="{{ $item->product_id }}" data-original-unit-price="{{ $item->unit_price }}" data-original-discount="{{ $item->discount_percentage ?? 0 }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.walk-in.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
             @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close replacement form"></button></div>
             <div class="modal-body">
-                <div class="alert alert-warning small">Inventory must verify this request before stock and totals change. @if($hub->is_head_office) Only received returned items can be replaced. @endif</div>
+                <div class="alert alert-warning small">Inventory must verify this request before stock and totals change. Only received returned items can be replaced.</div>
                 <div class="replacement-form-section mb-3">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                         <div><div class="replacement-form-section-title mb-0">Returned item</div><div class="small text-muted">{{ $item->product?->name ?? 'Product #'.$item->product_id }}</div></div>
