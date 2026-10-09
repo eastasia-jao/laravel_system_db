@@ -5,6 +5,7 @@ namespace App\Support;
 use Phar;
 use PharData;
 use RuntimeException;
+use ZipArchive;
 
 class NationalPulloutWorkbook
 {
@@ -17,17 +18,62 @@ class NationalPulloutWorkbook
         if ($path === false) {
             throw new RuntimeException('Unable to create a temporary National Bookstore Pullout workbook.');
         }
+
+        try {
+            $files = self::workbookFiles($items);
+            if (class_exists(ZipArchive::class)) {
+                self::createZipArchive($path, $files);
+            } else {
+                self::createPharArchive($path, $files);
+            }
+        } catch (\Throwable $exception) {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+
+            throw $exception;
+        }
+
+        return $path;
+    }
+
+    /**
+     * @param  array<string, string>  $files
+     */
+    private static function createZipArchive(string $path, array $files): void
+    {
+        $archive = new ZipArchive;
+        $result = $archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        if ($result !== true) {
+            throw new RuntimeException("Unable to open the National Bookstore Pullout workbook archive (code {$result}).");
+        }
+
+        foreach ($files as $name => $content) {
+            if (! $archive->addFromString($name, $content)) {
+                $archive->close();
+                throw new RuntimeException("Unable to add {$name} to the National Bookstore Pullout workbook.");
+            }
+        }
+
+        if (! $archive->close()) {
+            throw new RuntimeException('Unable to finish the National Bookstore Pullout workbook archive.');
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $files
+     */
+    private static function createPharArchive(string $path, array $files): void
+    {
         if (! unlink($path)) {
             throw new RuntimeException('Unable to prepare the temporary National Bookstore Pullout workbook.');
         }
 
         $archive = new PharData($path, 0, null, Phar::ZIP);
-        foreach (self::workbookFiles($items) as $name => $content) {
+        foreach ($files as $name => $content) {
             $archive->addFromString($name, $content);
         }
         unset($archive);
-
-        return $path;
     }
 
     /**
