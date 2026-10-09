@@ -55,6 +55,12 @@
 <div class="p-5 workspace-page">
     <div class="mb-4">
         <x-page-header eyebrow="Inventory workspace" title="Master Product Stock Sheets" description="Review inventory balances per physical store hub." icon="fa-boxes-stacked" />
+        @if(in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true) && $selectedHub?->is_head_office)
+        <nav class="inventory-scope-tabs mt-3" aria-label="Inventory type">
+            <a class="btn btn-primary" href="{{ route('products.index', ['hub_id' => $selectedHub->id]) }}"><i class="fa-solid fa-warehouse me-1"></i> Store Inventory</a>
+            <a class="btn btn-outline-primary" href="{{ route('national-inventory.index', ['hub_id' => $selectedHub->id]) }}"><i class="fa-solid fa-earth-asia me-1"></i> National Inventory</a>
+        </nav>
+        @endif
         @can('manage-shared-catalog')
         @if($selectedHub?->is_head_office)
         <a class="btn btn-outline-success mt-3" href="{{ route('catalog.index', ['hub_id' => $selectedHub->id]) }}">Shared Product Catalog</a>

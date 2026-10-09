@@ -11,6 +11,7 @@ use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\StockAllocationController;
 use App\Http\Controllers\InventoryTransactionController;
 use App\Http\Controllers\FullyBookedOrderController;
+use App\Http\Controllers\NationalInventoryController;
 use App\Http\Controllers\PrivateApiController;
 use App\Http\Controllers\StaffActivityLogController;
 use App\Http\Controllers\UnitTypeController;
@@ -218,6 +219,9 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
 
     // Product creating/editing/deleting inventory (admin + inventory staff)
     Route::middleware(['can:manage-inventory'])->group(function () {
+        Route::get('/products/national', [NationalInventoryController::class, 'index'])->name('national-inventory.index');
+        Route::post('/products/national/import', [NationalInventoryController::class, 'import'])->name('national-inventory.import');
+        Route::get('/products/national/export', [NationalInventoryController::class, 'export'])->name('national-inventory.export');
         Route::prefix('products')->name('products.')->group(function () {
             Route::post('/bulk-destroy', [ProductController::class, 'bulkDestroy'])->middleware('can:full-access')->name('bulk-destroy');
             Route::patch('/{id}/toggle', [ProductController::class, 'toggleStatus'])->name('toggle');

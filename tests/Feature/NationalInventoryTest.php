@@ -1,0 +1,102 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\NationalProduct;
+use App\Models\Product;
+use App\Models\StoreHub;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Tests\TestCase;
+
+class NationalInventoryTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_national_inventory_is_visible_only_for_head_office_admin_and_inventory_staff(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
+        $branch = StoreHub::create(['name' => 'Branch', 'code' => 'BR-NATIONAL', 'status' => 'active', 'is_head_office' => false]);
+
+        foreach (['admin', 'inventory_staff'] as $role) {
+            $user = User::factory()->create(['role' => $role, 'hub_id' => $headOffice->id]);
+            $this->actingAs($user)
+                ->get(route('products.index', ['hub_id' => $headOffice->id]))
+                ->assertOk()
+                ->assertSee('National Inventory');
+            $this->actingAs($user)
+                ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
+                ->assertOk()
+                ->assertSee('Separate inventory:');
+            $this->actingAs($user)
+                ->get(route('products.index', ['hub_id' => $branch->id]))
+                ->assertOk()
+                ->assertDontSee('National Inventory');
+            $this->actingAs($user)
+                ->get(route('national-inventory.index', ['hub_id' => $branch->id]))
+                ->assertForbidden();
+        }
+
+        $salesAssociate = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $headOffice->id]);
+        $this->actingAs($salesAssociate)
+            ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
+            ->assertForbidden();
+
+        $branchInventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $branch->id]);
+        $this->actingAs($branchInventoryStaff)
+            ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
+            ->assertForbidden();
+    }
+
+    public function test_national_csv_import_and_export_are_separate_from_store_products(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+        $csv = implode("\n", [
+            'ID,Item ID,Name,Description,Barcode,Brand,Retail Group,Retail Department,Cost Price,Retail Price,Wholesale Price,Shopee Price,Lazada Price,TikTok Price,Stock,Unit Type,Status',
+            '1,="00001",National Brush,National-only brush,="007661234567891234567890",ArtCo,Brushes,Art Materials,10.50,20.00,18.00,22.00,23.00,24.00,15,PCS,active',
+            '2,NAT-2,National Paint,National-only paint,90002,ColorCo,Paints,Art Materials,50,75,70,80,81,82,9,CAN,active',
+        ])."\n";
+
+        $this->actingAs($admin)
+            ->post(route('national-inventory.import'), [
+                'hub_id' => $headOffice->id,
+                'file' => UploadedFile::fake()->createWithContent('national.csv', $csv),
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
+
+        $this->assertDatabaseCount('national_products', 2);
+        $this->assertDatabaseCount('products', 0);
+        $this->assertSame('007661234567891234567890', NationalProduct::where('item_id', '00001')->value('barcode'));
+
+        $response = $this->actingAs($admin)->get(route('national-inventory.export', [
+            'hub_id' => $headOffice->id,
+            'export_all' => 1,
+        ]))->assertOk();
+        $this->assertStringContainsString('national_inventory_', $response->headers->get('Content-Disposition'));
+        $export = $response->streamedContent();
+        $this->assertStringContainsString('National Brush', $export);
+        $lines = preg_split('/\r\n|\r|\n/', preg_replace('/^\xEF\xBB\xBF/', '', $export));
+        $firstProduct = str_getcsv($lines[1]);
+        $this->assertSame('="00001"', $firstProduct[1]);
+        $this->assertSame('="007661234567891234567890"', $firstProduct[4]);
+    }
+
+    public function test_invalid_national_csv_is_rejected_before_any_writes(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $headOffice->id]);
+        $csv = "Item ID,Name,Stock\nNAT-1,Valid Item,5\nNAT-2,Bad Item,-3\n";
+
+        $this->actingAs($inventoryStaff)
+            ->post(route('national-inventory.import'), [
+                'hub_id' => $headOffice->id,
+                'file' => UploadedFile::fake()->createWithContent('national.csv', $csv),
+            ])
+            ->assertSessionHasErrors('file');
+
+        $this->assertDatabaseCount('national_products', 0);
+    }
+}

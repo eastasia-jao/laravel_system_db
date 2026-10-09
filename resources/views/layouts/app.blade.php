@@ -5,6 +5,7 @@
         $pageTitles = [
             'dashboard' => 'Dashboard',
             'products.index' => 'Products',
+            'national-inventory.index' => 'National Inventory',
             'catalog.index' => 'Shared Product Catalog',
             'users.index' => 'Staff Directory',
             'configuration' => 'Configuration',
