@@ -36,7 +36,7 @@
                </span>
            </button>
 
-           <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 p-0" style="width: min(340px, calc(100vw - 1rem)); max-height: 420px; overflow-y: auto;">
+           <div class="sidebar-notification-menu dropdown-menu dropdown-menu-end p-0">
                <div class="d-flex justify-content-between align-items-center gap-2 px-3 py-3 border-bottom">
                    <div><div class="text-uppercase small fw-bold text-primary">Recent activity</div><span class="fw-semibold text-dark">Notifications</span></div>
                    <form action="{{ route('notifications.read-all') }}" method="POST" class="m-0">
@@ -44,7 +44,7 @@
                        <button type="submit" class="btn btn-link p-0 small text-primary text-decoration-none text-nowrap">Mark all read</button>
                    </form>
                </div>
-               <div id="sidebarNotificationItems"><div>
+               <div id="sidebarNotificationItems">
 
                    @forelse($notifications as $notification)
                    @php
@@ -111,7 +111,6 @@
                    @empty
                        <div class="p-4 text-center text-muted small">No notifications yet.</div>
                    @endforelse
-                   </div>
                    @if($notifications->count() >= 10)
                        <div class="p-3 border-top text-center bg-white">
                            <a href="{{ route('notifications.index') }}" class="btn btn-link p-0 small fw-semibold text-primary text-decoration-none">See more notifications <i class="fa-solid fa-arrow-right ms-1"></i></a>

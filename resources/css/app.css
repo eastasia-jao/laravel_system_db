@@ -133,7 +133,7 @@ a, button, input, select, textarea { transition: color var(--ac-transition), bac
 .app-dropdown-menu { min-width: 220px; padding: .45rem; border: 1px solid var(--ac-border); border-radius: 14px; background: var(--ac-surface); box-shadow: var(--ac-shadow); }
 .app-dropdown-menu .dropdown-item { min-height: 42px; display: flex; align-items: center; border-radius: 9px; color: var(--ac-text); }
 
-#appSidebar.sidebar { width: var(--ac-sidebar-width); height: 100dvh; position: fixed; inset: 0 auto 0 0; z-index: 1020; display: flex; flex-direction: column; padding: 1rem .875rem !important; overflow: hidden; border-right: 1px solid var(--ac-border) !important; background: var(--ac-surface) !important; transition: width var(--ac-transition), transform var(--ac-transition); }
+#appSidebar.sidebar { width: var(--ac-sidebar-width); height: 100dvh; position: fixed; inset: 0 auto 0 0; z-index: 1020; display: flex; flex-direction: column; padding: 1rem .875rem !important; overflow: visible; border-right: 1px solid var(--ac-border) !important; background: var(--ac-surface) !important; transition: width var(--ac-transition), transform var(--ac-transition); }
 #appSidebar > .nav { min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--ac-border) transparent; }
 #appSidebar .nav-link { position: relative; min-height: 44px; color: var(--ac-muted) !important; border-radius: 11px !important; font-size: .84rem; white-space: nowrap; }
 #appSidebar .nav-link > i:first-child { width: 20px; flex: 0 0 20px; color: #7890ad; text-align: center; }
@@ -142,12 +142,16 @@ a, button, input, select, textarea { transition: color var(--ac-transition), bac
 #appSidebar .nav-link.active-link::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 4px 4px 0; background: var(--ac-primary); }
 #appSidebar .nav-link.active-link > i:first-child { color: var(--ac-primary); }
 #appSidebar .brand-copy { overflow: hidden; white-space: nowrap; }
+#appSidebar .sidebar-notification-menu { width: min(380px, calc(100vw - 1rem)); max-height: min(520px, calc(100dvh - 2rem)); overflow-x: hidden; overflow-y: auto; border: 1px solid var(--ac-border) !important; border-radius: 14px; background: var(--ac-surface); box-shadow: 0 18px 48px rgba(15, 23, 42, .16) !important; z-index: 1085; }
+#appSidebar .sidebar-notification-menu > .border-bottom { position: sticky; top: 0; z-index: 2; background: var(--ac-surface); }
+#appSidebar .sidebar-notification-menu #sidebarNotificationItems > a:hover { background: var(--ac-primary-soft); }
 .sidebar-backdrop { position: fixed; inset: 0; z-index: 1010; display: none; background: rgba(15, 23, 42, .48); backdrop-filter: blur(2px); }
 .mobile-action-bar { display: none; }
 
 body.sidebar-collapsed #appSidebar { width: var(--ac-sidebar-rail) !important; }
 body.sidebar-collapsed .app-main { margin-left: var(--ac-sidebar-rail); width: calc(100% - var(--ac-sidebar-rail)); }
 body.sidebar-collapsed #appSidebar .brand-copy, body.sidebar-collapsed #appSidebar .nav-link .badge, body.sidebar-collapsed #appSidebar .sidebar-user-copy, body.sidebar-collapsed #appSidebar #sidebarClock { display: none !important; }
+body.sidebar-collapsed #appSidebar #notificationToggle { display: none !important; }
 body.sidebar-collapsed #appSidebar .nav-link { width: 44px; padding-inline: 12px !important; overflow: hidden; gap: 1rem !important; }
 body.sidebar-collapsed #appSidebar .collapse { display: none !important; }
 
@@ -180,6 +184,7 @@ body.sidebar-collapsed #appSidebar .collapse { display: none !important; }
     body.sidebar-drawer-open .sidebar-backdrop { display: block; }
     body.sidebar-drawer-open { overflow: hidden; }
     body.sidebar-collapsed #appSidebar .brand-copy, body.sidebar-collapsed #appSidebar .sidebar-user-copy, body.sidebar-collapsed #appSidebar #sidebarClock { display: initial !important; }
+    body.sidebar-collapsed #appSidebar #notificationToggle { display: inline-flex !important; }
     body.sidebar-collapsed #appSidebar .nav-link { width: auto; padding-inline: 1rem !important; overflow: visible; }
     body.sidebar-collapsed #appSidebar .collapse.show { display: block !important; }
 }
