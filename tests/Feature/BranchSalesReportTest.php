@@ -197,6 +197,7 @@ class BranchSalesReportTest extends TestCase
             ->assertSee('Daily Transactions')
             ->assertSee('Daily Total Purchased Items')
             ->assertSee('data-branch-daily-mop', false)
+            ->assertSee('Sales by Payment Method')
             ->assertSee('GCASH')
             ->assertSee('OTHER')
             ->assertSee('₱180.00');

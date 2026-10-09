@@ -184,6 +184,9 @@
     .sales-channel-section-heading { padding: .25rem 0 .1rem; }
     .sales-channel-section-heading h5 { margin: 0; font-size: .9rem; font-weight: 700; color: #1e293b; }
     .sales-channel-section-heading p { margin: .15rem 0 0; color: #64748b; font-size: .75rem; }
+    .branch-payment-breakdown { padding: .85rem 1rem; border: 1px solid #fed7aa; border-radius: 12px; background: #fff; }
+    .branch-payment-breakdown-heading { margin-bottom: .4rem; color: #78716c; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .branch-payment-breakdown-values { display: flex; flex-wrap: wrap; gap: .35rem 1rem; color: #57534e; font-size: .8rem; }
     .sales-preview-canvas { width: 1100px; max-width: 100%; background: #fff; color: #212529; }
     .sales-preview-canvas .sales-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .sales-preview-canvas .sales-summary-card:last-child:nth-child(4n + 1) { grid-column: 1 / -1; }
@@ -556,15 +559,6 @@
                             <div class="fs-4 fw-bold text-success">₱{{ number_format((float) $totalSales, 2) }}</div>
                         </div>
                     </div>
-                    <div class="card-body pt-0">
-                        <div class="small text-muted mt-2" data-branch-daily-mop>
-                            @forelse($paymentBreakdown as $payment)
-                                <div><span class="fw-semibold">{{ $payment->payment_method }}</span>: ₱{{ number_format($payment->total, 2) }}</div>
-                            @empty
-                                <div>No payment records</div>
-                            @endforelse
-                        </div>
-                    </div>
                 </div>
             </div>
             @include('hubs.reports.metric', ['label' => 'Daily Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark', 'columnClass' => 'col-sm-6 col-xl'])
@@ -577,6 +571,21 @@
             @include('hubs.reports.metric', ['label' => 'Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark'])
         @endif
     </div>
+
+    @if($channel === 'walk_in' && ! $hub->is_head_office)
+        <section class="branch-payment-breakdown mb-4" aria-labelledby="branch-payment-breakdown-heading">
+            <div class="branch-payment-breakdown-heading" id="branch-payment-breakdown-heading">
+                <i class="fa-solid fa-credit-card me-1 text-primary" aria-hidden="true"></i>Sales by Payment Method
+            </div>
+            <div class="branch-payment-breakdown-values" data-branch-daily-mop>
+                @forelse($paymentBreakdown as $payment)
+                    <span><strong>{{ $payment->payment_method }}:</strong> ₱{{ number_format($payment->total, 2) }}</span>
+                @empty
+                    <span>No payment records</span>
+                @endforelse
+            </div>
+        </section>
+    @endif
 
     @if($channel === 'all')
         <div class="modal fade" id="allChannelsReportPreviewModal" tabindex="-1" aria-labelledby="allChannelsReportPreviewLabel" aria-hidden="true">
