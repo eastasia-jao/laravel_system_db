@@ -339,8 +339,7 @@
                                             <div class="transfer-detail-item align-items-start">
                                                 <div>
                                                     <div class="transfer-detail-item-name">{{ $pulloutItem?->product_name ?? 'Unknown product' }}</div>
-                                                    <div class="transfer-detail-item-id">Item ID: {{ $pulloutItem?->item_id ?? '—' }} · Unit: {{ $pulloutItem?->unit_type ?? '—' }}</div>
-                                                    <div class="small text-muted mt-1">Purpose: {{ $pulloutItem?->purpose ?? '—' }} · Physical stock before pull-out: {{ $pulloutItem?->physical_stock ?? 0 }} · Requested qty: {{ $pulloutItem?->quantity ?? 0 }}</div>
+                                                    <div class="transfer-detail-item-id">Item ID: {{ $pulloutItem?->item_id ?? '—' }} · Requested qty: {{ $pulloutItem?->quantity ?? 0 }}</div>
                                                 </div>
                                                 <div class="transfer-detail-qty">Actual {{ $pulloutItem?->actual_pullout ?? $entry->quantity }}</div>
                                             </div>

@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 class NationalPulloutController extends Controller
 {
     private const ITEM_HEADERS = [
-        'Product Item Name', 'Qty', 'Unit Type', 'Purpose', 'Physical Stocks', 'Actual Pull-out',
+        'Product Item Name', 'Qty', 'Actual Pull-out',
     ];
 
     public function create(Request $request)
@@ -30,8 +30,6 @@ class NationalPulloutController extends Controller
             'id' => $product->id,
             'item_id' => $product->item_id,
             'name' => $product->name,
-            'unit_type' => $product->unit_type,
-            'stock' => $product->stock,
         ])->values();
 
         return view('inventory-transactions.forms.national-pullout', compact('hub', 'products', 'productOptions'));
@@ -48,7 +46,6 @@ class NationalPulloutController extends Controller
             'items' => ['required', 'array', 'min:1', 'max:200'],
             'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:national_products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.purpose' => ['required', 'string', 'max:255'],
             'items.*.actual_pullout' => ['required', 'integer', 'min:1'],
         ]);
 
@@ -92,7 +89,7 @@ class NationalPulloutController extends Controller
                     'product_name' => $product->name,
                     'quantity' => (int) $item['quantity'],
                     'unit_type' => $product->unit_type,
-                    'purpose' => trim($item['purpose']),
+                    'purpose' => 'National Bookstore Pullout',
                     'physical_stock' => $physicalStock,
                     'actual_pullout' => (int) $item['actual_pullout'],
                 ]);
@@ -119,7 +116,7 @@ class NationalPulloutController extends Controller
             function ($file) use ($products) {
                 $products->chunk(250, function ($chunk) use ($file) {
                     foreach ($chunk as $product) {
-                        fputcsv($file, [$product->name, '', $product->unit_type, '', $product->stock, '']);
+                        fputcsv($file, [$product->name, '', '']);
                     }
                 });
             }
@@ -143,9 +140,6 @@ class NationalPulloutController extends Controller
                     fputcsv($file, [
                         $item->product_name,
                         $item->quantity,
-                        $item->unit_type,
-                        $item->purpose,
-                        $item->physical_stock,
                         $item->actual_pullout,
                     ]);
                 }

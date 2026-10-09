@@ -29,6 +29,10 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('Export Selected Items')
                 ->assertSee('P.O. Number')
                 ->assertSee('ITEMS TO PULL-OUT')
+                ->assertSee('Actual Pull-out')
+                ->assertDontSee('<th style="width:120px">Unit Type</th>', false)
+                ->assertDontSee('<th style="min-width:190px">Purpose</th>', false)
+                ->assertDontSee('<th style="width:130px">Physical Stocks</th>', false)
                 ->assertSee($product->name);
         }
 
@@ -69,10 +73,10 @@ class NationalPulloutTest extends TestCase
         $this->assertSame(['Remarks:', ''], $rows[2]);
         $this->assertSame([null], $rows[3]);
         $this->assertSame(
-            ['Product Item Name', 'Qty', 'Unit Type', 'Purpose', 'Physical Stocks', 'Actual Pull-out'],
+            ['Product Item Name', 'Qty', 'Actual Pull-out'],
             $rows[4]
         );
-        $this->assertSame([$product->name, '', 'PCS', '', '10', ''], $rows[5]);
+        $this->assertSame([$product->name, '', ''], $rows[5]);
     }
 
     public function test_saving_a_pullout_deducts_actual_quantity_and_appears_in_transaction_logs(): void
@@ -90,7 +94,6 @@ class NationalPulloutTest extends TestCase
                 'items' => [[
                     'product_id' => $product->id,
                     'quantity' => 5,
-                    'purpose' => 'Store replenishment',
                     'actual_pullout' => 3,
                 ]],
             ])
@@ -114,7 +117,6 @@ class NationalPulloutTest extends TestCase
             ->assertOk()
             ->assertSee('National Bookstore Pullout')
             ->assertSee('P.O. # PO-1001')
-            ->assertSee('Store replenishment')
             ->assertSee('Download CSV');
 
         $export = $this->actingAs($admin)
@@ -127,7 +129,7 @@ class NationalPulloutTest extends TestCase
         $this->assertSame(['P.O. #:', 'PO-1001'], $rows[0]);
         $this->assertSame(['Date:', '2026-10-09'], $rows[1]);
         $this->assertSame(['Remarks:', 'For National Bookstore replenishment.'], $rows[2]);
-        $this->assertSame([$product->name, '5', 'PCS', 'Store replenishment', '10', '3'], $rows[5]);
+        $this->assertSame([$product->name, '5', '3'], $rows[5]);
     }
 
     public function test_invalid_pullout_is_atomic_and_duplicate_po_numbers_are_rejected(): void
@@ -143,7 +145,6 @@ class NationalPulloutTest extends TestCase
             'items' => [[
                 'product_id' => $product->id,
                 'quantity' => 5,
-                'purpose' => 'Pull-out',
                 'actual_pullout' => 6,
             ]],
         ];
