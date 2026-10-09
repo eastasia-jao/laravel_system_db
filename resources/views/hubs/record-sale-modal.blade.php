@@ -101,6 +101,315 @@
     }
 </style>
 
+<style>
+    /* Record sale workspace: compact responsive layout without changing the form payload. */
+    #recordSaleModal {
+        --sale-primary: #2563eb;
+        --sale-primary-soft: #eff6ff;
+        --sale-border: #dbe5f1;
+        --sale-muted: #64748b;
+        --sale-ink: #172033;
+        --sale-surface: #ffffff;
+        --sale-canvas: #f4f7fb;
+        --sale-success: #15803d;
+        --sale-danger: #dc2626;
+    }
+    #recordSaleModal .modal-dialog {
+        width: min(1024px, calc(100vw - 2rem));
+        max-width: 1024px;
+        height: min(92vh, 900px);
+        margin: 4vh auto;
+    }
+    #recordSaleModal .modal-content {
+        height: 100%;
+        border: 1px solid rgba(148, 163, 184, .26);
+        border-radius: 18px;
+        background: var(--sale-canvas);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, .18);
+    }
+    #recordSaleForm { height: 100%; }
+    #recordSaleModal .modal-header {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        min-height: 68px;
+        padding: .8rem 1rem;
+        background: rgba(255, 255, 255, .97);
+        border-bottom: 1px solid var(--sale-border);
+        backdrop-filter: blur(12px);
+    }
+    #recordSaleModal .sale-modal-heading { display: flex; align-items: center; min-width: 0; gap: .75rem; }
+    #recordSaleModal .sale-modal-icon {
+        display: inline-flex;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: linear-gradient(145deg, #dbeafe, #eff6ff);
+        color: var(--sale-primary);
+    }
+    #recordSaleModal .modal-title { color: var(--sale-ink); font-size: 1rem; line-height: 1.2; }
+    #recordSaleModal .sale-modal-eyebrow {
+        margin-bottom: .12rem;
+        color: var(--sale-primary);
+        font-size: .66rem;
+        font-weight: 800;
+        letter-spacing: .075em;
+        text-transform: uppercase;
+    }
+    #recordSaleModal .sale-channel-badge {
+        display: inline-flex;
+        align-items: center;
+        max-width: 170px;
+        padding: .28rem .58rem;
+        overflow: hidden;
+        border: 1px solid #bfdbfe;
+        border-radius: 999px;
+        background: var(--sale-primary-soft);
+        color: #1d4ed8;
+        font-size: .7rem;
+        font-weight: 750;
+        line-height: 1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #recordSaleModal .sale-channel-badge:empty { display: none; }
+    #recordSaleModal .sale-channel-badge[data-channel="walk_in"] { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+    #recordSaleModal .sale-channel-badge[data-channel="wholesale"] { border-color: #ddd6fe; background: #f5f3ff; color: #6d28d9; }
+    #recordSaleModal .sale-channel-badge[data-channel="shopee"] { border-color: #fed7aa; background: #fff7ed; color: #c2410c; }
+    #recordSaleModal .sale-channel-badge[data-channel="lazada"] { border-color: #c4b5fd; background: #f5f3ff; color: #6d28d9; }
+    #recordSaleModal .sale-channel-badge[data-channel="tiktok"] { border-color: #cbd5e1; background: #f8fafc; color: #0f172a; }
+    #recordSaleModal .btn-close { margin: 0; padding: .72rem; border-radius: 10px; transition: background-color .15s ease, transform .15s ease; }
+    #recordSaleModal .btn-close:hover { background-color: #eef2f7; transform: scale(1.04); }
+    #recordSaleModal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: 1rem;
+        overflow-x: hidden;
+        overflow-y: auto;
+        background: var(--sale-canvas);
+        scrollbar-gutter: stable;
+    }
+    #recordSaleModal .sale-section-card,
+    #recordSaleModal .order-header-grid,
+    #recordSaleModal .extra-fields-container {
+        margin: 0 0 .8rem !important;
+        padding: .9rem !important;
+        border: 1px solid var(--sale-border) !important;
+        border-radius: 14px !important;
+        background: var(--sale-surface) !important;
+        box-shadow: 0 4px 15px rgba(15, 23, 42, .045) !important;
+    }
+    #recordSaleModal .modal-body > hr { display: none; }
+    #recordSaleModal .order-header-grid { --bs-gutter-x: .75rem; --bs-gutter-y: .65rem; }
+    #recordSaleModal .order-header-grid > [class*="col-"] { width: 25%; flex: 0 0 auto; }
+    #recordSaleModal .form-label {
+        display: block;
+        margin-bottom: .28rem;
+        color: #334155;
+        font-size: .75rem;
+        font-weight: 700 !important;
+        line-height: 1.2;
+    }
+    #recordSaleModal .form-control,
+    #recordSaleModal .form-select,
+    #recordSaleModal .marketplace-mop-dropdown > .btn {
+        width: 100%;
+        min-width: 0;
+        min-height: 38px;
+        border-color: #cfd9e6;
+        border-radius: 9px;
+        font-size: .82rem;
+        transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+    }
+    #recordSaleModal textarea.form-control { min-height: 64px; }
+    #recordSaleModal .form-control:focus,
+    #recordSaleModal .form-select:focus,
+    #recordSaleModal .marketplace-mop-dropdown > .btn:focus {
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 .2rem rgba(59, 130, 246, .16);
+    }
+    #recordSaleModal .form-text {
+        max-width: 100%;
+        margin-top: .25rem;
+        overflow: hidden;
+        color: var(--sale-muted);
+        font-size: .68rem;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #recordSaleModal .order-items-card { padding: .75rem .9rem .9rem !important; }
+    #recordSaleModal .order-items-toolbar { min-height: 34px; margin-bottom: .55rem !important; padding: 0; }
+    #recordSaleModal .order-items-toolbar h6 { color: var(--sale-ink) !important; font-size: .9rem; }
+    #recordSaleModal .order-items-toolbar .btn { min-height: 34px; padding: .34rem .7rem; }
+    #recordSaleModal #productRowsContainer { max-height: 290px; overflow: auto; scrollbar-gutter: stable; }
+    #recordSaleModal #productRowsContainer > .row:first-child,
+    #recordSaleModal #productRowsContainer .product-row {
+        display: grid !important;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: .55rem;
+        align-items: end;
+    }
+    #recordSaleModal #productRowsContainer > .row:first-child { padding: .48rem .6rem; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(1),
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(1) { grid-column: span 5; width: auto; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(2),
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(2) { grid-column: span 1; width: auto; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(3),
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(3) { grid-column: span 2; width: auto; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(4),
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(4) { grid-column: span 1; width: auto; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(5),
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(5) { grid-column: span 2; width: auto; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(6),
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(6) { grid-column: span 1; width: auto; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(7),
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(7) { grid-column: span 1; width: auto; }
+    #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) > .row:first-child > :nth-child(6),
+    #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(6) { display: none !important; }
+    #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) > .row:first-child > :nth-child(7),
+    #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(7) { grid-column: span 1; }
+    #recordSaleModal #productRowsContainer.has-tiktok-fee > .row:first-child > :nth-child(1),
+    #recordSaleModal #productRowsContainer.has-tiktok-fee .product-row > :nth-child(1) { grid-column: span 4; }
+    #recordSaleModal #productRowsContainer .product-row {
+        position: relative;
+        margin: 0 0 .55rem !important;
+        padding: .65rem !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 11px;
+        background: #fff;
+        box-shadow: none;
+    }
+    #recordSaleModal #productRowsContainer .product-row:nth-child(odd) { background: #fbfdff; }
+    #recordSaleModal #productRowsContainer .product-row:hover { border-color: #bfdbfe !important; background: #f8fbff; }
+    #recordSaleModal #productRowsContainer .remove-row-btn { width: 38px !important; min-width: 38px; padding: 0; }
+    #recordSaleModal .channel-detail-panel { padding: 0; border: 0; background: transparent; box-shadow: none; }
+    #recordSaleModal .channel-detail-header,
+    #recordSaleModal .simple-channel-header {
+        display: flex;
+        align-items: center;
+        gap: .65rem;
+        margin-bottom: .7rem;
+        padding-bottom: .65rem;
+        border-bottom: 1px solid #e7edf5;
+    }
+    #recordSaleModal .channel-detail-icon { width: 36px; height: 36px; flex-basis: 36px; border-radius: 10px; }
+    #recordSaleModal .channel-detail-title { font-size: .9rem; }
+    #recordSaleModal .channel-detail-help { margin-top: .12rem; font-size: .7rem; }
+    #recordSaleModal .sale-field-heading {
+        margin: .15rem 0 0;
+        padding: .15rem 0 0;
+        border: 0;
+        color: #64748b;
+        font-size: .66rem;
+        letter-spacing: .075em;
+    }
+    #recordSaleModal .extra-fields-container .row { --bs-gutter-x: .75rem; --bs-gutter-y: .65rem; }
+    #recordSaleModal .wholesale-payment-guide {
+        min-height: 38px !important;
+        padding: .45rem .65rem !important;
+        border-radius: 999px !important;
+        font-size: .7rem !important;
+        line-height: 1.2 !important;
+    }
+    #recordSaleModal .sale-attachment-field,
+    #recordSaleModal #onlineExtraFields .payment-proof-container,
+    #recordSaleModal #walkInExtraFields .walkin-payment-proof-container,
+    #recordSaleModal #walkInExtraFields .col-md-6:has(input[type="file"]) {
+        padding: .65rem !important;
+        border: 1px dashed #bfccdc;
+        border-radius: 10px;
+        background: #f8fbff;
+    }
+    #recordSaleModal input[type="file"].form-control { padding: .3rem .4rem; background: #fff; font-size: .72rem; }
+    #recordSaleModal input[type="file"]::file-selector-button { margin: -.3rem .55rem -.3rem -.4rem; padding: .48rem .65rem; border: 0; border-right: 1px solid #dbe5f1; background: #eff6ff; color: #1d4ed8; font-weight: 700; }
+    #recordSaleModal .wholesale-adjustment-card,
+    #recordSaleModal .online-remarks-panel { height: 100%; padding: .65rem !important; border-radius: 10px; }
+    #recordSaleModal .sale-summary-card { min-height: 72px; padding: .55rem .7rem; border-radius: 10px; }
+    #recordSaleModal .sale-summary-card .form-control { min-height: 26px; }
+    #recordSaleModal .sale-summary-card-highlight { border-color: #bbf7d0; background: #f0fdf4; }
+    #recordSaleModal .extra-fields-container [style*="display: block"],
+    #recordSaleModal .extra-fields-container [style*="display: flex"] { animation: saleFieldIn .15s ease-out; }
+    @keyframes saleFieldIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    #recordSaleModal .marketplace-details-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .75rem; align-items: end; }
+    #recordSaleModal .marketplace-details-grid > .marketplace-fields { grid-column: span 9; min-width: 0; }
+    #recordSaleModal .marketplace-details-grid > .marketplace-total { grid-column: span 3; min-width: 0; }
+    #recordSaleModal .marketplace-total-card { max-width: none !important; min-height: 66px; display: flex; flex-direction: column; justify-content: center; }
+    #recordSaleModal .modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 6;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: .65rem;
+        min-height: 72px;
+        padding: .65rem 1rem;
+        background: rgba(255, 255, 255, .97) !important;
+        border-top: 1px solid var(--sale-border);
+        backdrop-filter: blur(12px);
+    }
+    #recordSaleModal .sale-footer-summary { display: flex; align-items: center; gap: .75rem; min-width: 0; margin-right: auto; }
+    #recordSaleModal .sale-footer-note { display: flex; align-items: center; gap: .4rem; min-width: 0; color: var(--sale-muted); font-size: .7rem; }
+    #recordSaleModal .sale-footer-total { min-width: 130px; padding-left: .8rem; border-left: 1px solid #dbe5f1; text-align: right; }
+    #recordSaleModal .sale-footer-total-label { display: block; color: var(--sale-muted); font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+    #recordSaleModal #saleFooterGrandTotal { color: var(--sale-success); font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    #recordSaleModal .modal-footer .btn { min-height: 40px; border-radius: 9px; }
+    #recordSaleModal .modal-footer .btn-primary { min-width: 194px; }
+    @media (max-width: 1023.98px) {
+        #recordSaleModal .order-header-grid > [class*="col-"] { width: 50%; }
+        #recordSaleModal .marketplace-details-grid > .marketplace-fields { grid-column: span 8; }
+        #recordSaleModal .marketplace-details-grid > .marketplace-total { grid-column: span 4; }
+        #recordSaleModal .sale-footer-note span { max-width: 210px; }
+    }
+    @media (max-width: 767.98px) {
+        #recordSaleModal .modal-dialog { width: 100%; height: 100dvh; margin: 0; }
+        #recordSaleModal .modal-content { min-height: 100dvh; border: 0; border-radius: 0; }
+        #recordSaleModal .modal-header { min-height: 62px; padding: .65rem .75rem; }
+        #recordSaleModal .sale-modal-icon { width: 36px; height: 36px; flex-basis: 36px; }
+        #recordSaleModal .sale-modal-eyebrow { display: none; }
+        #recordSaleModal .modal-title { font-size: .94rem; }
+        #recordSaleModal .sale-channel-badge { max-width: 105px; }
+        #recordSaleModal .modal-body { padding: .65rem; }
+        #recordSaleModal .sale-section-card,
+        #recordSaleModal .order-header-grid,
+        #recordSaleModal .extra-fields-container { padding: .75rem !important; border-radius: 12px !important; }
+        #recordSaleModal .order-header-grid > [class*="col-"] { width: 100%; }
+        #recordSaleModal .form-control,
+        #recordSaleModal .form-select,
+        #recordSaleModal .marketplace-mop-dropdown > .btn { min-height: 42px; font-size: 1rem; }
+        #recordSaleModal #productRowsContainer { max-height: none; overflow: visible; }
+        #recordSaleModal #productRowsContainer > .row:first-child { display: none !important; }
+        #recordSaleModal #productRowsContainer .product-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; padding: .75rem !important; }
+        #recordSaleModal #productRowsContainer .product-row > :nth-child(1) { grid-column: 1 / -1; width: auto; padding-right: 42px; }
+        #recordSaleModal #productRowsContainer .product-row > :nth-child(2),
+        #recordSaleModal #productRowsContainer .product-row > :nth-child(3),
+        #recordSaleModal #productRowsContainer .product-row > :nth-child(4),
+        #recordSaleModal #productRowsContainer .product-row > :nth-child(5),
+        #recordSaleModal #productRowsContainer.has-tiktok-fee .product-row > :nth-child(6) { grid-column: span 1; width: auto; }
+        #recordSaleModal #productRowsContainer .product-row > :nth-child(7) { position: absolute; top: .7rem; right: .7rem; width: 40px; }
+        #recordSaleModal #productRowsContainer .remove-row-btn { width: 40px !important; min-height: 40px; }
+        #recordSaleModal .marketplace-details-grid { grid-template-columns: 1fr; }
+        #recordSaleModal .marketplace-details-grid > .marketplace-fields,
+        #recordSaleModal .marketplace-details-grid > .marketplace-total { grid-column: auto; }
+        #recordSaleModal .marketplace-fields .row > [class*="col-"] { width: 100%; }
+        #recordSaleModal .extra-fields-container .row > [class*="col-"] { width: 100%; }
+        #recordSaleModal .modal-footer { flex-direction: column; align-items: stretch; min-height: auto; padding: .65rem .75rem; }
+        #recordSaleModal .sale-footer-summary { order: 2; width: 100%; justify-content: space-between; }
+        #recordSaleModal .sale-footer-note span { max-width: 185px; }
+        #recordSaleModal .sale-footer-total { min-width: 120px; }
+        #recordSaleModal .sale-footer-actions { display: flex; flex-direction: column; gap: .5rem; order: 1; }
+        #recordSaleModal .sale-footer-actions .btn { width: 100%; min-height: 44px; }
+        #recordSaleModal .sale-footer-actions .btn-primary { order: -1; }
+    }
+    @media (max-width: 420px) {
+        #recordSaleModal .sale-channel-badge { display: none; }
+        #recordSaleModal .sale-footer-note span { max-width: 145px; }
+    }
+</style>
+
 @php
     $channelOptions = [
         'shopee' => 'Shopee Sales',
@@ -128,16 +437,24 @@
                 <input type="hidden" name="store_hub_id" value="{{ $hub->id }}">
                 
                 <div class="modal-header">
-                    <h5 class="modal-title fw-bold" id="recordSaleModalLabel">
-                        <i class="fa-solid fa-cart-shopping me-2"></i> Record Multi-Channel Sale
-                    </h5>
+                    <div class="sale-modal-heading">
+                        <span class="sale-modal-icon" aria-hidden="true"><i class="fa-solid fa-cart-shopping"></i></span>
+                        <div class="min-w-0">
+                            <div class="sale-modal-eyebrow">Store Hub Sales</div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h5 class="modal-title fw-bold mb-0" id="recordSaleModalLabel">Record Multi-Channel Sale</h5>
+                                <span class="sale-channel-badge" id="saleChannelBadge" aria-live="polite"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 
                 <div class="modal-body">
                     <div class="row g-3 order-header-grid">
                         <!-- Sales Channel -->
                         <div class="col-md-3">
-                            <label class="form-label fw-bold">Sales Channel</label>
+                            <label class="form-label fw-bold" for="channelTypeSelect">Sales Channel</label>
                             <select name="channel_type" id="channelTypeSelect" class="form-select" required onchange="handleChannelChange()" @if($singleAssignedChannel) style="display: none;" @endif>
                                 <option value="">-- Select Channel --</option>
                                 @foreach($channelOptions as $channelValue => $channelLabel)
@@ -153,14 +470,14 @@
 
                         <!-- Date -->
                         <div class="col-md-3">
-                            <label class="form-label fw-bold">Date</label>
-                            <input type="date" name="order_date" class="form-control" value="{{ date('Y-m-d') }}" required>
+                            <label class="form-label fw-bold" for="saleOrderDate">Date</label>
+                            <input type="date" name="order_date" id="saleOrderDate" class="form-control" value="{{ date('Y-m-d') }}" required>
                         </div>
 
                         <div class="col-md-3">
                             <div class="mb-2" id="platformOrderNumberField" style="display: none;">
-                                <label class="form-label fw-bold" id="platformOrderNumberLabel">Platform Order Number</label>
-                                <input type="text" name="order_number" class="form-control" placeholder="Enter the platform order number" disabled>
+                                <label class="form-label fw-bold" id="platformOrderNumberLabel" for="saleOrderNumber">Platform Order Number</label>
+                                <input type="text" name="order_number" id="saleOrderNumber" class="form-control" placeholder="Enter the platform order number" disabled>
                                 <div class="form-text" id="platformOrderNumberHelp"></div>
                             </div>
                             <div class="mb-2" id="automaticOrderNumberField">
@@ -171,7 +488,7 @@
 
                         <!-- Customer Name -->
                         <div class="col-md-3">
-                            <label class="form-label fw-bold">Customer Name</label>
+                            <label class="form-label fw-bold" for="saleCustomerName">Customer Name</label>
                             <input type="text" name="customer_name" id="saleCustomerName" class="form-control customer-name-input" list="existingSaleCustomers" placeholder="Search existing customer or type a new name" autocomplete="name" required>
                             <datalist id="existingSaleCustomers"></datalist>
                             <div class="form-text">Choose an existing customer or type a new customer name.</div>
@@ -180,8 +497,9 @@
                     <hr class="my-4">
 
                     <!-- Multiple Item Details Section -->
+                    <section class="sale-section-card order-items-card" aria-labelledby="saleOrderItemsHeading">
                     <div class="d-flex justify-content-between align-items-center mb-3 order-items-toolbar">
-                        <h6 class="fw-bold text-secondary m-0"><i class="fa-solid fa-boxes-stacked me-1"></i> Order Items</h6>
+                        <h6 class="fw-bold text-secondary m-0" id="saleOrderItemsHeading"><i class="fa-solid fa-boxes-stacked me-1"></i> Order Items</h6>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="addItemRowBtn">
                             <i class="fa-solid fa-plus me-1"></i> Add item
                         </button>
@@ -248,15 +566,19 @@
                             </div>
                         </div>
                     </div>
+                    </section>
 
                     <hr class="my-4">
 
                     <!-- EXTRA FIELDS FOR SHOPEE & LAZADA -->
                     <div id="marketplaceExtraFields" class="p-3 bg-light rounded border extra-fields-container" style="display: none;">
-                        <h6 class="fw-bold text-primary mb-3"><i class="fa-solid fa-store me-1"></i> Shopee / Lazada Tracking Details</h6>
-                        
-                        <div class="row g-3 align-items-start">
-                            <div class="col-md-8">
+                        <div class="simple-channel-header">
+                            <span class="channel-detail-icon"><i class="fa-solid fa-store"></i></span>
+                            <div><h6 class="channel-detail-title">Marketplace details</h6><p class="channel-detail-help">Arrangement, delivery, and payment details for this order.</p></div>
+                        </div>
+
+                        <div class="marketplace-details-grid">
+                            <div class="marketplace-fields">
                                 <div class="row g-2">
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">Date of Arrangement</label>
@@ -303,8 +625,8 @@
                             </div>
 
                             <!-- Total Amount Card Column -->
-                            <div class="col-md-4">
-                                <div class="bg-white border rounded-3 p-3 text-end shadow-sm" style="max-width: 220px; margin-left: auto;">
+                            <div class="marketplace-total">
+                                <div class="marketplace-total-card bg-white border rounded-3 p-3 text-end shadow-sm">
                                     <span class="text-muted text-uppercase fw-bold d-block" style="font-size: 10px; letter-spacing: 0.5px;">Total Amount</span>
                                     <input type="hidden" id="shopeeSubTotal" value="0.00">
                                     <input type="text" id="shopeeGrandTotal" class="form-control-plaintext text-end fs-4 fw-bold text-success p-0 m-0" value="₱0.00" readonly style="color: #198754 !important;">
@@ -575,7 +897,10 @@
 
                     <!-- EXTRA FIELDS FOR WALK-IN SALES -->
                     <div id="walkInExtraFields" class="mt-4 p-3 bg-light rounded border extra-fields-container" style="display: none;">
-                        <h6 class="fw-bold text-info mb-3"><i class="fa-solid fa-person-walking me-1"></i> Walk-In Tracking Details</h6>
+                        <div class="simple-channel-header">
+                            <span class="channel-detail-icon"><i class="fa-solid fa-person-walking"></i></span>
+                            <div><h6 class="channel-detail-title">Walk-in sale details</h6><p class="channel-detail-help">Payment, supporting documents, and order adjustment.</p></div>
+                        </div>
                         <div class="row g-2">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Mode of Payment (MOP)</label>
@@ -659,9 +984,18 @@
                 </div>
 
                 <!-- Modal Footer -->
-                <div class="modal-footer bg-light w-100"><span class="small text-muted me-auto">Stock is deducted after inventory verification.</span>
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary fw-semibold">Submit for Verification</button>
+                <div class="modal-footer bg-light w-100">
+                    <div class="sale-footer-summary">
+                        <div class="sale-footer-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Stock is deducted after inventory verification.</span></div>
+                        <div class="sale-footer-total">
+                            <span class="sale-footer-total-label">Total amount</span>
+                            <span id="saleFooterGrandTotal" aria-live="polite">₱0.00</span>
+                        </div>
+                    </div>
+                    <div class="sale-footer-actions">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary fw-semibold"><i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i> Submit for Verification</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -834,6 +1168,19 @@ document.addEventListener('DOMContentLoaded', function () {
     function handleChannelChange() {
         const selectEl = document.getElementById('channelTypeSelect');
         const rawVal = selectEl ? (selectEl.value || '').trim() : '';
+        const channelBadge = document.getElementById('saleChannelBadge');
+        const channelLabels = {
+            shopee: 'Shopee',
+            lazada: 'Lazada',
+            tiktok: 'TikTok',
+            wholesale: 'Wholesale',
+            online: 'Online',
+            walk_in: 'Walk-in',
+        };
+        if (channelBadge) {
+            channelBadge.textContent = channelLabels[rawVal] || '';
+            channelBadge.dataset.channel = rawVal;
+        }
         const platformOrderNumberField = document.getElementById('platformOrderNumberField');
         const automaticOrderNumberField = document.getElementById('automaticOrderNumberField');
         const platformOrderNumberInput = platformOrderNumberField?.querySelector('input[name="order_number"]');
@@ -1075,8 +1422,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // Comprehensive Calculations for Subtotals and Total Amounts
     function calculateTotals() {
         let cumulativeSubTotal = 0;
+        let footerTotal = 0;
         const channelVal = channelSelect ? (channelSelect.value || '').trim() : '';
         const showTikTokFee = channelVal === 'tiktok';
+        document.getElementById('productRowsContainer')?.classList.toggle('has-tiktok-fee', showTikTokFee);
         document.querySelectorAll('.tiktok-shipping-fee-column').forEach(column => {
             column.style.display = showTikTokFee ? '' : 'none';
         });
@@ -1103,6 +1452,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 feeDisplay.value = '₱' + fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
         });
+        footerTotal = cumulativeSubTotal;
 
         // Assign to respective active channel total fields
         if (channelVal === 'shopee' || channelVal === 'lazada') {
@@ -1123,6 +1473,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const shipType = shipTypeSelect ? shipTypeSelect.value : 'Free';
             const discountedSubTotal = cumulativeSubTotal * (1 - (addDiscPercent / 100));
             const wholesaleGrandTotal = discountedSubTotal;
+            footerTotal = wholesaleGrandTotal;
 
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
             if (subTotalDisplay) subTotalDisplay.value = '₱' + cumulativeSubTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1139,6 +1490,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const deliveryFee = deliveryFeeInput ? parseFloat(deliveryFeeInput.value) || 0 : 0;
             const onlineGrandTotal = cumulativeSubTotal + deliveryFee;
+            footerTotal = onlineGrandTotal;
             const difference = onlineGrandTotal - cumulativeSubTotal;
 
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
@@ -1152,9 +1504,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const addDiscPercent = addDiscInput ? parseFloat(addDiscInput.value) || 0 : 0;
             const walkInGrandTotal = cumulativeSubTotal * (1 - (addDiscPercent / 100));
+            footerTotal = walkInGrandTotal;
 
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
             if (grandTotalInput) grandTotalInput.value = walkInGrandTotal.toFixed(2);
+        }
+        const footerTotalDisplay = document.getElementById('saleFooterGrandTotal');
+        if (footerTotalDisplay) {
+            footerTotalDisplay.textContent = '₱' + footerTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
     }
 
