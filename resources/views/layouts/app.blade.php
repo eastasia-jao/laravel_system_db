@@ -31,30 +31,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    <style>
-        #appSidebar, #appMain { transition: transform .25s ease, margin-left .25s ease, width .25s ease; }
-        body.sidebar-collapsed #appSidebar { transform: translateX(-100%); }
-        body.sidebar-collapsed #appMain { margin-left: 0 !important; width: 100% !important; }
-        body.sidebar-collapsed #appMain > .workspace-page { max-width: none; padding: 1rem !important; }
-        #sidebarRestore { display: none; position: fixed; top: 12px; left: 12px; z-index: 1100; }
-        body.sidebar-collapsed #sidebarRestore { display: inline-flex; }
-        @media (max-width: 991.98px) {
-            #appMain { margin-left: 0 !important; width: 100% !important; }
-        }
-    </style>
 <link rel="stylesheet" href="{{ asset('app-alert.css') }}?v=20260929-branch-transfer-popup2">
 </head>
-<body class="bg-light">
-    <div class="d-flex">
+<body class="app-shell">
+    @php($shellUnreadNotificationCount = auth()->user()->unreadNotifications()->count())
+    <div class="app-layout">
         @include('layouts.sidebar')
-        <button id="sidebarRestore" type="button" class="btn btn-primary btn-sm shadow" title="Show sidebar" aria-label="Show sidebar">
-            <i class="fa-solid fa-bars"></i>
-        </button>
+        <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
-        <main id="appMain" class="flex-grow-1 p-4" style="margin-left: 280px; width: calc(100% - 280px);">
-            @yield('content')
-        </main>
+        <div id="appMain" class="app-main">
+            <header class="app-topbar">
+                <div class="topbar-leading">
+                    <button id="mobileSidebarToggle" type="button" class="icon-button d-xl-none" aria-label="Open navigation" aria-controls="appSidebar" aria-expanded="false">
+                        <i class="fa-solid fa-bars" aria-hidden="true"></i>
+                    </button>
+                    <div class="topbar-title-wrap">
+                        <div class="topbar-breadcrumb"><span>Art Caravan PH</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i><span aria-current="page">{{ $pageTitle }}</span></div>
+                        <h1 class="topbar-title">{{ $pageTitle }}</h1>
+                    </div>
+                </div>
+
+                <div class="topbar-actions">
+                    @can('view-products')
+                    <form class="global-search" action="{{ route('products.index') }}" method="GET" role="search">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="search" name="search" value="{{ request()->routeIs('products.index') ? request('search') : '' }}" placeholder="Search inventory" aria-label="Search inventory">
+                        <span class="search-hint" aria-hidden="true">/</span>
+                    </form>
+                    @endcan
+                    <a href="{{ route('notifications.index') }}" class="icon-button position-relative" aria-label="Notifications{{ $shellUnreadNotificationCount ? ': '.$shellUnreadNotificationCount.' unread' : '' }}">
+                        <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                        @if($shellUnreadNotificationCount)
+                            <span class="notification-dot">{{ $shellUnreadNotificationCount > 99 ? '99+' : $shellUnreadNotificationCount }}</span>
+                        @endif
+                    </a>
+                    <div class="dropdown">
+                        <button class="user-menu-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="user-avatar">{{ Illuminate\Support\Str::upper(Illuminate\Support\Str::substr(Auth::user()->name, 0, 1)) }}</span>
+                            <span class="user-menu-copy d-none d-md-flex"><strong>{{ Auth::user()->name }}</strong><small>@<span>{{ Auth::user()->username }}</span></small></span>
+                            <i class="fa-solid fa-chevron-down d-none d-md-inline" aria-hidden="true"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end app-dropdown-menu">
+                            <div class="px-3 py-2 border-bottom">
+                                <strong class="d-block">{{ Auth::user()->name }}</strong>
+                                <small class="text-muted">@<span>{{ Auth::user()->username }}</span></small>
+                            </div>
+                            <a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="fa-regular fa-user me-2" aria-hidden="true"></i>Profile</a>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="dropdown-item text-danger"><i class="fa-solid fa-arrow-right-from-bracket me-2" aria-hidden="true"></i>Log out</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="app-content">
+                @yield('content')
+            </main>
+        </div>
     </div>
+
+    <nav class="mobile-action-bar" aria-label="Primary mobile navigation">
+        @can('access-dashboard')
+        <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span>Dashboard</span></a>
+        @endcan
+        @can('view-products')
+        <a href="{{ route('products.index') }}" class="{{ request()->routeIs('products.*') ? 'active' : '' }}"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i><span>Products</span></a>
+        @endcan
+        @can('view-transaction-logs')
+        <a href="{{ route('inventory-transactions.index') }}" class="{{ request()->routeIs('inventory-transactions.index') ? 'active' : '' }}"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i><span>Transactions</span></a>
+        @endcan
+        @can('access-sales')
+        @if(auth()->user()->store_hub_id)
+        <a href="{{ route('hub.dashboard', auth()->user()->store_hub_id) }}" class="{{ request()->routeIs('hub.*') ? 'active' : '' }}"><i class="fa-solid fa-shop" aria-hidden="true"></i><span>Hubs</span></a>
+        @endif
+        @endcan
+        <button id="mobileMoreToggle" type="button" aria-label="Open more navigation"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i><span>More</span></button>
+    </nav>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
      @stack('scripts')
@@ -63,23 +117,38 @@
 <script>
     (() => {
         const toggle = document.getElementById('sidebarToggle');
-        const restore = document.getElementById('sidebarRestore');
-        const preferenceKey = 'art-caravan-sidebar-collapsed';
-        const isMobile = () => window.matchMedia('(max-width: 991.98px)').matches;
+        const mobileToggle = document.getElementById('mobileSidebarToggle');
+        const moreToggle = document.getElementById('mobileMoreToggle');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        const preferenceKey = 'art-caravan-sidebar-collapsed-{{ auth()->id() }}';
+        const isOverlay = () => window.matchMedia('(max-width: 1199.98px)').matches;
         const setCollapsed = (collapsed, persist = true) => {
             document.body.classList.toggle('sidebar-collapsed', collapsed);
             if (persist) localStorage.setItem(preferenceKey, collapsed ? '1' : '0');
             if (toggle) {
-                toggle.title = collapsed ? 'Show sidebar' : 'Hide sidebar';
+                toggle.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
                 toggle.setAttribute('aria-label', toggle.title);
             }
         };
+        const setDrawerOpen = open => {
+            document.body.classList.toggle('sidebar-drawer-open', open);
+            mobileToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
 
-        setCollapsed(isMobile() || localStorage.getItem(preferenceKey) === '1', false);
+        setCollapsed(localStorage.getItem(preferenceKey) === '1', false);
         toggle?.addEventListener('click', () => setCollapsed(!document.body.classList.contains('sidebar-collapsed')));
-        restore?.addEventListener('click', () => setCollapsed(false));
+        mobileToggle?.addEventListener('click', () => setDrawerOpen(true));
+        moreToggle?.addEventListener('click', () => setDrawerOpen(true));
+        backdrop?.addEventListener('click', () => setDrawerOpen(false));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') setDrawerOpen(false);
+            if (event.key === '/' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) {
+                const search = document.querySelector('.global-search input');
+                if (search) { event.preventDefault(); search.focus(); }
+            }
+        });
         window.addEventListener('resize', () => {
-            if (isMobile()) setCollapsed(true, false);
+            if (!isOverlay()) setDrawerOpen(false);
         });
     })();
     (() => {

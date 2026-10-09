@@ -1,5 +1,5 @@
-<div id="appSidebar" class="sidebar d-flex flex-column flex-shrink-0 p-4 bg-white border-end"
-     style="width: 280px; height: 100vh; position: fixed; top: 0; left: 0; z-index: 1000;">
+<aside id="appSidebar" class="sidebar d-flex flex-column flex-shrink-0 p-4 bg-white border-end"
+       style="width: 280px; height: 100vh; position: fixed; top: 0; left: 0; z-index: 1020;" aria-label="Main navigation">
     @php
        $notifications = auth()->user()->notifications()->latest()->limit(10)->get();
        $unreadNotificationCount = auth()->user()->unreadNotifications()->count();
@@ -16,11 +16,11 @@
            && $sidebarPendingVerificationCountsByHub->sum() > 0;
     @endphp
     
-    <div class="d-flex align-items-center gap-2 mb-4 pb-3 border-bottom text-primary fw-bold">
-       <button id="sidebarToggle" type="button" class="btn btn-sm btn-light text-primary border-0 flex-shrink-0" title="Hide sidebar" aria-label="Hide sidebar">
+    <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom text-primary fw-bold">
+       <button id="sidebarToggle" type="button" class="icon-button flex-shrink-0 d-none d-xl-inline-flex" title="Collapse sidebar" aria-label="Collapse sidebar">
            <i class="fa-solid fa-bars"></i>
        </button>
-       <div class="d-flex align-items-center gap-2 flex-shrink-0">
+       <div class="brand-copy d-flex align-items-center gap-2 flex-shrink-0">
            <svg width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                <path d="M20 7H4C2.89543 7 2 7.89543 2 9V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19V9C22 7.89543 21.1046 7 20 7Z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                <path d="M16 21V5C16 4.46957 15.7893 3.96086 15.4142 3.58579C15.0391 3.21071 14.5304 3 14 3H10C9.46957 3 8.96086 3.21071 8.58579 3.58579C8.21071 3.96086 8 4.46957 8 5V21" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -240,7 +240,7 @@
     </ul>
 
     <div class="pt-3 border-top d-flex align-items-center gap-2">
-        <div class="d-flex flex-column" style="min-width: 0; flex: 1 1 auto;">
+        <div class="sidebar-user-copy d-flex flex-column" style="min-width: 0; flex: 1 1 auto;">
             <span class="fw-semibold text-dark" style="font-size: .78rem; line-height: 1.2; white-space: nowrap;">{{ Auth::user()->name }}</span>
             <div class="d-flex align-items-center justify-content-between gap-2 mt-1">
                 <span class="text-muted text-truncate" style="font-size: 11px; min-width: 0;">@<span>{{ Auth::user()->username }}</span></span>
@@ -254,7 +254,7 @@
             </button>
         </form>
     </div>
-</div>
+</aside>
 <script>
     (() => {
         const clock = document.getElementById('sidebarClock');
