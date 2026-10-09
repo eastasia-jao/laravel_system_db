@@ -138,7 +138,8 @@ class NationalInventoryController extends Controller
             $activityLog->items()->createMany($logItems);
         });
 
-        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id]);
+        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
+            ->with('success', "National inventory import complete: {$created} new and {$updated} updated item(s).");
     }
 
     public function export(Request $request)
@@ -181,6 +182,7 @@ class NationalInventoryController extends Controller
         });
 
         $filename = 'national_inventory_'.now()->format('Ymd_His').'.csv';
+
         return response()->streamDownload(function () use ($query) {
             $file = fopen('php://output', 'wb');
             fwrite($file, "\xEF\xBB\xBF");

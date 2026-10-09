@@ -35,6 +35,23 @@
         <div class="alert alert-danger"><strong>National inventory was not changed.</strong><ul class="mb-0 mt-1">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
     @endif
 
+    @if(session('success'))
+        <div class="modal fade" id="nationalImportSuccessModal" tabindex="-1" aria-labelledby="nationalImportSuccessTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-body text-center p-4">
+                        <div class="text-success mb-3"><i class="fa-solid fa-circle-check fa-3x" aria-hidden="true"></i></div>
+                        <h5 class="fw-bold" id="nationalImportSuccessTitle">Import complete</h5>
+                        <p class="text-muted mb-0">{{ session('success') }}</p>
+                    </div>
+                    <div class="modal-footer justify-content-center border-0 pt-0">
+                        <button type="button" class="btn btn-success px-4" data-bs-dismiss="modal">Done</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <div class="national-scope-note mb-3">
         <i class="fa-solid fa-circle-info mt-1" aria-hidden="true"></i>
         <span><strong>Separate inventory:</strong> National stock is available only to Admin and Inventory Staff in {{ $hub->name }} mode. It is not included in store sales, transfers, or Stock Allocation.</span>
@@ -210,6 +227,11 @@
         });
         checkboxes.forEach(checkbox => checkbox.addEventListener('change', updateSelection));
 
+        const successModal = document.getElementById('nationalImportSuccessModal');
+        if (successModal && window.bootstrap?.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(successModal).show();
+        }
+
         const importForm = document.getElementById('nationalImportForm');
         const importProgress = document.getElementById('nationalImportProgress');
         const importStatus = document.getElementById('nationalImportStatus');
@@ -220,10 +242,11 @@
             importProgress.hidden = false;
             const messages = ['Uploading and reading the CSV file...', 'Validating Item IDs, stock, and barcodes...', 'Saving National inventory items...', 'Finalizing the import log...'];
             let messageIndex = 0;
-            window.setInterval(() => {
+            const statusTimer = window.setInterval(() => {
                 messageIndex = (messageIndex + 1) % messages.length;
                 importStatus.textContent = messages[messageIndex];
             }, 1400);
+            window.addEventListener('pagehide', () => window.clearInterval(statusTimer), {once: true});
         });
     })();
 </script>

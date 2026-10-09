@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\NationalProduct;
-use App\Models\Product;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -67,11 +66,18 @@ class NationalInventoryTest extends TestCase
                 'file' => UploadedFile::fake()->createWithContent('national.csv', $csv),
             ])
             ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'National inventory import complete: 2 new and 0 updated item(s).')
             ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
 
         $this->assertDatabaseCount('national_products', 2);
         $this->assertDatabaseCount('products', 0);
         $this->assertSame('007661234567891234567890', NationalProduct::where('item_id', '00001')->value('barcode'));
+        $this->actingAs($admin)
+            ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
+            ->assertOk()
+            ->assertSee('nationalImportSuccessModal')
+            ->assertSee('Import complete')
+            ->assertSee('2 new and 0 updated item(s).');
         $importLog = StaffActivityLog::where('action_type', 'product_import')->sole();
         $this->assertSame('national', $importLog->details['inventory_scope']);
         $this->assertSame(2, $importLog->items()->count());

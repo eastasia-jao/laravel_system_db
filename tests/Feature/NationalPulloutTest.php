@@ -30,10 +30,10 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('Export Selected Items')
                 ->assertSee('P.O. Number')
                 ->assertSee('ITEMS TO PULL-OUT')
+                ->assertSee('Physical Stocks')
+                ->assertSee('Unit Type')
+                ->assertSee('Purpose')
                 ->assertSee('Actual Pull-out')
-                ->assertDontSee('<th style="width:120px">Unit Type</th>', false)
-                ->assertDontSee('<th style="min-width:190px">Purpose</th>', false)
-                ->assertDontSee('<th style="width:130px">Physical Stocks</th>', false)
                 ->assertSee($product->name);
         }
 
@@ -58,7 +58,7 @@ class NationalPulloutTest extends TestCase
             ->assertDontSee('Head Office only');
     }
 
-    public function test_worksheet_has_printable_metadata_and_only_the_requested_item_columns(): void
+    public function test_csv_worksheet_has_only_product_columns_and_current_national_stock(): void
     {
         [$headOffice] = $this->hubs();
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
@@ -69,15 +69,14 @@ class NationalPulloutTest extends TestCase
         ]))->assertOk();
 
         $rows = $this->csvRows($response->streamedContent());
-        $this->assertSame(['P.O. #:', ''], $rows[0]);
-        $this->assertSame(['Date:', ''], $rows[1]);
-        $this->assertSame(['Remarks:', ''], $rows[2]);
-        $this->assertSame([null], $rows[3]);
         $this->assertSame(
-            ['Product Item Name', 'Qty', 'Actual Pull-out'],
-            $rows[4]
+            ['Product Item Name', 'Qty', 'Unit Type', 'Purpose', 'Physical Stocks', 'Actual Pull-out'],
+            $rows[0]
         );
-        $this->assertSame([$product->name, '', ''], $rows[5]);
+        $this->assertSame([$product->name, '', 'PCS', 'National Bookstore Pullout', '10', ''], $rows[1]);
+        $this->assertNotContains('P.O. #:', array_column($rows, 0));
+        $this->assertNotContains('Date:', array_column($rows, 0));
+        $this->assertNotContains('Remarks:', array_column($rows, 0));
     }
 
     public function test_excel_worksheet_has_the_requested_print_layout_and_product_columns(): void
@@ -116,20 +115,32 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString('width="9.5" customWidth="1"', $sheet);
             $this->assertStringContainsString('ht="20" customHeight="1"', $sheet);
             $this->assertStringContainsString('name="_xlnm.Print_Titles"', $workbookXml);
-            $this->assertStringContainsString('P.O. #:', $sheet);
-            $this->assertStringContainsString('Date:', $sheet);
-            $this->assertStringContainsString('Remarks:', $sheet);
             $this->assertStringContainsString('Actual Pull-out', $sheet);
             $this->assertStringContainsString('Physical Stocks', $sheet);
             $this->assertStringContainsString('Purpose', $sheet);
             $this->assertStringContainsString('r="A4"', $sheet);
             $this->assertStringContainsString($product->name, $sheet);
-            $this->assertStringContainsString('<v>0</v>', $sheet);
+            $this->assertStringContainsString('<c r="H4" s="4" t="n"><v>10</v></c>', $sheet);
+            $this->assertStringContainsString('National Bookstore Pullout', $sheet);
             $this->assertStringContainsString('wrapText="1"', $styles);
         } finally {
             unset($workbook);
             unlink($path);
         }
+    }
+
+    public function test_pullout_search_options_include_national_unit_type_and_stock(): void
+    {
+        [$headOffice] = $this->hubs();
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+        $product = $this->product();
+
+        $this->actingAs($admin)
+            ->get(route('national-pullouts.create', ['hub_id' => $headOffice->id]))
+            ->assertOk()
+            ->assertSee('Physical Stocks')
+            ->assertViewHas('productOptions', fn ($options) => $options->first()['stock'] === 10
+                && $options->first()['unit_type'] === 'PCS');
     }
 
     public function test_saving_a_pullout_deducts_actual_quantity_and_appears_in_transaction_logs(): void
@@ -182,7 +193,10 @@ class NationalPulloutTest extends TestCase
         $this->assertSame(['P.O. #:', 'PO-1001'], $rows[0]);
         $this->assertSame(['Date:', '2026-10-09'], $rows[1]);
         $this->assertSame(['Remarks:', 'For National Bookstore replenishment.'], $rows[2]);
-        $this->assertSame([$product->name, '5', '3'], $rows[5]);
+        $this->assertSame(
+            [$product->name, '5', 'PCS', 'National Bookstore Pullout', '10', '3'],
+            $rows[5]
+        );
     }
 
     public function test_invalid_pullout_is_atomic_and_duplicate_po_numbers_are_rejected(): void

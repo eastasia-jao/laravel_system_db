@@ -59,7 +59,7 @@
 
         <div class="table-responsive border rounded-3">
             <table class="table mb-0 national-pullout-items">
-                <thead><tr><th class="text-center" style="width:44px">Select</th><th style="min-width:320px">Product Item Name</th><th style="width:140px">Qty</th><th style="width:160px">Actual Pull-out</th><th style="width:70px">Action</th></tr></thead>
+                <thead><tr><th class="text-center" style="width:44px">Select</th><th style="min-width:320px">Product Item Name</th><th style="width:100px">Qty</th><th style="width:120px">Unit Type</th><th style="min-width:190px">Purpose</th><th class="text-center" style="width:130px">Physical Stocks</th><th style="width:140px">Actual Pull-out</th><th style="width:70px">Action</th></tr></thead>
                 <tbody id="nationalPulloutItems"></tbody>
             </table>
         </div>
@@ -94,6 +94,9 @@
     const selectProduct = (row, product) => {
         row.querySelector('.pullout-product-search').value = product.name;
         row.querySelector('.pullout-product-id').value = product.id;
+        row.querySelector('.pullout-unit-type').value = product.unit_type || '';
+        row.querySelector('.pullout-physical-stock').value = product.stock ?? 0;
+        row.querySelector('.pullout-purpose').value = product.purpose || 'National Bookstore Pullout';
         row.querySelector('.pullout-results').hidden = true;
     };
     const renderResults = (row, term) => {
@@ -102,7 +105,7 @@
             const haystack = `${product.name} ${product.item_id}`.toLowerCase();
             return haystack.includes(term.toLowerCase());
         }).slice(0, 20);
-        results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)}</small></button>`).join('');
+        results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)} · Stock: ${escapeHtml(product.stock)} ${escapeHtml(product.unit_type || '')}</small></button>`).join('');
         results.hidden = matches.length === 0;
     };
     const addRow = (values = {}) => {
@@ -113,6 +116,9 @@
             <td class="text-center"><input type="checkbox" class="form-check-input pullout-export-check" aria-label="Select row for CSV export"></td>
             <td><div class="position-relative"><input type="search" class="form-control pullout-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" class="pullout-product-id" name="items[${index}][product_id]"><div class="pullout-product-results" hidden></div></div></td>
             <td><input type="number" class="form-control pullout-qty" name="items[${index}][quantity]" min="1" step="1" required></td>
+            <td><input type="text" class="form-control pullout-unit-type" readonly tabindex="-1" aria-label="Unit Type from National inventory"></td>
+            <td><input type="text" class="form-control pullout-purpose" value="National Bookstore Pullout" readonly aria-label="Purpose"></td>
+            <td><input type="number" class="form-control pullout-physical-stock text-center" readonly tabindex="-1" aria-label="Physical Stocks from National inventory"></td>
             <td><input type="number" class="form-control pullout-actual" name="items[${index}][actual_pullout]" min="1" step="1" required></td>
             <td><button type="button" class="btn btn-outline-danger remove-pullout-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></td>`;
         itemsBody.appendChild(row);
@@ -132,6 +138,7 @@
         });
         if (values.product) selectProduct(row, values.product);
         row.querySelector('.pullout-qty').value = values.quantity || '';
+        row.querySelector('.pullout-purpose').value = values.purpose || 'National Bookstore Pullout';
         row.querySelector('.pullout-actual').value = values.actual || '';
         return row;
     };
@@ -174,10 +181,13 @@
             ['Date:', document.getElementById('pulloutDate').value],
             ['Remarks:', document.getElementById('pulloutRemarks').value],
             [],
-            ['Product Item Name','Qty','Actual Pull-out'],
+            ['Product Item Name', 'Qty', 'Unit Type', 'Purpose', 'Physical Stocks', 'Actual Pull-out'],
             ...rows.map(row => [
                 row.querySelector('.pullout-product-search').value,
                 row.querySelector('.pullout-qty').value,
+                row.querySelector('.pullout-unit-type').value,
+                row.querySelector('.pullout-purpose').value,
+                row.querySelector('.pullout-physical-stock').value,
                 row.querySelector('.pullout-actual').value,
             ]),
         ]);
@@ -208,10 +218,11 @@
             const name = (values[column('Product Item Name')] || '').trim();
             const qty = (values[column('Qty')] || '').trim();
             const actual = (values[column('Actual Pull-out')] || '').trim();
+            const purpose = (values[column('Purpose')] || '').trim();
             if (!name || (!qty && !actual)) return;
             const matches = byName.get(name.toLowerCase()) || [];
             if (matches.length !== 1) { errors.push(`Row ${headerIndex + offset + 2}: ${name} was not found uniquely.`); return; }
-            imported.push({product: matches[0], quantity: qty, actual});
+            imported.push({product: matches[0], quantity: qty, actual, purpose});
         });
         if (errors.length) return showMessage(errors.join('\n'), true);
         if (!imported.length) return showMessage('No completed pull-out rows were found in the CSV.', true);
