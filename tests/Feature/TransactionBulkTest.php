@@ -139,7 +139,7 @@ class TransactionBulkTest extends TestCase
         $this->get(route('hub.dashboard', $branch->id))
             ->assertOk()
             ->assertSee(route('hub.branch-returns', ['hub' => $branch->id]), false)
-            ->assertDontSee(route('inventory-transactions.return.create', ['hub_id' => $branch->id]), false);
+            ->assertSee(route('inventory-transactions.return.create', ['hub_id' => $branch->id]), false);
 
         $this->get(route('hub.branch-returns', ['hub' => $branch->id]))
             ->assertOk()
