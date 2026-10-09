@@ -15,7 +15,7 @@ class UserController extends Controller
     public function index()
     {
         $users = User::all();
-        $hubs = StoreHub::all();
+        $hubs = StoreHub::where('status', 'active')->orderBy('name')->get();
         $staffRoles = User::BUILT_IN_ROLES;
 
         return view('users', compact('users', 'hubs', 'staffRoles'));
@@ -26,7 +26,7 @@ class UserController extends Controller
         $request->merge([
             'employee_id' => Str::upper(trim((string) $request->input('employee_id'))),
         ]);
-        $hubRule = Rule::exists('store_hubs', 'id');
+        $hubRule = Rule::exists('store_hubs', 'id')->where('status', 'active');
         if ($request->input('role') === 'sales_associate') {
             $hubRule->where('is_head_office', 0);
         }
@@ -44,7 +44,7 @@ class UserController extends Controller
             'additional_hub_ids.*' => [
                 'integer',
                 'distinct',
-                Rule::exists('store_hubs', 'id')->where('is_head_office', 0),
+                Rule::exists('store_hubs', 'id')->where('status', 'active')->where('is_head_office', 0),
                 'different:hub_id',
             ],
             'sales_channels' => ['nullable', 'array'],
@@ -93,7 +93,7 @@ class UserController extends Controller
         ]);
 
         // Define validation rules
-        $hubRule = Rule::exists('store_hubs', 'id');
+        $hubRule = Rule::exists('store_hubs', 'id')->where('status', 'active');
         if ($request->input('role') === 'sales_associate') {
             $hubRule->where('is_head_office', 0);
         }
@@ -115,7 +115,7 @@ class UserController extends Controller
             'additional_hub_ids.*' => [
                 'integer',
                 'distinct',
-                Rule::exists('store_hubs', 'id')->where('is_head_office', 0),
+                Rule::exists('store_hubs', 'id')->where('status', 'active')->where('is_head_office', 0),
                 'different:hub_id',
             ],
             'sales_channels' => ['nullable', 'array'],

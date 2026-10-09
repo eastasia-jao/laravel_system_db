@@ -15,6 +15,11 @@ class BranchTransferTest extends TestCase
 
     public function test_transaction_logs_offer_branch_transfers_for_inventory_staff_and_admin(): void
     {
+        $inactiveHub = StoreHub::create([
+            'name' => 'Inactive Transaction Hub',
+            'code' => 'INACTIVE-TRANSACTION',
+            'status' => 'inactive',
+        ]);
         $inventoryStaff = User::factory()->create(['role' => 'inventory_staff']);
 
         $this->actingAs($inventoryStaff)
@@ -22,13 +27,20 @@ class BranchTransferTest extends TestCase
             ->assertOk()
             ->assertSee('<option value="branch_transfer"', false)
             ->assertSee('Stock Transfer (BRANCH to BRANCH)')
+            ->assertDontSee('Inactive Transaction Hub')
             ->assertSee('HO ↔ Branch');
 
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get(route('inventory-transactions.index'))
             ->assertOk()
             ->assertSee('<option value="branch_transfer"', false)
+            ->assertDontSee('Inactive Transaction Hub')
             ->assertSee('BRANCH to BRANCH');
+
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('staff-logs.index'))
+            ->assertOk()
+            ->assertDontSee('Inactive Transaction Hub');
     }
 
     public function test_product_worksheet_exports_barcode_and_item_id_as_excel_safe_csv_text(): void

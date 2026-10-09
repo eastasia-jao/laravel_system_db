@@ -22,13 +22,14 @@ class DashboardController extends Controller
         $hub = StoreHub::findOrFail($id);
         $selectedHub = StoreHub::findOrFail($id);
         $user = auth()->user();
-        $walkInHubs = $user?->role === 'sales_associate'
-            ? StoreHub::whereIn('id', $user->accessibleStoreHubIds())
-                ->where('is_head_office', false)
-                ->where('status', 'active')
-                ->orderBy('name')
-                ->get()
-            : StoreHub::whereKey($id)->get();
+        $walkInHubs = StoreHub::where('status', 'active')
+            ->when(
+                $user?->role === 'sales_associate',
+                fn ($query) => $query->whereIn('id', $user->accessibleStoreHubIds())->where('is_head_office', false),
+                fn ($query) => $query->whereKey($id)
+            )
+            ->orderBy('name')
+            ->get();
 
         $brands = Product::catalogOptions((int) $id, 'brand');
         $groups = Product::catalogOptions((int) $id, 'retail_group');

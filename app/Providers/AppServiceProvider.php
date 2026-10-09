@@ -184,7 +184,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('*', function ($view) {
-            $view->with('hubs', StoreHub::all());
+            if (! array_key_exists('hubs', $view->getData())) {
+                $view->with('hubs', StoreHub::where('status', 'active')->orderBy('name')->get());
+            }
 
             // If the view doesn't have $selectedHub defined yet, provide a fallback (e.g., null)
             if (! isset($view->getData()['selectedHub'])) {

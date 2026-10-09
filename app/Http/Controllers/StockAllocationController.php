@@ -38,7 +38,7 @@ class StockAllocationController extends Controller
 
         $allocationHubs = $canViewAllHubs
             ? StoreHub::where('status', 'active')->where('is_head_office', true)->orderBy('name')->get()
-            : StoreHub::whereKey($user?->store_hub_id)->where('is_head_office', true)->get();
+            : StoreHub::whereKey($user?->store_hub_id)->where('status', 'active')->where('is_head_office', true)->get();
         if ($allocationHubs->count() === 1 && ! $hubId) {
             $hubId = (int) $allocationHubs->first()->id;
         }

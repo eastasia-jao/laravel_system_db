@@ -61,9 +61,10 @@ class StaffActivityLogController extends Controller
         $logs = $query->paginate($user->role === 'sales_associate' ? 10 : 15)->withQueryString();
         $isSalesAssociate = $user->role === 'sales_associate';
         $accessibleHubIds = $user->accessibleStoreHubIds();
-        $hubs = ! $isSalesAssociate
-            ? StoreHub::orderBy('name')->get()
-            : StoreHub::whereIn('id', $accessibleHubIds)->orderBy('name')->get();
+        $hubs = StoreHub::where('status', 'active')
+            ->when($isSalesAssociate, fn ($query) => $query->whereIn('id', $accessibleHubIds))
+            ->orderBy('name')
+            ->get();
         $staff = $isSalesAssociate
             ? User::whereIn('id', StaffActivityLog::query()
                 ->where('action_type', 'branch_transfer_sent')
