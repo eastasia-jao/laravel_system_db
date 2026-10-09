@@ -27,8 +27,6 @@ class NationalPulloutController extends Controller
             'id' => $product->id,
             'item_id' => $product->item_id,
             'name' => $product->name,
-            'unit_type' => $product->unit_type,
-            'stock' => $product->stock,
         ])->values();
 
         return view('inventory-transactions.forms.national-pullout', compact('hub', 'products', 'productOptions'));
@@ -111,10 +109,10 @@ class NationalPulloutController extends Controller
             function () use ($products) {
                 $file = fopen('php://output', 'wb');
                 fwrite($file, "\xEF\xBB\xBF");
-                fputcsv($file, ['Product Item Name', 'Qty', 'Unit Type', 'Purpose', 'Physical Stocks', 'Actual Pull-out']);
+                fputcsv($file, ['Product Item Name', 'Qty', 'Actual Pull-out']);
                 $products->chunk(250, function ($chunk) use ($file) {
                     foreach ($chunk as $product) {
-                        fputcsv($file, [$product->name, '', $product->unit_type, 'National Bookstore Pullout', $product->stock, '']);
+                        fputcsv($file, [$product->name, '', '']);
                     }
                 });
                 fclose($file);
@@ -135,9 +133,6 @@ class NationalPulloutController extends Controller
         $items = $products->map(fn (NationalProduct $product) => [
             'name' => $product->name,
             'quantity' => '',
-            'unit_type' => $product->unit_type,
-            'purpose' => 'National Bookstore Pullout',
-            'physical_stock' => $product->stock,
             'actual_pullout' => '',
         ])->all();
         $path = NationalPulloutWorkbook::create($items);
@@ -166,9 +161,6 @@ class NationalPulloutController extends Controller
                     fputcsv($file, [
                         $item->product_name,
                         $item->quantity,
-                        $item->unit_type,
-                        $item->purpose,
-                        $item->physical_stock,
                         $item->actual_pullout,
                     ]);
                 }
@@ -185,7 +177,7 @@ class NationalPulloutController extends Controller
             fputcsv($file, ['Date:', $date]);
             fputcsv($file, ['Remarks:', $remarks]);
             fputcsv($file, []);
-            fputcsv($file, ['Product Item Name', 'Qty', 'Unit Type', 'Purpose', 'Physical Stocks', 'Actual Pull-out']);
+            fputcsv($file, ['Product Item Name', 'Qty', 'Actual Pull-out']);
             $writeItems($file);
             fclose($file);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);

@@ -4,7 +4,7 @@
 <style>
     .national-pullout-page { max-width: 1500px; }
     .national-pullout-card { border: 1px solid var(--ac-border); border-radius: 16px; background: #fff; box-shadow: var(--ac-shadow-sm); }
-    .national-pullout-items { min-width: 720px; }
+    .national-pullout-items { min-width: 520px; }
     .national-pullout-items th { color: #526178; background: #f8fafc; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
     .national-pullout-items td { vertical-align: middle; }
     .pullout-product-results { position: absolute; z-index: 1080; top: calc(100% + 4px); left: 0; right: 0; max-height: 230px; overflow-y: auto; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.13); }
@@ -29,7 +29,7 @@
             <button type="button" class="btn btn-outline-primary" id="importPulloutCsv"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV)</button>
             <a class="btn btn-outline-secondary" href="{{ route('national-pullouts.worksheet', ['hub_id' => $hub->id]) }}"><i class="fa-solid fa-download me-1"></i>Download CSV Worksheet</a>
             <button type="button" class="btn btn-outline-success" id="exportPulloutSelected"><i class="fa-solid fa-file-export me-1"></i>Export Selected Items</button>
-            <input type="file" class="d-none" id="pulloutCsvFile" accept=".csv,text/csv">
+            <input type="file" class="visually-hidden" id="pulloutCsvFile" accept=".csv,text/csv" tabindex="-1" aria-label="Choose a pullout items CSV file">
         </div>
         <div id="pulloutCsvMessage" class="small mb-3" role="alert" hidden></div>
 
@@ -59,7 +59,7 @@
 
         <div class="table-responsive border rounded-3">
             <table class="table mb-0 national-pullout-items">
-                <thead><tr><th class="text-center" style="width:44px">Select</th><th style="min-width:320px">Product Item Name</th><th style="width:100px">Qty</th><th style="width:120px">Unit Type</th><th style="min-width:190px">Purpose</th><th class="text-center" style="width:130px">Physical Stocks</th><th style="width:140px">Actual Pull-out</th><th style="width:70px">Action</th></tr></thead>
+                <thead><tr><th style="min-width:320px">Product Item Name</th><th style="width:110px">Qty</th><th style="width:150px">Actual Pull-out</th></tr></thead>
                 <tbody id="nationalPulloutItems"></tbody>
             </table>
         </div>
@@ -94,9 +94,6 @@
     const selectProduct = (row, product) => {
         row.querySelector('.pullout-product-search').value = product.name;
         row.querySelector('.pullout-product-id').value = product.id;
-        row.querySelector('.pullout-unit-type').value = product.unit_type || '';
-        row.querySelector('.pullout-physical-stock').value = product.stock ?? 0;
-        row.querySelector('.pullout-purpose').value = product.purpose || 'National Bookstore Pullout';
         row.querySelector('.pullout-results').hidden = true;
     };
     const renderResults = (row, term) => {
@@ -105,7 +102,7 @@
             const haystack = `${product.name} ${product.item_id}`.toLowerCase();
             return haystack.includes(term.toLowerCase());
         }).slice(0, 20);
-        results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)} · Stock: ${escapeHtml(product.stock)} ${escapeHtml(product.unit_type || '')}</small></button>`).join('');
+        results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)}</small></button>`).join('');
         results.hidden = matches.length === 0;
     };
     const addRow = (values = {}) => {
@@ -113,14 +110,10 @@
         const row = document.createElement('tr');
         row.className = 'national-pullout-item';
         row.innerHTML = `
-            <td class="text-center"><input type="checkbox" class="form-check-input pullout-export-check" aria-label="Select row for CSV export"></td>
-            <td><div class="position-relative"><input type="search" class="form-control pullout-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" class="pullout-product-id" name="items[${index}][product_id]"><div class="pullout-product-results" hidden></div></div></td>
+            <td><div class="d-flex align-items-center gap-2"><input type="checkbox" class="form-check-input pullout-export-check" aria-label="Select row for CSV export"><div class="position-relative flex-grow-1"><input type="search" class="form-control pullout-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" class="pullout-product-id" name="items[${index}][product_id]"><div class="pullout-product-results" hidden></div></div><button type="button" class="btn btn-outline-danger remove-pullout-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div></td>
             <td><input type="number" class="form-control pullout-qty" name="items[${index}][quantity]" min="1" step="1" required></td>
-            <td><input type="text" class="form-control pullout-unit-type" readonly tabindex="-1" aria-label="Unit Type from National inventory"></td>
-            <td><input type="text" class="form-control pullout-purpose" value="National Bookstore Pullout" readonly aria-label="Purpose"></td>
-            <td><input type="number" class="form-control pullout-physical-stock text-center" readonly tabindex="-1" aria-label="Physical Stocks from National inventory"></td>
             <td><input type="number" class="form-control pullout-actual" name="items[${index}][actual_pullout]" min="1" step="1" required></td>
-            <td><button type="button" class="btn btn-outline-danger remove-pullout-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></td>`;
+`;
         itemsBody.appendChild(row);
         const search = row.querySelector('.pullout-product-search');
         search.addEventListener('input', () => {
@@ -138,7 +131,6 @@
         });
         if (values.product) selectProduct(row, values.product);
         row.querySelector('.pullout-qty').value = values.quantity || '';
-        row.querySelector('.pullout-purpose').value = values.purpose || 'National Bookstore Pullout';
         row.querySelector('.pullout-actual').value = values.actual || '';
         return row;
     };
@@ -177,17 +169,10 @@
         const rows = [...itemsBody.querySelectorAll('.national-pullout-item')].filter(row => !selectedOnly || row.querySelector('.pullout-export-check').checked);
         if (!rows.length) return showMessage('Select at least one item to export.', true);
         downloadCsv([
-            ['P.O. #:', document.getElementById('pulloutPoNumber').value],
-            ['Date:', document.getElementById('pulloutDate').value],
-            ['Remarks:', document.getElementById('pulloutRemarks').value],
-            [],
-            ['Product Item Name', 'Qty', 'Unit Type', 'Purpose', 'Physical Stocks', 'Actual Pull-out'],
+            ['Product Item Name', 'Qty', 'Actual Pull-out'],
             ...rows.map(row => [
                 row.querySelector('.pullout-product-search').value,
                 row.querySelector('.pullout-qty').value,
-                row.querySelector('.pullout-unit-type').value,
-                row.querySelector('.pullout-purpose').value,
-                row.querySelector('.pullout-physical-stock').value,
                 row.querySelector('.pullout-actual').value,
             ]),
         ]);
@@ -195,40 +180,42 @@
     document.getElementById('exportPulloutSelected').addEventListener('click', () => exportRows(true));
 
     const fileInput = document.getElementById('pulloutCsvFile');
-    document.getElementById('importPulloutCsv').addEventListener('click', () => fileInput.click());
+    document.getElementById('importPulloutCsv').addEventListener('click', () => {
+        if (typeof fileInput.showPicker === 'function') fileInput.showPicker();
+        else fileInput.click();
+    });
     fileInput.addEventListener('change', async () => {
         if (!fileInput.files[0]) return;
-        const rows = parseCsv(await fileInput.files[0].text());
-        const headerIndex = rows.findIndex(row => (row[0] || '').trim().toLowerCase() === 'product item name');
-        if (headerIndex < 0) return showMessage('The CSV must contain the Product Item Name header.', true);
-        rows.slice(0, headerIndex).forEach(row => {
-            const label = (row[0] || '').trim().toLowerCase();
-            if (label === 'p.o. #:') document.getElementById('pulloutPoNumber').value = row[1] || '';
-            if (label === 'date:') document.getElementById('pulloutDate').value = row[1] || '';
-            if (label === 'remarks:') document.getElementById('pulloutRemarks').value = row[1] || '';
-        });
-        const headers = rows[headerIndex].map(value => value.trim().toLowerCase());
-        const column = name => headers.indexOf(name.toLowerCase());
-        const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-out'];
-        if (requiredHeaders.some(name => column(name) < 0)) {
-            return showMessage('The CSV must contain Product Item Name, Qty, and Actual Pull-out.', true);
+        try {
+            const rows = parseCsv((await fileInput.files[0].text()).replace(/^\uFEFF/, ''));
+            const headerIndex = rows.findIndex(row => (row[0] || '').trim().toLowerCase() === 'product item name');
+            if (headerIndex < 0) return showMessage('The CSV must contain the Product Item Name header.', true);
+            const headers = rows[headerIndex].map(value => value.trim().toLowerCase());
+            const column = name => headers.indexOf(name.toLowerCase());
+            const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-out'];
+            if (requiredHeaders.some(name => column(name) < 0)) {
+                return showMessage('The CSV must contain Product Item Name, Qty, and Actual Pull-out.', true);
+            }
+            const imported = []; const errors = [];
+            rows.slice(headerIndex + 1).forEach((values, offset) => {
+                const name = (values[column('Product Item Name')] || '').trim();
+                const qty = (values[column('Qty')] || '').trim();
+                const actual = (values[column('Actual Pull-out')] || '').trim();
+                if (!name || (!qty && !actual)) return;
+                const matches = byName.get(name.toLowerCase()) || [];
+                if (matches.length !== 1) { errors.push(`Row ${headerIndex + offset + 2}: ${name} was not found uniquely.`); return; }
+                imported.push({product: matches[0], quantity: qty, actual});
+            });
+            if (errors.length) return showMessage(errors.join('\n'), true);
+            if (!imported.length) return showMessage('No completed pull-out rows were found in the CSV.', true);
+            itemsBody.innerHTML = ''; imported.forEach(values => addRow(values));
+            showMessage(`${imported.length} item row(s) imported. Review the quantities before saving.`);
+        } catch (error) {
+            showMessage('The selected CSV could not be read. Please choose a valid CSV file and try again.', true);
+            console.error('National Bookstore Pullout CSV import failed.', error);
+        } finally {
+            fileInput.value = '';
         }
-        const imported = []; const errors = [];
-        rows.slice(headerIndex + 1).forEach((values, offset) => {
-            const name = (values[column('Product Item Name')] || '').trim();
-            const qty = (values[column('Qty')] || '').trim();
-            const actual = (values[column('Actual Pull-out')] || '').trim();
-            const purpose = (values[column('Purpose')] || '').trim();
-            if (!name || (!qty && !actual)) return;
-            const matches = byName.get(name.toLowerCase()) || [];
-            if (matches.length !== 1) { errors.push(`Row ${headerIndex + offset + 2}: ${name} was not found uniquely.`); return; }
-            imported.push({product: matches[0], quantity: qty, actual, purpose});
-        });
-        if (errors.length) return showMessage(errors.join('\n'), true);
-        if (!imported.length) return showMessage('No completed pull-out rows were found in the CSV.', true);
-        itemsBody.innerHTML = ''; imported.forEach(values => addRow(values));
-        showMessage(`${imported.length} item row(s) imported. Review the quantities before saving.`);
-        fileInput.value = '';
     });
 
     document.getElementById('nationalPulloutForm').addEventListener('submit', event => {
