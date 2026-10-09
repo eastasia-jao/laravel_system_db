@@ -33,7 +33,8 @@ class NationalInventoryController extends Controller
             });
         }
 
-        $nationalProducts = $query->orderBy('item_id')->paginate(25)->withQueryString();
+        $this->orderByItemId($query);
+        $nationalProducts = $query->paginate(25)->withQueryString();
 
         return view('products.national', compact('nationalProducts', 'hub'));
     }
@@ -107,22 +108,35 @@ class NationalInventoryController extends Controller
 
         $created = 0;
         $updated = 0;
-        DB::transaction(function () use ($rows, &$created, &$updated) {
+        DB::transaction(function () use ($rows, $request, $hub, &$created, &$updated) {
+            $logItems = [];
             foreach ($rows as $row) {
                 $product = NationalProduct::where('item_id', $row['item_id'])->first();
+                $stockBefore = $product?->stock ?? 0;
+                $operation = $product ? 'updated' : 'created';
                 $product ? $updated++ : $created++;
-                NationalProduct::updateOrCreate(['item_id' => $row['item_id']], $row);
+                $product = NationalProduct::updateOrCreate(['item_id' => $row['item_id']], $row);
+                $logItems[] = [
+                    'product_id' => null,
+                    'item_id' => $product->item_id,
+                    'product_name' => $product->name,
+                    'operation' => $operation,
+                    'stock_before' => $stockBefore,
+                    'stock_after' => $product->stock,
+                    'details' => ['inventory_scope' => 'national', 'national_product_id' => $product->id],
+                ];
             }
-        });
 
-        StaffActivityLog::create([
-            'user_id' => $request->user()->id,
-            'store_hub_id' => $hub->id,
-            'action_type' => 'product_import',
-            'description' => "Imported {$created} new and updated {$updated} National inventory item(s).",
-            'details' => ['inventory_scope' => 'national', 'created_count' => $created, 'updated_count' => $updated],
-            'ip_address' => $request->ip(),
-        ]);
+            $activityLog = StaffActivityLog::create([
+                'user_id' => $request->user()->id,
+                'store_hub_id' => $hub->id,
+                'action_type' => 'product_import',
+                'description' => "Imported {$created} new and updated {$updated} National inventory item(s).",
+                'details' => ['inventory_scope' => 'national', 'created_count' => $created, 'updated_count' => $updated],
+                'ip_address' => $request->ip(),
+            ]);
+            $activityLog->items()->createMany($logItems);
+        });
 
         return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
             ->with('success', "National inventory imported: {$created} created, {$updated} updated.");
@@ -150,7 +164,7 @@ class NationalInventoryController extends Controller
             throw ValidationException::withMessages(['product_ids' => 'No National inventory products are available to export.']);
         }
 
-        StaffActivityLog::create([
+        $activityLog = StaffActivityLog::create([
             'user_id' => $request->user()->id,
             'store_hub_id' => $hub->id,
             'action_type' => 'product_export',
@@ -158,6 +172,17 @@ class NationalInventoryController extends Controller
             'details' => ['inventory_scope' => 'national', 'item_count' => $count],
             'ip_address' => $request->ip(),
         ]);
+        (clone $query)->orderBy('id')->chunk(250, function ($products) use ($activityLog) {
+            $activityLog->items()->createMany($products->map(fn (NationalProduct $product) => [
+                'product_id' => null,
+                'item_id' => $product->item_id,
+                'product_name' => $product->name,
+                'operation' => 'exported',
+                'stock_before' => $product->stock,
+                'stock_after' => $product->stock,
+                'details' => ['inventory_scope' => 'national', 'national_product_id' => $product->id],
+            ])->all());
+        });
 
         $filename = 'national_inventory_'.now()->format('Ymd_His').'.csv';
         return response()->streamDownload(function () use ($query) {
@@ -185,6 +210,7 @@ class NationalInventoryController extends Controller
     public function update(Request $request, NationalProduct $nationalProduct)
     {
         $hub = $this->headOffice($request);
+        $stockBefore = $nationalProduct->stock;
         $request->merge([
             'item_id' => CsvIdentifier::read($request->input('item_id'), 'Item ID'),
             'barcode' => CsvIdentifier::read($request->input('barcode'), 'Barcode') ?: null,
@@ -200,7 +226,7 @@ class NationalInventoryController extends Controller
         ]);
         $nationalProduct->update($validated);
 
-        $this->logAction($request, $hub, 'product_update', "Updated National product {$nationalProduct->item_id}.", $nationalProduct);
+        $this->logAction($request, $hub, 'product_update', "Updated National product {$nationalProduct->item_id}.", $nationalProduct, 'updated', $stockBefore, $nationalProduct->stock);
 
         return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
             ->with('success', 'National product updated successfully.');
@@ -209,10 +235,11 @@ class NationalInventoryController extends Controller
     public function toggleStatus(Request $request, NationalProduct $nationalProduct)
     {
         $hub = $this->headOffice($request);
+        $previousStatus = $nationalProduct->status;
         $nationalProduct->status = $nationalProduct->status === 'active' ? 'inactive' : 'active';
         $nationalProduct->save();
 
-        $this->logAction($request, $hub, 'product_status_change', "Set National product {$nationalProduct->item_id} to {$nationalProduct->status}.", $nationalProduct);
+        $this->logAction($request, $hub, 'product_status_change', "Set National product {$nationalProduct->item_id} to {$nationalProduct->status}.", $nationalProduct, $nationalProduct->status === 'active' ? 'activated' : 'deactivated', $nationalProduct->stock, $nationalProduct->stock, ['status_before' => $previousStatus, 'status_after' => $nationalProduct->status]);
 
         return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
             ->with('success', "National product {$nationalProduct->status}.");
@@ -222,17 +249,8 @@ class NationalInventoryController extends Controller
     {
         $hub = $this->headOffice($request);
         $itemId = $nationalProduct->item_id;
-        $productId = $nationalProduct->id;
+        $this->logAction($request, $hub, 'product_delete', "Deleted National product {$itemId}.", $nationalProduct, 'deleted', $nationalProduct->stock, null);
         $nationalProduct->delete();
-
-        StaffActivityLog::create([
-            'user_id' => $request->user()->id,
-            'store_hub_id' => $hub->id,
-            'action_type' => 'product_delete',
-            'description' => "Deleted National product {$itemId}.",
-            'details' => ['inventory_scope' => 'national', 'product_id' => $productId, 'item_id' => $itemId],
-            'ip_address' => $request->ip(),
-        ]);
 
         return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
             ->with('success', 'National product deleted.');
@@ -283,9 +301,9 @@ class NationalInventoryController extends Controller
         return (int) $value;
     }
 
-    private function logAction(Request $request, StoreHub $hub, string $actionType, string $description, NationalProduct $product): void
+    private function logAction(Request $request, StoreHub $hub, string $actionType, string $description, NationalProduct $product, string $operation, ?int $stockBefore, ?int $stockAfter, array $itemDetails = []): void
     {
-        StaffActivityLog::create([
+        $activityLog = StaffActivityLog::create([
             'user_id' => $request->user()->id,
             'store_hub_id' => $hub->id,
             'action_type' => $actionType,
@@ -293,5 +311,36 @@ class NationalInventoryController extends Controller
             'details' => ['inventory_scope' => 'national', 'product_id' => $product->id, 'item_id' => $product->item_id],
             'ip_address' => $request->ip(),
         ]);
+        $activityLog->items()->create([
+            'product_id' => null,
+            'item_id' => $product->item_id,
+            'product_name' => $product->name,
+            'operation' => $operation,
+            'stock_before' => $stockBefore,
+            'stock_after' => $stockAfter,
+            'details' => array_merge(['inventory_scope' => 'national', 'national_product_id' => $product->id], $itemDetails),
+        ]);
+    }
+
+    private function orderByItemId($query): void
+    {
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'sqlite') {
+            $query->orderByRaw("CASE WHEN item_id <> '' AND item_id NOT GLOB '*[^0-9]*' THEN 0 ELSE 1 END")
+                ->orderByRaw("CASE WHEN item_id <> '' AND item_id NOT GLOB '*[^0-9]*' THEN LENGTH(LTRIM(item_id, '0')) END")
+                ->orderByRaw("CASE WHEN item_id <> '' AND item_id NOT GLOB '*[^0-9]*' THEN LTRIM(item_id, '0') END");
+        } elseif ($driver === 'pgsql') {
+            $query->orderByRaw("CASE WHEN item_id ~ '^[0-9]+$' THEN 0 ELSE 1 END")
+                ->orderByRaw("CASE WHEN item_id ~ '^[0-9]+$' THEN LENGTH(LTRIM(item_id, '0')) END")
+                ->orderByRaw("CASE WHEN item_id ~ '^[0-9]+$' THEN LTRIM(item_id, '0') END");
+        } elseif ($driver === 'mysql' || $driver === 'mariadb') {
+            $query->orderByRaw("CASE WHEN item_id REGEXP '^[0-9]+$' THEN 0 ELSE 1 END")
+                ->orderByRaw("CASE WHEN item_id REGEXP '^[0-9]+$' THEN LENGTH(TRIM(LEADING '0' FROM item_id)) END")
+                ->orderByRaw("CASE WHEN item_id REGEXP '^[0-9]+$' THEN TRIM(LEADING '0' FROM item_id) END");
+        } else {
+            $query->orderByRaw('LENGTH(item_id)');
+        }
+
+        $query->orderBy('item_id');
     }
 }

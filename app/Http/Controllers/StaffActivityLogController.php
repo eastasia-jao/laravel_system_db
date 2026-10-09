@@ -15,7 +15,7 @@ class StaffActivityLogController extends Controller
     public function index(Request $request)
     {
         $validated = $request->validate([
-            'action' => 'nullable|in:product_import,product_export,inventory_verification,catalog_assignment,branch_transfer_sent',
+            'action' => 'nullable|in:product_import,product_export,product_update,product_status_change,product_delete,inventory_verification,catalog_assignment,branch_transfer_sent',
             'hub_id' => 'nullable|integer|exists:store_hubs,id',
             'user_id' => 'nullable|integer|exists:users,id',
             'date_from' => 'nullable|date',

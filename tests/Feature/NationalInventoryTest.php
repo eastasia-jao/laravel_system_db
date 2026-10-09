@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\NationalProduct;
 use App\Models\Product;
+use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,6 +72,9 @@ class NationalInventoryTest extends TestCase
         $this->assertDatabaseCount('national_products', 2);
         $this->assertDatabaseCount('products', 0);
         $this->assertSame('007661234567891234567890', NationalProduct::where('item_id', '00001')->value('barcode'));
+        $importLog = StaffActivityLog::where('action_type', 'product_import')->sole();
+        $this->assertSame('national', $importLog->details['inventory_scope']);
+        $this->assertSame(2, $importLog->items()->count());
 
         $response = $this->actingAs($admin)->get(route('national-inventory.export', [
             'hub_id' => $headOffice->id,
@@ -85,6 +89,19 @@ class NationalInventoryTest extends TestCase
         $this->assertSame('="00001"', $firstProduct[1]);
         $this->assertSame('="007661234567891234567890"', $firstProduct[4]);
         $this->assertFalse(Schema::hasColumn('national_products', 'retail_department'));
+        $exportLog = StaffActivityLog::where('action_type', 'product_export')->sole();
+        $this->assertSame(2, $exportLog->items()->count());
+
+        $this->actingAs($admin)
+            ->get(route('staff-logs.index'))
+            ->assertOk()
+            ->assertSee('National Product Import')
+            ->assertSee('National Product Export');
+        $this->actingAs($admin)
+            ->get(route('staff-logs.show', $importLog))
+            ->assertOk()
+            ->assertSee('National Product Import Item List')
+            ->assertSee('National Brush');
     }
 
     public function test_invalid_national_csv_is_rejected_before_any_writes(): void
@@ -156,5 +173,37 @@ class NationalInventoryTest extends TestCase
             ->delete(route('national-inventory.destroy', $product), ['hub_id' => $headOffice->id])
             ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
         $this->assertDatabaseMissing('national_products', ['id' => $product->id]);
+
+        foreach (['product_update', 'product_status_change', 'product_delete'] as $actionType) {
+            $log = StaffActivityLog::where('action_type', $actionType)->sole();
+            $this->assertSame('national', $log->details['inventory_scope']);
+            $this->assertSame(1, $log->items()->count());
+        }
+
+        $this->actingAs($inventoryStaff)
+            ->get(route('staff-logs.index'))
+            ->assertOk()
+            ->assertSee('National Product Update')
+            ->assertSee('National Status Change')
+            ->assertSee('National Product Delete');
+    }
+
+    public function test_national_products_use_numeric_item_id_order_and_selection_mode_controls(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+        foreach (['10', '2', '1', '100', '11', '3'] as $itemId) {
+            NationalProduct::create(['item_id' => $itemId, 'name' => "National Item {$itemId}", 'stock' => 0, 'status' => 'active']);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
+            ->assertOk()
+            ->assertViewHas('nationalProducts', fn ($products) => $products->pluck('item_id')->values()->all() === ['1', '2', '3', '10', '11', '100'])
+            ->assertSee('Select Rows Mode')
+            ->assertSee('Exit Selection Mode')
+            ->assertSee('nationalExportSelected', false)
+            ->assertSee('nationalImportProgress', false)
+            ->assertDontSee('>Clear</a>', false);
     }
 }
