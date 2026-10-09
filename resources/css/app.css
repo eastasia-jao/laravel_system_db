@@ -75,6 +75,12 @@ a, button, input, select, textarea { transition: color var(--ac-transition), bac
 .app-content { width: 100%; padding: 1.5rem; }
 .app-content > .workspace-page, .app-content > .container-fluid, .app-content > .container { width: min(100%, 1600px); margin-inline: auto; }
 .app-content > .workspace-page { padding: 0 !important; }
+.inventory-entry-page > .page-hero,
+.inventory-entry-page > .transaction-page-heading,
+.inventory-entry-page > .restock-page-heading { margin-bottom: .75rem !important; padding: 1rem 1.25rem !important; }
+.inventory-entry-page > .page-hero .page-hero-icon,
+.inventory-entry-page > .transaction-page-heading .transaction-page-heading-icon,
+.inventory-entry-page > .restock-page-heading .restock-page-heading-icon { width: 44px; height: 44px; flex-basis: 44px; }
 
 .page-hero { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.5rem; border: 1px solid #dbeafe; border-radius: var(--ac-radius-lg); color: var(--ac-text); background: linear-gradient(135deg, #fff, #f5f9ff); box-shadow: var(--ac-shadow-sm); }
 .page-hero-main { min-width: 0; display: flex; align-items: center; gap: 1rem; }

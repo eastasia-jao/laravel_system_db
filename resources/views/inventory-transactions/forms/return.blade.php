@@ -32,8 +32,8 @@
     @media (max-width: 991.98px) { .return-entry-layout { grid-template-columns: 1fr; } .return-notes-panel { position: static; } .return-actions { grid-column: 1; justify-content:flex-end; } .return-item { grid-template-columns: minmax(220px, 1.5fr) repeat(2, minmax(145px, 1fr)); } .return-refund-control { grid-column: auto; padding-left: .5rem; border-left: 1px solid #cbd5e1; border-top: 0; } }
     @media (max-width: 575.98px) { .return-item { grid-template-columns: 1fr; } .return-refund-control { grid-column: auto; } .return-actions { justify-content:flex-end; } .return-actions > * { flex:1 1 auto; } }
 </style>
-<div class="p-5">
-    <x-page-header class="mb-4" eyebrow="Inventory adjustment" title="Return Items" description="Record returned products and classify each item as good or damaged." icon="fa-rotate-left" />
+<div class="workspace-page inventory-entry-page">
+    <x-page-header class="mb-3" eyebrow="Inventory adjustment" title="Return Items" description="Record returned products and classify each item as good or damaged." icon="fa-rotate-left" />
 
     <form method="POST" action="{{ route('inventory-transactions.return.store') }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf

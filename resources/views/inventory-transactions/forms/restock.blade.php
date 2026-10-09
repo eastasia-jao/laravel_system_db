@@ -56,8 +56,8 @@
         #restockItemsHeader { display: none; }
     }
 </style>
-<div class="p-5">
-    <header class="restock-page-heading mb-4">
+<div class="workspace-page inventory-entry-page">
+    <header class="restock-page-heading mb-3">
         <span class="restock-page-heading-icon" aria-hidden="true"><i class="fa-solid fa-boxes-stacked"></i></span>
         <div>
             <div class="small text-uppercase fw-bold text-primary mb-1">Inventory Receiving</div>

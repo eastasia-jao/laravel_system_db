@@ -80,9 +80,9 @@
         }
     }
 </style>
-<div class="p-5">
+<div class="workspace-page inventory-entry-page">
     @php($isFullyBookedPage = $activityType === 'fully_booked')
-    <header class="page-hero mb-4">
+    <header class="page-hero mb-3">
         <div class="page-hero-main">
             <span class="page-hero-icon" aria-hidden="true"><i id="activityHeadingIcon" class="fa-solid {{ $isFullyBookedPage ? 'fa-book-open' : 'fa-people-group' }}"></i></span>
             <div class="page-hero-copy">
