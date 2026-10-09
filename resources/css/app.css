@@ -143,10 +143,19 @@ body.sidebar-collapsed .app-main { margin-left: var(--ac-sidebar-rail); width: c
 body.sidebar-collapsed #appSidebar .brand-copy, body.sidebar-collapsed #appSidebar .nav-link .badge, body.sidebar-collapsed #appSidebar .sidebar-user-copy, body.sidebar-collapsed #appSidebar #sidebarClock { display: none !important; }
 body.sidebar-collapsed #appSidebar .nav-link { width: 44px; padding-inline: 12px !important; overflow: hidden; gap: 1rem !important; }
 body.sidebar-collapsed #appSidebar .collapse { display: none !important; }
+body.sidebar-collapsed #appSidebar #storeHubDropdown { display: none !important; height: 0 !important; visibility: hidden; overflow: hidden !important; }
 
 @media (min-width: 1200px) {
     body.sidebar-collapsed #appSidebar .sidebar-header { flex-direction: column; align-items: center !important; }
     body.sidebar-collapsed #appSidebar .sidebar-header > .dropdown { margin-left: 0 !important; }
+    body.sidebar-collapsed #appSidebar .nav-link { justify-content: center; padding-inline: 0 !important; gap: 0 !important; font-size: 0 !important; }
+    body.sidebar-collapsed #appSidebar .nav-link > i:first-child { font-size: .95rem; }
+    body.sidebar-collapsed #appSidebar .nav-link > i:not(:first-child) { display: none !important; }
+    body.sidebar-collapsed .app-content { padding-inline: 1.25rem; }
+    body.sidebar-collapsed .app-content > .workspace-page,
+    body.sidebar-collapsed .app-content > .container-fluid,
+    body.sidebar-collapsed .app-content > .container,
+    body.sidebar-collapsed .app-content > .configuration-page { width: 100%; max-width: none; margin-inline: 0; }
 }
 
 .card, .panel, .workspace-card { border: 1px solid var(--ac-border) !important; border-radius: var(--ac-radius-lg) !important; background-color: var(--ac-surface) !important; box-shadow: var(--ac-shadow-sm) !important; }

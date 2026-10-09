@@ -89,10 +89,17 @@
     .transfer-detail-item-id { color: #64748b; font-size: .78rem; margin-top: .15rem; }
     .transfer-detail-qty { min-width: 90px; color: #6d28d9; font-weight: 800; text-align: right; }
     .transfer-activity-context { border-top: 1px dashed #cbd5e1; padding-top: 1rem; }
+    .transaction-logs-page .page-hero { padding: 1rem 1.25rem; }
+    .transaction-logs-page .page-hero-icon { width: 44px; height: 44px; flex-basis: 44px; border-radius: 12px; }
+    .transaction-log-actions .card { padding: .8rem 1rem !important; }
+    .transaction-log-actions .card > i { margin-bottom: .35rem !important; }
+    @media (max-width: 767.98px) {
+        .transaction-logs-page .page-hero { padding: 1rem; }
+    }
 </style>
 
-<div class="p-5">
-    <x-page-header class="mb-4" eyebrow="Inventory workspace" title="Inventory Transaction Logs" :description="auth()->user()?->role === 'sales_associate' ? 'Branch-to-branch stock transfers for '.($hubs->first()?->name ?? 'your designated branch').'.' : 'Monthly item movement for sold items, transfers, events, Fully Booked orders, restocks, and returns.'" icon="fa-clipboard-list" />
+<div class="workspace-page transaction-logs-page">
+    <x-page-header class="mb-3" eyebrow="Inventory workspace" title="Inventory Transaction Logs" :description="auth()->user()?->role === 'sales_associate' ? 'Branch-to-branch stock transfers for '.($hubs->first()?->name ?? 'your designated branch').'.' : 'Monthly item movement for sold items, transfers, events, Fully Booked orders, restocks, and returns.'" icon="fa-clipboard-list" />
 
     @can('manage-inventory')
         @php
@@ -111,7 +118,7 @@
                 ]]);
             }
         @endphp
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-{{ count($inventoryActions) }} g-3 mb-4">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-{{ count($inventoryActions) }} g-3 mb-3 transaction-log-actions">
             @foreach($inventoryActions as $action)
                 <div class="col"><a href="{{ route($action['route'], ['hub_id' => $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100 position-relative">
                     <i class="fa-solid {{ $action['icon'] }} text-primary fs-4 mb-2"></i><strong class="text-dark">{{ $action['title'] }}</strong><small class="text-muted">{{ $action['text'] }}</small>
@@ -125,7 +132,7 @@
 
     @can('submit-branch-transfers')
         @cannot('manage-inventory')
-            <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+            <div class="row row-cols-1 row-cols-md-2 g-3 mb-3 transaction-log-actions">
                 <div class="col"><a href="{{ route('inventory-transactions.branch-transfer.create', ['hub_id' => $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100">
                     <i class="fa-solid fa-right-left text-primary fs-4 mb-2"></i><strong class="text-dark">Stock Transfer</strong><small class="text-muted">BRANCH to BRANCH</small>
                 </a></div>
@@ -133,7 +140,7 @@
         @endcannot
     @endcan
 
-    <div class="card log-filter-card shadow-sm rounded-4 p-3 mb-4">
+    <div class="card log-filter-card shadow-sm rounded-4 p-3 mb-3">
         <form class="row g-2 align-items-end">
             <div class="col-md-3"><label class="small fw-bold text-muted">STORE HUB</label>
                 <select name="hub_id" class="form-select"><option value="">All stores</option>

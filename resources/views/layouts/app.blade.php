@@ -91,6 +91,11 @@
         const isOverlay = () => window.matchMedia('(max-width: 1199.98px)').matches;
         const setCollapsed = (collapsed, persist = true) => {
             document.body.classList.toggle('sidebar-collapsed', collapsed);
+            if (collapsed) {
+                const storeHubMenu = document.getElementById('storeHubDropdown');
+                storeHubMenu?.classList.remove('show');
+                document.querySelector('[href="#storeHubDropdown"]')?.setAttribute('aria-expanded', 'false');
+            }
             if (persist) localStorage.setItem(preferenceKey, collapsed ? '1' : '0');
             if (toggle) {
                 toggle.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
