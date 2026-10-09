@@ -83,6 +83,52 @@ class InventoryScalingTest extends TestCase
         $this->assertSame(1, substr_count($paginationText, 'Showing 1 to 10 of 12 results'));
     }
 
+    public function test_product_list_only_offers_active_store_hubs(): void
+    {
+        $office = StoreHub::create([
+            'name' => 'Active Head Office',
+            'code' => 'ACTIVE-HO',
+            'is_head_office' => true,
+            'status' => 'active',
+        ]);
+        $activeBranch = StoreHub::create([
+            'name' => 'Active Branch',
+            'code' => 'ACTIVE-BR',
+            'status' => 'active',
+        ]);
+        $inactiveBranch = StoreHub::create([
+            'name' => 'Deactivated Branch',
+            'code' => 'INACTIVE-BR',
+            'status' => 'inactive',
+        ]);
+        Product::create([
+            'store_hub_id' => $inactiveBranch->id,
+            'item_id' => 'INACTIVE-PRODUCT',
+            'name' => 'Inactive branch product',
+            'stock' => 10,
+        ]);
+        Product::create([
+            'store_hub_id' => $activeBranch->id,
+            'item_id' => 'ACTIVE-PRODUCT',
+            'name' => 'Active branch product',
+            'stock' => 5,
+        ]);
+
+        $response = $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('products.index', ['hub_id' => $inactiveBranch->id]));
+
+        $response->assertOk()
+            ->assertSee('ACTIVE HEAD OFFICE')
+            ->assertSee('ACTIVE BRANCH')
+            ->assertDontSee('DEACTIVATED BRANCH')
+            ->assertDontSee('Inactive branch product');
+        $this->assertSame(
+            [$office->id, $activeBranch->id],
+            $response->viewData('productHubs')->pluck('id')->all()
+        );
+        $this->assertTrue($response->viewData('selectedHub')->is($office));
+    }
+
     public function test_product_search_matches_case_insensitive_keywords_across_product_search_surfaces(): void
     {
         $hub = StoreHub::create(['name' => 'Search Head Office', 'code' => 'SEARCH-HO', 'is_head_office' => true, 'status' => 'active']);

@@ -43,13 +43,16 @@ class ProductController extends Controller
         $user = auth()->user();
         $isSalesAssociate = $user?->role === 'sales_associate';
         $salesAssociateHubs = $isSalesAssociate
-            ? StoreHub::whereIn('id', $user->accessibleStoreHubIds())->orderBy('name')->get()
+            ? StoreHub::whereIn('id', $user->accessibleStoreHubIds())
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get()
             : collect();
         $productHubs = $isSalesAssociate
             ? $salesAssociateHubs
             : (($user && ! in_array($user->role, ['admin', 'inventory_staff'], true))
-                ? StoreHub::whereKey($user->store_hub_id)->get()
-                : StoreHub::orderByDesc('is_head_office')->orderBy('name')->get());
+                ? StoreHub::whereKey($user->store_hub_id)->where('status', 'active')->get()
+                : StoreHub::where('status', 'active')->orderByDesc('is_head_office')->orderBy('name')->get());
         $selectedHubId = $request->query('hub_id');
         $displayChannelOptions = $user?->role === 'sales_marketing_staff'
             ? collect($user->sales_channels ?? [])
@@ -78,9 +81,10 @@ class ProductController extends Controller
             $requestedHubId = $request->query('hub_id');
             $selectedHubId = $requestedHubId !== null && $salesAssociateHubs->contains('id', (int) $requestedHubId)
                 ? (int) $requestedHubId
-                : $user->store_hub_id;
+                : $salesAssociateHubs->firstWhere('id', (int) $user->store_hub_id)?->id
+                    ?? $salesAssociateHubs->first()?->id;
         } elseif ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
-            $selectedHubId = $user->store_hub_id;
+            $selectedHubId = $productHubs->first()?->id;
         } else {
             $defaultHub = $user?->role === 'inventory_staff'
                 ? $productHubs->firstWhere('id', (int) $user->hub_id)
@@ -90,7 +94,7 @@ class ProductController extends Controller
                 ?? $productHubs->first()?->id;
         }
 
-        $selectedHub = $selectedHubId ? StoreHub::find($selectedHubId) : null;
+        $selectedHub = $selectedHubId ? $productHubs->firstWhere('id', (int) $selectedHubId) : null;
         $query = Product::query()->with('stockAllocation');
         if (! in_array($user->role, ['admin', 'inventory_staff'], true) && ! $selectedHubId) {
             $query->whereRaw('1 = 0');
