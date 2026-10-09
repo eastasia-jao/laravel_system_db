@@ -35,7 +35,6 @@
 <link rel="stylesheet" href="{{ asset('app-alert.css') }}?v=20260929-branch-transfer-popup2">
 </head>
 <body class="app-shell">
-    @php($shellUnreadNotificationCount = auth()->user()->unreadNotifications()->count())
     <div class="app-layout">
         @include('layouts.sidebar')
         <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
@@ -52,39 +51,6 @@
                     </div>
                 </div>
 
-                <div class="topbar-actions">
-                    @can('view-products')
-                    <form class="global-search" action="{{ route('products.index') }}" method="GET" role="search">
-                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                        <input type="search" name="search" value="{{ request()->routeIs('products.index') ? request('search') : '' }}" placeholder="Search inventory" aria-label="Search inventory">
-                        <span class="search-hint" aria-hidden="true">/</span>
-                    </form>
-                    @endcan
-                    <a href="{{ route('notifications.index') }}" class="icon-button position-relative" aria-label="Notifications{{ $shellUnreadNotificationCount ? ': '.$shellUnreadNotificationCount.' unread' : '' }}">
-                        <i class="fa-regular fa-bell" aria-hidden="true"></i>
-                        @if($shellUnreadNotificationCount)
-                            <span class="notification-dot">{{ $shellUnreadNotificationCount > 99 ? '99+' : $shellUnreadNotificationCount }}</span>
-                        @endif
-                    </a>
-                    <div class="dropdown">
-                        <button class="user-menu-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span class="user-avatar">{{ Illuminate\Support\Str::upper(Illuminate\Support\Str::substr(Auth::user()->name, 0, 1)) }}</span>
-                            <span class="user-menu-copy d-none d-md-flex"><strong>{{ Auth::user()->name }}</strong><small>@<span>{{ Auth::user()->username }}</span></small></span>
-                            <i class="fa-solid fa-chevron-down d-none d-md-inline" aria-hidden="true"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end app-dropdown-menu">
-                            <div class="px-3 py-2 border-bottom">
-                                <strong class="d-block">{{ Auth::user()->name }}</strong>
-                                <small class="text-muted">@<span>{{ Auth::user()->username }}</span></small>
-                            </div>
-                            <a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="fa-regular fa-user me-2" aria-hidden="true"></i>Profile</a>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="dropdown-item text-danger"><i class="fa-solid fa-arrow-right-from-bracket me-2" aria-hidden="true"></i>Log out</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
             </header>
 
             <main class="app-content">
@@ -143,10 +109,6 @@
         backdrop?.addEventListener('click', () => setDrawerOpen(false));
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape') setDrawerOpen(false);
-            if (event.key === '/' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) {
-                const search = document.querySelector('.global-search input');
-                if (search) { event.preventDefault(); search.focus(); }
-            }
         });
         window.addEventListener('resize', () => {
             if (!isOverlay()) setDrawerOpen(false);

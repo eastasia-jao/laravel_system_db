@@ -16,7 +16,7 @@
            && $sidebarPendingVerificationCountsByHub->sum() > 0;
     @endphp
     
-    <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom text-primary fw-bold">
+    <div class="sidebar-header d-flex align-items-center gap-2 mb-3 pb-3 border-bottom text-primary fw-bold">
        <button id="sidebarToggle" type="button" class="icon-button flex-shrink-0 d-none d-xl-inline-flex" title="Collapse sidebar" aria-label="Collapse sidebar">
            <i class="fa-solid fa-bars"></i>
        </button>
