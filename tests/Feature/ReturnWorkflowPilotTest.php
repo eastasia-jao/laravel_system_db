@@ -68,7 +68,7 @@ class ReturnWorkflowPilotTest extends TestCase
         $this->get(route('hub.dashboard', $branch->id))
             ->assertOk()
             ->assertSee('Walk-In sale submitted for verification')
-            ->assertDontSee('<div class="alert alert-success alert-dismissible fade show shadow-sm mb-4" role="alert">', false)
+            ->assertDontSee('alert-success')
             ->assertSee('Walk-In sale submitted for inventory verification. Stock will be updated after approval.');
 
         $pendingSale = PendingSale::sole();

@@ -22,13 +22,6 @@
         @endif
     </header>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show" role="status">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-
     <section class="card border-0 shadow-sm rounded-4 overflow-hidden">
         <div class="card-body border-bottom">
             <form class="row g-2 align-items-end">
