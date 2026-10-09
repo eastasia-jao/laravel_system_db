@@ -14,9 +14,7 @@ use Illuminate\Validation\ValidationException;
 class NationalInventoryController extends Controller
 {
     private const EXPORT_HEADERS = [
-        'ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Retail Group',
-        'Retail Department', 'Cost Price', 'Retail Price', 'Wholesale Price',
-        'Shopee Price', 'Lazada Price', 'TikTok Price', 'Stock', 'Unit Type', 'Status',
+        'ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Stock', 'Unit Type',
     ];
 
     public function index(Request $request)
@@ -94,19 +92,8 @@ class NationalInventoryController extends Controller
                     'description' => $value('description') ?: null,
                     'barcode' => ($barcode = CsvIdentifier::read($value('barcode'), "Row {$line} Barcode")) !== '' ? $barcode : null,
                     'brand' => $value('brand') ?: null,
-                    'retail_group' => $value('retail_group') ?: null,
-                    'retail_department' => $value('retail_department') ?: null,
-                    'cost_price' => $this->decimal($value('cost_price'), $line, 'Cost Price'),
-                    'sales_price' => $this->decimal($value('sales_price'), $line, 'Retail Price'),
-                    'wholesale_price' => $this->decimal($value('wholesale_price'), $line, 'Wholesale Price'),
-                    'shopee_price' => $this->decimal($value('shopee_price'), $line, 'Shopee Price'),
-                    'lazada_price' => $this->decimal($value('lazada_price'), $line, 'Lazada Price'),
-                    'tiktok_price' => $this->decimal($value('tiktok_price'), $line, 'TikTok Price'),
                     'stock' => $this->stock($value('stock'), $line),
                     'unit_type' => $value('unit_type') ?: null,
-                    'status' => in_array(strtolower($value('status')), ['active', 'inactive'], true)
-                        ? strtolower($value('status'))
-                        : 'active',
                 ];
             }
         } finally {
@@ -185,17 +172,8 @@ class NationalInventoryController extends Controller
                         $product->description,
                         CsvIdentifier::write($product->barcode, "National product {$product->id} Barcode"),
                         $product->brand,
-                        $product->retail_group,
-                        $product->retail_department,
-                        $product->cost_price,
-                        $product->sales_price,
-                        $product->wholesale_price,
-                        $product->shopee_price,
-                        $product->lazada_price,
-                        $product->tiktok_price,
                         $product->stock,
                         $product->unit_type,
-                        $product->status,
                     ]);
                 }
             });
@@ -230,32 +208,10 @@ class NationalInventoryController extends Controller
             'description' => 'description',
             'barcode' => 'barcode',
             'brand' => 'brand',
-            'retail group' => 'retail_group',
-            'retail department' => 'retail_department',
-            'cost price' => 'cost_price',
-            'retail price', 'sales price' => 'sales_price',
-            'wholesale price' => 'wholesale_price',
-            'shopee price' => 'shopee_price',
-            'lazada price' => 'lazada_price',
-            'tiktok price' => 'tiktok_price',
             'stock', 'quantity' => 'stock',
             'unit type', 'unit' => 'unit_type',
-            'status' => 'status',
             default => Str::snake($header),
         };
-    }
-
-    private function decimal(string $value, int $line, string $field): ?float
-    {
-        if ($value === '') {
-            return null;
-        }
-        $normalized = str_replace([',', '₱', 'P'], '', $value);
-        if (! is_numeric($normalized) || (float) $normalized < 0) {
-            throw ValidationException::withMessages(['file' => "Row {$line} {$field} must be a non-negative number."]);
-        }
-
-        return round((float) $normalized, 2);
     }
 
     private function stock(string $value, int $line): int

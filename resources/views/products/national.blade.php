@@ -62,7 +62,7 @@
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 national-inventory-table">
-                <thead><tr><th class="text-center" style="width:48px"><input type="checkbox" class="form-check-input" id="nationalSelectAll" aria-label="Select all National products on this page"></th><th>Product</th><th>Item ID</th><th>Barcode</th><th>Brand</th><th>Department</th><th>Unit</th><th class="text-end">Retail Price</th><th class="text-center">Stock</th><th>Status</th></tr></thead>
+                <thead><tr><th class="text-center" style="width:48px"><input type="checkbox" class="form-check-input" id="nationalSelectAll" aria-label="Select all National products on this page"></th><th>Product</th><th>Item ID</th><th>Barcode</th><th>Brand</th><th>Unit Type</th><th class="text-center">Stock</th></tr></thead>
                 <tbody>
                     @forelse($nationalProducts as $product)
                     <tr>
@@ -71,14 +71,11 @@
                         <td>{{ $product->item_id }}</td>
                         <td>{{ $product->barcode ?: '—' }}</td>
                         <td>{{ $product->brand ?: '—' }}</td>
-                        <td>{{ $product->retail_department ?: '—' }}</td>
                         <td>{{ $product->unit_type ?: '—' }}</td>
-                        <td class="text-end">₱{{ number_format((float) $product->sales_price, 2) }}</td>
                         <td class="text-center fw-bold">{{ number_format($product->stock) }}</td>
-                        <td><span class="badge {{ $product->status === 'active' ? 'text-bg-success' : 'text-bg-secondary' }}">{{ ucfirst($product->status) }}</span></td>
                     </tr>
                     @empty
-                    <tr><td colspan="10" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
+                    <tr><td colspan="7" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -99,7 +96,7 @@
             <div class="modal-body">
                 <label for="nationalCsvFile" class="form-label fw-semibold">National product CSV</label>
                 <input id="nationalCsvFile" type="file" name="file" class="form-control" accept=".csv,text/csv" required>
-                <div class="form-text mt-2">Required columns: Item ID and Name. The exported National CSV can be edited and imported again. Existing Item IDs are updated; new Item IDs are created.</div>
+                <div class="form-text mt-2">CSV columns: ID, Item ID, Name, Description, Barcode, Brand, Stock, and Unit Type. Existing Item IDs are updated; new Item IDs are created.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

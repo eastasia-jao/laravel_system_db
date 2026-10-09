@@ -8,6 +8,7 @@ use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class NationalInventoryTest extends TestCase
@@ -54,9 +55,9 @@ class NationalInventoryTest extends TestCase
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
         $csv = implode("\n", [
-            'ID,Item ID,Name,Description,Barcode,Brand,Retail Group,Retail Department,Cost Price,Retail Price,Wholesale Price,Shopee Price,Lazada Price,TikTok Price,Stock,Unit Type,Status',
-            '1,="00001",National Brush,National-only brush,="007661234567891234567890",ArtCo,Brushes,Art Materials,10.50,20.00,18.00,22.00,23.00,24.00,15,PCS,active',
-            '2,NAT-2,National Paint,National-only paint,90002,ColorCo,Paints,Art Materials,50,75,70,80,81,82,9,CAN,active',
+            'ID,Item ID,Name,Description,Barcode,Brand,Stock,Unit Type',
+            '1,="00001",National Brush,National-only brush,="007661234567891234567890",ArtCo,15,PCS',
+            '2,NAT-2,National Paint,National-only paint,90002,ColorCo,9,CAN',
         ])."\n";
 
         $this->actingAs($admin)
@@ -79,9 +80,11 @@ class NationalInventoryTest extends TestCase
         $export = $response->streamedContent();
         $this->assertStringContainsString('National Brush', $export);
         $lines = preg_split('/\r\n|\r|\n/', preg_replace('/^\xEF\xBB\xBF/', '', $export));
+        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Stock', 'Unit Type'], str_getcsv($lines[0]));
         $firstProduct = str_getcsv($lines[1]);
         $this->assertSame('="00001"', $firstProduct[1]);
         $this->assertSame('="007661234567891234567890"', $firstProduct[4]);
+        $this->assertFalse(Schema::hasColumn('national_products', 'retail_department'));
     }
 
     public function test_invalid_national_csv_is_rejected_before_any_writes(): void
