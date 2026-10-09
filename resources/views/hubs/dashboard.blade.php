@@ -71,6 +71,16 @@
         @endif
         @endcan
 
+        @can('manage-branch-returns')
+        @unless($hub->is_head_office)
+        <div class="col">
+            <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $hub->id]) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
+                <span class="hub-action-icon"><i class="fa-solid fa-rotate-left"></i></span><span class="hub-action-label">Return Items</span>
+            </a>
+        </div>
+        @endunless
+        @endcan
+
         @if($hub->is_head_office && auth()->user()?->role === 'sales_marketing_staff')
             @foreach(['shopee' => 'Shopee', 'lazada' => 'Lazada', 'tiktok' => 'TikTok'] as $marketplaceChannel => $marketplaceLabel)
                 @if(auth()->user()->hasSalesChannel($marketplaceChannel))

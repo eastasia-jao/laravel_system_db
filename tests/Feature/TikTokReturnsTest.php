@@ -217,6 +217,23 @@ class TikTokReturnsTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_non_head_office_hub_dashboard_has_a_return_items_action(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Branch Returns',
+            'code' => 'BR-RETURNS',
+            'status' => 'active',
+            'is_head_office' => false,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('Return Items')
+            ->assertSee(route('inventory-transactions.return.create', ['hub_id' => $hub->id]), false);
+    }
+
     public function test_legacy_tiktok_returns_show_customer_name_using_order_reference(): void
     {
         [$hub, $product, $sale] = $this->order();
