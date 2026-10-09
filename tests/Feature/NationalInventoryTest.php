@@ -120,11 +120,12 @@ class NationalInventoryTest extends TestCase
         $this->assertDatabaseCount('national_products', 0);
     }
 
-    public function test_head_office_staff_can_edit_toggle_and_delete_national_products(): void
+    public function test_head_office_staff_can_edit_and_toggle_while_only_admin_can_delete_without_mutation_logs(): void
     {
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
         $branch = StoreHub::create(['name' => 'Branch', 'code' => 'BR-NATIONAL', 'status' => 'active', 'is_head_office' => false]);
         $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $headOffice->id]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
         $branchStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $branch->id]);
         $product = NationalProduct::create([
             'item_id' => '00001',
@@ -142,7 +143,7 @@ class NationalInventoryTest extends TestCase
             ->assertOk()
             ->assertSee('Edit National product')
             ->assertSee('Deactivate National product')
-            ->assertSee('Delete National product');
+            ->assertDontSee('Delete National product');
 
         $this->actingAs($inventoryStaff)
             ->put(route('national-inventory.update', $product), [
@@ -161,6 +162,7 @@ class NationalInventoryTest extends TestCase
 
         $this->actingAs($inventoryStaff)
             ->patch(route('national-inventory.toggle', $product), ['hub_id' => $headOffice->id])
+            ->assertSessionMissing('success')
             ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
         $this->assertSame('inactive', $product->fresh()->status);
 
@@ -171,21 +173,39 @@ class NationalInventoryTest extends TestCase
 
         $this->actingAs($inventoryStaff)
             ->delete(route('national-inventory.destroy', $product), ['hub_id' => $headOffice->id])
-            ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
-        $this->assertDatabaseMissing('national_products', ['id' => $product->id]);
+            ->assertForbidden();
+        $this->assertDatabaseHas('national_products', ['id' => $product->id]);
 
         foreach (['product_update', 'product_status_change', 'product_delete'] as $actionType) {
-            $log = StaffActivityLog::where('action_type', $actionType)->sole();
-            $this->assertSame('national', $log->details['inventory_scope']);
-            $this->assertSame(1, $log->items()->count());
+            $this->assertDatabaseMissing('staff_activity_logs', ['action_type' => $actionType]);
         }
 
+        $legacyMutationLog = StaffActivityLog::create([
+            'user_id' => $inventoryStaff->id,
+            'store_hub_id' => $headOffice->id,
+            'action_type' => 'product_update',
+            'description' => 'Legacy National product update that should stay hidden.',
+            'details' => ['inventory_scope' => 'national'],
+        ]);
         $this->actingAs($inventoryStaff)
             ->get(route('staff-logs.index'))
             ->assertOk()
-            ->assertSee('National Product Update')
-            ->assertSee('National Status Change')
-            ->assertSee('National Product Delete');
+            ->assertDontSee('Legacy National product update that should stay hidden.')
+            ->assertDontSee('National Product Update')
+            ->assertDontSee('National Status Change')
+            ->assertDontSee('National Product Delete');
+        $this->actingAs($inventoryStaff)
+            ->get(route('staff-logs.show', $legacyMutationLog))
+            ->assertNotFound();
+
+        $this->actingAs($admin)
+            ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
+            ->assertOk()
+            ->assertSee('Delete National product');
+        $this->actingAs($admin)
+            ->delete(route('national-inventory.destroy', $product), ['hub_id' => $headOffice->id])
+            ->assertRedirect(route('national-inventory.index', ['hub_id' => $headOffice->id]));
+        $this->assertDatabaseMissing('national_products', ['id' => $product->id]);
     }
 
     public function test_national_products_use_numeric_item_id_order_and_selection_mode_controls(): void

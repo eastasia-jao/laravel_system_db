@@ -31,9 +31,6 @@
         <a class="btn btn-primary" href="{{ route('national-inventory.index', ['hub_id' => $hub->id]) }}" aria-current="page"><i class="fa-solid fa-earth-asia me-1"></i> National Inventory</a>
     </nav>
 
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
     @if($errors->any())
         <div class="alert alert-danger"><strong>National inventory was not changed.</strong><ul class="mb-0 mt-1">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
     @endif
@@ -87,7 +84,9 @@
                             <div class="d-flex justify-content-end gap-2">
                                 <button type="button" class="btn btn-sm btn-outline-primary" title="Edit National product" data-bs-toggle="modal" data-bs-target="#editNationalProductModal{{ $product->id }}"><i class="fa-solid fa-pen-to-square"></i></button>
                                 <button type="button" class="btn btn-sm {{ $product->status === 'active' ? 'btn-outline-warning' : 'btn-outline-success' }}" title="{{ $product->status === 'active' ? 'Deactivate' : 'Activate' }} National product" onclick="document.getElementById('toggle-national-product-{{ $product->id }}').submit()"><i class="fa-solid {{ $product->status === 'active' ? 'fa-toggle-on' : 'fa-toggle-off' }}"></i></button>
-                                <button type="button" class="btn btn-sm btn-outline-danger" title="Delete National product" onclick="if (confirm('Delete this National product?')) document.getElementById('delete-national-product-{{ $product->id }}').submit()"><i class="fa-solid fa-trash-can"></i></button>
+                                @if(auth()->user()->role === 'admin')
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete National product" onclick="if (confirm('Delete this National product?')) document.getElementById('delete-national-product-{{ $product->id }}').submit()"><i class="fa-solid fa-trash-can"></i></button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -106,10 +105,12 @@
         @csrf @method('PATCH')
         <input type="hidden" name="hub_id" value="{{ $hub->id }}">
     </form>
-    <form id="delete-national-product-{{ $product->id }}" method="POST" action="{{ route('national-inventory.destroy', $product) }}" class="d-none">
-        @csrf @method('DELETE')
-        <input type="hidden" name="hub_id" value="{{ $hub->id }}">
-    </form>
+    @if(auth()->user()->role === 'admin')
+        <form id="delete-national-product-{{ $product->id }}" method="POST" action="{{ route('national-inventory.destroy', $product) }}" class="d-none">
+            @csrf @method('DELETE')
+            <input type="hidden" name="hub_id" value="{{ $hub->id }}">
+        </form>
+    @endif
 
     <div class="modal fade" id="editNationalProductModal{{ $product->id }}" tabindex="-1" aria-labelledby="editNationalProductModalLabel{{ $product->id }}" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">

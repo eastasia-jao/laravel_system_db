@@ -15,7 +15,7 @@ class StaffActivityLogController extends Controller
     public function index(Request $request)
     {
         $validated = $request->validate([
-            'action' => 'nullable|in:product_import,product_export,product_update,product_status_change,product_delete,inventory_verification,catalog_assignment,branch_transfer_sent',
+            'action' => 'nullable|in:product_import,product_export,inventory_verification,catalog_assignment,branch_transfer_sent',
             'hub_id' => 'nullable|integer|exists:store_hubs,id',
             'user_id' => 'nullable|integer|exists:users,id',
             'date_from' => 'nullable|date',
@@ -23,7 +23,10 @@ class StaffActivityLogController extends Controller
             'search' => 'nullable|string|max:255',
         ]);
 
-        $query = StaffActivityLog::with(['user', 'storeHub'])->withCount('items')->latest();
+        $query = StaffActivityLog::with(['user', 'storeHub'])
+            ->withCount('items')
+            ->whereNotIn('action_type', ['product_update', 'product_status_change', 'product_delete'])
+            ->latest();
         $user = auth()->user();
         if ($user->role === 'sales_associate') {
             $query->where('action_type', 'branch_transfer_sent')
@@ -89,6 +92,7 @@ class StaffActivityLogController extends Controller
 
     public function show(Request $request, StaffActivityLog $staffLog)
     {
+        abort_if(in_array($staffLog->action_type, ['product_update', 'product_status_change', 'product_delete'], true), 404);
         $user = auth()->user();
         if ($user->role === 'sales_associate'
             && ($staffLog->action_type !== 'branch_transfer_sent'

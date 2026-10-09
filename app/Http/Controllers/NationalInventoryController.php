@@ -138,8 +138,7 @@ class NationalInventoryController extends Controller
             $activityLog->items()->createMany($logItems);
         });
 
-        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
-            ->with('success', "National inventory imported: {$created} created, {$updated} updated.");
+        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id]);
     }
 
     public function export(Request $request)
@@ -210,7 +209,6 @@ class NationalInventoryController extends Controller
     public function update(Request $request, NationalProduct $nationalProduct)
     {
         $hub = $this->headOffice($request);
-        $stockBefore = $nationalProduct->stock;
         $request->merge([
             'item_id' => CsvIdentifier::read($request->input('item_id'), 'Item ID'),
             'barcode' => CsvIdentifier::read($request->input('barcode'), 'Barcode') ?: null,
@@ -226,34 +224,25 @@ class NationalInventoryController extends Controller
         ]);
         $nationalProduct->update($validated);
 
-        $this->logAction($request, $hub, 'product_update', "Updated National product {$nationalProduct->item_id}.", $nationalProduct, 'updated', $stockBefore, $nationalProduct->stock);
-
-        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
-            ->with('success', 'National product updated successfully.');
+        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id]);
     }
 
     public function toggleStatus(Request $request, NationalProduct $nationalProduct)
     {
         $hub = $this->headOffice($request);
-        $previousStatus = $nationalProduct->status;
         $nationalProduct->status = $nationalProduct->status === 'active' ? 'inactive' : 'active';
         $nationalProduct->save();
 
-        $this->logAction($request, $hub, 'product_status_change', "Set National product {$nationalProduct->item_id} to {$nationalProduct->status}.", $nationalProduct, $nationalProduct->status === 'active' ? 'activated' : 'deactivated', $nationalProduct->stock, $nationalProduct->stock, ['status_before' => $previousStatus, 'status_after' => $nationalProduct->status]);
-
-        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
-            ->with('success', "National product {$nationalProduct->status}.");
+        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id]);
     }
 
     public function destroy(Request $request, NationalProduct $nationalProduct)
     {
         $hub = $this->headOffice($request);
-        $itemId = $nationalProduct->item_id;
-        $this->logAction($request, $hub, 'product_delete', "Deleted National product {$itemId}.", $nationalProduct, 'deleted', $nationalProduct->stock, null);
+        abort_unless($request->user()->role === 'admin', 403);
         $nationalProduct->delete();
 
-        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id])
-            ->with('success', 'National product deleted.');
+        return redirect()->route('national-inventory.index', ['hub_id' => $hub->id]);
     }
 
     private function headOffice(Request $request): StoreHub
@@ -299,27 +288,6 @@ class NationalInventoryController extends Controller
         }
 
         return (int) $value;
-    }
-
-    private function logAction(Request $request, StoreHub $hub, string $actionType, string $description, NationalProduct $product, string $operation, ?int $stockBefore, ?int $stockAfter, array $itemDetails = []): void
-    {
-        $activityLog = StaffActivityLog::create([
-            'user_id' => $request->user()->id,
-            'store_hub_id' => $hub->id,
-            'action_type' => $actionType,
-            'description' => $description,
-            'details' => ['inventory_scope' => 'national', 'product_id' => $product->id, 'item_id' => $product->item_id],
-            'ip_address' => $request->ip(),
-        ]);
-        $activityLog->items()->create([
-            'product_id' => null,
-            'item_id' => $product->item_id,
-            'product_name' => $product->name,
-            'operation' => $operation,
-            'stock_before' => $stockBefore,
-            'stock_after' => $stockAfter,
-            'details' => array_merge(['inventory_scope' => 'national', 'national_product_id' => $product->id], $itemDetails),
-        ]);
     }
 
     private function orderByItemId($query): void

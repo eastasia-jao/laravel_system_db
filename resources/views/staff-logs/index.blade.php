@@ -59,17 +59,11 @@
         'catalog_assignment' => ['Catalog Assignment', 'info', 'fa-book'],
         'product_import' => ['Product Import', 'success', 'fa-file-import'],
         'product_export' => ['Product Export', 'primary', 'fa-file-export'],
-        'product_update' => ['National Product Update', 'info', 'fa-pen-to-square'],
-        'product_status_change' => ['National Status Change', 'warning', 'fa-toggle-on'],
-        'product_delete' => ['National Product Delete', 'danger', 'fa-trash-can'],
         'inventory_verification' => ['Inventory Verification', 'warning', 'fa-clipboard-check'],
     ];
     $nationalActionLabels = [
         'product_import' => ['National Product Import', 'success', 'fa-file-import'],
         'product_export' => ['National Product Export', 'primary', 'fa-file-export'],
-        'product_update' => ['National Product Update', 'info', 'fa-pen-to-square'],
-        'product_status_change' => ['National Status Change', 'warning', 'fa-toggle-on'],
-        'product_delete' => ['National Product Delete', 'danger', 'fa-trash-can'],
     ];
     $showHubFilter = $showHubFilter ?? true;
 @endphp
