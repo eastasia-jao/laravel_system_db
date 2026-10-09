@@ -1,64 +1,33 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuration</title>
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-    <link rel="shortcut icon" href="{{ asset('favicon.svg') }}">
-    <link rel="stylesheet" href="{{ asset('app-alert.css') }}">
-    <script src="{{ asset('js/app-alert.js') }}"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Select2 CSS -->
+@extends('layouts.app')
+
+@push('styles')
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+@endpush
+
+@section('content')
     <style>
-        body {
-            background-color: #f4f5fa;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin-left: 280px;
-            transition: margin-left .25s ease;
+        .configuration-page {
+            width: min(100%, 1600px);
+            margin-inline: auto;
         }
-        #appSidebar {
-            transition: transform .25s ease;
+        .configuration-page .card {
+            border-radius: var(--ac-radius-lg) !important;
         }
-        body.sidebar-collapsed {
-            margin-left: 0;
-        }
-        body.sidebar-collapsed #appSidebar {
-            transform: translateX(-100%);
-        }
-        #sidebarRestore {
-            display: none;
-            position: fixed;
-            top: 12px;
-            left: 12px;
-            z-index: 1100;
-        }
-        body.sidebar-collapsed #sidebarRestore {
-            display: inline-flex;
-        }
-        @media (max-width: 991.98px) {
-            body { margin-left: 0; }
-        }
-        .card {
-            border: none !important;
-            border-radius: 12px !important;
-        }
-        .table th {
+        .configuration-page .table th {
             font-weight: 700;
             font-size: 11px;
             letter-spacing: 0.5px;
-            background-color: #f8fafc !important;
         }
-        .btn-light {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0 !important;
+        .configuration-page .btn-light {
+            background-color: var(--ac-surface-subtle);
+            border: 1px solid var(--ac-border) !important;
         }
-        .configuration-hero { border-radius: 22px; padding: 1.75rem 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 65%, #38bdf8); box-shadow: 0 14px 32px rgba(37,99,235,.16); }
+        .configuration-hero { border: 1px solid #dbeafe; border-radius: var(--ac-radius-lg); padding: 1.5rem; color: var(--ac-text); background: linear-gradient(135deg, #fff, #f5f9ff); box-shadow: var(--ac-shadow-sm); }
         .configuration-hero-content { display: flex; align-items: center; gap: 1rem; }
-        .workspace-hero-icon { width: 54px; height: 54px; flex: 0 0 54px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #1d4ed8, #38bdf8); box-shadow: 0 8px 16px rgba(37,99,235,.2); font-size: 1.25rem; }
+        .configuration-hero .text-uppercase { color: var(--ac-primary); }
+        .configuration-hero p { color: var(--ac-muted); }
+        .workspace-hero-icon { width: 52px; height: 52px; flex: 0 0 52px; display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; color: var(--ac-primary); background: var(--ac-primary-soft); font-size: 1.2rem; }
         .config-nav-link {
             font-size: 12px;
             font-weight: 700;
@@ -80,8 +49,8 @@
             color: #334155;
         }
         .config-nav-link.active {
-            background-color: #e0e7ff !important;
-            color: #4f46e5 !important;
+            background-color: var(--ac-primary-soft) !important;
+            color: var(--ac-primary) !important;
         }
         .btn i {
             display: inline-flex;
@@ -89,17 +58,14 @@
             justify-content: center;
             width: 14px;
         }
+        @media (max-width: 767.98px) {
+            .configuration-hero { padding: 1.1rem; }
+            .configuration-hero h4 { font-size: 1.15rem !important; }
+            .configuration-page .card { padding: 1rem !important; }
+            .config-nav-link { flex: 1 1 calc(50% - .25rem); justify-content: center; padding-inline: .75rem; text-align: center; }
+        }
     </style>
-</head>
-<body>
-
-    @include('layouts.sidebar')
-    <button id="sidebarRestore" type="button" class="btn btn-primary btn-sm shadow" title="Show sidebar" aria-label="Show sidebar">
-        <i class="fa-solid fa-bars"></i>
-    </button>
-
-
-    <div class="p-4" style="max-width: 1600px; margin: 0 auto;">
+    <div class="configuration-page">
         <div class="configuration-hero mb-4">
             <div class="configuration-hero-content">
                 <span class="workspace-hero-icon"><i class="fa-solid fa-gears"></i></span>
@@ -710,30 +676,4 @@
         });
     </script>
     
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    @include('layouts.popup-messages')
-    <script>
-        (() => {
-            const toggle = document.getElementById('sidebarToggle');
-            const restore = document.getElementById('sidebarRestore');
-            const preferenceKey = 'art-caravan-sidebar-collapsed';
-            const isMobile = () => window.matchMedia('(max-width: 991.98px)').matches;
-            const setCollapsed = (collapsed, persist = true) => {
-                document.body.classList.toggle('sidebar-collapsed', collapsed);
-                if (persist) localStorage.setItem(preferenceKey, collapsed ? '1' : '0');
-                if (toggle) {
-                    toggle.title = collapsed ? 'Show sidebar' : 'Hide sidebar';
-                    toggle.setAttribute('aria-label', toggle.title);
-                }
-            };
-
-            setCollapsed(isMobile() || localStorage.getItem(preferenceKey) === '1', false);
-            toggle?.addEventListener('click', () => setCollapsed(!document.body.classList.contains('sidebar-collapsed')));
-            restore?.addEventListener('click', () => setCollapsed(false));
-            window.addEventListener('resize', () => {
-                if (isMobile()) setCollapsed(true, false);
-            });
-        })();
-    </script>
-</body>
-</html>
+@endsection
