@@ -50,22 +50,11 @@
 </style>
 <style>
     .workspace-page { max-width: 1500px; }
-    .workspace-hero { border-radius: 22px; padding: 1.75rem 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 65%, #38bdf8); box-shadow: 0 14px 32px rgba(37,99,235,.16); }
-    .workspace-hero h3 { color: #fff !important; }
     .workspace-card { border: 0; border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,.07); }
-    .workspace-hero-content { display: flex; align-items: center; gap: 1rem; }
-    .workspace-hero-icon { width: 54px; height: 54px; flex: 0 0 54px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #1d4ed8, #38bdf8); box-shadow: 0 8px 16px rgba(37,99,235,.2); font-size: 1.25rem; }
 </style>
 <div class="p-5 workspace-page">
     <div class="mb-4">
-        <div class="workspace-hero">
-            <div class="workspace-hero-content">
-                <span class="workspace-hero-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
-                <div><div class="text-uppercase small fw-bold opacity-75 mb-2">Inventory workspace</div>
-                <h3 class="fw-bold mb-1">Master Product Stock Sheets</h3>
-                <p class="small opacity-75 mb-0">Review inventory balances per physical store hub.</p></div>
-            </div>
-        </div>
+        <x-page-header eyebrow="Inventory workspace" title="Master Product Stock Sheets" description="Review inventory balances per physical store hub." icon="fa-boxes-stacked" />
         @can('manage-shared-catalog')
         @if($selectedHub?->is_head_office)
         <a class="btn btn-outline-success mt-3" href="{{ route('catalog.index', ['hub_id' => $selectedHub->id]) }}">Shared Product Catalog</a>

@@ -3,7 +3,6 @@
 @section('content')
     <style>
         .users-page { max-width: 1500px; }
-        .users-hero { background: linear-gradient(135deg, #1d4ed8, #2563eb); color: #fff; border-radius: 18px; }
         .users-card { border: 0; border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, .07); }
         .users-table thead th { color: #64748b; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
         .users-table tbody tr { border-color: #eef2f7; }
@@ -64,16 +63,9 @@
         @media (max-width: 575.98px) { .edit-assignment-panel { padding: .8rem; } .edit-assignment-list { grid-template-columns: 1fr; max-height: 160px; } }
     </style>
     <div class="container-fluid px-4 py-4 users-page">
-        <div class="users-hero p-4 p-lg-5 mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div>
-                <div class="text-uppercase small opacity-75 fw-semibold mb-2">Administration</div>
-                <h3 class="fw-bold mb-1">Staff Directory</h3>
-                <p class="mb-0 opacity-75">Manage accounts, branch access, roles, and sales channels.</p>
-            </div>
-            <button class="btn btn-light text-primary fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#registerStaffModal">
-                <i class="bi bi-plus-lg me-1"></i> Register New Staff
-            </button>
-        </div>
+        <x-page-header class="mb-4" eyebrow="Administration workspace" title="Staff Directory" description="Manage accounts, branch access, roles, and sales channels." icon="fa-users-gear">
+            <x-slot:actions><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registerStaffModal"><i class="bi bi-plus-lg me-1"></i> Register New Staff</button></x-slot:actions>
+        </x-page-header>
 
         
 

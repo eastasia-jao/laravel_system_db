@@ -3,24 +3,17 @@
 @section('content')
 <style>
     .notifications-page { max-width: 980px; }
-    .notifications-hero { border-radius: 22px; padding: 1.75rem 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 65%, #38bdf8); box-shadow: 0 14px 32px rgba(37,99,235,.16); }
     .notification-card { border: 0; border-left: 4px solid transparent; border-radius: 12px; box-shadow: 0 5px 16px rgba(15,23,42,.06); }
     .notification-card.unread { border-left-color: #2563eb; background: #eff6ff; }
     .notification-icon { width: 40px; height: 40px; flex: 0 0 40px; }
 </style>
 
 <div class="container-fluid p-4 notifications-page">
-    <div class="notifications-hero d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div>
-            <div class="text-uppercase small fw-bold opacity-75 mb-2">Activity center</div>
-            <h2 class="fw-bold mb-1">Notifications</h2>
-            <p class="mb-0 opacity-75">Review updates, workflow alerts, and inventory activity.</p>
-        </div>
-        <form action="{{ route('notifications.read-all') }}" method="POST" class="m-0">
-            @csrf
-            <button type="submit" class="btn btn-light btn-sm">Mark all as read</button>
-        </form>
-    </div>
+    <x-page-header class="mb-4" eyebrow="Activity center" title="Notifications" description="Review updates, workflow alerts, and inventory activity." icon="fa-bell">
+        <x-slot:actions>
+            <form action="{{ route('notifications.read-all') }}" method="POST" class="m-0">@csrf<button type="submit" class="btn btn-primary btn-sm">Mark all as read</button></form>
+        </x-slot:actions>
+    </x-page-header>
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="fw-bold mb-0">All notifications</h5>

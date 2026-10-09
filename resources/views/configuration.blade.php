@@ -23,11 +23,6 @@
             background-color: var(--ac-surface-subtle);
             border: 1px solid var(--ac-border) !important;
         }
-        .configuration-hero { border: 1px solid #dbeafe; border-radius: var(--ac-radius-lg); padding: 1.5rem; color: var(--ac-text); background: linear-gradient(135deg, #fff, #f5f9ff); box-shadow: var(--ac-shadow-sm); }
-        .configuration-hero-content { display: flex; align-items: center; gap: 1rem; }
-        .configuration-hero .text-uppercase { color: var(--ac-primary); }
-        .configuration-hero p { color: var(--ac-muted); }
-        .workspace-hero-icon { width: 52px; height: 52px; flex: 0 0 52px; display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; color: var(--ac-primary); background: var(--ac-primary-soft); font-size: 1.2rem; }
         .config-nav-link {
             font-size: 12px;
             font-weight: 700;
@@ -59,21 +54,12 @@
             width: 14px;
         }
         @media (max-width: 767.98px) {
-            .configuration-hero { padding: 1.1rem; }
-            .configuration-hero h4 { font-size: 1.15rem !important; }
             .configuration-page .card { padding: 1rem !important; }
             .config-nav-link { flex: 1 1 calc(50% - .25rem); justify-content: center; padding-inline: .75rem; text-align: center; }
         }
     </style>
     <div class="configuration-page">
-        <div class="configuration-hero mb-4">
-            <div class="configuration-hero-content">
-                <span class="workspace-hero-icon"><i class="fa-solid fa-gears"></i></span>
-                <div><div class="text-uppercase small fw-bold opacity-75 mb-2">Administration workspace</div>
-                <h4 class="fw-bold mb-1" style="font-size: 22px;">System Configurations</h4>
-                <p class="small opacity-75 mb-0">Adjust operational parameters, branch store registry controls, and payment channel integrations.</p></div>
-            </div>
-        </div>
+        <x-page-header class="mb-4" eyebrow="Administration workspace" title="System Configurations" description="Adjust operational parameters, branch store registry controls, and payment channel integrations." icon="fa-gears" />
 
         <!-- Tab Navigation -->
         <div class="card shadow-sm p-2 bg-white mb-4">

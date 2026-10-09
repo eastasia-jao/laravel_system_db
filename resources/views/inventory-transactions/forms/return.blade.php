@@ -11,9 +11,6 @@
         || ($selectedHub && ! $selectedHub->is_head_office);
 @endphp
 <style>
-    .transaction-page-heading { display:flex; align-items:center; gap:1rem; padding:1.25rem 1.5rem; border:1px solid #dcfce7; border-radius:1rem; background:linear-gradient(110deg,#f0fdf4 0%,#fff 72%); }
-    .transaction-page-heading-icon { display:grid; flex:0 0 3rem; width:3rem; height:3rem; place-items:center; border-radius:.875rem; background:#dcfce7; color:#16a34a; font-size:1.25rem; }
-    .transaction-page-heading h3 { font-size:clamp(1.15rem,2vw,1.5rem); }
     .transaction-form-card { border:1px solid #e2e8f0 !important; }
     #returnItems { max-height: 430px; overflow-y: auto; overflow-x: hidden; padding: .5rem; border: 1px solid #dee2e6; border-radius: .375rem; }
     .return-item { display: grid; grid-template-columns: minmax(260px, 1.75fr) minmax(175px, 1fr) minmax(145px, .9fr) minmax(175px, 1fr); gap: .6rem; align-items: start; padding: .65rem .75rem; margin: 0 0 .5rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
@@ -32,18 +29,11 @@
     .return-notes-panel { position: sticky; top: 1rem; padding: .85rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
     .return-notes-panel .form-label { font-weight: 600; color: #475569; }
     .return-actions { grid-column: 2; display: flex; justify-content: flex-start; flex-wrap: wrap; gap: .5rem; }
-    @media (max-width: 991.98px) { .transaction-page-heading { align-items:flex-start; padding:1rem; } .transaction-page-heading-icon { flex-basis:2.5rem; width:2.5rem; height:2.5rem; } .return-entry-layout { grid-template-columns: 1fr; } .return-notes-panel { position: static; } .return-actions { grid-column: 1; justify-content:flex-end; } .return-item { grid-template-columns: minmax(220px, 1.5fr) repeat(2, minmax(145px, 1fr)); } .return-refund-control { grid-column: auto; padding-left: .5rem; border-left: 1px solid #cbd5e1; border-top: 0; } }
-    @media (max-width: 575.98px) { .transaction-page-heading { align-items:flex-start; padding:1rem; } .return-item { grid-template-columns: 1fr; } .return-refund-control { grid-column: auto; } .return-actions { justify-content:flex-end; } .return-actions > * { flex:1 1 auto; } }
+    @media (max-width: 991.98px) { .return-entry-layout { grid-template-columns: 1fr; } .return-notes-panel { position: static; } .return-actions { grid-column: 1; justify-content:flex-end; } .return-item { grid-template-columns: minmax(220px, 1.5fr) repeat(2, minmax(145px, 1fr)); } .return-refund-control { grid-column: auto; padding-left: .5rem; border-left: 1px solid #cbd5e1; border-top: 0; } }
+    @media (max-width: 575.98px) { .return-item { grid-template-columns: 1fr; } .return-refund-control { grid-column: auto; } .return-actions { justify-content:flex-end; } .return-actions > * { flex:1 1 auto; } }
 </style>
 <div class="p-5">
-    <header class="transaction-page-heading mb-4">
-        <span class="transaction-page-heading-icon" aria-hidden="true"><i class="fa-solid fa-rotate-left"></i></span>
-        <div>
-            <div class="small text-uppercase fw-bold text-success mb-1">Inventory Adjustment</div>
-            <h3 class="fw-bold mb-1">Return Items</h3>
-            <p class="text-muted small mb-0">Record returned products and classify each item as good or damaged.</p>
-        </div>
-    </header>
+    <x-page-header class="mb-4" eyebrow="Inventory adjustment" title="Return Items" description="Record returned products and classify each item as good or damaged." icon="fa-rotate-left" />
 
     <form method="POST" action="{{ route('inventory-transactions.return.store') }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf

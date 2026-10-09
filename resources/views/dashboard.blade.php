@@ -123,12 +123,11 @@
             && ! $isInventoryStaffDashboard;
         $isChannelSideBySideDashboard = $isOperationalSideBySideDashboard;
     @endphp
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div><h2 class="mb-1">Sales Management Hub</h2><p class="dashboard-subtitle mb-0">Sales and inventory overview · {{ $scopeName }}</p></div>
+    <x-page-header class="mb-4" eyebrow="Operations workspace" title="Sales Management Hub" :description="'Sales and inventory overview · '.$scopeName" icon="fa-chart-pie">
         @if(auth()->user()?->role === 'sales_marketing_staff')
-            <span class="badge rounded-pill text-primary bg-primary-subtle px-3 py-2"><i class="fa-solid fa-bullhorn me-1"></i>Marketing workspace</span>
+            <x-slot:actions><span class="badge rounded-pill text-primary bg-primary-subtle px-3 py-2"><i class="fa-solid fa-bullhorn me-1"></i>Marketing workspace</span></x-slot:actions>
         @endif
-    </div>
+    </x-page-header>
     <div class="panel filter-panel mb-4">
         <form method="GET" action="{{ route('dashboard') }}" class="row g-3 align-items-end" id="dashboardFilters">
             <div class="col-12 col-md-5 {{ $isMarketingDashboard ? 'col-xl-3' : 'col-xl-4' }}">

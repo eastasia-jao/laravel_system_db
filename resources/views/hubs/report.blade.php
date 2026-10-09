@@ -376,12 +376,8 @@
 
 <div class="container-fluid p-4 sales-report-page">
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div>
-            <h2 class="fw-bold text-primary mb-1">{{ $activeLabel }} Sales Report</h2>
-            <p class="text-muted mb-0">{{ $hub->name }} · Verified sales only</p>
-        </div>
-        <div class="d-flex gap-2 no-print">
+    <x-page-header class="mb-4" eyebrow="Reporting workspace" :title="$activeLabel.' Sales Report'" :description="$hub->name.' · Verified sales only'" icon="fa-chart-line">
+        <x-slot:actions><div class="d-flex flex-wrap gap-2 no-print">
             @if($channel === 'wholesale')
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#wholesaleReportPreviewModal">
                     <i class="fa-solid fa-image me-1"></i> Preview / Save PNG
@@ -414,8 +410,8 @@
             <a href="{{ route('hub.dashboard', $hub->id) }}" class="btn btn-outline-secondary">
                 <i class="fa-solid fa-arrow-left me-1"></i> Back to Dashboard
             </a>
-        </div>
-    </div>
+        </div></x-slot:actions>
+    </x-page-header>
 
     <div class="card shadow-sm border-0 mb-4 no-print">
         <div class="card-body">

@@ -3,14 +3,6 @@
 @section('content')
 <style>
     .workspace-page { max-width: 1500px; }
-    .allocation-header { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.35rem 1.5rem; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #172554, #2563eb 62%, #38bdf8); box-shadow: 0 16px 36px rgba(37,99,235,.2); }
-    .allocation-header::after { content: ''; position: absolute; width: 240px; height: 240px; right: -80px; top: -125px; border-radius: 50%; background: rgba(255,255,255,.12); pointer-events: none; }
-    .workspace-hero { position: relative; z-index: 1; display: flex; align-items: center; gap: 1rem; min-width: 0; }
-    .workspace-hero-icon { width: 54px; height: 54px; flex: 0 0 54px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #1d4ed8, #38bdf8); box-shadow: 0 8px 16px rgba(37,99,235,.2); font-size: 1.25rem; }
-    .workspace-hero h3 { color: #fff; }
-    .workspace-hero .hero-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .65rem; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; background: rgba(255,255,255,.13); color: #fff; font-size: .75rem; }
-    .allocation-header .header-action { position: relative; z-index: 1; flex: 0 0 auto; }
-    @media (max-width: 700px) { .allocation-header { align-items: stretch; flex-direction: column; } .allocation-header .header-action { width: 100%; } .allocation-header .header-action .btn { width: 100%; } }
     .workspace-card { border: 0; border-radius: 18px; box-shadow: 0 8px 24px rgba(15,23,42,.07); }
     .allocation-stat { border: 0; border-radius: 16px; box-shadow: 0 7px 20px rgba(15,23,42,.06); }
     .allocation-stat .stat-icon { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #eff6ff; color: #2563eb; }
@@ -39,31 +31,16 @@
 @php($returnToQueue = request('return_to') === 'verification-queue')
 @php($returnHubId = request('return_hub_id') ?: $hub?->id)
 <div class="p-5 workspace-page">
-    <div class="allocation-header mb-4">
-        <div class="workspace-hero flex-grow-1">
-            <span class="workspace-hero-icon"><i class="fa-solid fa-layer-group"></i></span>
-            <div>
-                <div class="text-uppercase small fw-bold text-white mb-1">Inventory control center</div>
-                <h3 class="fw-bold mb-1">Sales Stock Allocation</h3>
-                <p class="small text-white mb-2">Distribute physical stock across sales channels and monitor what remains available.</p>
-                <span class="hero-badge"><i class="fa-solid fa-chart-pie"></i> Channel allocation overview</span>
-            </div>
-        </div>
+    <x-page-header class="mb-4" eyebrow="Inventory control center" title="Sales Stock Allocation" description="Distribute physical stock across sales channels and monitor what remains available." icon="fa-layer-group">
         @if($canEditAllocations)
-            <div class="header-action">
-                <div class="d-flex flex-wrap justify-content-end gap-2">
-                    @if($returnToQueue && $returnHubId)
-                        <a href="{{ route('hub.sales.pending', ['hubId' => $returnHubId]) }}" class="btn btn-light px-3 py-3 shadow-sm">
-                            <i class="fa-solid fa-arrow-left me-2"></i>BACK TO INVENTORY VERIFICATION QUEUE
-                        </a>
-                    @endif
-                    <button form="allocation-form" class="btn btn-primary px-4 py-3 shadow-sm">
-                        <i class="fa-solid fa-floppy-disk me-2"></i>Save Allocations
-                    </button>
-                </div>
-            </div>
+            <x-slot:actions>
+                @if($returnToQueue && $returnHubId)
+                    <a href="{{ route('hub.sales.pending', ['hubId' => $returnHubId]) }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-2"></i>Back to verification queue</a>
+                @endif
+                <button form="allocation-form" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save Allocations</button>
+            </x-slot:actions>
         @endif
-    </div>
+    </x-page-header>
     @if(auth()->user()->can('manage-inventory') && ! $hub)
         <div class="alert alert-info">Select a store hub before editing allocations.</div>
     @endif

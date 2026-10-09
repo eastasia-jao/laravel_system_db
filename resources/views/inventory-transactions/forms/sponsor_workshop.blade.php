@@ -82,12 +82,14 @@
 </style>
 <div class="p-5">
     @php($isFullyBookedPage = $activityType === 'fully_booked')
-    <header class="transaction-page-heading mb-4">
-        <span class="transaction-page-heading-icon" aria-hidden="true"><i id="activityHeadingIcon" class="fa-solid {{ $isFullyBookedPage ? 'fa-book-open' : 'fa-people-group' }}"></i></span>
-        <div>
-            <div id="activityHeadingLabel" class="small text-uppercase fw-bold mb-1" style="color:#7c3aed">Event / Fully Booked</div>
-            <h3 id="activityHeadingTitle" class="fw-bold mb-1">{{ $isFullyBookedPage ? 'Fully Booked' : 'Event' }}</h3>
-            <p id="activityHeadingDescription" class="text-muted small mb-0">{{ $isFullyBookedPage ? 'Review Fully Booked orders and update the selected store inventory.' : 'Record event inventory usage or submit a Fully Booked order attachment for review.' }}</p>
+    <header class="page-hero mb-4">
+        <div class="page-hero-main">
+            <span class="page-hero-icon" aria-hidden="true"><i id="activityHeadingIcon" class="fa-solid {{ $isFullyBookedPage ? 'fa-book-open' : 'fa-people-group' }}"></i></span>
+            <div class="page-hero-copy">
+                <div id="activityHeadingLabel" class="page-hero-eyebrow">Event / Fully Booked</div>
+                <h2 id="activityHeadingTitle" class="page-hero-title">{{ $isFullyBookedPage ? 'Fully Booked' : 'Event' }}</h2>
+                <p id="activityHeadingDescription" class="page-hero-description">{{ $isFullyBookedPage ? 'Review Fully Booked orders and update the selected store inventory.' : 'Record event inventory usage or submit a Fully Booked order attachment for review.' }}</p>
+            </div>
         </div>
     </header>
     

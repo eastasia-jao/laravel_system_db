@@ -74,14 +74,7 @@
     }
 </style>
 <div class="p-5">
-    <header class="transaction-page-heading mb-4">
-        <span class="transaction-page-heading-icon" aria-hidden="true"><i class="fa-solid fa-truck-ramp-box"></i></span>
-        <div>
-            <div class="small text-uppercase fw-bold text-primary mb-1">Inventory Movement</div>
-            <h3 class="fw-bold mb-1">Stock Transfer{{ $branchTransfer ? ' (BRANCH to BRANCH)' : ' ('.$transferDirectionLabel.')' }}</h3>
-            <p class="text-muted small mb-0">{{ $branchTransfer ? 'Submit a branch-to-branch transfer for inventory staff or admin review. Stock changes only after approval.' : 'Transfer products between Head Office and a branch in one transaction.' }}</p>
-        </div>
-    </header>
+    <x-page-header class="mb-4" eyebrow="Inventory movement" :title="'Stock Transfer'.($branchTransfer ? ' (BRANCH to BRANCH)' : ' ('.$transferDirectionLabel.')')" :description="$branchTransfer ? 'Submit a branch-to-branch transfer for inventory staff or admin review. Stock changes only after approval.' : 'Transfer products between Head Office and a branch in one transaction.'" icon="fa-truck-ramp-box" />
     
     <form method="POST" action="{{ route($branchTransfer ? 'inventory-transactions.branch-transfer.store' : 'inventory-transactions.store') }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf

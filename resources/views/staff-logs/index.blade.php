@@ -3,13 +3,7 @@
 @section('content')
 <style>
     .staff-log-page { --log-ink: #172033; --log-muted: #64748b; --log-border: #e2e8f0; }
-    .staff-log-hero { position: relative; overflow: hidden; border: 0; border-radius: 20px; padding: 1.5rem 1.75rem; color: #fff; background: linear-gradient(120deg, #172554, #1d4ed8 58%, #38bdf8); box-shadow: 0 16px 34px rgba(30, 64, 175, .16); }
-    .staff-log-hero::after { position: absolute; top: -95px; right: 8%; width: 260px; height: 260px; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; content: ""; box-shadow: 0 0 0 28px rgba(255,255,255,.04), 0 0 0 58px rgba(255,255,255,.035); pointer-events: none; }
-    .staff-log-hero-content { position: relative; z-index: 1; display: flex; align-items: center; gap: 1rem; min-width: 0; }
-    .staff-log-hero-icon { display: inline-flex; width: 52px; height: 52px; flex: 0 0 52px; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.25); border-radius: 16px; color: #fff; background: rgba(255,255,255,.16); font-size: 1.2rem; }
-    .staff-log-hero h2 { color: #fff; font-size: clamp(1.35rem, 2vw, 1.8rem); letter-spacing: -.025em; }
-    .staff-log-hero p { color: rgba(255,255,255,.82); }
-    .staff-log-total { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: .45rem; padding: .55rem .8rem; border: 1px solid rgba(255,255,255,.25); border-radius: 12px; color: #fff; background: rgba(15,23,42,.22); font-size: .85rem; font-weight: 700; white-space: nowrap; }
+    .staff-log-total { display: inline-flex; align-items: center; gap: .45rem; padding: .55rem .8rem; border: 1px solid #bfdbfe; border-radius: 12px; color: var(--ac-primary); background: var(--ac-primary-soft); font-size: .85rem; font-weight: 700; white-space: nowrap; }
     .staff-log-filter-card, .staff-log-table-card { border: 1px solid var(--log-border); border-radius: 16px; background: #fff; box-shadow: 0 5px 18px rgba(15,23,42,.045); }
     .staff-log-filter-card { overflow: visible; }
     .staff-log-table-card { overflow: hidden; }
@@ -49,11 +43,6 @@
     .staff-log-pagination .pagination { margin-bottom: 0; }
     @media (max-width: 1399.98px) { .staff-log-filter-grid { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); } .staff-log-filter-grid .filter-search { grid-column: span 2; } }
     @media (max-width: 767.98px) {
-        .staff-log-hero { padding: 1.2rem; border-radius: 16px; }
-        .staff-log-hero-content { align-items: flex-start; gap: .75rem; }
-        .staff-log-hero-icon { width: 44px; height: 44px; flex-basis: 44px; border-radius: 13px; }
-        .staff-log-hero { align-items: flex-start !important; }
-        .staff-log-total { margin-left: 3.25rem; }
         .staff-log-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .staff-log-filter-grid .filter-search { grid-column: 1 / -1; }
         .staff-log-filter-grid .filter-actions-wrap { grid-column: 1 / -1; }
@@ -76,16 +65,9 @@
 @endphp
 
 <div class="container-fluid py-2 staff-log-page">
-    <div class="staff-log-hero d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div class="staff-log-hero-content">
-            <span class="staff-log-hero-icon"><i class="fa-solid {{ $isSalesAssociate ? 'fa-arrow-right-arrow-left' : 'fa-clock-rotate-left' }}"></i></span>
-            <div>
-                <h2 class="fw-bold mb-1">{{ $isSalesAssociate ? 'Branch Transfer Logs' : 'Staff Activity Logs' }}</h2>
-                <p class="mb-0">{{ $isSalesAssociate ? 'Branch-to-branch transfer requests from your assigned branches.' : 'Product imports, exports, catalog assignments, and inventory verification history.' }}</p>
-            </div>
-        </div>
-        <span class="staff-log-total"><i class="fa-solid fa-list-check"></i>{{ number_format($logs->total()) }} {{ $logs->total() === 1 ? 'log' : 'logs' }}</span>
-    </div>
+    <x-page-header class="mb-4" :eyebrow="$isSalesAssociate ? 'Branch workspace' : 'Administration workspace'" :title="$isSalesAssociate ? 'Branch Transfer Logs' : 'Staff Activity Logs'" :description="$isSalesAssociate ? 'Branch-to-branch transfer requests from your assigned branches.' : 'Product imports, exports, catalog assignments, and inventory verification history.'" :icon="$isSalesAssociate ? 'fa-arrow-right-arrow-left' : 'fa-clock-rotate-left'">
+        <x-slot:actions><span class="staff-log-total"><i class="fa-solid fa-list-check"></i>{{ number_format($logs->total()) }} {{ $logs->total() === 1 ? 'log' : 'logs' }}</span></x-slot:actions>
+    </x-page-header>
 
     <div class="card staff-log-filter-card mb-4">
         <div class="card-body">

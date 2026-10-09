@@ -2,11 +2,6 @@
 
 @section('content')
 <style>
-    .workspace-hero { border-radius: 22px; padding: 1.75rem 2rem; color: #fff; background: linear-gradient(135deg, #1e3a8a, #2563eb 65%, #38bdf8); box-shadow: 0 14px 32px rgba(37,99,235,.16); }
-    .workspace-hero h3 { color: #fff; }
-    .workspace-hero p, .workspace-hero .text-muted { color: rgba(255,255,255,.88) !important; }
-    .workspace-hero-content { display: flex; align-items: center; gap: 1rem; }
-    .workspace-hero-icon { width: 54px; height: 54px; flex: 0 0 54px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #1d4ed8, #38bdf8); box-shadow: 0 8px 16px rgba(37,99,235,.2); font-size: 1.25rem; }
     .inventory-log-table { font-size: .875rem; }
     .inventory-log-table th, .inventory-log-table td { padding: .55rem .65rem; white-space: nowrap; }
     .inventory-log-table td:nth-child(3), .inventory-log-table td:nth-child(8) { white-space: normal; }
@@ -97,20 +92,7 @@
 </style>
 
 <div class="p-5">
-    <div class="workspace-hero d-flex justify-content-between align-items-start mb-4">
-        <div class="workspace-hero-content">
-            <span class="workspace-hero-icon"><i class="fa-solid fa-clipboard-list"></i></span>
-            <div><h3 class="fw-bold">Inventory Transaction Logs</h3>
-            <p class="text-muted small mb-0">
-                @if(auth()->user()?->role === 'sales_associate')
-                    Branch-to-branch stock transfers for {{ $hubs->first()?->name ?? 'your designated branch' }}.
-                @else
-                    Monthly item movement for sold items, transfers, events, Fully Booked orders, restocks, and returns.
-                @endif
-            </p>
-            </div>
-        </div>
-    </div>
+    <x-page-header class="mb-4" eyebrow="Inventory workspace" title="Inventory Transaction Logs" :description="auth()->user()?->role === 'sales_associate' ? 'Branch-to-branch stock transfers for '.($hubs->first()?->name ?? 'your designated branch').'.' : 'Monthly item movement for sold items, transfers, events, Fully Booked orders, restocks, and returns.'" icon="fa-clipboard-list" />
 
     @can('manage-inventory')
         @php

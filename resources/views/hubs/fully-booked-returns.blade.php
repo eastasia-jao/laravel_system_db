@@ -2,15 +2,9 @@
 
 @section('content')
 <div class="container-fluid py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-        <div>
-            <a href="{{ route('hub.dashboard', $hub->id) }}" class="btn btn-sm btn-outline-secondary mb-3">
-                <i class="fa-solid fa-arrow-left me-1"></i>Hub Dashboard
-            </a>
-            <h2 class="fw-bold mb-1"><i class="fa-solid fa-rotate-left text-warning me-2"></i>Fully Booked Returns</h2>
-            <p class="text-muted mb-0">{{ $hub->name }} · Review items returned from Fully Booked orders.</p>
-        </div>
-    </div>
+    <x-page-header class="mb-4" eyebrow="Returns workspace" title="Fully Booked Returns" :description="$hub->name.' · Review items returned from Fully Booked orders.'" icon="fa-rotate-left">
+        <x-slot:actions><a href="{{ route('hub.dashboard', $hub->id) }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>Hub Dashboard</a></x-slot:actions>
+    </x-page-header>
 
     <form method="GET" action="{{ route('hub.fully-booked-returns', $hub->id) }}" class="card card-body mb-4">
         <div class="row g-3 align-items-end">

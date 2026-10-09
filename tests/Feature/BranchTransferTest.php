@@ -440,7 +440,7 @@ class BranchTransferTest extends TestCase
         [$source, $target, $product, $receiving, $ho] = $this->fixtures();
         $url = route('inventory-transactions.transfer.create', ['hub_id' => $source->id]);
         $form = $this->get($url)->assertOk()
-            ->assertSee('class="transaction-page-heading mb-4"', false)
+            ->assertSee('class="page-hero mb-4"', false)
             ->assertViewHas('hubId', $ho->id)
             ->assertViewHas('transferSourceHubs', fn ($hubs) => $hubs->modelKeys() === [$ho->id])
             ->assertViewHas('allHubs', fn ($hubs) => ! $hubs->contains('id', $ho->id))
@@ -501,7 +501,7 @@ class BranchTransferTest extends TestCase
             'direction' => 'branch_to_ho',
             'hub_id' => $source->id,
         ]))->assertOk()
-            ->assertSee('class="transaction-page-heading mb-4"', false)
+            ->assertSee('class="page-hero mb-4"', false)
             ->assertSee('Transfer Type')
             ->assertSee('Branch to Head Office')
             ->assertSee('Source Branch')

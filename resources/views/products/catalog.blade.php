@@ -8,9 +8,9 @@
 .catalog-search { width: 100%; }
 .catalog-destination { flex: 1 1 220px; width: auto; min-width: 0; }
 </style>
-    <a href="{{ route('products.index', ['hub_id' => $sourceHub->id]) }}">&larr; Head Office Inventory</a>
-    <h2 class="mt-3">Shared Product Catalog</h2>
-    <p>Manage the Head Office shared catalog and add products to non-Head Office branches. Each branch keeps its own stock and prices.</p>
+    <x-page-header class="mb-4" eyebrow="Inventory workspace" title="Shared Product Catalog" description="Manage the Head Office shared catalog and add products to non-Head Office branches. Each branch keeps its own stock and prices." icon="fa-book-open">
+        <x-slot:actions><a class="btn btn-outline-secondary" href="{{ route('products.index', ['hub_id' => $sourceHub->id]) }}"><i class="fa-solid fa-arrow-left me-1"></i>Head Office Inventory</a></x-slot:actions>
+    </x-page-header>
     <form id="catalogAssignment" method="POST" action="{{ route('catalog.assign') }}">@csrf<input type="hidden" name="source_hub_id" value="{{ $sourceHub->id }}"></form>
     <div class="catalog-controls">
     <div class="catalog-toolbar"><label class="form-label fw-semibold" for="catalogSearch">Find a product</label><form method="GET" class="input-group catalog-search"><input type="hidden" name="hub_id" value="{{ $sourceHub->id }}"><input id="catalogSearch" type="search" class="form-control" name="search" value="{{ request('search') }}" placeholder="Name, Item ID, barcode or brand" aria-label="Search catalog"><button class="btn btn-primary">Search</button><a class="btn btn-outline-secondary" href="{{ route('catalog.index', ['hub_id' => $sourceHub->id]) }}">Clear</a></form><div class="small text-muted mt-2">Combine keywords, for example “paint blue 500”.</div></div>

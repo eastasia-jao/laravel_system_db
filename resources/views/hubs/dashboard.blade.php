@@ -33,16 +33,7 @@
     .hub-action-label { font-weight: 600; }
 </style>
 <div class="container-fluid p-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div>
-            <div class="text-uppercase small fw-bold text-muted">Sales Management Hub</div>
-            <h2 class="mb-1 fw-bold text-primary">{{ $hub->name }}</h2>
-            <span class="badge rounded-pill {{ $hub->is_head_office ? 'bg-primary' : 'bg-secondary' }}">
-                <i class="fa-solid {{ $hub->is_head_office ? 'fa-building-columns' : 'fa-store' }} me-1"></i>
-                {{ $hub->is_head_office ? 'Head Office · Multi-channel' : 'Store · Walk-In' }}
-            </span>
-        </div>
-    </div>
+    <x-page-header class="mb-4" eyebrow="Sales management hub" :title="$hub->name" :description="$hub->is_head_office ? 'Head Office · Multi-channel operations' : 'Store · Walk-In operations'" :icon="$hub->is_head_office ? 'fa-building-columns' : 'fa-store'" />
 
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show shadow-sm mb-4" role="alert">
