@@ -206,9 +206,15 @@ class SalesController extends Controller
         $needsPaymentProof = in_array($channelForValidation, ['walk_in', 'online', 'wholesale'], true)
             && filled($paymentMethodForValidation)
             && ! in_array(strtoupper((string) $paymentMethodForValidation), ['CASH', 'COD'], true);
+        $requiresBranchWalkInOrderSlip = $channelForValidation === 'walk_in'
+            && StoreHub::whereKey($request->input('store_hub_id'))
+                ->where('is_head_office', false)
+                ->exists();
         $orderSlipValidation = in_array($channelForValidation, ['wholesale', 'online'], true)
             ? 'nullable|file|mimes:jpeg,jpg,png,webp,pdf|max:5120'
-            : 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120';
+            : ($requiresBranchWalkInOrderSlip
+                ? 'required'
+                : 'nullable').'|image|mimes:jpeg,jpg,png,webp|max:5120';
 
         if ($request->filled('contact_number')) {
             $request->merge([

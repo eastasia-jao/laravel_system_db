@@ -9,6 +9,7 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class ReturnWorkflowPilotTest extends TestCase
@@ -48,6 +49,10 @@ class ReturnWorkflowPilotTest extends TestCase
                 'placed_order_date' => '2026-10-01',
                 'customer_name' => 'Pilot Customer',
                 'walkin_mop' => 'CASH',
+                'order_slip' => UploadedFile::fake()->createWithContent(
+                    'pilot-order-slip.png',
+                    base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5ZkAAAAASUVORK5CYII=')
+                ),
                 'items' => [[
                     'product_id' => $product->id,
                     'quantity' => 2,

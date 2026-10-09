@@ -198,6 +198,10 @@
                                 || (int) $fullyBookedReturnOrder->sales_staff_id === (int) auth()->id()))
                     );
                     $isSoldOrder = $transaction->type === 'sold' && $transaction->salesTransaction;
+                    $hasBranchWalkInOrderSlip = $isSoldOrder
+                        && ! $transaction->storeHub?->is_head_office
+                        && strtolower(str_replace(['-', ' '], '_', (string) ($transaction->salesTransaction?->channel_type ?? ''))) === 'walk_in'
+                        && $transaction->salesTransaction?->order_slip;
                     $isTransferGroup = in_array($transaction->type, ['stock_transfer', 'branch_transfer'], true);
                     $isSponsorGroup = $transaction->type === 'sponsor_workshop';
                     $isRestockGroup = $transaction->type === 'restock';
@@ -568,6 +572,16 @@
                                             <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Submitted by</div><strong>{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</strong></div></div>
                                             <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Store Hub</div><strong>{{ $transaction->storeHub?->name ?? '—' }}</strong></div></div>
                                             <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Sales Channel</div><strong>{{ ucwords(str_replace('_', ' ', $transaction->channel ?: $transaction->source ?: '—')) }}</strong></div></div>
+                                            @if($hasBranchWalkInOrderSlip)
+                                                @php($orderSlipUrl = route('inventory-transactions.sales-order-slip', $transaction->salesTransaction->id))
+                                                <div class="col-12">
+                                                    <div class="transfer-detail-section p-3">
+                                                        <div class="small text-muted mb-2">Walk-In Order Slip</div>
+                                                        <a href="{{ $orderSlipUrl }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary mb-2"><i class="fa-solid fa-up-right-from-square me-1"></i>Open full size</a>
+                                                        <img src="{{ $orderSlipUrl }}" alt="Order slip for {{ $transaction->salesTransaction->order_number }}" class="fully-booked-preview">
+                                                    </div>
+                                                </div>
+                                            @endif
                                             @if($transaction->notes)
                                                 <div class="col-12"><div class="transfer-detail-section p-3"><div class="small text-muted mb-1">Notes</div><div>{{ $transaction->notes }}</div></div></div>
                                             @endif

@@ -196,6 +196,9 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::get('/inventory-transactions', [InventoryTransactionController::class, 'index'])
             ->middleware('can:view-transaction-logs')
             ->name('inventory-transactions.index');
+        Route::get('/inventory-transactions/sales/{salesTransaction}/order-slip', [InventoryTransactionController::class, 'branchWalkInOrderSlip'])
+            ->middleware('can:view-transaction-logs')
+            ->name('inventory-transactions.sales-order-slip');
         Route::get('/inventory-transactions/fully-booked', [FullyBookedOrderController::class, 'index'])
             ->middleware('can:view-fully-booked-orders')
             ->name('inventory-transactions.fully-booked.index');

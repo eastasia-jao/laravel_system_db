@@ -123,9 +123,9 @@
                     <hr class="my-2">
 
                     <div class="bg-light border rounded-3 p-2 mb-3">
-                        <label for="walkInOrderSlip" class="form-label fw-bold">Order Slip Image</label>
-                        <input type="file" id="walkInOrderSlip" name="order_slip" class="form-control" accept="image/jpeg,image/png,image/webp" aria-describedby="walkInOrderSlipHelp">
-                        <div id="walkInOrderSlipHelp" class="form-text">JPG, PNG or WebP, up to 5 MB. Visible to inventory during review.</div>
+                        <label for="walkInOrderSlip" class="form-label fw-bold">Order Slip Image <span class="text-danger">*</span></label>
+                        <input type="file" id="walkInOrderSlip" name="order_slip" class="form-control" accept="image/jpeg,image/png,image/webp" aria-describedby="walkInOrderSlipHelp" required>
+                        <div id="walkInOrderSlipHelp" class="form-text">Required. JPG, PNG or WebP, up to 5 MB. Visible during inventory review and in Transaction Logs.</div>
                         <img id="walkInOrderSlipPreview" class="img-fluid rounded border mt-3 d-none" style="max-height: 100px;" alt="Selected order slip preview">
                     </div>
                     <!-- Product Items Section -->
