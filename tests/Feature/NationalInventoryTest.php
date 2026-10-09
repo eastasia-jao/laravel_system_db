@@ -120,6 +120,31 @@ class NationalInventoryTest extends TestCase
         $this->assertDatabaseCount('national_products', 0);
     }
 
+    public function test_export_all_downloads_a_header_only_csv_when_national_inventory_is_empty(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+
+        $response = $this->actingAs($admin)->get(route('national-inventory.export', [
+            'hub_id' => $headOffice->id,
+            'export_all' => 1,
+        ]))->assertOk();
+
+        $this->assertStringContainsString('national_inventory_', $response->headers->get('Content-Disposition'));
+        $export = preg_replace('/^\xEF\xBB\xBF/', '', $response->streamedContent());
+        $lines = array_values(array_filter(preg_split('/\r\n|\r|\n/', $export), fn ($line) => $line !== ''));
+        $this->assertCount(1, $lines);
+        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Stock', 'Unit Type'], str_getcsv($lines[0]));
+
+        $exportLog = StaffActivityLog::where('action_type', 'product_export')->sole();
+        $this->assertSame(0, $exportLog->details['item_count']);
+        $this->assertSame(0, $exportLog->items()->count());
+
+        $this->actingAs($admin)
+            ->get(route('national-inventory.export', ['hub_id' => $headOffice->id, 'export_all' => 0]))
+            ->assertSessionHasErrors('product_ids');
+    }
+
     public function test_head_office_staff_can_edit_and_toggle_while_only_admin_can_delete_without_mutation_logs(): void
     {
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);

@@ -12,6 +12,7 @@ use App\Http\Controllers\StockAllocationController;
 use App\Http\Controllers\InventoryTransactionController;
 use App\Http\Controllers\FullyBookedOrderController;
 use App\Http\Controllers\NationalInventoryController;
+use App\Http\Controllers\NationalPulloutController;
 use App\Http\Controllers\PrivateApiController;
 use App\Http\Controllers\StaffActivityLogController;
 use App\Http\Controllers\UnitTypeController;
@@ -225,6 +226,10 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::put('/products/national/{nationalProduct}', [NationalInventoryController::class, 'update'])->name('national-inventory.update');
         Route::patch('/products/national/{nationalProduct}/toggle', [NationalInventoryController::class, 'toggleStatus'])->name('national-inventory.toggle');
         Route::delete('/products/national/{nationalProduct}', [NationalInventoryController::class, 'destroy'])->name('national-inventory.destroy');
+        Route::get('/inventory-transactions/national-pullout/create', [NationalPulloutController::class, 'create'])->name('national-pullouts.create');
+        Route::post('/inventory-transactions/national-pullout', [NationalPulloutController::class, 'store'])->name('national-pullouts.store');
+        Route::get('/inventory-transactions/national-pullout/worksheet', [NationalPulloutController::class, 'worksheet'])->name('national-pullouts.worksheet');
+        Route::get('/inventory-transactions/national-pullout/{nationalPullout}/export', [NationalPulloutController::class, 'export'])->name('national-pullouts.export');
         Route::prefix('products')->name('products.')->group(function () {
             Route::post('/bulk-destroy', [ProductController::class, 'bulkDestroy'])->middleware('can:full-access')->name('bulk-destroy');
             Route::patch('/{id}/toggle', [ProductController::class, 'toggleStatus'])->name('toggle');

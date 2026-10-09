@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryTransaction;
+use App\Models\NationalPullout;
 use App\Models\FullyBookedOrder;
 use App\Models\FullyBookedOrderItem;
 use App\Models\Product;
@@ -455,8 +456,48 @@ class InventoryTransactionController extends Controller
 
             return ['fully-booked-'.$order->id => collect([$transaction])];
             });
+
+        $nationalPullouts = in_array($user?->role, ['admin', 'inventory_staff'], true)
+            && (! $request->filled('type') || $request->input('type') === 'national_bookstore_pullout')
+            && ! $request->filled('status')
+            ? NationalPullout::with(['items.product', 'storeHub', 'creator'])
+                ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
+                ->when($user?->role === 'inventory_staff', fn ($query) => $query->where('store_hub_id', $user->store_hub_id))
+                ->when($request->filled('month'), fn ($query) => $query->whereBetween('occurred_on', [
+                    $request->input('month').'-01',
+                    now()->parse($request->input('month').'-01')->endOfMonth()->toDateString(),
+                ]))
+                ->latest('occurred_on')
+                ->latest()
+                ->get()
+            : collect();
+        $nationalPulloutGroups = $nationalPullouts->mapWithKeys(function (NationalPullout $pullout) {
+            $entries = $pullout->items->map(function ($item) use ($pullout) {
+                $transaction = new InventoryTransaction;
+                $transaction->setRawAttributes([
+                    'id' => 'national-pullout-'.$pullout->id.'-'.$item->id,
+                    'type' => 'national_bookstore_pullout',
+                    'reference' => $pullout->po_number,
+                    'store_hub_id' => $pullout->store_hub_id,
+                    'source' => 'National Bookstore',
+                    'quantity' => $item->actual_pullout,
+                    'occurred_on' => $pullout->occurred_on?->toDateString(),
+                    'notes' => $pullout->remarks,
+                    'created_by' => $pullout->created_by,
+                ], true);
+                $transaction->setRelation('storeHub', $pullout->storeHub);
+                $transaction->setRelation('creator', $pullout->creator);
+                $transaction->setRelation('nationalPullout', $pullout);
+                $transaction->setRelation('nationalPulloutItem', $item);
+
+                return $transaction;
+            });
+
+            return ['national-pullout-'.$pullout->id => $entries];
+        });
         $transactionGroups = collect($transactionGroups->all())
             ->merge($fullyBookedGroups)
+            ->merge($nationalPulloutGroups)
             ->sortByDesc(fn ($group) => $group->first()->occurred_on?->timestamp)
             ->values();
         $page = LengthAwarePaginator::resolveCurrentPage();
@@ -479,7 +520,23 @@ class InventoryTransactionController extends Controller
                 ->count()
             : 0;
 
-        return view('inventory-transactions.index', compact('transactions', 'hubs', 'hubId', 'fullyBookedPulloutCount'));
+        $nationalHeadOffice = StoreHub::query()
+            ->where('is_head_office', true)
+            ->where('status', 'active')
+            ->when($user?->role === 'inventory_staff', fn ($query) => $query->whereKey($user->store_hub_id))
+            ->first();
+        $canUseNationalPullout = in_array($user?->role, ['admin', 'inventory_staff'], true)
+            && $nationalHeadOffice !== null;
+        $nationalHeadOfficeId = $nationalHeadOffice?->id;
+
+        return view('inventory-transactions.index', compact(
+            'transactions',
+            'hubs',
+            'hubId',
+            'fullyBookedPulloutCount',
+            'canUseNationalPullout',
+            'nationalHeadOfficeId'
+        ));
     }
 
     public function branchWalkInOrderSlip(int $salesTransaction)

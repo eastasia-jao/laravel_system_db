@@ -159,9 +159,6 @@ class NationalInventoryController extends Controller
             $query->whereIn('id', $ids);
         }
         $count = (clone $query)->count();
-        if ($count === 0) {
-            throw ValidationException::withMessages(['product_ids' => 'No National inventory products are available to export.']);
-        }
 
         $activityLog = StaffActivityLog::create([
             'user_id' => $request->user()->id,

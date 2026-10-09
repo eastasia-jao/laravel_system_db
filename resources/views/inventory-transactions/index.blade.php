@@ -109,6 +109,15 @@
                 ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock / Added from Request (Warehouse HO)', 'text' => 'Warehouse request'],
                 ['route' => 'inventory-transactions.return.create', 'icon' => 'fa-rotate-left', 'title' => 'Return Items', 'text' => 'Good or damaged'],
             ];
+            if ($canUseNationalPullout) {
+                $inventoryActions[] = [
+                    'route' => 'national-pullouts.create',
+                    'icon' => 'fa-book-open',
+                    'title' => 'National Bookstore Pullout',
+                    'text' => 'Head Office only',
+                    'hub_id' => $nationalHeadOfficeId,
+                ];
+            }
             if (auth()->user()->can('manage-inventory') || auth()->user()->can('submit-branch-transfers')) {
                 array_splice($inventoryActions, 1, 0, [[
                     'route' => 'inventory-transactions.branch-transfer.create',
@@ -120,7 +129,7 @@
         @endphp
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-{{ count($inventoryActions) }} g-3 mb-3 transaction-log-actions">
             @foreach($inventoryActions as $action)
-                <div class="col"><a href="{{ route($action['route'], ['hub_id' => $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100 position-relative">
+                <div class="col"><a href="{{ route($action['route'], ['hub_id' => $action['hub_id'] ?? $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100 position-relative">
                     <i class="fa-solid {{ $action['icon'] }} text-primary fs-4 mb-2"></i><strong class="text-dark">{{ $action['title'] }}</strong><small class="text-muted">{{ $action['text'] }}</small>
                     @if(($action['pending'] ?? 0) > 0)
                         <span class="badge rounded-pill text-bg-danger position-absolute top-0 end-0 m-3" aria-label="{{ $action['pending'] }} Fully Booked {{ $action['pending'] === 1 ? 'order' : 'orders' }} not yet processed">{{ $action['pending'] }}</span>
@@ -153,7 +162,7 @@
                     @php
                         $logTypes = auth()->user()?->role === 'sales_associate'
                             ? []
-                            : ['sold'=>'Sold Items','stock_transfer'=>'Stock Transfer (HO ↔ Branch)','branch_transfer'=>'Stock Transfer (BRANCH to BRANCH)','sponsor_workshop'=>'Event','fully_booked'=>'Fully Booked Orders','restock'=>'Restock / Added from Request (Warehouse HO)','return'=>'Return Items','replacement'=>'Replacement'];
+                            : ['sold'=>'Sold Items','stock_transfer'=>'Stock Transfer (HO ↔ Branch)','branch_transfer'=>'Stock Transfer (BRANCH to BRANCH)','sponsor_workshop'=>'Event','fully_booked'=>'Fully Booked Orders','restock'=>'Restock / Added from Request (Warehouse HO)','return'=>'Return Items','replacement'=>'Replacement','national_bookstore_pullout'=>'National Bookstore Pullout'];
                     @endphp
                     @foreach($logTypes as $value => $label)
                         <option value="{{ $value }}" @selected(request('type') === $value)>{{ $label }}</option>
@@ -205,6 +214,10 @@
                     $isTransferGroup = in_array($transaction->type, ['stock_transfer', 'branch_transfer'], true);
                     $isSponsorGroup = $transaction->type === 'sponsor_workshop';
                     $isRestockGroup = $transaction->type === 'restock';
+                    $isNationalPulloutGroup = $transaction->type === 'national_bookstore_pullout';
+                    $nationalPullout = $isNationalPulloutGroup && $transaction->relationLoaded('nationalPullout')
+                        ? $transaction->getRelation('nationalPullout')
+                        : null;
                     $isReplacementGroup = $transaction->productReplacement !== null && ! $isReturnGroup;
                     $typeLabel = match (true) {
                         $isFullyBookedGroup => 'Fully Booked',
@@ -214,6 +227,7 @@
                             ? 'Stock Transfer (BRANCH to BRANCH)'
                             : ($transaction->sourceHub?->is_head_office ? 'Stock Transfer (HO to BRANCH)' : 'Stock Transfer (BRANCH to HO)'),
                         $isSponsorGroup => 'Event',
+                        $isNationalPulloutGroup => 'National Bookstore Pullout',
                         default => ucwords(str_replace('_', ' ', $transaction->type)),
                     };
                     $modalId = 'transactionModal'.str_replace(['-', ' '], '', $groupKey);
@@ -227,7 +241,23 @@
                     <td>{{ $transaction->occurred_on->format('M d, Y') }}</td>
                     @php
                         $typeClass = $isReplacementGroup ? 'replacement' : ($isReturnGroup ? 'return' : ($isSoldOrder ? 'sold' : ($isTransferGroup ? 'transfer' : 'other')));
-                        $typeIcon = $isFullyBookedGroup ? 'fa-file-circle-check' : ($isReplacementGroup ? 'fa-arrow-right-arrow-left' : ($isReturnGroup ? 'fa-rotate-left' : ($isSoldOrder ? 'fa-cart-shopping' : ($isTransferGroup ? 'fa-truck-ramp-box' : 'fa-box'))));
+                        $typeIcon = match (true) {
+                            $isNationalPulloutGroup => 'fa-book-open',
+                            $isFullyBookedGroup => 'fa-file-circle-check',
+                            $isReplacementGroup => 'fa-arrow-right-arrow-left',
+                            $isReturnGroup => 'fa-rotate-left',
+                            $isSoldOrder => 'fa-cart-shopping',
+                            $isTransferGroup => 'fa-truck-ramp-box',
+                            default => 'fa-box',
+                        };
+                        $modalTitle = match (true) {
+                            $isNationalPulloutGroup => 'National Bookstore Pullout Details',
+                            $isFullyBookedGroup => 'Fully Booked Order Details',
+                            $isReplacementGroup => 'Replacement Details',
+                            $isReturnGroup => 'Return Order Details',
+                            $isSoldOrder => 'Sold Order Details',
+                            default => $typeLabel.' Details',
+                        };
                     @endphp
                     <td><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
                         @if($transaction->type === 'branch_transfer')
@@ -257,6 +287,9 @@
                         @elseif($isSponsorGroup)
                             <strong>{{ $transaction->reference ?: '—' }}</strong>
                             <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} total pulled out{{ $transaction->source ? ' · '.$transaction->source : '' }}</small>
+                        @elseif($isNationalPulloutGroup)
+                            <strong>P.O. # {{ $nationalPullout?->po_number ?? $transaction->reference }}</strong>
+                            <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} actual pull-out</small>
                         @elseif($isRestockGroup)
                             <strong>{{ $transaction->reference ?: 'Restock' }}</strong>
                             <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} total added{{ $transaction->source ? ' · '.ucwords(str_replace('_', ' ', $transaction->source)) : '' }}</small>
@@ -274,9 +307,47 @@
                 </tr>
                 <div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content inventory-log-modal">
-                        <div class="modal-header"><h5 class="modal-title">{{ $isFullyBookedGroup ? 'Fully Booked Order Details' : ($isReplacementGroup ? 'Replacement Details' : ($isReturnGroup ? 'Return Order Details' : ($isSoldOrder ? 'Sold Order Details' : ($isTransferGroup ? $typeLabel.' Details' : $typeLabel.' Details')))) }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                        <div class="modal-header"><h5 class="modal-title">{{ $modalTitle }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                         <div class="modal-body"><div class="row g-3">
-                            @if($isFullyBookedGroup)
+                            @if($isNationalPulloutGroup)
+                                <div class="col-12">
+                                    <div class="transfer-detail-hero">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                                            <div>
+                                                <div class="eyebrow"><i class="fa-solid fa-book-open me-1"></i>National Bookstore pull-out</div>
+                                                <h4 class="mb-1 mt-2">P.O. # {{ $nationalPullout?->po_number ?? $transaction->reference }}</h4>
+                                                <div class="transfer-detail-reference">{{ $nationalPullout?->occurred_on?->format('M d, Y') ?? $transaction->occurred_on?->format('M d, Y') }}</div>
+                                            </div>
+                                            @if($nationalPullout)
+                                                <a href="{{ route('national-pullouts.export', ['nationalPullout' => $nationalPullout, 'hub_id' => $nationalPullout->store_hub_id]) }}" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-file-csv me-1"></i>Download CSV</a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Head Office</div><strong>{{ $transaction->storeHub?->name ?? '—' }}</strong></div></div>
+                                <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Recorded by</div><strong>{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</strong></div></div>
+                                @if($nationalPullout?->remarks)
+                                    <div class="col-12"><div class="transfer-detail-section p-3"><div class="small text-muted mb-1">Remarks</div><div style="white-space:pre-wrap">{{ $nationalPullout->remarks }}</div></div></div>
+                                @endif
+                                <div class="col-12">
+                                    <div class="transfer-detail-section">
+                                        <div class="transfer-detail-section-header"><span class="transfer-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2 text-primary"></i>Items pulled out</span><span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} actual pull-out</span></div>
+                                        @foreach($group as $entry)
+                                            @php
+                                                $pulloutItem = $entry->getRelation('nationalPulloutItem');
+                                            @endphp
+                                            <div class="transfer-detail-item align-items-start">
+                                                <div>
+                                                    <div class="transfer-detail-item-name">{{ $pulloutItem?->product_name ?? 'Unknown product' }}</div>
+                                                    <div class="transfer-detail-item-id">Item ID: {{ $pulloutItem?->item_id ?? '—' }} · Unit: {{ $pulloutItem?->unit_type ?? '—' }}</div>
+                                                    <div class="small text-muted mt-1">Purpose: {{ $pulloutItem?->purpose ?? '—' }} · Physical stock before pull-out: {{ $pulloutItem?->physical_stock ?? 0 }} · Requested qty: {{ $pulloutItem?->quantity ?? 0 }}</div>
+                                                </div>
+                                                <div class="transfer-detail-qty">Actual {{ $pulloutItem?->actual_pullout ?? $entry->quantity }}</div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @elseif($isFullyBookedGroup)
                                 <div class="col-md-6"><strong class="small text-muted">Fully Booked Order Number</strong><div class="fw-semibold">{{ $fullyBookedOrder?->order_number ?? $transaction->reference }}</div></div>
                                 <div class="col-md-6"><strong class="small text-muted">Sales / Marketing Staff</strong><div class="fw-semibold">{{ $fullyBookedOrder?->salesStaff?->name ?? 'Deleted staff' }}</div></div>
                                 <div class="col-md-6"><strong class="small text-muted">Submitted By</strong><div class="fw-semibold">{{ $fullyBookedOrder?->submitter?->name ?? 'Deleted user' }}</div></div>
@@ -552,7 +623,7 @@
                                 <div class="col-md-6"><strong>Product</strong><div>{{ $transaction->product?->name ?? 'Unknown product' }} ({{ $transaction->product?->item_id ?? '—' }})</div></div>
                                 <div class="col-md-3"><strong>Quantity</strong><div>{{ $transaction->quantity }}</div></div>
                             @endif
-                            @if(!$isReplacementGroup && !$isFullyBookedGroup)
+                            @if(!$isReplacementGroup && !$isFullyBookedGroup && !$isNationalPulloutGroup)
                                 @if($isSponsorGroup)
                                     <div class="col-12">
                                         <div class="row g-2">
