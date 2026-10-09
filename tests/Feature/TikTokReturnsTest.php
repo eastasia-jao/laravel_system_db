@@ -231,7 +231,7 @@ class TikTokReturnsTest extends TestCase
             ->get(route('hub.dashboard', $hub->id))
             ->assertOk()
             ->assertSee('Return Items')
-            ->assertSee(route('inventory-transactions.return.create', ['hub_id' => $hub->id]), false);
+            ->assertSee(route('hub.branch-returns', ['hub' => $hub->id]), false);
     }
 
     public function test_legacy_tiktok_returns_show_customer_name_using_order_reference(): void

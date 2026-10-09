@@ -108,7 +108,7 @@ class TransactionBulkTest extends TestCase
         $this->actingAs($admin)->get(route('inventory-transactions.return.create', ['hub_id' => $branch->id]))
             ->assertOk()
             ->assertSee('Return Items')
-            ->assertSee('class="transaction-page-heading mb-4"', false)
+            ->assertSee('class="page-hero mb-3"', false)
             ->assertDontSee('Returned Items History')
             ->assertSee('value="walk_in" selected', false)
             ->assertDontSee('value="shopee"', false)
@@ -138,7 +138,15 @@ class TransactionBulkTest extends TestCase
 
         $this->get(route('hub.dashboard', $branch->id))
             ->assertOk()
-            ->assertSee(route('inventory-transactions.return.create', ['hub_id' => $branch->id]), false);
+            ->assertSee(route('hub.branch-returns', ['hub' => $branch->id]), false);
+
+        $this->get(route('hub.branch-returns', ['hub' => $branch->id]))
+            ->assertOk()
+            ->assertSee('Walk-In Returns')
+            ->assertSee('BRANCH-RETURN-1')
+            ->assertSee('Returned Brush')
+            ->assertSee('Bad: 1')
+            ->assertDontSee('No Walk-In orders found');
     }
 
     public function test_fully_booked_returns_load_order_numbers_without_a_customer(): void

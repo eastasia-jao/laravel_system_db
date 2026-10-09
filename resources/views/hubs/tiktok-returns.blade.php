@@ -6,7 +6,7 @@
         <x-slot:actions><a href="{{ route('hub.dashboard', $hub->id) }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>Hub Dashboard</a></x-slot:actions>
     </x-page-header>
 
-    <form method="GET" action="{{ $channelKey === 'tiktok' ? route('hub.tiktok-returns', $hub->id) : route('hub.marketplace-returns', ['hub' => $hub->id]) }}" class="card card-body mb-4">
+    <form method="GET" action="{{ $returnsRoute }}" class="card card-body mb-4">
         @if($channelKey !== 'tiktok')
             <input type="hidden" name="channel" value="{{ $channelKey }}">
         @endif

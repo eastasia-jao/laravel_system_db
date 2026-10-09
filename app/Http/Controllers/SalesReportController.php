@@ -37,6 +37,33 @@ class SalesReportController extends Controller
         return $this->marketplaceReturnsForChannel($request, $hub, $filters['channel']);
     }
 
+    public function branchReturns(Request $request, int $hub)
+    {
+        $user = auth()->user();
+        $storeHub = StoreHub::findOrFail($hub);
+
+        abort_unless($user && $user->canAccessHub($storeHub->id), 403);
+        abort_unless($user->can('manage-branch-returns'), 403);
+        abort_if($storeHub->is_head_office, 404);
+
+        $filters = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $transactions = $this->transactionsWithRecordedReturns($storeHub, 'walk_in', $filters);
+
+        return view('hubs.tiktok-returns', [
+            'hub' => $storeHub,
+            'transactions' => $transactions,
+            'channel' => 'Walk-In',
+            'channelKey' => 'walk_in',
+            'returnsRoute' => route('hub.branch-returns', $storeHub->id),
+            'dateFrom' => $filters['date_from'] ?? null,
+            'dateTo' => $filters['date_to'] ?? null,
+        ]);
+    }
+
     private function marketplaceReturnsForChannel(Request $request, int $hub, string $channel)
     {
         $user = auth()->user();
@@ -56,7 +83,29 @@ class SalesReportController extends Controller
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
         ]);
 
-        $transactions = SalesTransaction::query()
+        $transactions = $this->transactionsWithRecordedReturns($storeHub, $channel, $filters);
+        $channelLabel = match ($channel) {
+            'tiktok' => 'TikTok',
+            'walk_in' => 'Walk-In',
+            default => ucfirst($channel),
+        };
+
+        return view('hubs.tiktok-returns', [
+            'hub' => $storeHub,
+            'transactions' => $transactions,
+            'channel' => $channelLabel,
+            'channelKey' => $channel,
+            'returnsRoute' => $channel === 'tiktok'
+                ? route('hub.tiktok-returns', $storeHub->id)
+                : route('hub.marketplace-returns', ['hub' => $storeHub->id, 'channel' => $channel]),
+            'dateFrom' => $filters['date_from'] ?? null,
+            'dateTo' => $filters['date_to'] ?? null,
+        ]);
+    }
+
+    private function transactionsWithRecordedReturns(StoreHub $storeHub, string $channel, array $filters)
+    {
+        return SalesTransaction::query()
             ->where('store_hub_id', $storeHub->id)
             ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) = ?", [$channel])
             ->whereHas('items', fn ($items) => $items->where(function ($returnedItems) {
@@ -77,17 +126,6 @@ class SalesReportController extends Controller
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
-
-        $channelLabel = $channel === 'tiktok' ? 'TikTok' : ucfirst($channel);
-
-        return view('hubs.tiktok-returns', [
-            'hub' => $storeHub,
-            'transactions' => $transactions,
-            'channel' => $channelLabel,
-            'channelKey' => $channel,
-            'dateFrom' => $filters['date_from'] ?? null,
-            'dateTo' => $filters['date_to'] ?? null,
-        ]);
     }
 
     public function fullyBookedReturns(Request $request, int $hub)
