@@ -117,17 +117,19 @@
     #recordSaleModal .modal-dialog {
         width: min(1024px, calc(100vw - 2rem));
         max-width: 1024px;
-        height: min(92vh, 900px);
+        height: auto;
+        max-height: 92vh;
         margin: 4vh auto;
     }
     #recordSaleModal .modal-content {
-        height: 100%;
+        height: auto;
+        max-height: 92vh;
         border: 1px solid rgba(148, 163, 184, .26);
         border-radius: 18px;
         background: var(--sale-canvas);
         box-shadow: 0 24px 60px rgba(15, 23, 42, .18);
     }
-    #recordSaleForm { height: 100%; }
+    #recordSaleForm { height: auto; max-height: 92vh; }
     #recordSaleModal .modal-header {
         position: sticky;
         top: 0;
@@ -241,6 +243,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    #recordSaleModal .order-header-grid .form-text { display: none; }
     #recordSaleModal .order-items-card { padding: .75rem .9rem .9rem !important; }
     #recordSaleModal .order-items-toolbar { min-height: 34px; margin-bottom: .55rem !important; padding: 0; }
     #recordSaleModal .order-items-toolbar h6 { color: var(--sale-ink) !important; font-size: .9rem; }
@@ -286,6 +289,9 @@
     #recordSaleModal #productRowsContainer .product-row:nth-child(odd) { background: #fbfdff; }
     #recordSaleModal #productRowsContainer .product-row:hover { border-color: #bfdbfe !important; background: #f8fbff; }
     #recordSaleModal #productRowsContainer .remove-row-btn { width: 38px !important; min-width: 38px; padding: 0; }
+    #recordSaleModal #productRowsContainer input[type="number"] { padding-inline: .42rem; text-align: center; appearance: textfield; }
+    #recordSaleModal #productRowsContainer input[type="number"]::-webkit-inner-spin-button,
+    #recordSaleModal #productRowsContainer input[type="number"]::-webkit-outer-spin-button { margin: 0; appearance: none; }
     #recordSaleModal .channel-detail-panel { padding: 0; border: 0; background: transparent; box-shadow: none; }
     #recordSaleModal .channel-detail-header,
     #recordSaleModal .simple-channel-header {
@@ -331,6 +337,10 @@
     #recordSaleModal .sale-summary-card { min-height: 72px; padding: .55rem .7rem; border-radius: 10px; }
     #recordSaleModal .sale-summary-card .form-control { min-height: 26px; }
     #recordSaleModal .sale-summary-card-highlight { border-color: #bbf7d0; background: #f0fdf4; }
+    #recordSaleModal #walkInExtraFields .walkin-section-break { width: 100%; flex: 0 0 100%; padding: .2rem 0 0; }
+    #recordSaleModal #walkInExtraFields:not(.walkin-proof-visible) .walkin-quotation-field { width: 100%; }
+    #recordSaleModal #walkInExtraFields .walkin-summary-field .form-control { font-weight: 750; font-variant-numeric: tabular-nums; }
+    #recordSaleModal #walkInExtraFields .walkin-summary-total .form-control { border-color: #bbf7d0; background: #f0fdf4 !important; color: var(--sale-success); }
     #recordSaleModal .extra-fields-container [style*="display: block"],
     #recordSaleModal .extra-fields-container [style*="display: flex"] { animation: saleFieldIn .15s ease-out; }
     @keyframes saleFieldIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
@@ -367,6 +377,7 @@
     @media (max-width: 767.98px) {
         #recordSaleModal .modal-dialog { width: 100%; height: 100dvh; margin: 0; }
         #recordSaleModal .modal-content { min-height: 100dvh; border: 0; border-radius: 0; }
+        #recordSaleForm { height: 100dvh; max-height: none; }
         #recordSaleModal .modal-header { min-height: 62px; padding: .65rem .75rem; }
         #recordSaleModal .sale-modal-icon { width: 36px; height: 36px; flex-basis: 36px; }
         #recordSaleModal .sale-modal-eyebrow { display: none; }
@@ -514,7 +525,7 @@
                             <div class="col-md-2">Regular Price</div>
                             <div class="col-md-1 text-danger">Disc %</div>
                             <div class="col-md-2 text-success">Total after Disc.</div>
-                            <div class="col-md-2 text-info tiktok-shipping-fee-column">Shipping Service Fee</div>
+                            <div class="col-md-2 text-info tiktok-shipping-fee-column"><span class="visually-hidden">Shipping Service Fee</span><span aria-hidden="true">Service Fee</span></div>
                             <div class="col-md-1 text-center">Action</div>
                         </div>
 
@@ -553,7 +564,7 @@
                             </div>
 
                             <div class="col-md-2 tiktok-shipping-fee-column">
-                                <label class="form-label fw-bold text-info d-md-none">Shipping Service Fee</label>
+                                <label class="form-label fw-bold text-info d-md-none">Service Fee</label>
                                 <input type="text" class="form-control item-shipping-service-fee-display bg-white fw-bold text-info" readonly value="₱0.00">
                             </div>
 
@@ -953,7 +964,8 @@
                                 <input type="date" name="check_date" class="form-control walk-in-input" disabled>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-12 sale-field-heading walkin-section-break">Documents</div>
+                            <div class="col-md-6 walkin-quotation-field">
                                 <label class="form-label fw-bold">Proof of Quotation</label>
                                 <input type="file" name="quotation_proofs[]" class="form-control walk-in-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple disabled data-inline-attachment-preview>
                                 <div class="form-text">Up to 4 attachments total, 2 MB each.</div>
@@ -966,15 +978,16 @@
                                 <div class="d-flex flex-wrap gap-2 mt-2" data-inline-attachment-preview-list></div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-12 sale-field-heading walkin-section-break">Order total</div>
+                            <div class="col-md-4 walkin-summary-field">
                                 <label class="form-label">Sub Total</label>
                                 <input type="number" step="0.01" name="walkin_sub_total" id="walkInSubTotal" class="form-control bg-white" readonly placeholder="0.00">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-4 walkin-summary-field">
                                 <label class="form-label">Additional Discount (%)</label>
                                 <input type="number" step="0.01" name="additional_discount" id="walkInAdditionalDiscount" class="form-control calc-trigger" value="0" placeholder="0.00" disabled>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-4 walkin-summary-field walkin-summary-total">
                                 <label class="form-label fw-bold text-success">Total Amount</label>
                                 <input type="number" step="0.01" name="grand_total" id="walkInGrandTotal" class="form-control bg-white fw-bold text-success" readonly placeholder="0.00">
                             </div>
@@ -1343,7 +1356,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <input type="text" class="form-control item-total-display bg-white fw-bold text-success" readonly value="₱0.00">
                 </div>
                 <div class="col-md-2 tiktok-shipping-fee-column">
-                    <label class="form-label fw-bold text-info d-md-none">Shipping Service Fee</label>
+                    <label class="form-label fw-bold text-info d-md-none">Service Fee</label>
                     <input type="text" class="form-control item-shipping-service-fee-display bg-white fw-bold text-info" readonly value="₱0.00">
                 </div>
                 <div class="col-md-1">
@@ -1710,9 +1723,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (mopVal && mopVal !== 'CASH') {
+            extraContainer.classList.add('walkin-proof-visible');
             if (proofContainer) proofContainer.style.display = 'block';
             if (proofInput) { proofInput.disabled = false; proofInput.required = true; }
         } else {
+            extraContainer.classList.remove('walkin-proof-visible');
             if (proofContainer) proofContainer.style.display = 'none';
             if (proofInput) {
                 proofInput.value = '';
