@@ -157,7 +157,7 @@
         @can('manage-branch-returns')
         @if(auth()->user()?->role !== 'inventory_staff' && $sidebarContextHub && ! $sidebarContextHub->is_head_office)
         <li>
-            <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $sidebarContextHub->id]) }}" class="nav-link {{ request()->routeIs('inventory-transactions.return.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
+            <a href="{{ route('hub.branch-returns', ['hub' => $sidebarContextHub->id]) }}" class="nav-link {{ request()->routeIs('hub.branch-returns') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-rotate-left"></i> Return Items
             </a>
         </li>
