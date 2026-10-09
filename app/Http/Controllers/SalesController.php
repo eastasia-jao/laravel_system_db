@@ -493,7 +493,11 @@ class SalesController extends Controller
                 $recipient->notify(new SalesWorkflowNotification('submitted', $pendingSale));
             }
 
-            return back()->with('success', 'Order submitted for inventory verification. Stock has not been deducted yet.');
+            $successMessage = $channel === 'walk_in' && ! $storeHub->is_head_office
+                ? 'Walk-In sale submitted for inventory verification. Stock will be updated after approval.'
+                : 'Order submitted for inventory verification. Stock has not been deducted yet.';
+
+            return back()->with('success', $successMessage);
         } catch (ModelNotFoundException | HttpExceptionInterface $e) {
             if ($orderSlipPath) {
                 Storage::disk('local')->delete($orderSlipPath);

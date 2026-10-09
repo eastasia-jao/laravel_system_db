@@ -353,7 +353,21 @@ class SalesReportController extends Controller
             : 0;
         $totalTransactions = $allTransactions->count();
         $totalPurchasedItems = $allTransactions->sum(fn ($transaction) => $transaction->items->sum(
-            fn ($item) => max(0, (int) $item->quantity - $item->returnedQuantity())
+            function ($item) {
+                $approvedReplacements = $item->replacements->where('status', 'approved');
+                $originalReturnedQuantity = max(
+                    $item->returnedQuantity(),
+                    (int) $approvedReplacements->sum('quantity')
+                );
+                $originalPurchasedQuantity = max(0, (int) $item->quantity - $originalReturnedQuantity);
+                $replacementPurchasedQuantity = $approvedReplacements->sum(fn ($replacement) => max(
+                    0,
+                    (int) ($replacement->replacement_quantity ?: $replacement->quantity)
+                        - (int) $replacement->inventoryReturns->sum('quantity')
+                ));
+
+                return $originalPurchasedQuantity + $replacementPurchasedQuantity;
+            }
         ));
         $customerHistoryQuery = SalesTransaction::query()
             ->where('store_hub_id', $hub->id)

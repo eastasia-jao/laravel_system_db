@@ -40,7 +40,8 @@ class ReturnWorkflowPilotTest extends TestCase
             'status' => 'active',
         ]);
 
-        $this->actingAs($salesAssociate)
+        $this->from(route('hub.dashboard', $branch->id))
+            ->actingAs($salesAssociate)
             ->post(route('sales.storeMultiChannelSale'), [
                 'store_hub_id' => $branch->id,
                 'sales_channel' => 'walk_in',
@@ -54,7 +55,15 @@ class ReturnWorkflowPilotTest extends TestCase
                 ]],
             ])
             ->assertSessionHasNoErrors()
-            ->assertSessionHas('success');
+            ->assertSessionHas(
+                'success',
+                'Walk-In sale submitted for inventory verification. Stock will be updated after approval.'
+            )
+            ->assertRedirect(route('hub.dashboard', $branch->id));
+        $this->get(route('hub.dashboard', $branch->id))
+            ->assertOk()
+            ->assertSee('Walk-In sale submitted for verification')
+            ->assertSee('Walk-In sale submitted for inventory verification. Stock will be updated after approval.');
 
         $pendingSale = PendingSale::sole();
         $this->assertSame(10, (int) $product->fresh()->stock);
@@ -100,6 +109,16 @@ class ReturnWorkflowPilotTest extends TestCase
             'condition' => 'good',
             'quantity' => 1,
         ]);
+        foreach (['admin', 'inventory_staff'] as $role) {
+            $this->actingAs(User::factory()->create(['role' => $role]))
+                ->get(route('inventory-transactions.index', [
+                    'hub_id' => $branch->id,
+                    'type' => 'return',
+                ]))
+                ->assertOk()
+                ->assertSee('Return order '.$sale->order_number)
+                ->assertSee('<option value="return" selected>', false);
+        }
 
         $this->actingAs($salesAssociate)
             ->post($returnRoute, array_replace_recursive($returnData, [

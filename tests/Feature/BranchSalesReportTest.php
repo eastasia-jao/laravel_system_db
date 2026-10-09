@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{InventoryTransaction, Product, StoreHub, User, SalesTransaction};
+use App\Models\{InventoryTransaction, Product, ProductReplacement, StoreHub, User, SalesTransaction};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -202,6 +202,101 @@ class BranchSalesReportTest extends TestCase
             ->assertSee('₱180.00');
         $this->assertSame(['OTHER'], $response->viewData('paymentBreakdown')->pluck('payment_method')->all());
 
+        $this->travelBack();
+    }
+
+    public function test_branch_daily_purchased_items_exclude_returns_and_count_approved_replacements(): void
+    {
+        $this->travelTo('2026-09-29 09:00:00');
+        $hub = StoreHub::create(['name' => 'Branch', 'code' => 'branch-items', 'status' => 'active', 'is_head_office' => false]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $originalProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ITEM-ORIGINAL', 'name' => 'Original Item', 'stock' => 10, 'status' => 'active']);
+        $replacementProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ITEM-REPLACEMENT', 'name' => 'Replacement Item', 'stock' => 10, 'status' => 'active']);
+
+        $returnedSale = SalesTransaction::create([
+            'user_id' => $user->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'walk_in',
+            'order_date' => '2026-09-29',
+            'order_number' => 'RETURNED-ITEMS',
+            'customer_name' => 'Returned Items Customer',
+            'grand_total' => 300,
+        ]);
+        $returnedSale->items()->create([
+            'product_id' => $originalProduct->id,
+            'quantity' => 3,
+            'returned_quantity' => 2,
+            'return_status' => 'received',
+            'unit_price' => 100,
+            'line_total' => 300,
+        ]);
+
+        $replacementSale = SalesTransaction::create([
+            'user_id' => $user->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'walk_in',
+            'order_date' => '2026-09-29',
+            'order_number' => 'REPLACED-ITEMS',
+            'customer_name' => 'Replacement Items Customer',
+            'grand_total' => 300,
+        ]);
+        $replacementItem = $replacementSale->items()->create([
+            'product_id' => $originalProduct->id,
+            'quantity' => 3,
+            'returned_quantity' => 2,
+            'return_status' => 'received',
+            'unit_price' => 100,
+            'line_total' => 300,
+        ]);
+        ProductReplacement::create([
+            'transaction_id' => $replacementSale->id,
+            'transaction_item_id' => $replacementItem->id,
+            'original_product_id' => $originalProduct->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 2,
+            'replacement_quantity' => 3,
+            'original_unit_price' => 100,
+            'replacement_unit_price' => 100,
+            'status' => 'approved',
+            'created_by' => $user->id,
+        ]);
+
+        $pendingReplacementSale = SalesTransaction::create([
+            'user_id' => $user->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'walk_in',
+            'order_date' => '2026-09-29',
+            'order_number' => 'PENDING-REPLACEMENT',
+            'customer_name' => 'Pending Replacement Customer',
+            'grand_total' => 200,
+        ]);
+        $pendingReplacementItem = $pendingReplacementSale->items()->create([
+            'product_id' => $originalProduct->id,
+            'quantity' => 2,
+            'returned_quantity' => 1,
+            'return_status' => 'received',
+            'unit_price' => 100,
+            'line_total' => 200,
+        ]);
+        ProductReplacement::create([
+            'transaction_id' => $pendingReplacementSale->id,
+            'transaction_item_id' => $pendingReplacementItem->id,
+            'original_product_id' => $originalProduct->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 1,
+            'replacement_quantity' => 2,
+            'original_unit_price' => 100,
+            'replacement_unit_price' => 100,
+            'status' => 'pending',
+            'created_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'walk_in',
+        ]))->assertOk();
+
+        $this->assertSame(6, (int) $response->viewData('totalPurchasedItems'));
         $this->travelBack();
     }
 

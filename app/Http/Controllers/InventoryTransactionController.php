@@ -230,12 +230,17 @@ class InventoryTransactionController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $hubId = $request->integer('hub_id') ?: $user?->store_hub_id;
         if ($user?->role === 'sales_associate') {
             $hubId = $request->integer('hub_id') ?: $user->store_hub_id;
             abort_unless($hubId && $user->canAccessHub((int) $hubId), 403);
+        } elseif (in_array($user?->role, ['admin', 'inventory_staff'], true)) {
+            $hubId = $request->exists('hub_id')
+                ? ($request->integer('hub_id') ?: null)
+                : $user?->store_hub_id;
         } elseif ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
             $hubId = $user->store_hub_id;
+        } else {
+            $hubId = null;
         }
 
         $fullyBookedOrders = in_array($user?->role, ['admin', 'inventory_staff'], true)
@@ -269,16 +274,14 @@ class InventoryTransactionController extends Controller
             'productReplacement.originalProduct', 'productReplacement.replacementProduct',
             'productReplacement.reviewer', 'productReplacement.transaction', 'reviewer',
         ])
-            ->where(function ($query) {
-                $query->where('type', '!=', 'branch_transfer')
-                    ->orWhere('status', 'approved');
+            ->when(! in_array($user?->role, ['admin', 'inventory_staff'], true), function ($query) {
+                $query->where(function ($query) {
+                    $query->where('type', '!=', 'branch_transfer')
+                        ->orWhere('status', 'approved');
+                });
             })
             ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
             ->when($request->filled('type') && $user?->role !== 'sales_associate', function ($query) use ($request) {
-                if ($request->input('type') === 'branch_transfer') {
-                    return $query;
-                }
-
                 if ($request->input('type') === 'fully_booked') {
                     return $query->where('type', 'sponsor_workshop')->where('channel', 'fully_booked');
                 }

@@ -7,9 +7,12 @@
             'verification-link-sent' => 'A new verification link has been sent to your email address.',
             default => session($key),
         }, 'type' => $kind, 'title' => $key === 'success'
-            && str_starts_with((string) session($key), 'Replacement request submitted')
+            ? (str_starts_with((string) session($key), 'Replacement request submitted')
                 ? 'Replacement request submitted'
-                : null];
+                : (str_starts_with((string) session($key), 'Walk-In sale submitted for inventory verification')
+                    ? 'Walk-In sale submitted for verification'
+                    : null))
+            : null];
     }
     $popupErrors = collect($errors->getBags())->flatMap(fn ($bag) => $bag->all())->unique()->values()->all();
     if ($popupErrors) $popupMessages[] = ['text' => implode("\n", $popupErrors), 'type' => 'error'];

@@ -13,21 +13,21 @@ class BranchTransferTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_transaction_logs_exclude_branch_transfers_for_inventory_staff_and_admin(): void
+    public function test_transaction_logs_offer_branch_transfers_for_inventory_staff_and_admin(): void
     {
         $inventoryStaff = User::factory()->create(['role' => 'inventory_staff']);
 
         $this->actingAs($inventoryStaff)
             ->get(route('inventory-transactions.index'))
             ->assertOk()
-            ->assertDontSee('<option value="branch_transfer"', false)
-            ->assertDontSee('Stock Transfer (BRANCH to BRANCH)')
+            ->assertSee('<option value="branch_transfer"', false)
+            ->assertSee('Stock Transfer (BRANCH to BRANCH)')
             ->assertSee('HO ↔ Branch');
 
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get(route('inventory-transactions.index'))
             ->assertOk()
-            ->assertDontSee('<option value="branch_transfer"', false)
+            ->assertSee('<option value="branch_transfer"', false)
             ->assertSee('BRANCH to BRANCH');
     }
 
@@ -117,8 +117,14 @@ class BranchTransferTest extends TestCase
             ->assertOk();
         $this->get(route('inventory-transactions.index', ['hub_id' => $source->id, 'type' => 'branch_transfer', 'status' => 'pending']))
             ->assertOk()
-            ->assertViewHas('transactions', fn ($transactions) => $transactions->total() === 0)
-            ->assertDontSee('<option value="branch_transfer"', false);
+            ->assertViewHas('transactions', fn ($transactions) => $transactions->total() === 1)
+            ->assertSee('<option value="branch_transfer" selected>', false)
+            ->assertSee($reference);
+        $this->actingAs($reviewer)
+            ->get(route('inventory-transactions.index', ['hub_id' => '', 'type' => 'branch_transfer', 'status' => 'pending']))
+            ->assertOk()
+            ->assertViewHas('transactions', fn ($transactions) => $transactions->total() === 1)
+            ->assertSee($reference);
         $this->post(route('inventory-transactions.branch-transfer.review', ['batch' => $transfer->transfer_batch_id]), ['decision' => 'approved'])
             ->assertSessionHasNoErrors()->assertRedirect();
         $this->assertEquals(7, $product->fresh()->stock);

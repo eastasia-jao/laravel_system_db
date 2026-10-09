@@ -153,7 +153,7 @@
                     @php
                         $logTypes = auth()->user()?->role === 'sales_associate'
                             ? []
-                            : ['sold'=>'Sold Items','stock_transfer'=>'Stock Transfer (HO ↔ Branch)','sponsor_workshop'=>'Event','fully_booked'=>'Fully Booked Orders','restock'=>'Restock / Added from Request (Warehouse HO)','return'=>'Return Items','replacement'=>'Replacement'];
+                            : ['sold'=>'Sold Items','stock_transfer'=>'Stock Transfer (HO ↔ Branch)','branch_transfer'=>'Stock Transfer (BRANCH to BRANCH)','sponsor_workshop'=>'Event','fully_booked'=>'Fully Booked Orders','restock'=>'Restock / Added from Request (Warehouse HO)','return'=>'Return Items','replacement'=>'Replacement'];
                     @endphp
                     @foreach($logTypes as $value => $label)
                         <option value="{{ $value }}" @selected(request('type') === $value)>{{ $label }}</option>
