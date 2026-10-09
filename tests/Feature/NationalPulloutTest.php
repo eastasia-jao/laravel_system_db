@@ -24,6 +24,7 @@ class NationalPulloutTest extends TestCase
                 ->get(route('national-pullouts.create', ['hub_id' => $headOffice->id]))
                 ->assertOk()
                 ->assertSee('National Bookstore Pullout')
+                ->assertSee('Download Print-Ready Excel Worksheet')
                 ->assertSee('Import Items (CSV)')
                 ->assertSee('Download CSV Worksheet')
                 ->assertSee('Export Selected Items')
@@ -77,6 +78,58 @@ class NationalPulloutTest extends TestCase
             $rows[4]
         );
         $this->assertSame([$product->name, '', ''], $rows[5]);
+    }
+
+    public function test_excel_worksheet_has_the_requested_print_layout_and_product_columns(): void
+    {
+        [$headOffice] = $this->hubs();
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+        $product = $this->product();
+
+        $response = $this->actingAs($admin)->get(route('national-pullouts.excel-worksheet', [
+            'hub_id' => $headOffice->id,
+        ]))->assertOk();
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->baseResponse->headers->get('Content-Type')
+        );
+
+        $path = $response->baseResponse->getFile()->getPathname();
+        try {
+            $workbook = new \PharData($path, 0, null, \Phar::ZIP);
+            foreach ([
+                '[Content_Types].xml',
+                '_rels/.rels',
+                'xl/workbook.xml',
+                'xl/_rels/workbook.xml.rels',
+                'xl/styles.xml',
+                'xl/worksheets/sheet1.xml',
+            ] as $file) {
+                $document = new \DOMDocument;
+                $this->assertTrue($document->loadXML($workbook[$file]->getContent()), "Invalid XML in {$file}.");
+            }
+            $sheet = $workbook['xl/worksheets/sheet1.xml']->getContent();
+            $workbookXml = $workbook['xl/workbook.xml']->getContent();
+            $styles = $workbook['xl/styles.xml']->getContent();
+            $this->assertStringContainsString('paperSize="1" orientation="portrait" fitToWidth="1"', $sheet);
+            $this->assertStringContainsString('left="0.6" right="0" top="0" bottom="0"', $sheet);
+            $this->assertStringContainsString('width="9.5" customWidth="1"', $sheet);
+            $this->assertStringContainsString('ht="20" customHeight="1"', $sheet);
+            $this->assertStringContainsString('name="_xlnm.Print_Titles"', $workbookXml);
+            $this->assertStringContainsString('P.O. #:', $sheet);
+            $this->assertStringContainsString('Date:', $sheet);
+            $this->assertStringContainsString('Remarks:', $sheet);
+            $this->assertStringContainsString('Actual Pull-out', $sheet);
+            $this->assertStringContainsString('Physical Stocks', $sheet);
+            $this->assertStringContainsString('Purpose', $sheet);
+            $this->assertStringContainsString('r="A4"', $sheet);
+            $this->assertStringContainsString($product->name, $sheet);
+            $this->assertStringContainsString('<v>0</v>', $sheet);
+            $this->assertStringContainsString('wrapText="1"', $styles);
+        } finally {
+            unset($workbook);
+            unlink($path);
+        }
     }
 
     public function test_saving_a_pullout_deducts_actual_quantity_and_appears_in_transaction_logs(): void

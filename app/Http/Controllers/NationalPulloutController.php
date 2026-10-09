@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\NationalProduct;
 use App\Models\NationalPullout;
 use App\Models\StoreHub;
+use App\Support\NationalPulloutWorkbook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -121,6 +122,31 @@ class NationalPulloutController extends Controller
                 });
             }
         );
+    }
+
+    public function excelWorksheet(Request $request)
+    {
+        $this->headOffice($request);
+        $products = NationalProduct::query()
+            ->where('status', 'active')
+            ->orderByRaw('LENGTH(item_id)')
+            ->orderBy('item_id')
+            ->get();
+        $items = $products->map(fn (NationalProduct $product) => [
+            'name' => $product->name,
+            'quantity' => '',
+            'unit_type' => $product->unit_type,
+            'purpose' => '',
+            'physical_stock' => 0,
+            'actual_pullout' => '',
+        ])->all();
+        $path = NationalPulloutWorkbook::create($items);
+
+        return response()->download(
+            $path,
+            'NATIONAL_BOOKSTORE_PULLOUT_WORKSHEET_'.now()->format('Ymd_His').'.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
     }
 
     public function export(NationalPullout $nationalPullout, Request $request)

@@ -229,6 +229,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::get('/inventory-transactions/national-pullout/create', [NationalPulloutController::class, 'create'])->name('national-pullouts.create');
         Route::post('/inventory-transactions/national-pullout', [NationalPulloutController::class, 'store'])->name('national-pullouts.store');
         Route::get('/inventory-transactions/national-pullout/worksheet', [NationalPulloutController::class, 'worksheet'])->name('national-pullouts.worksheet');
+        Route::get('/inventory-transactions/national-pullout/worksheet/excel', [NationalPulloutController::class, 'excelWorksheet'])->name('national-pullouts.excel-worksheet');
         Route::get('/inventory-transactions/national-pullout/{nationalPullout}/export', [NationalPulloutController::class, 'export'])->name('national-pullouts.export');
         Route::prefix('products')->name('products.')->group(function () {
             Route::post('/bulk-destroy', [ProductController::class, 'bulkDestroy'])->middleware('can:full-access')->name('bulk-destroy');

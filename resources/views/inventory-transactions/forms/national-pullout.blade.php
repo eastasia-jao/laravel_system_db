@@ -25,6 +25,7 @@
         <input type="hidden" name="hub_id" value="{{ $hub->id }}">
 
         <div class="d-flex flex-wrap gap-2 mb-4">
+            <a class="btn btn-outline-success" href="{{ route('national-pullouts.excel-worksheet', ['hub_id' => $hub->id]) }}"><i class="fa-solid fa-file-excel me-1"></i>Download Print-Ready Excel Worksheet</a>
             <button type="button" class="btn btn-outline-primary" id="importPulloutCsv"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV)</button>
             <a class="btn btn-outline-secondary" href="{{ route('national-pullouts.worksheet', ['hub_id' => $hub->id]) }}"><i class="fa-solid fa-download me-1"></i>Download CSV Worksheet</a>
             <button type="button" class="btn btn-outline-success" id="exportPulloutSelected"><i class="fa-solid fa-file-export me-1"></i>Export Selected Items</button>
