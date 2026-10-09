@@ -543,22 +543,6 @@ class SalesReportController extends Controller
             ? Product::where('store_hub_id', $hub->id)->where('status', 'active')->orderByCatalog()->get()
             : collect();
 
-        $paymentBreakdown = $channel === 'walk_in'
-            ? $this->walkInPaymentBreakdown($allTransactions, ! $hub->is_head_office)
-            : $allTransactions
-                ->groupBy(function ($transaction) {
-                    $paymentMethod = strtoupper($transaction->mode_of_payment ?: 'UNSPECIFIED');
-                    $bankName = strtoupper($transaction->bank_name ?: $transaction->custom_bank_name ?: '');
-
-                    return $bankName ? $paymentMethod.' / '.$bankName : $paymentMethod;
-                })
-                ->map(fn ($group, $paymentMethod) => (object) [
-                    'payment_method' => $paymentMethod,
-                    'transaction_count' => $group->count(),
-                    'total' => $group->sum($resolveTotal),
-                ])
-                ->sortKeys();
-
         $onlinePaymentSales = collect([
             'GCASH' => 0.0,
             'PAYMAYA' => 0.0,
@@ -648,7 +632,6 @@ class SalesReportController extends Controller
             'totalTransactions',
             'totalPurchasedItems',
             'metrics',
-            'paymentBreakdown',
             'onlinePaymentSales',
             'onlinePaymentCounts',
             'onlineBankSales',
@@ -1455,51 +1438,6 @@ class SalesReportController extends Controller
 
             return $originalRemaining + $replacementRemaining === 0;
         });
-    }
-
-    private function walkInPaymentBreakdown($transactions, bool $groupCustomAsOther = false)
-    {
-        $totals = collect();
-        $add = function (string $method, float $amount, int $count = 1) use ($totals): void {
-            if ($amount <= 0) {
-               return;
-            }
-            $entry = $totals->get($method, ['count' => 0, 'total' => 0.0]);
-            $totals->put($method, [
-               'count' => $entry['count'] + $count,
-               'total' => $entry['total'] + $amount,
-            ]);
-        };
-        $label = static function ($record) use ($groupCustomAsOther): string {
-            $method = strtoupper(trim((string) ($record->mode_of_payment ?: 'OTHERS')));
-            if ($method === 'PAYMAYA' || $method === 'MAYA') {
-               return 'PAYMAYA';
-            }
-            if (in_array($method, ['CASH', 'GCASH', 'QRPH', 'BDO', 'BPI', 'METROBANK', 'DATED_CHECK', 'POST_DATED_CHECK'], true)) {
-               return str_replace('_', '-', $method);
-            }
-
-            if ($groupCustomAsOther) {
-               return 'OTHER';
-            }
-
-            return strtoupper(trim((string) ($record->custom_mop ?: 'OTHERS')));
-        };
-
-        foreach ($transactions as $transaction) {
-            $additionalPayments = (float) $transaction->paymentRecords->sum('amount');
-            $basePaid = max(0, (float) ($transaction->amount_paid ?? 0) - $additionalPayments);
-            $add($label($transaction), $basePaid);
-            foreach ($transaction->paymentRecords as $payment) {
-               $add($label($payment), (float) $payment->amount);
-            }
-        }
-
-        return $totals->map(fn ($entry, $method) => (object) [
-            'payment_method' => $method,
-            'transaction_count' => $entry['count'],
-            'total' => round($entry['total'], 2),
-        ])->sortBy('payment_method')->values();
     }
 
     private function resolveTotal(SalesTransaction $transaction): float

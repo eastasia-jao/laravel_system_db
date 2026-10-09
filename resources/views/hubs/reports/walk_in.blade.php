@@ -49,7 +49,6 @@
     .walk-in-report-summary-card .label { color: #78716c; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
     .walk-in-report-summary-card .value { margin-top: .15rem; color: #1c1917; font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
     .walk-in-report-summary-card .subvalue { color: #78716c; font-size: .72rem; }
-    .walk-in-report-mop { display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin-top: .35rem; color: #57534e; font-size: .72rem; }
     .walk-in-report-card { max-width: 100%; }
     .walk-in-replacement-modal .modal-dialog { max-width: min(1140px, calc(100vw - 1.5rem)); }
     .walk-in-replacement-modal .modal-content { border: 0; border-radius: 12px; }
@@ -95,7 +94,6 @@
             <div class="walk-in-report-summary-card"><div class="label"><i class="fa-solid fa-money-bill-transfer me-1 text-danger" aria-hidden="true"></i>Refund cost</div><div class="value text-danger">₱{{ number_format($metrics['refund_total'] ?? 0, 2) }}</div><div class="subvalue">recorded return/refund amount</div></div>
             <div class="walk-in-report-summary-card"><div class="label"><i class="fa-solid fa-users me-1 text-primary" aria-hidden="true"></i>Total customers</div><div class="value">{{ number_format($customerMetrics['total']) }}</div></div>
             <div class="walk-in-report-summary-card"><div class="label"><i class="fa-solid fa-user-plus me-1 text-success" aria-hidden="true"></i>New customers</div><div class="value text-success">{{ number_format($customerMetrics['new']) }}</div></div>
-            <div class="walk-in-report-summary-card" style="grid-column: 1 / -1;"><div class="label"><i class="fa-solid fa-credit-card me-1 text-primary" aria-hidden="true"></i>Sales by payment method</div><div class="walk-in-report-mop">@forelse($paymentBreakdown as $payment)<span><strong>{{ $payment->payment_method }}</strong>: ₱{{ number_format($payment->total, 2) }}</span>@empty<span>No payment records</span>@endforelse</div></div>
         </div>
         <div class="table-responsive" data-walk-in-detail-table><table class="table table-hover align-middle mb-0">
             <thead>

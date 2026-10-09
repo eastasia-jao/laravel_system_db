@@ -153,7 +153,7 @@ class BranchSalesReportTest extends TestCase
         }
     }
 
-    public function test_branch_walk_in_report_uses_daily_summary_labels_and_payment_breakdown(): void
+    public function test_branch_walk_in_report_omits_payment_breakdown_from_report_and_preview(): void
     {
         $this->travelTo('2026-09-29 09:00:00');
         $hub = StoreHub::create(['name' => 'Branch', 'code' => 'branch-daily', 'status' => 'active', 'is_head_office' => false]);
@@ -196,12 +196,9 @@ class BranchSalesReportTest extends TestCase
             ->assertSee('Daily Total Sales')
             ->assertSee('Daily Transactions')
             ->assertSee('Daily Total Purchased Items')
-            ->assertSee('data-branch-daily-mop', false)
-            ->assertSee('Sales by Payment Method')
-            ->assertSee('GCASH')
-            ->assertSee('OTHER')
-            ->assertSee('₱180.00');
-        $this->assertSame(['OTHER'], $response->viewData('paymentBreakdown')->pluck('payment_method')->all());
+            ->assertDontSee('data-branch-daily-mop', false)
+            ->assertDontSee('Sales by Payment Method')
+            ->assertDontSee('SALES BY PAYMENT METHOD');
 
         $this->travelBack();
     }
