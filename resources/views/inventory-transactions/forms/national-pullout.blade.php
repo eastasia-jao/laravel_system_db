@@ -38,7 +38,7 @@
 
         <div class="d-flex flex-wrap gap-2 mb-4">
             <label class="btn btn-outline-primary" id="importPulloutCsv" for="pulloutCsvFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV)</label>
-            <button type="button" class="btn btn-outline-secondary" id="downloadPulloutWorksheet"><i class="fa-solid fa-download me-1"></i>Download CSV Worksheet</button>
+            <button type="button" class="btn btn-outline-secondary" id="downloadPulloutWorksheet"><i class="fa-solid fa-file-excel me-1"></i>Download Excel Worksheet</button>
             <button type="button" class="btn btn-outline-success" id="exportPulloutSelected"><i class="fa-solid fa-file-export me-1"></i>Export Selected Items</button>
             <input type="file" class="visually-hidden" id="pulloutCsvFile" accept=".csv,text/csv" tabindex="-1" aria-label="Choose a pullout items CSV file">
         </div>
@@ -207,13 +207,13 @@
             ])));
     };
     document.getElementById('downloadPulloutWorksheet').addEventListener('click', () => {
-        downloadCsv(worksheetRows(products.map(product => [
-            product.name,
-            '',
-            'National Bookstore Pullout',
-            product.stock,
-            '',
-        ])));
+        const parameters = new URLSearchParams({
+            hub_id: document.querySelector('[name="hub_id"]').value,
+            po_number: document.getElementById('pulloutPoNumber').value.trim(),
+            occurred_on: document.getElementById('pulloutDate').value,
+            remarks: document.getElementById('pulloutRemarks').value.trim(),
+        });
+        window.location.assign(`{{ route('national-pullouts.excel-worksheet') }}?${parameters.toString()}`);
     });
     document.getElementById('exportPulloutSelected').addEventListener('click', () => exportRows(true));
 

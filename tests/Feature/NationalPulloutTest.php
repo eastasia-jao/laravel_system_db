@@ -26,7 +26,7 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('National Bookstore Pullout')
                 ->assertDontSee('Download Print-Ready Excel Worksheet')
                 ->assertSee('Import Items (CSV)')
-                ->assertSee('Download CSV Worksheet')
+                ->assertSee('Download Excel Worksheet')
                 ->assertSee('id="downloadPulloutWorksheet"', false)
                 ->assertSee('Export Selected Items')
                 ->assertSee('P.O. Number')
@@ -88,6 +88,9 @@ class NationalPulloutTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('national-pullouts.excel-worksheet', [
             'hub_id' => $headOffice->id,
+            'po_number' => 'PO-5001',
+            'occurred_on' => '2026-10-13',
+            'remarks' => 'National Bookstore replenishment',
         ]))->assertOk();
         $this->assertStringContainsString(
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -116,17 +119,22 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString('width="9.5" customWidth="1"', $sheet);
             $this->assertStringContainsString('ht="20" customHeight="1"', $sheet);
             $this->assertStringContainsString('name="_xlnm.Print_Titles"', $workbookXml);
-            $this->assertStringContainsString('dimension ref="A1:C4"', $sheet);
+            $this->assertStringContainsString('dimension ref="A1:E3"', $sheet);
+            $this->assertStringContainsString('<mergeCell ref="A1:B1"/>', $sheet);
+            $this->assertStringContainsString('<mergeCell ref="D1:E1"/>', $sheet);
+            $this->assertStringContainsString('P.O. #: PO-5001', $sheet);
+            $this->assertStringContainsString('Date: 2026-10-13', $sheet);
+            $this->assertStringContainsString('Remarks: National Bookstore replenishment', $sheet);
             $this->assertStringContainsString('Product Item Name', $sheet);
             $this->assertStringContainsString('Qty', $sheet);
+            $this->assertStringContainsString('Purpose', $sheet);
+            $this->assertStringContainsString('Physical Stocks', $sheet);
             $this->assertStringContainsString('Actual Pull-out', $sheet);
-            $this->assertStringNotContainsString('Physical Stocks', $sheet);
             $this->assertStringNotContainsString('Unit Type', $sheet);
-            $this->assertStringNotContainsString('Purpose', $sheet);
-            $this->assertStringContainsString('r="A4"', $sheet);
+            $this->assertStringContainsString('r="A3"', $sheet);
             $this->assertStringContainsString($product->name, $sheet);
-            $this->assertStringContainsString('<c r="B4" s="4"/>', $sheet);
-            $this->assertStringContainsString('<c r="C4" s="4"/>', $sheet);
+            $this->assertStringContainsString('<c r="B3" s="4"/>', $sheet);
+            $this->assertStringContainsString('<c r="E3" s="4"/>', $sheet);
             $this->assertStringContainsString('wrapText="1"', $styles);
         } finally {
             unset($workbook);

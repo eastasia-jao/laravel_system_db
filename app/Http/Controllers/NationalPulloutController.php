@@ -138,9 +138,15 @@ class NationalPulloutController extends Controller
         $items = $products->map(fn (NationalProduct $product) => [
             'name' => $product->name,
             'quantity' => '',
+            'purpose' => 'National Bookstore Pullout',
+            'physical_stock' => (int) $product->stock,
             'actual_pullout' => '',
         ])->all();
-        $path = NationalPulloutWorkbook::create($items);
+        $path = NationalPulloutWorkbook::create($items, [
+            'po_number' => trim((string) $request->input('po_number')),
+            'occurred_on' => (string) $request->input('occurred_on'),
+            'remarks' => trim((string) $request->input('remarks')),
+        ]);
 
         return response()->download(
             $path,
