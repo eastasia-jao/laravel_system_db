@@ -3,7 +3,8 @@
 @section('content')
 <style>
     .national-pullout-page { max-width: 1500px; }
-    .national-pullout-card { border: 1px solid var(--ac-border); border-radius: 16px; background: #fff; box-shadow: var(--ac-shadow-sm); }
+    .national-pullout-card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; }
+    .national-pullout-page .page-hero { margin-bottom: 1rem; }
     .national-pullout-items { min-width: 520px; }
     .national-pullout-items th { color: #526178; background: #f8fafc; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
     .national-pullout-items td { vertical-align: middle; }
@@ -14,7 +15,16 @@
 </style>
 
 <div class="workspace-page national-pullout-page">
-    <x-page-header class="mb-3" eyebrow="National inventory" title="National Bookstore Pullout" description="Prepare a P.O. pull-out worksheet and deduct completed quantities from National physical stock." icon="fa-book" />
+    <header class="page-hero mb-3">
+        <div class="page-hero-main">
+            <span class="page-hero-icon" aria-hidden="true"><i class="fa-solid fa-book-open"></i></span>
+            <div class="page-hero-copy">
+                <div class="page-hero-eyebrow">Event / National Bookstore</div>
+                <h2 class="page-hero-title">National Bookstore Pullout</h2>
+                <p class="page-hero-description">Record a National Bookstore pull-out using the same event workflow, then review it in Transaction Logs.</p>
+            </div>
+        </div>
+    </header>
 
     @if($errors->any())
         <div class="alert alert-danger"><strong>The pull-out was not saved.</strong><ul class="mb-0 mt-1">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -35,16 +45,16 @@
 
         <div class="row g-3 mb-4">
             <div class="col-md-4">
-                <label class="form-label fw-semibold" for="pulloutPoNumber">P.O. Number</label>
-                <input id="pulloutPoNumber" name="po_number" value="{{ old('po_number') }}" class="form-control" maxlength="100" placeholder="Enter P.O. number" required>
+                <label class="form-label fw-semibold">Store Hub</label>
+                <input class="form-control" value="{{ $hub->name }}" readonly aria-readonly="true">
             </div>
             <div class="col-md-4">
                 <label class="form-label fw-semibold" for="pulloutDate">Date</label>
                 <input id="pulloutDate" type="date" name="occurred_on" value="{{ old('occurred_on', now()->toDateString()) }}" class="form-control" required>
             </div>
             <div class="col-md-4">
-                <label class="form-label fw-semibold">Head Office</label>
-                <input class="form-control" value="{{ $hub->name }}" readonly>
+                <label class="form-label fw-semibold" for="pulloutPoNumber">Reference Document No. (P.O. Number)</label>
+                <input id="pulloutPoNumber" name="po_number" value="{{ old('po_number') }}" class="form-control" maxlength="100" placeholder="Enter P.O. number" required>
             </div>
             <div class="col-12">
                 <label class="form-label fw-semibold" for="pulloutRemarks">Remarks</label>
@@ -53,7 +63,7 @@
         </div>
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-            <div><h5 class="fw-bold mb-1">ITEMS TO PULL-OUT</h5><small class="text-muted">Actual Pull-out is the quantity deducted from National stock.</small></div>
+            <div><h5 class="fw-bold mb-1">Items to Pull Out</h5><small class="text-muted">Actual Pull-out is the quantity deducted from National stock.</small></div>
             <button type="button" class="btn btn-outline-primary" id="addNationalPulloutItem"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
         </div>
 
@@ -66,7 +76,7 @@
 
         <div class="d-flex justify-content-end gap-2 mt-4">
             <a href="{{ route('inventory-transactions.index', ['hub_id' => $hub->id]) }}" class="btn btn-outline-secondary">Cancel</a>
-            <button class="btn btn-primary"><i class="fa-solid fa-check me-1"></i>Save National Pullout</button>
+            <button class="btn btn-primary"><i class="fa-solid fa-check me-1"></i>Save Event Items</button>
         </div>
     </form>
 </div>

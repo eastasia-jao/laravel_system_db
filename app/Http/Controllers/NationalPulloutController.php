@@ -94,10 +94,14 @@ class NationalPulloutController extends Controller
             }
         });
 
+        // Keep this flow consistent with Event: save the complete pull-out,
+        // then return the user to Transaction Logs with the new record in view.
         return redirect()->route('inventory-transactions.index', [
             'hub_id' => $hub->id,
             'type' => 'national_bookstore_pullout',
-        ]);
+            'national_pullout_saved' => 1,
+            'reference' => $validated['po_number'],
+        ])->with('success', 'National Bookstore pull-out recorded successfully.');
     }
 
     public function worksheet(Request $request)

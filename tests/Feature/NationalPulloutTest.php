@@ -29,7 +29,7 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('Download CSV Worksheet')
                 ->assertSee('Export Selected Items')
                 ->assertSee('P.O. Number')
-                ->assertSee('ITEMS TO PULL-OUT')
+                ->assertSee('Items to Pull Out')
                 ->assertSee('<th style="min-width:320px">Product Item Name</th>', false)
                 ->assertSee('<th style="width:110px">Qty</th>', false)
                 ->assertSee('<th style="width:150px">Actual Pull-out</th>', false)
@@ -170,6 +170,8 @@ class NationalPulloutTest extends TestCase
             ->assertRedirect(route('inventory-transactions.index', [
                 'hub_id' => $headOffice->id,
                 'type' => 'national_bookstore_pullout',
+                'national_pullout_saved' => 1,
+                'reference' => 'PO-1001',
             ]));
 
         $pullout = NationalPullout::with('items')->sole();
