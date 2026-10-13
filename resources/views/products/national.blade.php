@@ -80,7 +80,6 @@
             <div class="d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-secondary" id="nationalSelectionToggle"><i class="fa-solid fa-square-check me-1" id="nationalSelectionIcon"></i><span id="nationalSelectionLabel">Select Rows Mode</span></button>
                 <button type="submit" class="btn btn-outline-primary d-none" id="nationalExportSelected" name="export_all" value="0" disabled><i class="fa-solid fa-file-export me-1"></i> Export Selected</button>
-                <button type="submit" class="btn btn-primary" name="export_all" value="1"><i class="fa-solid fa-file-csv me-1"></i> Export All</button>
             </div>
         </div>
         <div class="table-responsive">
