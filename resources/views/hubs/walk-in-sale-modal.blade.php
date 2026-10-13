@@ -1,3 +1,6 @@
+@php
+    $canViewConditionStock = in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true);
+@endphp
 <!-- Walk-In Sale Modal -->
 <style>
     #walkInSaleModal .modal-dialog { max-width: 900px; }
@@ -141,11 +144,16 @@
                                 <input type="hidden" name="items[0][product_id]" class="product-id">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label small">Stock Condition</label>
-                                <select name="items[0][stock_condition]" class="form-select stock-condition-select" required>
-                                    <option value="good">Good</option>
-                                    <option value="damaged">Damaged</option>
-                                </select>
+                                @if($canViewConditionStock)
+                                    <label class="form-label small">Stock Condition</label>
+                                    <select name="items[0][stock_condition]" class="form-select stock-condition-select" required>
+                                        <option value="good">Good</option>
+                                        <option value="damaged">Damaged</option>
+                                    </select>
+                                @else
+                                    <label class="form-label small">Available Stock</label>
+                                    <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
+                                @endif
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label small">Price (₱)</label>
@@ -190,12 +198,14 @@
 @php
     $walkInProductOptions = $products->where('status', 'active')->map(fn ($product) => [
         'id' => $product->id,
-        'label' => ($product->item_id ?: $product->id).' — '.($product->name ?: $product->description ?: 'Unnamed product').' (Stock: '.$product->stock.')',
+        'label' => ($product->item_id ?: $product->id).' — '.($product->name ?: $product->description ?: 'Unnamed product'),
         'barcode' => $product->barcode,
         'description' => $product->description ?: $product->name,
         'price' => $product->sales_price ?? 0,
-        'good_stock' => (int) $product->stock,
-        'damaged_stock' => (int) $product->damaged_stock,
+        ...($canViewConditionStock ? [
+            'good_stock' => (int) $product->stock,
+            'damaged_stock' => (int) $product->damaged_stock,
+        ] : []),
     ])->values();
 @endphp
 <script>
@@ -212,9 +222,14 @@ walkInProductOptions.forEach(product => {
 });
 document.body.appendChild(walkInDataList);
 setupProductSuggestions(document.getElementById('walkInSaleModal'), walkInDataList, walkInProductOptions,
-    () => walkInLocation.selectedOptions[0].dataset.productsUrl, product => ({
-        id: product.id, label: `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'} (Stock: ${product.stock})`,
+    () => {
+        const url = new URL(walkInLocation.selectedOptions[0].dataset.productsUrl, window.location.origin);
+        url.searchParams.set('stock_channel', 'walk_in');
+        return url;
+    }, product => ({
+        id: product.id, label: `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}`,
         barcode: product.barcode, description: product.description || product.name, price: product.sales_price || 0,
+        channel_available_stock: Number(product.channel_available_stock ?? product.stock ?? 0),
         good_stock: Number(product.stock || 0), damaged_stock: Number(product.damaged_stock || 0),
     }), true);
 const walkInCustomerName = document.getElementById('walkInCustomerName');
@@ -336,6 +351,7 @@ function addWalkInProductRow() {
             element.setAttribute('name', name.replace(/\[\d+\]/, `[${walkInRowIdx}]`));
         }
     });
+    newRow.querySelector('.channel-stock-availability')?.replaceChildren('—');
 
     container.appendChild(newRow);
     container.scrollTop = container.scrollHeight;
@@ -379,11 +395,15 @@ function updateRowPrice(inputElement) {
     const price = matched ? matched.price : 0;
     const priceInput = row.querySelector('.price-input');
     const conditionSelect = row.querySelector('.stock-condition-select');
+    const allocatedStockDisplay = row.querySelector('.channel-stock-availability');
 
     priceInput.value = parseFloat(price).toFixed(2);
     if (conditionSelect) {
         conditionSelect.options[0].textContent = `Good (${Number(matched?.good_stock || 0)})`;
         conditionSelect.options[1].textContent = `Damaged (${Number(matched?.damaged_stock || 0)})`;
+    }
+    if (allocatedStockDisplay) {
+        allocatedStockDisplay.textContent = matched ? Number(matched.channel_available_stock || 0) : '—';
     }
     calculateTotals();
 }

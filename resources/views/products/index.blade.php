@@ -4,6 +4,7 @@
 
 @php
     $usesWholesalePricing = $displayChannel === 'wholesale';
+    $canViewConditionStock = in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true);
 @endphp
 
 <style>
@@ -147,10 +148,13 @@
                             <th>Retail Department</th>
                             <th>Unit</th>
                             <th class="text-end">{{ $usesWholesalePricing ? 'Wholesale Price' : 'Retail Price' }}</th>
-                            <th class="text-center">Good Items</th>
-                            <th class="text-center">Damaged Items</th>
-                            <th class="text-center">Total Physical Stock</th>
+                            @if($canViewConditionStock)
+                                <th class="text-center">Good Items</th>
+                                <th class="text-center">Damaged Items</th>
+                                <th class="text-center">Total Physical Stock</th>
+                            @endif
                             @if($displayChannel)<th class="text-center">{{ $displayChannelLabel }}</th>@endif
+                            @if(!$canViewConditionStock && !$displayChannel)<th class="text-center">Allocated Stock</th>@endif
                             @can('manage-inventory')
                             <th class="text-end action-header-text" style="width: 9%;">Actions</th>
                             @can('full-access')
@@ -177,10 +181,13 @@
                                 <td>{{ $product->retail_department ?: '-' }}</td>
                                 <td class="text-nowrap">{{ $product->unit_type ?? '-' }}</td>
                                 <td class="text-end product-price-cell">&#8369;{{ number_format($usesWholesalePricing ? $product->wholesale_price : $product->sales_price, 2) }}</td>
-                                <td class="text-center product-stock-cell">{{ number_format($product->stock ?? 0) }}</td>
-                                <td class="text-center fw-bold text-danger">{{ number_format($product->damaged_stock ?? 0) }}</td>
-                                <td class="text-center fw-bold product-total-physical-stock">{{ number_format(($product->stock ?? 0) + ($product->damaged_stock ?? 0)) }}</td>
+                                @if($canViewConditionStock)
+                                    <td class="text-center product-stock-cell">{{ number_format($product->stock ?? 0) }}</td>
+                                    <td class="text-center fw-bold text-danger">{{ number_format($product->damaged_stock ?? 0) }}</td>
+                                    <td class="text-center fw-bold product-total-physical-stock">{{ number_format(($product->stock ?? 0) + ($product->damaged_stock ?? 0)) }}</td>
+                                @endif
                                 @if($displayChannel)<td class="text-center product-stock-cell">{{ $product->allocated_available_stock ?? 0 }}</td>@endif
+                                @if(!$canViewConditionStock && !$displayChannel)<td class="text-center product-stock-cell">0</td>@endif
                                 
                                 @can('manage-inventory')
                                 <td class="text-end standard-actions-col">

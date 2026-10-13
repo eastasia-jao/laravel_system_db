@@ -73,6 +73,9 @@ class ProductController extends Controller
                 ? ($requestedChannel ?: $displayChannelOptions->first())
                 : $displayChannelOptions->first();
         }
+        if ($isSalesAssociate) {
+            $displayChannel = 'walk_in';
+        }
         $displayChannelLabel = $displayChannel
             ? self::SALES_STOCK_CHANNELS[$displayChannel]
             : 'Available Stock';
@@ -826,6 +829,20 @@ class ProductController extends Controller
                 'stock_channel' => ['string', Rule::in(array_keys(self::SALES_STOCK_CHANNELS))],
             ]);
         }
+        $canViewConditionStock = in_array($user?->role, ['admin', 'inventory_staff'], true);
+        if (! $canViewConditionStock && $user?->role === 'sales_associate') {
+            abort_unless($stockChannel === null || $stockChannel === 'walk_in', 403);
+            $stockChannel = 'walk_in';
+        } elseif (! $canViewConditionStock && $user?->role === 'sales_marketing_staff') {
+            if ($stockChannel === null) {
+                $stockChannel = collect($user->sales_channels ?? [])
+                    ->map(fn ($channel) => $this->normalizeSalesChannel($channel))
+                    ->first();
+            }
+            if ($stockChannel !== null) {
+                abort_unless($user->hasSalesChannel($stockChannel), 403);
+            }
+        }
         $query = Product::where('store_hub_id', $hubId);
         if ($request->boolean('active_only')) {
             $query->where('status', 'active');
@@ -895,12 +912,20 @@ class ProductController extends Controller
 
         if ($stockChannel && $products->isNotEmpty()) {
             $products->each(function (Product $product) use ($stockChannel) {
+                $availableStock = $stockChannel === 'walk_in'
+                    ? $product->unallocatedStock()
+                    : $product->channelAvailableStock($stockChannel, false);
                 $product->setAttribute(
                     'channel_available_stock',
-                    $stockChannel === 'walk_in'
-                        ? $product->unallocatedStock()
-                        : $product->channelAvailableStock($stockChannel, $stockChannel !== 'online')
+                    $availableStock
                 );
+            });
+        }
+
+        if (! $canViewConditionStock) {
+            $products->each(function (Product $product) use ($stockChannel) {
+                $product->setAttribute('stock', $stockChannel ? $product->channel_available_stock : null);
+                $product->makeHidden(['damaged_stock', 'stockAllocation', 'stock_allocation']);
             });
         }
 

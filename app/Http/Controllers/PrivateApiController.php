@@ -21,6 +21,9 @@ class PrivateApiController extends Controller
         'retail_department',
         'unit_type',
     ];
+    private const SALES_STOCK_CHANNELS = [
+        'walk_in', 'online', 'wholesale', 'shopee', 'lazada', 'tiktok',
+    ];
 
     public function me(Request $request)
     {
@@ -60,8 +63,11 @@ class PrivateApiController extends Controller
             'hub_id' => ['nullable', 'integer', 'exists:store_hubs,id'],
             'search' => ['nullable', 'string', 'max:255'],
             'field' => ['nullable', Rule::in(self::PRODUCT_SEARCH_FIELDS)],
+            'channel' => ['nullable', Rule::in(self::SALES_STOCK_CHANNELS)],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
+        $stockChannel = $this->stockChannelFor($request, $validated['channel'] ?? null);
+        $canViewConditionStock = $request->user()->can('manage-inventory');
 
         $query = $this->scopedProductQuery($request);
         $this->applyProductSearch($query, $validated['search'] ?? '', $validated['field'] ?? 'all');
@@ -73,7 +79,9 @@ class PrivateApiController extends Controller
             ->appends($request->query());
 
         return response()->json([
-            'data' => $products->getCollection()->map(fn (Product $product) => $this->productResource($product))->values(),
+            'data' => $products->getCollection()
+                ->map(fn (Product $product) => $this->productResource($product, $stockChannel, $canViewConditionStock))
+                ->values(),
             'meta' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
@@ -91,9 +99,12 @@ class PrivateApiController extends Controller
             'hub_id' => ['required', 'integer', 'exists:store_hubs,id'],
             'q' => ['nullable', 'string', 'max:255'],
             'field' => ['nullable', Rule::in(self::PRODUCT_SEARCH_FIELDS)],
+            'channel' => ['nullable', Rule::in(self::SALES_STOCK_CHANNELS)],
             'active_only' => ['nullable', 'boolean'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
+        $stockChannel = $this->stockChannelFor($request, $validated['channel'] ?? null);
+        $canViewConditionStock = $request->user()->can('manage-inventory');
 
         $request->merge(['hub_id' => $validated['hub_id']]);
         $query = $this->scopedProductQuery($request);
@@ -110,7 +121,7 @@ class PrivateApiController extends Controller
                 ->orderByCatalog('item_id')
                 ->limit($validated['limit'] ?? 25)
                 ->get()
-                ->map(fn (Product $product) => $this->productResource($product))
+                ->map(fn (Product $product) => $this->productResource($product, $stockChannel, $canViewConditionStock))
                 ->values(),
         ]);
     }
@@ -234,9 +245,9 @@ class PrivateApiController extends Controller
         return $user->accessibleStoreHubIds();
     }
 
-    private function productResource(Product $product): array
+    private function productResource(Product $product, ?string $stockChannel, bool $canViewConditionStock): array
     {
-        return [
+        $resource = [
             'id' => $product->id,
             'hub_id' => $product->store_hub_id,
             'hub_name' => $product->storeHub?->name,
@@ -248,7 +259,11 @@ class PrivateApiController extends Controller
             'retail_group' => $product->retail_group,
             'retail_department' => $product->retail_department,
             'unit_type' => $product->unit_type,
-            'stock' => (int) $product->stock,
+            'stock' => $canViewConditionStock
+                ? (int) $product->stock
+                : ($stockChannel === 'walk_in'
+                    ? $product->unallocatedStock()
+                    : ($stockChannel ? $product->channelAvailableStock($stockChannel, false) : 0)),
             'status' => $product->status,
             'prices' => [
                 'cost' => $this->decimal($product->cost_price),
@@ -260,6 +275,39 @@ class PrivateApiController extends Controller
             ],
             'updated_at' => optional($product->updated_at)->toIso8601String(),
         ];
+
+        if (! $canViewConditionStock) {
+            $resource['channel_available_stock'] = $resource['stock'];
+        }
+
+        return $resource;
+    }
+
+    private function stockChannelFor(Request $request, ?string $requestedChannel): ?string
+    {
+        $user = $request->user();
+        if (in_array($user?->role, ['admin', 'inventory_staff'], true)) {
+            return $requestedChannel;
+        }
+        if ($user?->role === 'sales_associate') {
+            abort_unless($requestedChannel === null || $requestedChannel === 'walk_in', 403);
+
+            return 'walk_in';
+        }
+        if ($user?->role === 'sales_marketing_staff') {
+            if ($requestedChannel === null) {
+                $requestedChannel = collect($user->sales_channels ?? [])
+                    ->map(fn ($channel) => strtolower(str_replace(['-', ' '], '_', (string) $channel)))
+                    ->first();
+            }
+            if ($requestedChannel !== null) {
+                abort_unless($user->hasSalesChannel($requestedChannel), 403);
+            }
+
+            return $requestedChannel;
+        }
+
+        return null;
     }
 
     private function hubResource(StoreHub $hub): array

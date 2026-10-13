@@ -16,6 +16,126 @@ class SalesWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_sales_staff_only_see_allocated_channel_stock_and_cannot_select_damaged_stock(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Channel Allocation Head Office',
+            'code' => 'CHANNEL-ALLOCATION-HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'hub_id' => $hub->id,
+            'role' => 'sales_marketing_staff',
+            'sales_channels' => ['shopee'],
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'CHANNEL-ALLOCATION-1',
+            'name' => 'Channel Allocation Product',
+            'stock' => 40,
+            'damaged_stock' => 7,
+            'status' => 'active',
+        ]);
+        ProductStockAllocation::create([
+            'product_id' => $product->id,
+            'shopee' => 5,
+            'lazada' => 2,
+        ]);
+
+        $this->actingAs($staff)->getJson(route('hub.products.search.ajax', [
+            'hubId' => $hub->id,
+            'q' => 'CHANNEL-ALLOCATION-1',
+            'active_only' => 1,
+            'stock_channel' => 'shopee',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('0.stock', 5)
+            ->assertJsonPath('0.channel_available_stock', 5)
+            ->assertJsonMissingPath('0.damaged_stock')
+            ->assertJsonMissingPath('0.stock_allocation');
+
+        $this->getJson(route('hub.products.search.ajax', [
+            'hubId' => $hub->id,
+            'q' => 'CHANNEL-ALLOCATION-1',
+            'stock_channel' => 'lazada',
+        ]))->assertForbidden();
+
+        $this->actingAs($staff)->get(route('products.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('Shopee')
+            ->assertDontSee('Good Items')
+            ->assertDontSee('Damaged Items');
+
+        $this->actingAs($staff)->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('Available Stock')
+            ->assertDontSee('name="items[0][stock_condition]"', false);
+
+        $this->actingAs($admin)->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('name="items[0][stock_condition]"', false);
+
+        $this->actingAs($staff)->post(route('sales.store'), [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'shopee',
+            'order_date' => '2026-10-13',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'stock_condition' => 'damaged',
+                'unit_price' => 100,
+            ]],
+        ])->assertSessionHasErrors('items.0.stock_condition');
+    }
+
+    public function test_sales_associates_only_see_walk_in_available_stock(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Walk-In Allocation Branch',
+            'code' => 'WALKIN-ALLOCATION-BR',
+            'status' => 'active',
+        ]);
+        $associate = User::factory()->create([
+            'hub_id' => $hub->id,
+            'role' => 'sales_associate',
+        ]);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'WALKIN-ALLOCATION-1',
+            'name' => 'Walk-In Allocation Product',
+            'stock' => 8,
+            'damaged_stock' => 2,
+            'status' => 'active',
+        ]);
+        ProductStockAllocation::create([
+            'product_id' => $product->id,
+            'online' => 3,
+        ]);
+
+        $this->actingAs($associate)->getJson(route('hub.products.search.ajax', [
+            'hubId' => $hub->id,
+            'q' => 'WALKIN-ALLOCATION-1',
+            'active_only' => 1,
+        ]))
+            ->assertOk()
+            ->assertJsonPath('0.stock', 5)
+            ->assertJsonPath('0.channel_available_stock', 5)
+            ->assertJsonMissingPath('0.damaged_stock');
+
+        $this->get(route('products.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('Walk-In Physical Stock')
+            ->assertDontSee('Good Items')
+            ->assertDontSee('Damaged Items');
+
+        $this->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('Available Stock')
+            ->assertDontSee('name="items[0][stock_condition]"', false);
+    }
+
     public function test_every_sales_channel_can_sell_shared_damaged_stock_without_a_required_discount(): void
     {
         $hub = StoreHub::create([

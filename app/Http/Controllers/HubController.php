@@ -130,6 +130,11 @@ class HubController extends Controller
         if (! $dashboardChannel && $dashboardChannelOptions->isNotEmpty()) {
             $dashboardChannel = $dashboardChannelOptions->first();
         }
+        $dashboardStockChannel = match ($user?->role) {
+            'sales_associate' => 'walk_in',
+            'sales_marketing_staff' => $dashboardChannel ?? 'unassigned',
+            default => null,
+        };
         $showSalesTotals = ($user?->role !== 'sales_marketing_staff' || $dashboardChannelOptions->isNotEmpty())
             && ! in_array($dashboardChannel, ['shopee', 'lazada', 'tiktok'], true);
         if ($user?->role === 'sales_marketing_staff') {
@@ -460,16 +465,28 @@ class HubController extends Controller
             );
             $soldItemCount = (int) $yearToDateUnits->sum(fn ($channelUnits) => $channelUnits->sum());
         }
-        $slowProducts = Product::whereIn('store_hub_id', $scopeIds)
+        $slowProductsQuery = Product::with('stockAllocation')
+            ->whereIn('store_hub_id', $scopeIds)
             ->where('status', 'active')
-            ->where('stock', '>', 0)
-            ->get()
-            ->map(fn ($product) => [
-                'id' => $product->id,
-                'name' => $product->name ?: $product->item_id,
-                'stock' => (int) $product->stock,
-                'units' => (int) ($soldUnits[$product->id] ?? 0),
-            ])
+            ->when(! $dashboardStockChannel, fn ($query) => $query->where('stock', '>', 0));
+        $slowProducts = $slowProductsQuery->get()
+            ->map(function ($product) use ($dashboardStockChannel) {
+                $stock = $dashboardStockChannel === 'walk_in'
+                    ? $product->unallocatedStock()
+                    : ($dashboardStockChannel
+                        ? ($dashboardStockChannel === 'unassigned'
+                            ? 0
+                            : $product->channelAvailableStock($dashboardStockChannel, false))
+                        : (int) $product->stock);
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name ?: $product->item_id,
+                    'stock' => $stock,
+                    'units' => (int) ($soldUnits[$product->id] ?? 0),
+                ];
+            })
+            ->filter(fn ($product) => $product['stock'] > 0)
             ->sortBy(fn ($product) => [$product['units'], $product['id']])
             ->values();
         $slowProducts = (new LengthAwarePaginator(
@@ -479,15 +496,37 @@ class HubController extends Controller
             LengthAwarePaginator::resolveCurrentPage('slow_page'),
             ['path' => $request->url(), 'pageName' => 'slow_page']
         ))->withQueryString();
-        $alertsQuery = Product::with('storeHub')
+        $alertsQuery = Product::with(['storeHub', 'stockAllocation'])
             ->whereIn('store_hub_id', $scopeIds)
-            ->where('status', 'active')
-            ->whereBetween('stock', [0, 30]);
-        $alerts = $alertsQuery
-            ->orderBy('stock')
-            ->orderByCatalog()
-            ->paginate(10, ['*'], 'alerts_page')
-            ->withQueryString();
+            ->where('status', 'active');
+        if ($dashboardStockChannel) {
+            $alertProducts = ($dashboardStockChannel === 'unassigned' ? collect() : $alertsQuery->get())
+                ->each(function ($product) use ($dashboardStockChannel) {
+                    $stock = $dashboardStockChannel === 'walk_in'
+                        ? $product->unallocatedStock()
+                        : $product->channelAvailableStock($dashboardStockChannel, false);
+                    $product->setAttribute('stock', $stock);
+                })
+                ->filter(fn ($product) => (int) $product->stock <= 30)
+                ->sortBy('stock')
+                ->values();
+            $alertsPage = LengthAwarePaginator::resolveCurrentPage('alerts_page');
+            $alerts = new LengthAwarePaginator(
+                $alertProducts->forPage($alertsPage, 10)->values(),
+                $alertProducts->count(),
+                10,
+                $alertsPage,
+                ['path' => $request->url(), 'pageName' => 'alerts_page']
+            );
+            $alerts->withQueryString();
+        } else {
+            $alerts = $alertsQuery
+                ->whereBetween('stock', [0, 30])
+                ->orderBy('stock')
+                ->orderByCatalog()
+                ->paginate(10, ['*'], 'alerts_page')
+                ->withQueryString();
+        }
         $alertCount = $alerts->total();
         $pendingVerificationCount = $user?->role === 'admin'
             ? PendingSale::whereIn('store_hub_id', $scopeIds)->where('status', 'pending')->count()
@@ -499,7 +538,7 @@ class HubController extends Controller
         $isBranchDashboard = $scopedDashboardHubs->count() === 1
             && ! $scopedDashboardHubs->first()->is_head_office;
 
-        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'showSalesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'alerts', 'alertCount', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
+        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'showSalesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'alerts', 'alertCount', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'dashboardStockChannel', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
     }
 
     public function destroy($id)

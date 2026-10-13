@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\ProductFileRequest;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -64,14 +65,17 @@ class PrivateApiTest extends TestCase
         $assigned = StoreHub::create(['name' => 'Assigned', 'code' => 'A', 'status' => 'active']);
         $private = StoreHub::create(['name' => 'Private', 'code' => 'P', 'status' => 'active']);
         $user = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $assigned->id]);
-        Product::create(['store_hub_id' => $assigned->id, 'item_id' => 'AC-001', 'name' => 'Allowed Brush', 'stock' => 5]);
+        $product = Product::create(['store_hub_id' => $assigned->id, 'item_id' => 'AC-001', 'name' => 'Allowed Brush', 'stock' => 5]);
+        ProductStockAllocation::create(['product_id' => $product->id, 'online' => 1]);
         Product::create(['store_hub_id' => $private->id, 'item_id' => 'AC-999', 'name' => 'Private Brush', 'stock' => 5]);
 
         $this->actingAs($user)
             ->getJson(route('api.products.search', ['hub_id' => $assigned->id, 'q' => 'Brush']))
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.item_id', 'AC-001');
+            ->assertJsonPath('data.0.item_id', 'AC-001')
+            ->assertJsonPath('data.0.stock', 4)
+            ->assertJsonPath('data.0.channel_available_stock', 4);
 
         $this->getJson(route('api.products.search', ['hub_id' => $private->id, 'q' => 'Brush']))
             ->assertForbidden();

@@ -1,3 +1,6 @@
+@php
+    $canViewConditionStock = in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true);
+@endphp
 <style>
     #recordSaleModal .modal-dialog { max-width: 1140px; }
     #recordSaleModal .modal-content { border: 0; border-radius: 18px; overflow: hidden; box-shadow: 0 24px 70px rgba(15, 23, 42, .22); }
@@ -522,7 +525,7 @@
                         <!-- Header Labels for Grid Alignment -->
                         <div class="row g-2 fw-bold text-secondary small mb-2 d-none d-md-flex">
                             <div class="col-md-3">Product Description</div>
-                            <div class="col-md-2">Stock Condition</div>
+                            <div class="col-md-2">{{ $canViewConditionStock ? 'Stock Condition' : 'Available Stock' }}</div>
                             <div class="col-md-1">Qty</div>
                             <div class="col-md-2">Regular Price</div>
                             <div class="col-md-1 text-danger">Disc %</div>
@@ -541,11 +544,16 @@
                             </div>
 
                             <div class="col-md-2">
-                                <label class="form-label fw-bold d-md-none">Stock Condition</label>
-                                <select name="items[0][stock_condition]" class="form-select stock-condition-select" required>
-                                    <option value="good">Good</option>
-                                    <option value="damaged">Damaged</option>
-                                </select>
+                                @if($canViewConditionStock)
+                                    <label class="form-label fw-bold d-md-none">Stock Condition</label>
+                                    <select name="items[0][stock_condition]" class="form-select stock-condition-select" required>
+                                        <option value="good">Good</option>
+                                        <option value="damaged">Damaged</option>
+                                    </select>
+                                @else
+                                    <label class="form-label fw-bold d-md-none">Available Stock</label>
+                                    <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
+                                @endif
                             </div>
 
                             <!-- Quantity -->
@@ -1038,14 +1046,22 @@
         'shopee' => $product->shopee_price ?? 0,
         'lazada' => $product->lazada_price ?? 0,
         'tiktok' => $product->sales_price ?? 0,
-        'good_stock' => (int) $product->stock,
-        'damaged_stock' => (int) $product->damaged_stock,
+        ...($canViewConditionStock ? [
+            'good_stock' => (int) $product->stock,
+            'damaged_stock' => (int) $product->damaged_stock,
+        ] : []),
     ])->values();
 @endphp
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     let rowIndex = 0;
     const channelSelect = document.getElementById('channelTypeSelect');
+    const productSearchUrl = @json(route('hub.products.search.ajax', $hub->id).'?exclude_brand=1');
+    const productSearchEndpoint = () => {
+        const url = new URL(productSearchUrl, window.location.origin);
+        if (channelSelect?.value) url.searchParams.set('stock_channel', channelSelect.value);
+        return url;
+    };
     let shippingTypeSelect = document.getElementById('wholesaleShippingType');
     let shippingFeeInput = document.getElementById('wholesaleShippingFeeAmount');
     let shippingContainer = document.getElementById('wholesaleShippingFeeContainer');
@@ -1071,11 +1087,12 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     document.body.appendChild(productDataList);
     setupProductSuggestions(document.getElementById('recordSaleModal'), productDataList, productOptions,
-        @json(route('hub.products.search.ajax', $hub->id).'?exclude_brand=1'), product => ({
+        productSearchEndpoint, product => ({
             id: product.id, item_id: product.item_id, name: product.name, label: `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}`,
             barcode: product.barcode, description: product.description || '',
             sales: product.sales_price || 0, wholesale: product.wholesale_price || 0,
             shopee: product.shopee_price || 0, lazada: product.lazada_price || 0, tiktok: product.sales_price || 0,
+            channel_available_stock: Number(product.channel_available_stock ?? product.stock ?? 0),
             good_stock: Number(product.stock || 0), damaged_stock: Number(product.damaged_stock || 0),
         }), true, 'item_id');
     const bindProductSearch = row => {
@@ -1109,6 +1126,34 @@ document.addEventListener('DOMContentLoaded', function () {
             calculateTotals();
         });
     };
+    let stockRefreshSequence = 0;
+    const refreshAllocatedStock = async () => {
+        if (@json($canViewConditionStock) || !channelSelect?.value) return;
+        const sequence = ++stockRefreshSequence;
+        const rows = [...document.querySelectorAll('#productRowsContainer .product-row')];
+        await Promise.all(rows.map(async row => {
+            const productId = row.querySelector('.product-id')?.value;
+            if (!productId) return;
+            const url = productSearchEndpoint();
+            url.searchParams.set('q', productId);
+            url.searchParams.set('active_only', '1');
+            try {
+                const response = await fetch(url, { headers: { Accept: 'application/json' } });
+                if (!response.ok) throw new Error('Stock lookup unavailable');
+                const products = await response.json();
+                if (sequence !== stockRefreshSequence) return;
+                const product = products.find(item => Number(item.id) === Number(productId));
+                if (product) {
+                    row.dataset.channel_available_stock = Number(product.channel_available_stock || 0);
+                    updateRowDisplay(row);
+                }
+            } catch (error) {
+                if (sequence === stockRefreshSequence) {
+                    window.AppAlert?.show('Allocated stock could not be refreshed for the selected channel.', 'error');
+                }
+            }
+        }));
+    };
     bindProductSearch(document.querySelector('.product-row'));
     document.getElementById('recordSaleModal')?.addEventListener('show.bs.modal', () => {
         document.querySelectorAll('#productRowsContainer .product-row').forEach(row => {
@@ -1125,6 +1170,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize Tom Select on the Channel Select dropdown if applicable, or bind events cleanly
     if (channelSelect) {
         channelSelect.addEventListener('change', handleChannelChange);
+        channelSelect.addEventListener('change', refreshAllocatedStock);
         const loadCustomerOptions = async (search = '') => {
             customerOptions.replaceChildren();
             if (!channelSelect.value) return;
@@ -1352,11 +1398,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     <input type="hidden" name="items[${rowIndex}][product_id]" class="product-id">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-bold d-md-none">Stock Condition</label>
-                    <select name="items[${rowIndex}][stock_condition]" class="form-select stock-condition-select" required>
-                        <option value="good">Good</option>
-                        <option value="damaged">Damaged</option>
-                    </select>
+                    @if($canViewConditionStock)
+                        <label class="form-label fw-bold d-md-none">Stock Condition</label>
+                        <select name="items[${rowIndex}][stock_condition]" class="form-select stock-condition-select" required>
+                            <option value="good">Good</option>
+                            <option value="damaged">Damaged</option>
+                        </select>
+                    @else
+                        <label class="form-label fw-bold d-md-none">Available Stock</label>
+                        <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
+                    @endif
                 </div>
                 <div class="col-md-1">
                     <label class="form-label fw-bold d-md-none">Quantity</label>
@@ -1415,6 +1466,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!row) return;
         const priceDisplay = row.querySelector('.item-price-display');
         const conditionSelect = row.querySelector('.stock-condition-select');
+        const allocatedStockDisplay = row.querySelector('.channel-stock-availability');
+        if (allocatedStockDisplay) {
+            allocatedStockDisplay.textContent = row.dataset.id
+                ? Number(row.dataset.channel_available_stock || 0)
+                : '—';
+        }
         const updateConditionLabels = () => {
             if (!conditionSelect) return;
             conditionSelect.options[0].textContent = `Good (${Number(row.dataset.good_stock || 0)})`;

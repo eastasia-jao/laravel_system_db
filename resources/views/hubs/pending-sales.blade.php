@@ -506,7 +506,9 @@
                                             <td class="order-product-name">
                                                 {{ $productName }}
                                                 @if($prod?->item_id)<span class="order-product-code">{{ $prod->item_id }}</span>@endif
-                                                <span class="badge {{ $stockCondition === 'damaged' ? 'text-bg-danger' : 'text-bg-success' }} mt-1">{{ ucfirst($stockCondition) }} stock</span>
+                                                @can('manage-inventory')
+                                                    <span class="badge {{ $stockCondition === 'damaged' ? 'text-bg-danger' : 'text-bg-success' }} mt-1">{{ ucfirst($stockCondition) }} stock</span>
+                                                @endcan
                                             </td>
                                             <td class="text-center">{{ $quantity }}</td>
                                             <td class="text-center">{{ $stockDetails['available'] }}</td>
