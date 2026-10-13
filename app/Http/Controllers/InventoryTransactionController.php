@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InventoryTransaction;
 use App\Models\NationalPullout;
+use App\Models\NationalProduct;
 use App\Models\FullyBookedOrder;
 use App\Models\FullyBookedOrderItem;
 use App\Models\Product;
@@ -124,6 +125,52 @@ class InventoryTransactionController extends Controller
         }
         if ($user?->role === 'sales_associate') {
             abort_unless($normalizedChannel === 'walk_in', 403, 'Sales associates can only view Walk-In sales.');
+        }
+        if ($normalizedChannel === 'national_bookstore') {
+            abort_unless(
+                in_array($user?->role, ['admin', 'inventory_staff'], true) && $lookupHub->is_head_office,
+                403,
+                'National Bookstore returns are available only in Head Office mode.'
+            );
+
+            $query = NationalPullout::query()
+                ->where('store_hub_id', $validated['hub_id'])
+                ->with(['items.product', 'items.inventoryReturns']);
+
+            if ($request->filled('transaction_id')) {
+                $pullout = $query->whereKey($validated['transaction_id'])->firstOrFail();
+
+                return response()->json([
+                    'transaction' => [
+                        'id' => $pullout->id,
+                        'order_number' => $pullout->po_number,
+                        'customer_name' => 'National Bookstore',
+                        'items' => $pullout->items->map(fn ($item) => [
+                            'id' => null,
+                            'national_pullout_item_id' => $item->id,
+                            'national_product_id' => $item->national_product_id,
+                            'name' => $item->product_name,
+                            'item_id' => $item->item_id,
+                            'quantity' => (int) $item->actual_pullout,
+                            'returned_quantity' => (int) $item->inventoryReturns->sum('quantity'),
+                            'unit_price' => 0,
+                            'discount_percentage' => 0,
+                        ])->values(),
+                    ],
+                ]);
+            }
+
+            return response()->json([
+                'orders' => $query->orderByDesc('occurred_on')->orderByDesc('id')->get()
+                    ->filter(fn (NationalPullout $pullout) => $pullout->items->contains(
+                        fn ($item) => $item->inventoryReturns->sum('quantity') < $item->actual_pullout
+                    ))
+                    ->map(fn (NationalPullout $pullout) => [
+                        'id' => $pullout->id,
+                        'order_number' => $pullout->po_number,
+                        'order_date' => optional($pullout->occurred_on)->format('M d, Y'),
+                    ])->values(),
+            ]);
         }
         $channelValues = match ($normalizedChannel) {
             'online' => ['online', 'online_sales', 'online_order', 'event', 'fully_booked'],
@@ -269,6 +316,7 @@ class InventoryTransactionController extends Controller
 
         $transactions = InventoryTransaction::with([
             'product', 'storeHub', 'sourceHub', 'targetHub', 'creator',
+            'nationalProduct', 'nationalPullout', 'nationalPulloutItem',
             'salesTransaction.user', 'salesTransaction.confirmedBy',
             'salesTransaction.items.replacements.reviewer',
             'salesTransaction.items.replacements.originalProduct',
@@ -405,6 +453,9 @@ class InventoryTransactionController extends Controller
         }
 
         $transactionGroups = $transactions->groupBy(function (InventoryTransaction $transaction) {
+            if ($transaction->type === 'return' && $transaction->national_pullout_id) {
+                return 'national-return-'.($transaction->transfer_batch_id ?: $transaction->id);
+            }
             if (in_array($transaction->type, ['return', 'sold'], true) && $transaction->salesTransaction) {
                 return $transaction->type.'-'.$transaction->salesTransaction->id;
             }
@@ -679,7 +730,8 @@ class InventoryTransactionController extends Controller
             }
             $request->merge(['items' => $items]);
         }
-        if (is_array($request->input('items'))) {
+        if (is_array($request->input('items'))
+            && ! ($request->input('type') === 'return' && $this->normalizeChannel($request->input('channel')) === 'national_bookstore')) {
             $request->validate([
                 'items' => ['required', 'array', 'min:1'],
                 'items.*.product_id' => ['required', 'integer'],
@@ -1284,6 +1336,10 @@ class InventoryTransactionController extends Controller
 
     private function storeReturn(Request $request)
     {
+        if ($this->normalizeChannel($request->input('channel')) === 'national_bookstore') {
+            return $this->storeNationalBookstoreReturn($request);
+        }
+
         $validated = $request->validate([
             'type' => ['required', Rule::in(['return'])],
             'store_hub_id' => ['required', 'exists:store_hubs,id'],
@@ -1463,6 +1519,103 @@ class InventoryTransactionController extends Controller
         return $redirect->with('success', 'Return items recorded successfully.');
     }
 
+    private function storeNationalBookstoreReturn(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => ['required', Rule::in(['return'])],
+            'store_hub_id' => ['required', 'integer', 'exists:store_hubs,id'],
+            'occurred_on' => ['required', 'date'],
+            'channel' => ['required', Rule::in(['national_bookstore'])],
+            'reference' => ['required', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'national_pullout_id' => ['required', 'integer', 'exists:national_pullouts,id'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.national_pullout_item_id' => ['required', 'integer', 'distinct', 'exists:national_pullout_items,id'],
+            'items.*.national_product_id' => ['required', 'integer', 'distinct', 'exists:national_products,id'],
+            'items.*.good_quantity' => ['nullable', 'integer', 'min:0'],
+            'items.*.damaged_quantity' => ['nullable', 'integer', 'min:0'],
+        ]);
+        $user = $request->user();
+        $hub = StoreHub::whereKey($validated['store_hub_id'])->where('status', 'active')->firstOrFail();
+        abort_unless(
+            in_array($user?->role, ['admin', 'inventory_staff'], true) && $hub->is_head_office,
+            403,
+            'National Bookstore returns are available only in Head Office mode.'
+        );
+        if (collect($validated['items'])->sum(
+            fn ($item) => (int) ($item['good_quantity'] ?? 0) + (int) ($item['damaged_quantity'] ?? 0)
+        ) < 1) {
+            throw ValidationException::withMessages(['items' => 'Enter at least one good or damaged return quantity.']);
+        }
+
+        DB::transaction(function () use ($validated) {
+            $pullout = NationalPullout::whereKey($validated['national_pullout_id'])
+                ->where('store_hub_id', $validated['store_hub_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+            $pulloutItems = $pullout->items()->whereIn('id', collect($validated['items'])->pluck('national_pullout_item_id'))
+                ->lockForUpdate()->get()->keyBy('id');
+            $products = NationalProduct::whereIn('id', collect($validated['items'])->pluck('national_product_id'))
+                ->lockForUpdate()->get()->keyBy('id');
+            $batchId = (string) Str::uuid();
+
+            foreach ($validated['items'] as $item) {
+                $pulloutItem = $pulloutItems->get((int) $item['national_pullout_item_id']);
+                $product = $products->get((int) $item['national_product_id']);
+                if (! $pulloutItem || ! $product || (int) $pulloutItem->national_product_id !== (int) $product->id) {
+                    throw ValidationException::withMessages(['items' => 'Each returned item must belong to the selected P.O. number.']);
+                }
+
+                $goodQuantity = (int) ($item['good_quantity'] ?? 0);
+                $damagedQuantity = (int) ($item['damaged_quantity'] ?? 0);
+                $quantity = $goodQuantity + $damagedQuantity;
+                $alreadyReturned = InventoryTransaction::where('type', 'return')
+                    ->where('national_pullout_item_id', $pulloutItem->id)
+                    ->sum('quantity');
+                if ($quantity > $pulloutItem->actual_pullout - (int) $alreadyReturned) {
+                    throw ValidationException::withMessages([
+                        'items' => "The return quantity for {$pulloutItem->product_name} exceeds the remaining pull-out quantity.",
+                    ]);
+                }
+                if ($quantity < 1) {
+                    continue;
+                }
+
+                $product->increment('stock', $quantity);
+                foreach (['good' => $goodQuantity, 'damaged' => $damagedQuantity] as $condition => $conditionQuantity) {
+                    if ($conditionQuantity < 1) {
+                        continue;
+                    }
+                    InventoryTransaction::create([
+                        'type' => 'return',
+                        'reference' => $pullout->po_number,
+                        'national_pullout_id' => $pullout->id,
+                        'national_pullout_item_id' => $pulloutItem->id,
+                        'national_product_id' => $product->id,
+                        'store_hub_id' => $pullout->store_hub_id,
+                        'product_id' => null,
+                        'channel' => 'national_bookstore',
+                        'source' => 'National Bookstore',
+                        'condition' => $condition,
+                        'quantity' => $conditionQuantity,
+                        'refund_amount' => 0,
+                        'occurred_on' => $validated['occurred_on'],
+                        'notes' => $validated['notes'] ?? null,
+                        'created_by' => auth()->id(),
+                        'transfer_batch_id' => $batchId,
+                    ]);
+                }
+            }
+        });
+
+        $this->notifyInventoryStaff($validated);
+
+        return redirect()->route('inventory-transactions.index', [
+            'hub_id' => $validated['store_hub_id'],
+            'type' => 'return',
+        ])->with('success', 'National Bookstore return items recorded and restored to National Inventory.');
+    }
+
     private function notifyInventoryStaff(array $validated): void
     {
         $hub = StoreHub::find($validated['store_hub_id']);
@@ -1564,6 +1717,7 @@ class InventoryTransactionController extends Controller
             'shopee' => 'shopee', 'lazada' => 'lazada', 'tiktok' => 'tiktok',
             'online', 'online_order', 'online_sales', 'event' => 'online', 'walk_in', 'walkin' => 'walk_in',
             'wholesale' => 'wholesale', 'fully_booked' => 'fully_booked',
+            'national_bookstore', 'national_bookstore_pullout' => 'national_bookstore',
             default => null,
         };
     }

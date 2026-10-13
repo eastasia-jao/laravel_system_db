@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NationalPulloutItem extends Model
 {
@@ -26,5 +27,10 @@ class NationalPulloutItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(NationalProduct::class, 'national_product_id');
+    }
+
+    public function inventoryReturns(): HasMany
+    {
+        return $this->hasMany(InventoryTransaction::class)->where('type', 'return');
     }
 }

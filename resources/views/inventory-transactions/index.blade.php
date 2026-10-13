@@ -196,7 +196,8 @@
                     $isFullyBookedGroup = $transaction->type === 'fully_booked'
                         || ($transaction->type === 'sponsor_workshop' && $transaction->channel === 'fully_booked' && $fullyBookedOrder);
                     $fullyBookedOrder = $isFullyBookedGroup ? $fullyBookedOrder : null;
-                    $isReturnGroup = $transaction->type === 'return' && $transaction->salesTransaction;
+                    $isNationalReturn = $transaction->type === 'return' && $transaction->national_pullout_id;
+                    $isReturnGroup = $transaction->type === 'return' && ($transaction->salesTransaction || $isNationalReturn);
                     $fullyBookedReturnOrder = $isReturnGroup && $transaction->salesTransaction?->channel_type === 'fully_booked'
                         ? $transaction->getRelation('fullyBookedOrder')
                         : null;
@@ -275,9 +276,9 @@
                             <strong>{{ $transaction->productReplacement->originalProduct?->name ?? 'Original item' }} → {{ $transaction->productReplacement->replacementProduct?->name ?? 'Replacement item' }}</strong>
                             <small class="d-block text-muted">Returned {{ $transaction->productReplacement->quantity }} · Replaced with {{ $transaction->productReplacement->replacement_quantity ?: $transaction->productReplacement->quantity }}</small>
                         @elseif($isReturnGroup)
-                            <strong>Return order {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</strong>
+                            <strong>{{ $isNationalReturn ? 'Return P.O. #' : 'Return order' }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</strong>
                             <small class="d-block text-muted">
-                                {{ $transaction->salesTransaction?->customer_name ?? 'Customer —' }}
+                                {{ $isNationalReturn ? 'National Bookstore' : ($transaction->salesTransaction?->customer_name ?? 'Customer —') }}
                                 · {{ $group->where('condition', 'good')->sum('quantity') }} good
                                 · {{ $group->where('condition', 'damaged')->sum('quantity') }} damaged
                                 @if($group->sum('refund_amount') > 0) · Refund ₱{{ number_format($group->sum('refund_amount'), 2) }} @endif
@@ -420,8 +421,8 @@
                                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                                             <div>
                                                 <div class="text-uppercase small fw-bold text-primary">Return record</div>
-                                                <h5 class="mb-1">{{ $transaction->salesTransaction?->customer_name ?? 'Customer —' }}</h5>
-                                                <div class="return-detail-meta">Order {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</div>
+                                                <h5 class="mb-1">{{ $isNationalReturn ? 'National Bookstore' : ($transaction->salesTransaction?->customer_name ?? 'Customer —') }}</h5>
+                                                <div class="return-detail-meta">{{ $isNationalReturn ? 'P.O. #' : 'Order' }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</div>
                                             </div>
                                             <span class="badge text-bg-info">RETURN ITEMS</span>
                                         </div>
@@ -429,7 +430,7 @@
                                     @php
                                         $returnChannel = strtolower(str_replace(['-', ' '], '_', (string) ($transaction->salesTransaction?->channel_type ?? $transaction->channel ?? '')));
                                         $showReturnRefund = ! $isFullyBookedGroup
-                                            && ! in_array($returnChannel, ['shopee', 'lazada', 'tiktok', 'fully_booked'], true);
+                                            && ! in_array($returnChannel, ['shopee', 'lazada', 'tiktok', 'fully_booked', 'national_bookstore'], true);
                                     @endphp
                                     <div class="row g-2 mb-3">
                                         <div class="{{ $showReturnRefund ? 'col-md-4' : 'col-md-6' }}"><div class="return-detail-kpi good"><div class="small text-muted">Good quantity</div><div class="value">{{ $group->where('condition', 'good')->sum('quantity') }}</div></div></div>
@@ -456,7 +457,7 @@
                                 <div class="col-12"><strong class="d-block mb-2">Returned items</strong><div class="return-detail-items">
                                     @foreach($group as $entry)
                                         <div class="return-detail-item d-flex justify-content-between align-items-center gap-3">
-                                            <div><strong>{{ $entry->product?->name ?? 'Unknown product' }}</strong><div class="return-detail-meta">Item ID: {{ $entry->product?->item_id ?? '—' }}</div></div>
+                                            <div><strong>{{ $entry->product?->name ?? $entry->nationalProduct?->name ?? 'Unknown product' }}</strong><div class="return-detail-meta">Item ID: {{ $entry->product?->item_id ?? $entry->nationalProduct?->item_id ?? '—' }}</div></div>
                                             <div class="text-end">
                                                 <span class="badge {{ $entry->condition === 'good' ? 'text-bg-success' : ($entry->condition === 'damaged' ? 'text-bg-danger' : 'text-bg-secondary') }}">{{ strtoupper($entry->condition ?? 'refund only') }}</span>
                                                 <div class="small mt-1">Qty <strong>{{ $entry->quantity }}</strong>@if((float) $entry->refund_amount > 0) · Refund <strong>₱{{ number_format($entry->refund_amount, 2) }}</strong>@endif</div>

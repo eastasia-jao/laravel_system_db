@@ -39,6 +39,7 @@
         @csrf
         <input type="hidden" name="type" value="return">
         <input type="hidden" name="sales_transaction_id" id="salesTransactionId">
+        <input type="hidden" name="national_pullout_id" id="nationalPulloutId">
         <div class="row g-3">
             <div class="col-md-4"><label class="form-label">Store Hub</label><select name="store_hub_id" class="form-select" required @disabled($hubSelectionLocked || $visibleHubs->isEmpty()) onchange="window.location.href='{{ route('inventory-transactions.return.create') }}?hub_id='+this.value">
                 @foreach($visibleHubs as $hub)<option value="{{ $hub->id }}" @selected((int) $hubId === (int) $hub->id)>{{ $hub->name }}</option>@endforeach
@@ -54,7 +55,7 @@
                 @if($channelSelectionLocked)
                     <option value="walk_in" selected>Walk-In</option>
                 @else
-                    <option value="">Select channel</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok</option><option value="online">Online</option><option value="walk_in">Walk-in</option><option value="wholesale">Wholesale</option><option value="fully_booked">Fully Booked</option>
+                    <option value="">Select channel</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok</option><option value="online">Online</option><option value="walk_in">Walk-in</option><option value="wholesale">Wholesale</option><option value="fully_booked">Fully Booked</option><option value="national_bookstore">National Bookstore Pull-out</option>
                 @endif
             </select>
             @if($channelSelectionLocked)
@@ -62,7 +63,7 @@
             @endif
             </div>
             <div class="col-md-4" id="returnCustomerField"><label class="form-label">Customer <span id="customerOptionalLabel" class="text-muted fw-normal">(required)</span></label><select id="returnCustomer" class="form-select" required disabled><option value="">Select return date and sales channel first</option></select></div>
-            <div class="col-md-4"><label class="form-label">Sales Reference</label><select name="reference" id="returnOrder" class="form-select" required disabled><option value="">Select customer first</option></select></div>
+            <div class="col-md-4"><label class="form-label" id="returnReferenceLabel">Sales Reference</label><select name="reference" id="returnOrder" class="form-select" required disabled><option value="">Select customer first</option></select></div>
             <input type="hidden" name="source" id="returnSource">
         </div>
         <div id="returnAttachmentPreview" class="mt-3" hidden></div>
@@ -89,6 +90,8 @@
     const customer = document.getElementById('returnCustomer');
     const order = document.getElementById('returnOrder');
     const transactionId = document.getElementById('salesTransactionId');
+    const nationalPulloutId = document.getElementById('nationalPulloutId');
+    const referenceLabel = document.getElementById('returnReferenceLabel');
     const container = document.getElementById('returnItems');
     const attachmentPreview = document.getElementById('returnAttachmentPreview');
     const notes = document.getElementById('returnNotes');
@@ -100,11 +103,12 @@
         select.disabled = !items.length;
     };
     const updateCustomerState = () => {
-        const fullyBooked = channel.value === 'fully_booked';
-        customer.required = !fullyBooked;
-        document.getElementById('customerOptionalLabel').textContent = fullyBooked ? '' : '(required)';
-        document.getElementById('returnCustomerField').classList.toggle('d-none', fullyBooked);
-        if (fullyBooked) {
+        const referenceOnly = ['fully_booked', 'national_bookstore'].includes(channel.value);
+        customer.required = !referenceOnly;
+        document.getElementById('customerOptionalLabel').textContent = referenceOnly ? '' : '(required)';
+        document.getElementById('returnCustomerField').classList.toggle('d-none', referenceOnly);
+        referenceLabel.textContent = channel.value === 'national_bookstore' ? 'P.O. #' : 'Sales Reference';
+        if (referenceOnly) {
             customer.value = '';
             document.getElementById('returnSource').value = '';
         }
@@ -113,6 +117,7 @@
         order.replaceChildren(new Option(placeholder, ''));
         order.disabled = true;
         transactionId.value = '';
+        nationalPulloutId.value = '';
         attachmentPreview.replaceChildren();
         attachmentPreview.hidden = true;
     };
@@ -155,11 +160,12 @@
         try {
             updateCustomerState();
             const data = await load({});
-            if (channel.value === 'fully_booked') {
-                setOptions(order, data.orders || [], 'Select order number', value => value.order_number);
+            if (['fully_booked', 'national_bookstore'].includes(channel.value)) {
+                const isNational = channel.value === 'national_bookstore';
+                setOptions(order, data.orders || [], isNational ? 'Select P.O. number' : 'Select order number', value => value.order_number);
                 container.innerHTML = data.orders?.length
-                    ? '<div class="text-muted p-3">Select an order number to load its purchased products.</div>'
-                    : '<div class="alert alert-warning mb-0">No Fully Booked orders were found on the selected date.</div>';
+                    ? `<div class="text-muted p-3">Select ${isNational ? 'a P.O. number' : 'an order number'} to load its pulled-out products.</div>`
+                    : `<div class="alert alert-warning mb-0">No ${isNational ? 'returnable National Bookstore pull-outs' : 'Fully Booked orders'} were found${isNational ? '.' : ' on the selected date.'}</div>`;
                 return;
             }
             setOptions(customer, data.customers || [], 'Select customer', value => value);
@@ -179,7 +185,9 @@
         } catch { window.AppAlert?.show('Could not load orders for this customer.', 'error'); }
     });
     order.addEventListener('change', async () => {
-        transactionId.value = order.value;
+        const isNational = channel.value === 'national_bookstore';
+        transactionId.value = isNational ? '' : order.value;
+        nationalPulloutId.value = isNational ? order.value : '';
         attachmentPreview.replaceChildren();
         attachmentPreview.hidden = true;
         container.innerHTML = '<div class="text-muted p-3">Loading ordered products...</div>';
@@ -190,12 +198,14 @@
             }
             const items = data.transaction?.items || [];
             const partialWholesaleReturn = channel.value === 'wholesale' && data.transaction?.payment_status === 'partial';
-            const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada'].includes(channel.value) && !partialWholesaleReturn;
+            const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada', 'national_bookstore'].includes(channel.value) && !partialWholesaleReturn;
             container.innerHTML = items.length ? items.map((item, index) => {
                 const remaining = Math.max(0, item.quantity - (item.returned_quantity || 0));
                 return `
                 <div class="return-item ${supportsAutoRefund ? '' : 'return-item-no-refund'}" data-unit-price="${Number(item.unit_price || 0)}" data-discount="${Number(item.discount_percentage || 0)}">
-                    <div><label class="form-label d-block">${item.item_id || ''}${item.replacement_id ? ' (Replacement)' : ''}</label><input class="form-control" value="${item.name}" readonly><input type="hidden" name="items[${index}][product_id]" value="${item.product_id}"><input type="hidden" name="items[${index}][transaction_item_id]" value="${item.id || ''}"><input type="hidden" name="items[${index}][replacement_id]" value="${item.replacement_id || ''}"></div>
+                    <div><label class="form-label d-block">${item.item_id || ''}${item.replacement_id ? ' (Replacement)' : ''}</label><input class="form-control" value="${item.name}" readonly>${isNational
+                        ? `<input type="hidden" name="items[${index}][national_product_id]" value="${item.national_product_id}"><input type="hidden" name="items[${index}][national_pullout_item_id]" value="${item.national_pullout_item_id}">`
+                        : `<input type="hidden" name="items[${index}][product_id]" value="${item.product_id}"><input type="hidden" name="items[${index}][transaction_item_id]" value="${item.id || ''}"><input type="hidden" name="items[${index}][replacement_id]" value="${item.replacement_id || ''}">`}</div>
                     <div><label class="form-label">Good Qty <span class="fw-normal">(remaining: ${remaining})</span></label><input type="number" name="items[${index}][good_quantity]" min="0" max="${remaining}" value="0" class="form-control" ${remaining ? '' : 'disabled'}></div>
                     <div><label class="form-label">Damaged Qty</label><input type="number" name="items[${index}][damaged_quantity]" min="0" max="${remaining}" value="0" class="form-control" ${remaining ? '' : 'disabled'}></div>
                     ${supportsAutoRefund ? '<div class="return-refund-control"><label class="form-label">Auto refund</label><input type="number" name="items[' + index + '][refund_amount]" min="0" step="0.01" value="0" class="form-control refund-amount" readonly><div class="form-text refund-help">Calculated from returned quantity</div></div>' : ''}

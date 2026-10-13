@@ -26,4 +26,9 @@ class NationalPullout extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function inventoryReturns(): HasMany
+    {
+        return $this->hasMany(InventoryTransaction::class)->where('type', 'return');
+    }
 }

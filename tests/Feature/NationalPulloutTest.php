@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\NationalProduct;
 use App\Models\NationalPullout;
+use App\Models\InventoryTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -329,6 +330,98 @@ class NationalPulloutTest extends TestCase
             ->assertSessionHasErrors('po_number');
         $this->assertDatabaseCount('national_pullouts', 1);
         $this->assertSame(8, $product->fresh()->stock);
+    }
+
+    public function test_national_bookstore_pullout_can_be_returned_by_po_number_to_national_inventory(): void
+    {
+        [$headOffice] = $this->hubs();
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+        $product = $this->product();
+        $product->update(['stock' => 7]);
+        $pullout = NationalPullout::create([
+            'po_number' => 'PO-RETURN-1',
+            'occurred_on' => '2026-10-10',
+            'store_hub_id' => $headOffice->id,
+            'created_by' => $admin->id,
+        ]);
+        $pulloutItem = $pullout->items()->create([
+            'national_product_id' => $product->id,
+            'item_id' => $product->item_id,
+            'product_name' => $product->name,
+            'quantity' => 5,
+            'unit_type' => $product->unit_type,
+            'purpose' => 'National Bookstore Pullout',
+            'physical_stock' => 10,
+            'actual_pullout' => 3,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.return.create', ['hub_id' => $headOffice->id]))
+            ->assertOk()
+            ->assertSee('National Bookstore Pull-out')
+            ->assertSee('national_pullout_id', false);
+
+        $this->actingAs($admin)->getJson(route('inventory-transactions.return.sales', [
+            'hub_id' => $headOffice->id,
+            'channel' => 'national_bookstore',
+        ]))->assertOk()->assertJsonPath('orders.0.order_number', 'PO-RETURN-1');
+
+        $this->actingAs($admin)->getJson(route('inventory-transactions.return.sales', [
+            'hub_id' => $headOffice->id,
+            'channel' => 'national_bookstore',
+            'transaction_id' => $pullout->id,
+        ]))->assertOk()
+            ->assertJsonPath('transaction.order_number', 'PO-RETURN-1')
+            ->assertJsonPath('transaction.items.0.national_pullout_item_id', $pulloutItem->id)
+            ->assertJsonPath('transaction.items.0.quantity', 3)
+            ->assertJsonPath('transaction.items.0.returned_quantity', 0);
+
+        $payload = [
+            'type' => 'return',
+            'store_hub_id' => $headOffice->id,
+            'occurred_on' => '2026-10-13',
+            'channel' => 'national_bookstore',
+            'reference' => (string) $pullout->id,
+            'national_pullout_id' => $pullout->id,
+            'items' => [[
+                'national_pullout_item_id' => $pulloutItem->id,
+                'national_product_id' => $product->id,
+                'good_quantity' => 1,
+                'damaged_quantity' => 1,
+            ]],
+        ];
+        $this->actingAs($admin)->post(route('inventory-transactions.return.store'), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('inventory-transactions.index', [
+                'hub_id' => $headOffice->id,
+                'type' => 'return',
+            ]));
+
+        $this->assertSame(9, $product->fresh()->stock);
+        $returns = InventoryTransaction::where('channel', 'national_bookstore')->get();
+        $this->assertCount(2, $returns);
+        $this->assertSame(['damaged', 'good'], $returns->pluck('condition')->sort()->values()->all());
+        $this->assertSame(2, $returns->sum('quantity'));
+        $returns->each(function (InventoryTransaction $return) use ($pullout, $pulloutItem, $product) {
+            $this->assertNull($return->product_id);
+            $this->assertSame($pullout->id, $return->national_pullout_id);
+            $this->assertSame($pulloutItem->id, $return->national_pullout_item_id);
+            $this->assertSame($product->id, $return->national_product_id);
+            $this->assertSame('PO-RETURN-1', $return->reference);
+        });
+
+        $payload['items'][0]['good_quantity'] = 2;
+        $this->actingAs($admin)->post(route('inventory-transactions.return.store'), $payload)
+            ->assertSessionHasErrors('items');
+        $this->assertSame(9, $product->fresh()->stock);
+
+        $this->actingAs($admin)->get(route('inventory-transactions.index', [
+            'hub_id' => $headOffice->id,
+            'type' => 'return',
+        ]))->assertOk()
+            ->assertSee('Return P.O. #')
+            ->assertSee('PO-RETURN-1')
+            ->assertSee($product->name);
     }
 
     private function hubs(): array
