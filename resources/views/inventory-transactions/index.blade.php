@@ -341,7 +341,7 @@
                                                     <div class="transfer-detail-item-name">{{ $pulloutItem?->product_name ?? 'Unknown product' }}</div>
                                                     <div class="transfer-detail-item-id">Item ID: {{ $pulloutItem?->item_id ?? '—' }} · Requested qty: {{ $pulloutItem?->quantity ?? 0 }}</div>
                                                 </div>
-                                                <div class="transfer-detail-qty">Qty {{ $entry->quantity }}</div>
+                                                <div class="transfer-detail-qty">Actual {{ $pulloutItem?->actual_pullout ?? $entry->quantity }}</div>
                                             </div>
                                         @endforeach
                                     </div>

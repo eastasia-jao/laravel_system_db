@@ -63,13 +63,13 @@
         </div>
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-            <div><h5 class="fw-bold mb-1">Items to Pull Out</h5><small class="text-muted">Qty is deducted from National stock.</small></div>
+            <div><h5 class="fw-bold mb-1">Items to Pull Out</h5><small class="text-muted">Qty is the customer request; Actual Pull-out is deducted from National stock.</small></div>
             <button type="button" class="btn btn-outline-primary" id="addNationalPulloutItem"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
         </div>
 
         <div class="table-responsive border rounded-3">
             <table class="table mb-0 national-pullout-items">
-                <thead><tr><th style="min-width:320px">Product Item Name</th><th style="width:110px">Qty</th></tr></thead>
+                <thead><tr><th style="min-width:320px">Product Item Name</th><th style="width:110px">Qty</th><th style="width:150px">Actual Pull-out</th></tr></thead>
                 <tbody id="nationalPulloutItems"></tbody>
             </table>
         </div>
@@ -104,6 +104,7 @@
     const selectProduct = (row, product) => {
         row.querySelector('.pullout-product-search').value = product.name;
         row.querySelector('.pullout-product-id').value = product.id;
+        row.dataset.physicalStock = product.stock;
         row.querySelector('.pullout-results').hidden = true;
     };
     const renderResults = (row, term) => {
@@ -122,6 +123,7 @@
         row.innerHTML = `
             <td><div class="d-flex align-items-center gap-2"><input type="checkbox" class="form-check-input pullout-export-check" aria-label="Select row for CSV export"><div class="position-relative flex-grow-1"><input type="search" class="form-control pullout-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" class="pullout-product-id" name="items[${index}][product_id]"><div class="pullout-product-results" hidden></div></div><button type="button" class="btn btn-outline-danger remove-pullout-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div></td>
             <td><input type="number" class="form-control pullout-qty" name="items[${index}][quantity]" min="1" step="1" required></td>
+            <td><input type="number" class="form-control pullout-actual" name="items[${index}][actual_pullout]" min="1" step="1" required></td>
 `;
         itemsBody.appendChild(row);
         const search = row.querySelector('.pullout-product-search');
@@ -140,6 +142,7 @@
         });
         if (values.product) selectProduct(row, values.product);
         row.querySelector('.pullout-qty').value = values.quantity || '';
+        row.querySelector('.pullout-actual').value = values.actual || '';
         return row;
     };
     document.addEventListener('click', event => {
@@ -177,10 +180,13 @@
         const rows = [...itemsBody.querySelectorAll('.national-pullout-item')].filter(row => !selectedOnly || row.querySelector('.pullout-export-check').checked);
         if (!rows.length) return showMessage('Select at least one item to export.', true);
         downloadCsv([
-            ['Product Item Name', 'Qty'],
+            ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out'],
             ...rows.map(row => [
                 row.querySelector('.pullout-product-search').value,
                 row.querySelector('.pullout-qty').value,
+                'National Bookstore Pullout',
+                row.dataset.physicalStock || '',
+                row.querySelector('.pullout-actual').value,
             ]),
         ]);
     };
@@ -199,18 +205,19 @@
             if (headerIndex < 0) return showMessage('The CSV must contain the Product Item Name header.', true);
             const headers = rows[headerIndex].map(value => value.trim().toLowerCase());
             const column = name => headers.indexOf(name.toLowerCase());
-            const requiredHeaders = ['Product Item Name', 'Qty'];
+            const requiredHeaders = ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out'];
             if (requiredHeaders.some(name => column(name) < 0)) {
-                return showMessage('The CSV must contain Product Item Name and Qty.', true);
+                return showMessage('The CSV must contain Product Item Name, Qty, Purpose, Physical Stocks, and Actual Pull-Out.', true);
             }
             const imported = []; const errors = [];
             rows.slice(headerIndex + 1).forEach((values, offset) => {
                 const name = (values[column('Product Item Name')] || '').trim();
                 const qty = (values[column('Qty')] || '').trim();
-                if (!name || !qty) return;
+                const actual = (values[column('Actual Pull-Out')] || '').trim();
+                if (!name || (!qty && !actual)) return;
                 const matches = byName.get(name.toLowerCase()) || [];
                 if (matches.length !== 1) { errors.push(`Row ${headerIndex + offset + 2}: ${name} was not found uniquely.`); return; }
-                imported.push({product: matches[0], quantity: qty});
+                imported.push({product: matches[0], quantity: qty, actual});
             });
             if (errors.length) return showMessage(errors.join('\n'), true);
             if (!imported.length) return showMessage('No completed pull-out rows were found in the CSV.', true);
