@@ -24,7 +24,7 @@ class NationalPulloutTest extends TestCase
                 ->get(route('national-pullouts.create', ['hub_id' => $headOffice->id]))
                 ->assertOk()
                 ->assertSee('National Bookstore Pullout')
-                ->assertSee('Download Print-Ready Excel Worksheet')
+                ->assertDontSee('Download Print-Ready Excel Worksheet')
                 ->assertSee('Import Items (CSV)')
                 ->assertSee('Download CSV Worksheet')
                 ->assertSee('Export Selected Items')
