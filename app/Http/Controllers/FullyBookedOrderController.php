@@ -164,7 +164,7 @@ class FullyBookedOrderController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.stock_condition' => ['nullable', Rule::in(['good', 'damaged'])],
+            'items.*.stock_condition' => ['nullable', Rule::in(['good'])],
         ]);
 
         DB::transaction(function () use ($request, $fullyBookedOrder, $validated) {

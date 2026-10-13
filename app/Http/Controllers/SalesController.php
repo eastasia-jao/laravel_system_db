@@ -64,9 +64,7 @@ class SalesController extends Controller
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.stock_condition' => ['nullable', Rule::in(
-                $request->user()?->can('manage-inventory') ? ['good', 'damaged'] : ['good']
-            )],
+            'items.*.stock_condition' => ['nullable', Rule::in(['good'])],
             'items.*.unit_price' => 'nullable|numeric|min:0',
             'items.*.price' => 'nullable|numeric|min:0',
             'items.*.discount_percentage' => 'nullable|numeric|between:0,100',
@@ -264,9 +262,7 @@ class SalesController extends Controller
             'items.*.price' => 'nullable|numeric|min:0',
             'items.*.discount_percentage' => 'nullable|numeric|between:0,100',
             'items.*.discount' => 'nullable|numeric|between:0,100',
-            'items.*.stock_condition' => ['nullable', Rule::in(
-                $request->user()?->can('manage-inventory') ? ['good', 'damaged'] : ['good']
-            )],
+            'items.*.stock_condition' => ['nullable', Rule::in(['good'])],
             'shipping_fee_amount' => 'nullable|numeric|min:0',
             'shipping_fee' => 'nullable|numeric|min:0',
             'delivery_fee' => 'nullable|numeric|min:0',

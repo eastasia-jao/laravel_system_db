@@ -1,6 +1,3 @@
-@php
-    $canViewConditionStock = in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true);
-@endphp
 <!-- Walk-In Sale Modal -->
 <style>
     #walkInSaleModal .modal-dialog { max-width: 900px; }
@@ -144,16 +141,8 @@
                                 <input type="hidden" name="items[0][product_id]" class="product-id">
                             </div>
                             <div class="col-md-2">
-                                @if($canViewConditionStock)
-                                    <label class="form-label small">Stock Condition</label>
-                                    <select name="items[0][stock_condition]" class="form-select stock-condition-select" required>
-                                        <option value="good">Good</option>
-                                        <option value="damaged">Damaged</option>
-                                    </select>
-                                @else
-                                    <label class="form-label small">Available Stock</label>
-                                    <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
-                                @endif
+                                <label class="form-label small">Available Stock</label>
+                                <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label small">Price (₱)</label>
@@ -202,10 +191,6 @@
         'barcode' => $product->barcode,
         'description' => $product->description ?: $product->name,
         'price' => $product->sales_price ?? 0,
-        ...($canViewConditionStock ? [
-            'good_stock' => (int) $product->stock,
-            'damaged_stock' => (int) $product->damaged_stock,
-        ] : []),
     ])->values();
 @endphp
 <script>
@@ -230,7 +215,6 @@ setupProductSuggestions(document.getElementById('walkInSaleModal'), walkInDataLi
         id: product.id, label: `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}`,
         barcode: product.barcode, description: product.description || product.name, price: product.sales_price || 0,
         channel_available_stock: Number(product.channel_available_stock ?? product.stock ?? 0),
-        good_stock: Number(product.stock || 0), damaged_stock: Number(product.damaged_stock || 0),
     }), true);
 const walkInCustomerName = document.getElementById('walkInCustomerName');
 const walkInCustomerContact = document.getElementById('walkInCustomerContact');
@@ -334,9 +318,7 @@ function addWalkInProductRow() {
 
     // Update names and reset values for the cloned row
     newRow.querySelectorAll('input, select').forEach(element => {
-        if (element.classList.contains('stock-condition-select')) {
-            element.value = 'good';
-        } else if(element.classList.contains('qty-input')) {
+        if(element.classList.contains('qty-input')) {
             element.value = '1';
         } else if(element.classList.contains('discount-input') || element.classList.contains('price-input')) {
             element.value = '0.00';
@@ -394,14 +376,9 @@ function updateRowPrice(inputElement) {
     inputElement.setCustomValidity(matched ? '' : 'Select a product from the search suggestions.');
     const price = matched ? matched.price : 0;
     const priceInput = row.querySelector('.price-input');
-    const conditionSelect = row.querySelector('.stock-condition-select');
     const allocatedStockDisplay = row.querySelector('.channel-stock-availability');
 
     priceInput.value = parseFloat(price).toFixed(2);
-    if (conditionSelect) {
-        conditionSelect.options[0].textContent = `Good (${Number(matched?.good_stock || 0)})`;
-        conditionSelect.options[1].textContent = `Damaged (${Number(matched?.damaged_stock || 0)})`;
-    }
     if (allocatedStockDisplay) {
         allocatedStockDisplay.textContent = matched ? Number(matched.channel_available_stock || 0) : '—';
     }

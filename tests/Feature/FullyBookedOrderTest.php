@@ -411,12 +411,12 @@ class FullyBookedOrderTest extends TestCase
                 'quantity' => 1,
                 'stock_condition' => 'damaged',
             ]],
-        ])->assertRedirect();
+        ])->assertSessionHasErrors('items.0.stock_condition');
 
         $this->assertSame(0, (int) $damagedProduct->fresh()->stock);
-        $this->assertSame(1, (int) $damagedProduct->fresh()->damaged_stock);
+        $this->assertSame(2, (int) $damagedProduct->fresh()->damaged_stock);
         $this->assertSame(1, (int) $damagedProduct->stockAllocation()->value('online'));
-        $this->assertDatabaseHas('fully_booked_order_items', [
+        $this->assertDatabaseMissing('fully_booked_order_items', [
             'fully_booked_order_id' => $damagedOrder->id,
             'product_id' => $damagedProduct->id,
             'stock_condition' => 'damaged',

@@ -1,6 +1,3 @@
-@php
-    $canViewConditionStock = in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true);
-@endphp
 <style>
     #recordSaleModal .modal-dialog { max-width: 1140px; }
     #recordSaleModal .modal-content { border: 0; border-radius: 18px; overflow: hidden; box-shadow: 0 24px 70px rgba(15, 23, 42, .22); }
@@ -525,7 +522,7 @@
                         <!-- Header Labels for Grid Alignment -->
                         <div class="row g-2 fw-bold text-secondary small mb-2 d-none d-md-flex">
                             <div class="col-md-3">Product Description</div>
-                            <div class="col-md-2">{{ $canViewConditionStock ? 'Stock Condition' : 'Available Stock' }}</div>
+                            <div class="col-md-2">Available Stock</div>
                             <div class="col-md-1">Qty</div>
                             <div class="col-md-2">Regular Price</div>
                             <div class="col-md-1 text-danger">Disc %</div>
@@ -544,16 +541,8 @@
                             </div>
 
                             <div class="col-md-2">
-                                @if($canViewConditionStock)
-                                    <label class="form-label fw-bold d-md-none">Stock Condition</label>
-                                    <select name="items[0][stock_condition]" class="form-select stock-condition-select" required>
-                                        <option value="good">Good</option>
-                                        <option value="damaged">Damaged</option>
-                                    </select>
-                                @else
-                                    <label class="form-label fw-bold d-md-none">Available Stock</label>
-                                    <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
-                                @endif
+                                <label class="form-label fw-bold d-md-none">Available Stock</label>
+                                <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
                             </div>
 
                             <!-- Quantity -->
@@ -1046,10 +1035,6 @@
         'shopee' => $product->shopee_price ?? 0,
         'lazada' => $product->lazada_price ?? 0,
         'tiktok' => $product->sales_price ?? 0,
-        ...($canViewConditionStock ? [
-            'good_stock' => (int) $product->stock,
-            'damaged_stock' => (int) $product->damaged_stock,
-        ] : []),
     ])->values();
 @endphp
 <script>
@@ -1093,7 +1078,6 @@ document.addEventListener('DOMContentLoaded', function () {
             sales: product.sales_price || 0, wholesale: product.wholesale_price || 0,
             shopee: product.shopee_price || 0, lazada: product.lazada_price || 0, tiktok: product.sales_price || 0,
             channel_available_stock: Number(product.channel_available_stock ?? product.stock ?? 0),
-            good_stock: Number(product.stock || 0), damaged_stock: Number(product.damaged_stock || 0),
         }), true, 'item_id');
     const bindProductSearch = row => {
         const input = row.querySelector('.product-search');
@@ -1128,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     let stockRefreshSequence = 0;
     const refreshAllocatedStock = async () => {
-        if (@json($canViewConditionStock) || !channelSelect?.value) return;
+        if (!channelSelect?.value) return;
         const sequence = ++stockRefreshSequence;
         const rows = [...document.querySelectorAll('#productRowsContainer .product-row')];
         await Promise.all(rows.map(async row => {
@@ -1398,16 +1382,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     <input type="hidden" name="items[${rowIndex}][product_id]" class="product-id">
                 </div>
                 <div class="col-md-2">
-                    @if($canViewConditionStock)
-                        <label class="form-label fw-bold d-md-none">Stock Condition</label>
-                        <select name="items[${rowIndex}][stock_condition]" class="form-select stock-condition-select" required>
-                            <option value="good">Good</option>
-                            <option value="damaged">Damaged</option>
-                        </select>
-                    @else
-                        <label class="form-label fw-bold d-md-none">Available Stock</label>
-                        <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
-                    @endif
+                    <label class="form-label fw-bold d-md-none">Available Stock</label>
+                    <output class="form-control bg-light channel-stock-availability" aria-label="Available stock">—</output>
                 </div>
                 <div class="col-md-1">
                     <label class="form-label fw-bold d-md-none">Quantity</label>
@@ -1465,18 +1441,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateRowDisplay(row) {
         if (!row) return;
         const priceDisplay = row.querySelector('.item-price-display');
-        const conditionSelect = row.querySelector('.stock-condition-select');
         const allocatedStockDisplay = row.querySelector('.channel-stock-availability');
         if (allocatedStockDisplay) {
             allocatedStockDisplay.textContent = row.dataset.id
                 ? Number(row.dataset.channel_available_stock || 0)
                 : '—';
         }
-        const updateConditionLabels = () => {
-            if (!conditionSelect) return;
-            conditionSelect.options[0].textContent = `Good (${Number(row.dataset.good_stock || 0)})`;
-            conditionSelect.options[1].textContent = `Damaged (${Number(row.dataset.damaged_stock || 0)})`;
-        };
         if (!row.dataset.id) {
             if (priceDisplay) priceDisplay.value = '₱0.00';
             row.setAttribute('data-unit-price', '0');
@@ -1484,11 +1454,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const totalDisplay = row.querySelector('.item-total-display');
             if (unitPriceInput) unitPriceInput.value = '0.00';
             if (totalDisplay) totalDisplay.value = '₱0.00';
-            updateConditionLabels();
             return;
         }
-
-        updateConditionLabels();
 
         const channelVal = channelSelect ? (channelSelect.value || '').trim() : '';
         let price = 0;

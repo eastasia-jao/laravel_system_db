@@ -75,7 +75,7 @@ class SalesWorkflowTest extends TestCase
 
         $this->actingAs($admin)->get(route('hub.dashboard', $hub->id))
             ->assertOk()
-            ->assertSee('name="items[0][stock_condition]"', false);
+            ->assertDontSee('name="items[0][stock_condition]"', false);
 
         $this->actingAs($staff)->post(route('sales.store'), [
             'store_hub_id' => $hub->id,
@@ -136,11 +136,11 @@ class SalesWorkflowTest extends TestCase
             ->assertDontSee('name="items[0][stock_condition]"', false);
     }
 
-    public function test_every_sales_channel_can_sell_shared_damaged_stock_without_a_required_discount(): void
+    public function test_no_sales_channel_can_sell_damaged_stock(): void
     {
         $hub = StoreHub::create([
-            'name' => 'Damaged Sales Head Office',
-            'code' => 'DAMAGED-SALES-HO',
+            'name' => 'Damaged Rejection Head Office',
+            'code' => 'DAMAGED-REJECTION-HO',
             'status' => 'active',
             'is_head_office' => true,
         ]);
@@ -149,8 +149,8 @@ class SalesWorkflowTest extends TestCase
         foreach (['walk_in', 'wholesale', 'online', 'shopee', 'lazada', 'tiktok'] as $channel) {
             $product = Product::create([
                 'store_hub_id' => $hub->id,
-                'item_id' => 'DAMAGED-'.strtoupper($channel),
-                'name' => ucfirst($channel).' Damaged Product',
+                'item_id' => 'DAMAGED-REJECT-'.strtoupper($channel),
+                'name' => ucfirst($channel).' Damaged Rejection Product',
                 'sales_price' => 100,
                 'stock' => 0,
                 'damaged_stock' => 1,
@@ -166,118 +166,27 @@ class SalesWorkflowTest extends TestCase
                     'product_id' => $product->id,
                     'quantity' => 1,
                     'unit_price' => 100,
-                    'discount_percentage' => 0,
                     'stock_condition' => 'damaged',
                 ]],
-            ])->assertSessionHasNoErrors()->assertSessionHas('success');
+            ])->assertSessionHasErrors('items.0.stock_condition');
+
+            $this->post(route('sales.storeMultiChannelSale'), [
+                'store_hub_id' => $hub->id,
+                'sales_channel' => $channel,
+                'placed_order_date' => '2026-10-13',
+                'customer_name' => 'Damaged Stock Customer',
+                'items' => [[
+                    'product_id' => $product->id,
+                    'quantity' => 1,
+                    'unit_price' => 100,
+                    'stock_condition' => 'damaged',
+                ]],
+            ])->assertSessionHasErrors('items.0.stock_condition');
 
             $this->assertSame(0, (int) $product->fresh()->stock);
-            $this->assertSame(0, (int) $product->fresh()->damaged_stock);
-            $this->assertDatabaseHas('transaction_items', [
-                'product_id' => $product->id,
-                'stock_condition' => 'damaged',
-                'discount_percentage' => 0,
-            ]);
-            $this->assertDatabaseHas('inventory_transactions', [
-                'product_id' => $product->id,
-                'type' => 'sold',
-                'channel' => $channel,
-                'condition' => 'damaged',
-                'quantity' => 1,
-            ]);
+            $this->assertSame(1, (int) $product->fresh()->damaged_stock);
         }
-    }
-
-    public function test_damaged_sale_cannot_exceed_the_shared_damaged_balance(): void
-    {
-        $hub = StoreHub::create([
-            'name' => 'Damaged Shortage Head Office',
-            'code' => 'DAMAGED-SHORTAGE-HO',
-            'status' => 'active',
-            'is_head_office' => true,
-        ]);
-        $admin = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
-        $product = Product::create([
-            'store_hub_id' => $hub->id,
-            'item_id' => 'DAMAGED-SHORTAGE',
-            'name' => 'Damaged Shortage Product',
-            'sales_price' => 100,
-            'stock' => 10,
-            'damaged_stock' => 1,
-            'status' => 'active',
-        ]);
-
-        $this->actingAs($admin)->post(route('sales.store'), [
-            'store_hub_id' => $hub->id,
-            'sales_channel' => 'shopee',
-            'order_date' => '2026-10-13',
-            'items' => [[
-                'product_id' => $product->id,
-                'quantity' => 2,
-                'unit_price' => 100,
-                'stock_condition' => 'damaged',
-            ]],
-        ])->assertSessionHas('error');
-
-        $this->assertSame(10, (int) $product->fresh()->stock);
-        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
         $this->assertDatabaseCount('sales_transactions', 0);
-    }
-
-    public function test_pending_damaged_sale_keeps_its_condition_and_deducts_on_inventory_approval(): void
-    {
-        $hub = StoreHub::create([
-            'name' => 'Damaged Approval Head Office',
-            'code' => 'DAMAGED-APPROVAL-HO',
-            'status' => 'active',
-            'is_head_office' => true,
-        ]);
-        $admin = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
-        $product = Product::create([
-            'store_hub_id' => $hub->id,
-            'item_id' => 'DAMAGED-APPROVAL',
-            'name' => 'Damaged Approval Product',
-            'shopee_price' => 250,
-            'stock' => 0,
-            'damaged_stock' => 1,
-            'status' => 'active',
-        ]);
-
-        $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
-            'store_hub_id' => $hub->id,
-            'sales_channel' => 'shopee',
-            'placed_order_date' => '2026-10-13',
-            'customer_name' => 'Damaged Approval Customer',
-            'items' => [[
-                'product_id' => $product->id,
-                'quantity' => 1,
-                'unit_price' => 250,
-                'discount_percentage' => 0,
-                'stock_condition' => 'damaged',
-            ]],
-        ])->assertSessionHasNoErrors()->assertSessionHas('success');
-
-        $pendingSale = PendingSale::sole();
-        $this->assertSame('damaged', $pendingSale->items[0]['stock_condition']);
-        $this->assertSame('ready', $pendingSale->inventory_status);
-        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
-
-        $this->get(route('hub.sales.pending', $hub->id))
-            ->assertOk()
-            ->assertSee('Damaged stock')
-            ->assertSee('READY');
-
-        $this->post(route('sales.confirmPending', $pendingSale))
-            ->assertSessionHasNoErrors()
-            ->assertSessionHas('success');
-
-        $this->assertSame(0, (int) $product->fresh()->stock);
-        $this->assertSame(0, (int) $product->fresh()->damaged_stock);
-        $this->assertDatabaseHas('transaction_items', [
-            'product_id' => $product->id,
-            'stock_condition' => 'damaged',
-            'discount_percentage' => 0,
-        ]);
     }
 
     public function test_tiktok_customer_lookup_searches_existing_customers_by_name(): void
