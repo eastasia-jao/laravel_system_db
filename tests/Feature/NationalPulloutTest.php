@@ -358,7 +358,8 @@ class NationalPulloutTest extends TestCase
         $this->actingAs($admin)
             ->get(route('inventory-transactions.return.create', ['hub_id' => $headOffice->id]))
             ->assertOk()
-            ->assertSee('National Bookstore Pull-out')
+            ->assertSee('National Bookstore')
+            ->assertDontSee('National Bookstore Pull-out')
             ->assertSee('national_pullout_id', false);
 
         $this->actingAs($admin)->getJson(route('inventory-transactions.return.sales', [
@@ -421,6 +422,8 @@ class NationalPulloutTest extends TestCase
             ->assertOk()
             ->assertSee('Good Items')
             ->assertSee('Damaged Items')
+            ->assertSee('Total Physical Stock')
+            ->assertSee('<td class="text-center fw-bold national-total-stock">9</td>', false)
             ->assertViewHas('nationalProducts', fn ($products) => (int) $products->first()->stock === 8
                 && (int) $products->first()->damaged_stock === 1);
 

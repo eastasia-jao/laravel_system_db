@@ -31,7 +31,8 @@ class NationalInventoryTest extends TestCase
                 ->assertOk()
                 ->assertSee('Separate inventory:')
                 ->assertSee('Good Items')
-                ->assertSee('Damaged Items');
+                ->assertSee('Damaged Items')
+                ->assertSee('Total Physical Stock');
             $this->actingAs($user)
                 ->get(route('products.index', ['hub_id' => $branch->id]))
                 ->assertOk()

@@ -55,7 +55,7 @@
                 @if($channelSelectionLocked)
                     <option value="walk_in" selected>Walk-In</option>
                 @else
-                    <option value="">Select channel</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok</option><option value="online">Online</option><option value="walk_in">Walk-in</option><option value="wholesale">Wholesale</option><option value="fully_booked">Fully Booked</option><option value="national_bookstore">National Bookstore Pull-out</option>
+                    <option value="">Select channel</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok</option><option value="online">Online</option><option value="walk_in">Walk-in</option><option value="wholesale">Wholesale</option><option value="fully_booked">Fully Booked</option><option value="national_bookstore">National Bookstore</option>
                 @endif
             </select>
             @if($channelSelectionLocked)
@@ -165,7 +165,7 @@
                 setOptions(order, data.orders || [], isNational ? 'Select P.O. number' : 'Select order number', value => value.order_number);
                 container.innerHTML = data.orders?.length
                     ? `<div class="text-muted p-3">Select ${isNational ? 'a P.O. number' : 'an order number'} to load its pulled-out products.</div>`
-                    : `<div class="alert alert-warning mb-0">No ${isNational ? 'returnable National Bookstore pull-outs' : 'Fully Booked orders'} were found${isNational ? '.' : ' on the selected date.'}</div>`;
+                    : `<div class="alert alert-warning mb-0">No ${isNational ? 'returnable National Bookstore records' : 'Fully Booked orders'} were found${isNational ? '.' : ' on the selected date.'}</div>`;
                 return;
             }
             setOptions(customer, data.customers || [], 'Select customer', value => value);
