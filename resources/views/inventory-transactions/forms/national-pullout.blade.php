@@ -10,7 +10,7 @@
     .national-pullout-items th { color: #526178; background: #f8fafc; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
     .national-pullout-items th { position: sticky; top: 0; z-index: 2; }
     .national-pullout-items td { vertical-align: middle; }
-    .pullout-product-results { position: absolute; z-index: 1080; top: calc(100% + 4px); left: 0; right: 0; max-height: 230px; overflow-y: auto; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.13); }
+    .pullout-product-results { position: fixed; z-index: 2000; max-height: 230px; overflow-y: auto; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.13); }
     .pullout-product-result { display: block; width: 100%; padding: .65rem .75rem; border: 0; border-bottom: 1px solid #edf1f6; color: #172033; background: #fff; text-align: left; }
     .pullout-product-result:hover { background: #eff6ff; }
     .pullout-product-result small { display: block; color: #64748b; }
@@ -110,11 +110,16 @@
     };
     const renderResults = (row, term) => {
         const results = row.querySelector('.pullout-product-results');
+        const search = row.querySelector('.pullout-product-search');
         const matches = products.filter(product => {
             const haystack = `${product.name} ${product.item_id}`.toLowerCase();
             return haystack.includes(term.toLowerCase());
         }).slice(0, 20);
         results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)}</small></button>`).join('');
+        const bounds = search.getBoundingClientRect();
+        results.style.left = `${bounds.left}px`;
+        results.style.top = `${bounds.bottom + 4}px`;
+        results.style.width = `${bounds.width}px`;
         results.hidden = matches.length === 0;
     };
     const addRow = (values = {}) => {
@@ -148,6 +153,9 @@
     };
     document.addEventListener('click', event => {
         if (!event.target.closest('.position-relative')) document.querySelectorAll('.pullout-product-results').forEach(result => result.hidden = true);
+    });
+    document.querySelector('.national-pullout-items-scroll').addEventListener('scroll', () => {
+        document.querySelectorAll('.pullout-product-results').forEach(result => result.hidden = true);
     });
     document.getElementById('addNationalPulloutItem').addEventListener('click', () => addRow());
     addRow();

@@ -145,6 +145,7 @@ class NationalPulloutTest extends TestCase
             ->assertSee('for="pulloutCsvFile"', false)
             ->assertSee("row.querySelector('.pullout-product-results').addEventListener('click'", false)
             ->assertSee("const results = row.querySelector('.pullout-product-results');", false)
+            ->assertSee('results.style.width = `${bounds.width}px`;', false)
             ->assertSee("const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-Out'];", false)
             ->assertDontSee('pullout-unit-type')
             ->assertDontSee('pullout-purpose')
