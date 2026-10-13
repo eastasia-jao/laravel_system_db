@@ -6,7 +6,9 @@
     .national-pullout-card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; }
     .national-pullout-page .page-hero { margin-bottom: 1rem; }
     .national-pullout-items { min-width: 520px; }
+    .national-pullout-items-scroll { max-height: 430px; overflow: auto; }
     .national-pullout-items th { color: #526178; background: #f8fafc; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+    .national-pullout-items th { position: sticky; top: 0; z-index: 2; }
     .national-pullout-items td { vertical-align: middle; }
     .pullout-product-results { position: absolute; z-index: 1080; top: calc(100% + 4px); left: 0; right: 0; max-height: 230px; overflow-y: auto; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.13); }
     .pullout-product-result { display: block; width: 100%; padding: .65rem .75rem; border: 0; border-bottom: 1px solid #edf1f6; color: #172033; background: #fff; text-align: left; }
@@ -67,7 +69,7 @@
             <button type="button" class="btn btn-outline-primary" id="addNationalPulloutItem"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
         </div>
 
-        <div class="table-responsive border rounded-3">
+        <div class="national-pullout-items-scroll border rounded-3">
             <table class="table mb-0 national-pullout-items">
                 <thead><tr><th style="min-width:320px">Product Item Name</th><th style="width:110px">Qty</th><th style="width:150px">Actual Pull-out</th></tr></thead>
                 <tbody id="nationalPulloutItems"></tbody>
