@@ -85,7 +85,7 @@
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 national-inventory-table" id="nationalInventoryTable">
-                <thead><tr><th class="text-center national-selection-col" style="width:48px"><input type="checkbox" class="form-check-input" id="nationalSelectAll" aria-label="Select all National products on this page"></th><th>Product</th><th>Item ID</th><th>Barcode</th><th>Brand</th><th>Unit Type</th><th class="text-center">Good Items</th><th class="text-center">Damaged Items</th><th class="text-center">Total Physical Stock</th><th>Status</th><th class="text-end national-actions-col">Actions</th></tr></thead>
+                <thead><tr><th class="text-center national-selection-col" style="width:48px"><input type="checkbox" class="form-check-input" id="nationalSelectAll" aria-label="Select all National products on this page"></th><th>Product</th><th>Item ID</th><th>Barcode</th><th>Brand</th><th>Unit Type</th><th class="text-center">Good Items</th><th class="text-center">Damaged Items</th><th class="text-center">Total Physical Stock</th><th class="text-end national-actions-col">Actions</th></tr></thead>
                 <tbody>
                     @forelse($nationalProducts as $product)
                     <tr>
@@ -98,7 +98,6 @@
                         <td class="text-center fw-bold">{{ number_format($product->stock) }}</td>
                         <td class="text-center fw-bold text-danger">{{ number_format($product->damaged_stock) }}</td>
                         <td class="text-center fw-bold national-total-stock">{{ number_format($product->stock + $product->damaged_stock) }}</td>
-                        <td><span class="badge {{ $product->status === 'active' ? 'text-bg-success' : 'text-bg-secondary' }}">{{ ucfirst($product->status) }}</span></td>
                         <td class="text-end national-actions-col">
                             <div class="d-flex justify-content-end gap-2">
                                 <button type="button" class="btn btn-sm btn-outline-primary" title="Edit National product" data-bs-toggle="modal" data-bs-target="#editNationalProductModal{{ $product->id }}"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -110,7 +109,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="11" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
+                    <tr><td colspan="10" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
                     @endforelse
                 </tbody>
             </table>
