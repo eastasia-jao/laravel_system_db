@@ -38,7 +38,7 @@
 
         <div class="d-flex flex-wrap gap-2 mb-4">
             <label class="btn btn-outline-primary" id="importPulloutCsv" for="pulloutCsvFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV)</label>
-            <a class="btn btn-outline-secondary" href="{{ route('national-pullouts.worksheet', ['hub_id' => $hub->id]) }}"><i class="fa-solid fa-download me-1"></i>Download CSV Worksheet</a>
+            <button type="button" class="btn btn-outline-secondary" id="downloadPulloutWorksheet"><i class="fa-solid fa-download me-1"></i>Download CSV Worksheet</button>
             <button type="button" class="btn btn-outline-success" id="exportPulloutSelected"><i class="fa-solid fa-file-export me-1"></i>Export Selected Items</button>
             <input type="file" class="visually-hidden" id="pulloutCsvFile" accept=".csv,text/csv" tabindex="-1" aria-label="Choose a pullout items CSV file">
         </div>
@@ -177,6 +177,16 @@
         return rows;
     };
     const csvCell = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const worksheetRows = itemRows => [
+        [
+            'P.O.#', document.getElementById('pulloutPoNumber').value.trim(),
+            'Date:', document.getElementById('pulloutDate').value,
+            'Remarks:', document.getElementById('pulloutRemarks').value.trim(),
+        ],
+        [],
+        ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out'],
+        ...itemRows,
+    ];
     const downloadCsv = rows => {
         const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n');
         const link = document.createElement('a');
@@ -188,17 +198,23 @@
     const exportRows = selectedOnly => {
         const rows = [...itemsBody.querySelectorAll('.national-pullout-item')].filter(row => !selectedOnly || row.querySelector('.pullout-export-check').checked);
         if (!rows.length) return showMessage('Select at least one item to export.', true);
-        downloadCsv([
-            ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out'],
-            ...rows.map(row => [
+        downloadCsv(worksheetRows(rows.map(row => [
                 row.querySelector('.pullout-product-search').value,
                 row.querySelector('.pullout-qty').value,
                 'National Bookstore Pullout',
                 row.dataset.physicalStock || '',
                 row.querySelector('.pullout-actual').value,
-            ]),
-        ]);
+            ])));
     };
+    document.getElementById('downloadPulloutWorksheet').addEventListener('click', () => {
+        downloadCsv(worksheetRows(products.map(product => [
+            product.name,
+            '',
+            'National Bookstore Pullout',
+            product.stock,
+            '',
+        ])));
+    });
     document.getElementById('exportPulloutSelected').addEventListener('click', () => exportRows(true));
 
     const fileInput = document.getElementById('pulloutCsvFile');

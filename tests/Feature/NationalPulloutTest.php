@@ -27,6 +27,7 @@ class NationalPulloutTest extends TestCase
                 ->assertDontSee('Download Print-Ready Excel Worksheet')
                 ->assertSee('Import Items (CSV)')
                 ->assertSee('Download CSV Worksheet')
+                ->assertSee('id="downloadPulloutWorksheet"', false)
                 ->assertSee('Export Selected Items')
                 ->assertSee('P.O. Number')
                 ->assertSee('Items to Pull Out')
@@ -147,6 +148,7 @@ class NationalPulloutTest extends TestCase
             ->assertSee("const results = row.querySelector('.pullout-product-results');", false)
             ->assertSee('results.style.width = `${bounds.width}px`;', false)
             ->assertSee("const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-Out'];", false)
+            ->assertSee("'P.O.#', document.getElementById('pulloutPoNumber').value.trim()", false)
             ->assertDontSee('pullout-unit-type')
             ->assertDontSee('pullout-purpose')
             ->assertDontSee('pullout-physical-stock');
