@@ -252,31 +252,15 @@
     #recordSaleModal #productRowsContainer > .row:first-child,
     #recordSaleModal #productRowsContainer .product-row {
         display: grid !important;
-        grid-template-columns: repeat(12, minmax(0, 1fr));
+        grid-template-columns: minmax(180px, 2.4fr) minmax(80px, .9fr) minmax(58px, .65fr) minmax(105px, 1.2fr) minmax(76px, .85fr) minmax(125px, 1.4fr) minmax(100px, 1fr) 42px;
         gap: .55rem;
         align-items: end;
     }
     #recordSaleModal #productRowsContainer > .row:first-child { padding: .48rem .6rem; }
-    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(1),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(1) { grid-column: span 4; width: auto; }
-    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(2),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(2) { grid-column: span 2; width: auto; }
-    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(3),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(3) { grid-column: span 1; width: auto; }
-    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(4),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(4) { grid-column: span 1; width: auto; }
-    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(5),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(5) { grid-column: span 1; width: auto; }
-    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(6),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(6) { grid-column: span 2; width: auto; }
-    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(7),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(7) { grid-column: span 1; width: auto; }
-    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(8),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(8) { grid-column: span 1; width: auto; }
+    #recordSaleModal #productRowsContainer > .row:first-child > *,
+    #recordSaleModal #productRowsContainer .product-row > * { width: auto; min-width: 0; }
     #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) > .row:first-child > :nth-child(7),
     #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(7) { display: none !important; }
-    #recordSaleModal #productRowsContainer.has-tiktok-fee > .row:first-child > :nth-child(1),
-    #recordSaleModal #productRowsContainer.has-tiktok-fee .product-row > :nth-child(1) { grid-column: span 3; }
     #recordSaleModal #productRowsContainer .product-row {
         position: relative;
         margin: 0 0 .55rem !important;
@@ -363,9 +347,6 @@
     }
     #recordSaleModal .sale-footer-summary { display: flex; align-items: center; gap: .75rem; min-width: 0; margin-right: auto; }
     #recordSaleModal .sale-footer-note { display: flex; align-items: center; gap: .4rem; min-width: 0; color: var(--sale-muted); font-size: .7rem; }
-    #recordSaleModal .sale-footer-total { min-width: 130px; padding-left: .8rem; border-left: 1px solid #dbe5f1; text-align: right; }
-    #recordSaleModal .sale-footer-total-label { display: block; color: var(--sale-muted); font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
-    #recordSaleModal #saleFooterGrandTotal { color: var(--sale-success); font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
     #recordSaleModal .modal-footer .btn { min-height: 40px; border-radius: 9px; }
     #recordSaleModal .modal-footer .btn-primary { min-width: 194px; }
     @media (max-width: 1023.98px) {
@@ -411,7 +392,6 @@
         #recordSaleModal .modal-footer { flex-direction: column; align-items: stretch; min-height: auto; padding: .65rem .75rem; }
         #recordSaleModal .sale-footer-summary { order: 2; width: 100%; justify-content: space-between; }
         #recordSaleModal .sale-footer-note span { max-width: 185px; }
-        #recordSaleModal .sale-footer-total { min-width: 120px; }
         #recordSaleModal .sale-footer-actions { display: flex; flex-direction: column; gap: .5rem; order: 1; }
         #recordSaleModal .sale-footer-actions .btn { width: 100%; min-height: 44px; }
         #recordSaleModal .sale-footer-actions .btn-primary { order: -1; }
@@ -1007,10 +987,6 @@
                 <div class="modal-footer bg-light w-100">
                     <div class="sale-footer-summary">
                         <div class="sale-footer-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Stock is deducted after inventory verification.</span></div>
-                        <div class="sale-footer-total">
-                            <span class="sale-footer-total-label">Total amount</span>
-                            <span id="saleFooterGrandTotal" aria-live="polite">₱0.00</span>
-                        </div>
                     </div>
                     <div class="sale-footer-actions">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -1488,7 +1464,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // Comprehensive Calculations for Subtotals and Total Amounts
     function calculateTotals() {
         let cumulativeSubTotal = 0;
-        let footerTotal = 0;
         const channelVal = channelSelect ? (channelSelect.value || '').trim() : '';
         const showTikTokFee = channelVal === 'tiktok';
         document.getElementById('productRowsContainer')?.classList.toggle('has-tiktok-fee', showTikTokFee);
@@ -1518,8 +1493,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 feeDisplay.value = '₱' + fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
         });
-        footerTotal = cumulativeSubTotal;
-
         // Assign to respective active channel total fields
         if (channelVal === 'shopee' || channelVal === 'lazada') {
             const subTotalInput = document.getElementById('shopeeSubTotal');
@@ -1539,8 +1512,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const shipType = shipTypeSelect ? shipTypeSelect.value : 'Free';
             const discountedSubTotal = cumulativeSubTotal * (1 - (addDiscPercent / 100));
             const wholesaleGrandTotal = discountedSubTotal;
-            footerTotal = wholesaleGrandTotal;
-
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
             if (subTotalDisplay) subTotalDisplay.value = '₱' + cumulativeSubTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             
@@ -1556,7 +1527,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const deliveryFee = deliveryFeeInput ? parseFloat(deliveryFeeInput.value) || 0 : 0;
             const onlineGrandTotal = cumulativeSubTotal + deliveryFee;
-            footerTotal = onlineGrandTotal;
             const difference = onlineGrandTotal - cumulativeSubTotal;
 
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
@@ -1570,14 +1540,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const addDiscPercent = addDiscInput ? parseFloat(addDiscInput.value) || 0 : 0;
             const walkInGrandTotal = cumulativeSubTotal * (1 - (addDiscPercent / 100));
-            footerTotal = walkInGrandTotal;
-
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
             if (grandTotalInput) grandTotalInput.value = walkInGrandTotal.toFixed(2);
-        }
-        const footerTotalDisplay = document.getElementById('saleFooterGrandTotal');
-        if (footerTotalDisplay) {
-            footerTotalDisplay.textContent = '₱' + footerTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
     }
 
