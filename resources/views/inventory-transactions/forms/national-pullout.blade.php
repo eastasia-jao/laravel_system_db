@@ -105,10 +105,10 @@
         row.querySelector('.pullout-product-search').value = product.name;
         row.querySelector('.pullout-product-id').value = product.id;
         row.dataset.physicalStock = product.stock;
-        row.querySelector('.pullout-results').hidden = true;
+        row.querySelector('.pullout-product-results').hidden = true;
     };
     const renderResults = (row, term) => {
-        const results = row.querySelector('.pullout-results');
+        const results = row.querySelector('.pullout-product-results');
         const matches = products.filter(product => {
             const haystack = `${product.name} ${product.item_id}`.toLowerCase();
             return haystack.includes(term.toLowerCase());
@@ -131,7 +131,7 @@
             row.querySelector('.pullout-product-id').value = '';
             renderResults(row, search.value.trim());
         });
-        row.querySelector('.pullout-results').addEventListener('click', event => {
+        row.querySelector('.pullout-product-results').addEventListener('click', event => {
             const button = event.target.closest('[data-product-id]');
             if (!button) return;
             selectProduct(row, products.find(product => product.id === Number(button.dataset.productId)));
