@@ -32,11 +32,10 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('Items to Pull Out')
                 ->assertSee('<th style="min-width:320px">Product Item Name</th>', false)
                 ->assertSee('<th style="width:110px">Qty</th>', false)
-                ->assertSee('<th style="width:150px">Actual Pull-out</th>', false)
+                ->assertDontSee('Actual Pull-out')
                 ->assertDontSee('Physical Stocks')
                 ->assertDontSee('<th>Unit Type</th>', false)
                 ->assertDontSee('<th>Purpose</th>', false)
-                ->assertSee('Actual Pull-out')
                 ->assertSee($product->name);
         }
 
@@ -72,8 +71,8 @@ class NationalPulloutTest extends TestCase
         ]))->assertOk();
 
         $rows = $this->csvRows($response->streamedContent());
-        $this->assertSame(['Product Item Name', 'Qty', 'Actual Pull-out'], $rows[0]);
-        $this->assertSame([$product->name, '', ''], $rows[1]);
+        $this->assertSame(['Product Item Name', 'Qty'], $rows[0]);
+        $this->assertSame([$product->name, ''], $rows[1]);
         $this->assertNotContains('P.O. #:', array_column($rows, 0));
         $this->assertNotContains('Date:', array_column($rows, 0));
         $this->assertNotContains('Remarks:', array_column($rows, 0));
@@ -115,17 +114,17 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString('width="9.5" customWidth="1"', $sheet);
             $this->assertStringContainsString('ht="20" customHeight="1"', $sheet);
             $this->assertStringContainsString('name="_xlnm.Print_Titles"', $workbookXml);
-            $this->assertStringContainsString('dimension ref="A1:C4"', $sheet);
+            $this->assertStringContainsString('dimension ref="A1:B4"', $sheet);
             $this->assertStringContainsString('Product Item Name', $sheet);
             $this->assertStringContainsString('Qty', $sheet);
-            $this->assertStringContainsString('Actual Pull-out', $sheet);
+            $this->assertStringNotContainsString('Actual Pull-out', $sheet);
             $this->assertStringNotContainsString('Physical Stocks', $sheet);
             $this->assertStringNotContainsString('Unit Type', $sheet);
             $this->assertStringNotContainsString('Purpose', $sheet);
             $this->assertStringContainsString('r="A4"', $sheet);
             $this->assertStringContainsString($product->name, $sheet);
             $this->assertStringContainsString('<c r="B4" s="4"/>', $sheet);
-            $this->assertStringContainsString('<c r="C4" s="4"/>', $sheet);
+            $this->assertStringNotContainsString('r="C4"', $sheet);
             $this->assertStringContainsString('wrapText="1"', $styles);
         } finally {
             unset($workbook);
@@ -148,7 +147,7 @@ class NationalPulloutTest extends TestCase
             ->assertDontSee('pullout-physical-stock');
     }
 
-    public function test_saving_a_pullout_deducts_actual_quantity_and_appears_in_transaction_logs(): void
+    public function test_saving_a_pullout_deducts_quantity_and_appears_in_transaction_logs(): void
     {
         [$headOffice] = $this->hubs();
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
@@ -162,8 +161,7 @@ class NationalPulloutTest extends TestCase
                 'remarks' => 'For National Bookstore replenishment.',
                 'items' => [[
                     'product_id' => $product->id,
-                    'quantity' => 5,
-                    'actual_pullout' => 3,
+                    'quantity' => 3,
                 ]],
             ])
             ->assertSessionHasNoErrors()
@@ -200,8 +198,8 @@ class NationalPulloutTest extends TestCase
         $this->assertSame(['P.O. #:', 'PO-1001'], $rows[0]);
         $this->assertSame(['Date:', '2026-10-09'], $rows[1]);
         $this->assertSame(['Remarks:', 'For National Bookstore replenishment.'], $rows[2]);
-        $this->assertSame(['Product Item Name', 'Qty', 'Actual Pull-out'], $rows[4]);
-        $this->assertSame([$product->name, '5', '3'], $rows[5]);
+        $this->assertSame(['Product Item Name', 'Qty'], $rows[4]);
+        $this->assertSame([$product->name, '3'], $rows[5]);
     }
 
     public function test_invalid_pullout_is_atomic_and_duplicate_po_numbers_are_rejected(): void
@@ -216,16 +214,15 @@ class NationalPulloutTest extends TestCase
             'occurred_on' => '2026-10-09',
             'items' => [[
                 'product_id' => $product->id,
-                'quantity' => 5,
-                'actual_pullout' => 6,
+                'quantity' => 11,
             ]],
         ];
         $this->actingAs($admin)->post(route('national-pullouts.store'), $payload)
-            ->assertSessionHasErrors('items.0.actual_pullout');
+            ->assertSessionHasErrors('items.0.quantity');
         $this->assertDatabaseCount('national_pullouts', 0);
         $this->assertSame(10, $product->fresh()->stock);
 
-        $payload['items'][0]['actual_pullout'] = 2;
+        $payload['items'][0]['quantity'] = 2;
         $this->actingAs($admin)->post(route('national-pullouts.store'), $payload)
             ->assertSessionHasNoErrors();
         $this->assertSame(8, $product->fresh()->stock);

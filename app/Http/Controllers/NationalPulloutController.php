@@ -43,7 +43,6 @@ class NationalPulloutController extends Controller
             'items' => ['required', 'array', 'min:1', 'max:200'],
             'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:national_products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.actual_pullout' => ['required', 'integer', 'min:1'],
         ]);
 
         DB::transaction(function () use ($validated, $request, $hub) {
@@ -61,11 +60,8 @@ class NationalPulloutController extends Controller
 
             foreach ($validated['items'] as $index => $item) {
                 $product = $products->get((int) $item['product_id']);
-                if ((int) $item['actual_pullout'] > (int) $item['quantity']) {
-                    throw ValidationException::withMessages(["items.{$index}.actual_pullout" => 'Actual Pull-out cannot exceed Qty.']);
-                }
-                if ((int) $item['actual_pullout'] > (int) $product->stock) {
-                    throw ValidationException::withMessages(["items.{$index}.actual_pullout" => "Actual Pull-out exceeds the physical stock for {$product->name}."]);
+                if ((int) $item['quantity'] > (int) $product->stock) {
+                    throw ValidationException::withMessages(["items.{$index}.quantity" => "Qty exceeds the physical stock for {$product->name}."]);
                 }
             }
 
@@ -88,9 +84,10 @@ class NationalPulloutController extends Controller
                     'unit_type' => $product->unit_type,
                     'purpose' => 'National Bookstore Pullout',
                     'physical_stock' => $physicalStock,
-                    'actual_pullout' => (int) $item['actual_pullout'],
+                    // Keep the legacy audit field populated for existing reports.
+                    'actual_pullout' => (int) $item['quantity'],
                 ]);
-                $product->decrement('stock', (int) $item['actual_pullout']);
+                $product->decrement('stock', (int) $item['quantity']);
             }
         });
 
@@ -113,10 +110,10 @@ class NationalPulloutController extends Controller
             function () use ($products) {
                 $file = fopen('php://output', 'wb');
                 fwrite($file, "\xEF\xBB\xBF");
-                fputcsv($file, ['Product Item Name', 'Qty', 'Actual Pull-out']);
+                fputcsv($file, ['Product Item Name', 'Qty']);
                 $products->chunk(250, function ($chunk) use ($file) {
                     foreach ($chunk as $product) {
-                        fputcsv($file, [$product->name, '', '']);
+                        fputcsv($file, [$product->name, '']);
                     }
                 });
                 fclose($file);
@@ -137,7 +134,6 @@ class NationalPulloutController extends Controller
         $items = $products->map(fn (NationalProduct $product) => [
             'name' => $product->name,
             'quantity' => '',
-            'actual_pullout' => '',
         ])->all();
         $path = NationalPulloutWorkbook::create($items);
 
@@ -165,7 +161,6 @@ class NationalPulloutController extends Controller
                     fputcsv($file, [
                         $item->product_name,
                         $item->quantity,
-                        $item->actual_pullout,
                     ]);
                 }
             }
@@ -181,7 +176,7 @@ class NationalPulloutController extends Controller
             fputcsv($file, ['Date:', $date]);
             fputcsv($file, ['Remarks:', $remarks]);
             fputcsv($file, []);
-            fputcsv($file, ['Product Item Name', 'Qty', 'Actual Pull-out']);
+            fputcsv($file, ['Product Item Name', 'Qty']);
             $writeItems($file);
             fclose($file);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);

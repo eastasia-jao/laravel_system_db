@@ -10,7 +10,7 @@ use ZipArchive;
 class NationalPulloutWorkbook
 {
     /**
-     * @param  list<array{name: string, quantity: int|string, actual_pullout: int|string}>  $items
+     * @param  list<array{name: string, quantity: int|string}>  $items
      */
     public static function create(array $items): string
     {
@@ -77,7 +77,7 @@ class NationalPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, quantity: int|string, actual_pullout: int|string}>  $items
+     * @param  list<array{name: string, quantity: int|string}>  $items
      * @return array<string, string>
      */
     private static function workbookFiles(array $items): array
@@ -86,7 +86,7 @@ class NationalPulloutWorkbook
         $rows = [
             self::rowXml(1, ['P.O. #:', 'Date:', 'Remarks:'], 20, 3),
             self::rowXml(2, array_fill(0, 3, ''), 20, 1),
-            self::rowXml(3, ['Product Item Name', 'Qty', 'Actual Pull-out'], 30, 2),
+            self::rowXml(3, ['Product Item Name', 'Qty'], 30, 2),
         ];
 
         foreach ($items as $index => $item) {
@@ -94,8 +94,7 @@ class NationalPulloutWorkbook
             $rows[] = self::rowXml($row, [
                 $item['name'],
                 $item['quantity'],
-                $item['actual_pullout'],
-            ], 20, 1, [1 => 4, 2 => 4]);
+            ], 20, 1, [1 => 4]);
         }
 
         $sheetData = implode('', $rows);
@@ -116,7 +115,7 @@ class NationalPulloutWorkbook
             'xl/workbook.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 .'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
                 .'<sheets><sheet name="Pullout" sheetId="1" r:id="rId1"/></sheets>'
-                .'<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'Pullout\'!$A$1:$C$'.$lastRow.'</definedName>'
+                .'<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'Pullout\'!$A$1:$B$'.$lastRow.'</definedName>'
                 .'<definedName name="_xlnm.Print_Titles" localSheetId="0">\'Pullout\'!$1:$3</definedName></definedNames>'
                 .'</workbook>',
             'xl/_rels/workbook.xml.rels' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -128,11 +127,11 @@ class NationalPulloutWorkbook
             'xl/worksheets/sheet1.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
                 .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
-                .'<dimension ref="A1:C'.$lastRow.'"/>'
+                .'<dimension ref="A1:B'.$lastRow.'"/>'
                 .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews>'
                 .'<sheetFormatPr defaultRowHeight="15"/>'
                 .'<cols><col min="1" max="1" width="48" customWidth="1"/>'
-                .'<col min="2" max="3" width="9.5" customWidth="1"/></cols>'
+                .'<col min="2" max="2" width="9.5" customWidth="1"/></cols>'
                 .'<sheetData>'.$sheetData.'</sheetData>'
                 .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
                 .'<pageMargins left="0.6" right="0" top="0" bottom="0" header="0" footer="0"/>'
