@@ -205,9 +205,11 @@
             if (headerIndex < 0) return showMessage('The CSV must contain the Product Item Name header.', true);
             const headers = rows[headerIndex].map(value => value.trim().toLowerCase());
             const column = name => headers.indexOf(name.toLowerCase());
-            const requiredHeaders = ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out'];
+            // Purpose and Physical Stocks are reference columns in the downloaded worksheet.
+            // Import only needs the customer request and the actual quantity pulled out.
+            const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-Out'];
             if (requiredHeaders.some(name => column(name) < 0)) {
-                return showMessage('The CSV must contain Product Item Name, Qty, Purpose, Physical Stocks, and Actual Pull-Out.', true);
+                return showMessage('The CSV must contain Product Item Name, Qty, and Actual Pull-Out.', true);
             }
             const imported = []; const errors = [];
             rows.slice(headerIndex + 1).forEach((values, offset) => {
