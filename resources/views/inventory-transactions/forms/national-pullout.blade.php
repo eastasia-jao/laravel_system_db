@@ -37,10 +37,10 @@
         <input type="hidden" name="hub_id" value="{{ $hub->id }}">
 
         <div class="d-flex flex-wrap gap-2 mb-4">
-            <label class="btn btn-outline-primary" id="importPulloutCsv" for="pulloutCsvFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV)</label>
+            <label class="btn btn-outline-primary" id="importPulloutWorksheet" for="pulloutWorksheetFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV / Excel)</label>
             <button type="button" class="btn btn-outline-secondary" id="downloadPulloutWorksheet"><i class="fa-solid fa-file-excel me-1"></i>Download Excel Worksheet</button>
             <button type="button" class="btn btn-outline-success" id="exportPulloutItems"><i class="fa-solid fa-file-excel me-1"></i>Export Items (Excel)</button>
-            <input type="file" class="visually-hidden" id="pulloutCsvFile" accept=".csv,text/csv" tabindex="-1" aria-label="Choose a pullout items CSV file">
+            <input type="file" class="visually-hidden" id="pulloutWorksheetFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" tabindex="-1" aria-label="Choose a pullout items CSV or Excel file">
         </div>
         <div id="pulloutCsvMessage" class="small mb-3" role="alert" hidden></div>
 
@@ -222,11 +222,52 @@
         exportForm.remove();
     });
 
-    const fileInput = document.getElementById('pulloutCsvFile');
+    const importRows = (sourceRows, sourceLabel) => {
+        const imported = []; const errors = []; const importedIds = new Set();
+        sourceRows.forEach((values, offset) => {
+            const name = String(values.name || '').trim();
+            const qty = String(values.quantity ?? '').trim();
+            const actual = String(values.actual_pullout ?? '').trim();
+            if (!name || (!qty && !actual)) return;
+            const matches = byName.get(name.toLowerCase()) || [];
+            if (matches.length !== 1) { errors.push(`Row ${values.row || offset + 1}: ${name} was not found uniquely.`); return; }
+            if (importedIds.has(String(matches[0].id))) { errors.push(`Row ${values.row || offset + 1}: ${name} is duplicated.`); return; }
+            importedIds.add(String(matches[0].id));
+            imported.push({product: matches[0], quantity: qty, actual});
+        });
+        if (errors.length) { showMessage(errors.join('\n'), true); return false; }
+        if (!imported.length) { showMessage(`No completed pull-out rows were found in the ${sourceLabel}.`, true); return false; }
+        itemsBody.innerHTML = '';
+        imported.forEach(values => addRow(values));
+        showMessage(`${imported.length} item row(s) imported. Review the quantities before saving.`);
+        return true;
+    };
+
+    const fileInput = document.getElementById('pulloutWorksheetFile');
     fileInput.addEventListener('change', async () => {
         if (!fileInput.files[0]) return;
         try {
-            const rows = parseCsv((await fileInput.files[0].text()).replace(/^\uFEFF/, ''));
+            const file = fileInput.files[0];
+            if (file.name.toLowerCase().endsWith('.xlsx')) {
+                const formData = new FormData();
+                formData.append('_token', document.querySelector('#nationalPulloutForm [name="_token"]').value);
+                formData.append('hub_id', document.querySelector('[name="hub_id"]').value);
+                formData.append('worksheet', file);
+                const response = await fetch('{{ route('national-pullouts.import-excel-worksheet') }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {'Accept': 'application/json'},
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.errors?.worksheet?.[0] || data.message || 'The Excel worksheet could not be imported.');
+                if (!importRows(data.items || [], 'Excel worksheet')) return;
+                if (data.po_number) document.getElementById('pulloutPoNumber').value = data.po_number;
+                if (data.occurred_on) document.getElementById('pulloutDate').value = data.occurred_on;
+                if (data.remarks) document.getElementById('pulloutRemarks').value = data.remarks;
+                return;
+            }
+
+            const rows = parseCsv((await file.text()).replace(/^\uFEFF/, ''));
             const headerIndex = rows.findIndex(row => (row[0] || '').trim().toLowerCase() === 'product item name');
             if (headerIndex < 0) return showMessage('The CSV must contain the Product Item Name header.', true);
             const headers = rows[headerIndex].map(value => value.trim().toLowerCase());
@@ -237,23 +278,15 @@
             if (requiredHeaders.some(name => column(name) < 0)) {
                 return showMessage('The CSV must contain Product Item Name, Qty, and Actual Pull-Out.', true);
             }
-            const imported = []; const errors = [];
-            rows.slice(headerIndex + 1).forEach((values, offset) => {
-                const name = (values[column('Product Item Name')] || '').trim();
-                const qty = (values[column('Qty')] || '').trim();
-                const actual = (values[column('Actual Pull-Out')] || '').trim();
-                if (!name || (!qty && !actual)) return;
-                const matches = byName.get(name.toLowerCase()) || [];
-                if (matches.length !== 1) { errors.push(`Row ${headerIndex + offset + 2}: ${name} was not found uniquely.`); return; }
-                imported.push({product: matches[0], quantity: qty, actual});
-            });
-            if (errors.length) return showMessage(errors.join('\n'), true);
-            if (!imported.length) return showMessage('No completed pull-out rows were found in the CSV.', true);
-            itemsBody.innerHTML = ''; imported.forEach(values => addRow(values));
-            showMessage(`${imported.length} item row(s) imported. Review the quantities before saving.`);
+            importRows(rows.slice(headerIndex + 1).map((values, offset) => ({
+                name: values[column('Product Item Name')],
+                quantity: values[column('Qty')],
+                actual_pullout: values[column('Actual Pull-Out')],
+                row: headerIndex + offset + 2,
+            })), 'CSV');
         } catch (error) {
-            showMessage('The selected CSV could not be read. Please choose a valid CSV file and try again.', true);
-            console.error('National Bookstore Pullout CSV import failed.', error);
+            showMessage(error.message || 'The selected worksheet could not be read. Please choose a valid CSV or Excel file and try again.', true);
+            console.error('National Bookstore Pullout worksheet import failed.', error);
         } finally {
             fileInput.value = '';
         }

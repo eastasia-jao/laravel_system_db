@@ -10,6 +10,100 @@ use ZipArchive;
 class NationalPulloutWorkbook
 {
     /**
+     * @return array{po_number: string, occurred_on: string, remarks: string, items: list<array{name: string, quantity: string, actual_pullout: string}>}
+     */
+    public static function read(string $path): array
+    {
+        $sharedStringsXml = self::archiveEntry($path, 'xl/sharedStrings.xml', false);
+        $sharedStrings = $sharedStringsXml === null ? [] : self::sharedStrings($sharedStringsXml);
+        $sheetXml = self::archiveEntry($path, 'xl/worksheets/sheet1.xml');
+        $document = new \DOMDocument;
+        if (! $document->loadXML($sheetXml)) {
+            throw new RuntimeException('The Excel worksheet XML is invalid.');
+        }
+        $xpath = new \DOMXPath($document);
+        $xpath->registerNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        $rows = [];
+        foreach ($xpath->query('//x:sheetData/x:row') as $rowNode) {
+            $rowNumber = (int) $rowNode->getAttribute('r');
+            foreach ($xpath->query('./x:c', $rowNode) as $cell) {
+                preg_match('/^([A-Z]+)/', $cell->getAttribute('r'), $match);
+                $column = self::columnNumber($match[1] ?? 'A');
+                $type = $cell->getAttribute('t');
+                if ($type === 'inlineStr') {
+                    $value = '';
+                    foreach ($xpath->query('.//x:is//x:t', $cell) as $textNode) {
+                        $value .= $textNode->textContent;
+                    }
+                } else {
+                    $valueNode = $xpath->query('./x:v', $cell)->item(0);
+                    $value = $valueNode?->textContent ?? '';
+                    if ($type === 's') {
+                        $value = $sharedStrings[(int) $value] ?? '';
+                    }
+                }
+                $rows[$rowNumber][$column] = trim((string) $value);
+            }
+        }
+
+        $poNumber = $occurredOn = $remarks = '';
+        foreach ($rows as $row) {
+            foreach ($row as $value) {
+                if (preg_match('/^P\.O\.\s*#:\s*(.*)$/i', $value, $match)) {
+                    $poNumber = trim($match[1]);
+                } elseif (preg_match('/^Date:\s*(.*)$/i', $value, $match)) {
+                    $occurredOn = trim($match[1]);
+                } elseif (preg_match('/^Remarks:\s*(.*)$/i', $value, $match)) {
+                    $remarks = trim($match[1]);
+                }
+            }
+        }
+
+        $headerRow = null;
+        $columns = [];
+        foreach ($rows as $rowNumber => $row) {
+            foreach ($row as $column => $value) {
+                $heading = strtolower(trim($value));
+                if ($heading === 'product item name') {
+                    $headerRow = $rowNumber;
+                    $columns['name'] = $column;
+                } elseif ($heading === 'qty') {
+                    $columns['quantity'] = $column;
+                } elseif (in_array($heading, ['actual pull-out', 'actual pull out'], true)) {
+                    $columns['actual_pullout'] = $column;
+                }
+            }
+            if ($headerRow !== null) {
+                break;
+            }
+        }
+        if ($headerRow === null || ! isset($columns['quantity'], $columns['actual_pullout'])) {
+            throw new RuntimeException('The Excel worksheet must contain Product Item Name, Qty, and Actual Pull-out headers.');
+        }
+
+        $items = [];
+        foreach ($rows as $rowNumber => $row) {
+            if ($rowNumber <= $headerRow) {
+                continue;
+            }
+            $name = trim($row[$columns['name']] ?? '');
+            $quantity = trim($row[$columns['quantity']] ?? '');
+            $actual = trim($row[$columns['actual_pullout']] ?? '');
+            if ($name === '' || ($quantity === '' && $actual === '')) {
+                continue;
+            }
+            $items[] = ['name' => $name, 'quantity' => $quantity, 'actual_pullout' => $actual];
+        }
+
+        return [
+            'po_number' => $poNumber,
+            'occurred_on' => $occurredOn,
+            'remarks' => $remarks,
+            'items' => $items,
+        ];
+    }
+
+    /**
      * @param  list<array{name: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
      * @param  array{po_number?: string, occurred_on?: string, remarks?: string}  $document
      */
@@ -75,6 +169,62 @@ class NationalPulloutWorkbook
             $archive->addFromString($name, $content);
         }
         unset($archive);
+    }
+
+    private static function archiveEntry(string $path, string $name, bool $required = true): ?string
+    {
+        if (class_exists(ZipArchive::class)) {
+            $archive = new ZipArchive;
+            if ($archive->open($path) !== true) {
+                throw new RuntimeException('Unable to open the Excel workbook.');
+            }
+            $content = $archive->getFromName($name);
+            $archive->close();
+        } else {
+            try {
+                $archive = new PharData($path, 0, null, Phar::ZIP);
+                $content = isset($archive[$name]) ? $archive[$name]->getContent() : false;
+                unset($archive);
+            } catch (\Throwable $exception) {
+                throw new RuntimeException('Unable to open the Excel workbook.', 0, $exception);
+            }
+        }
+        if ($content === false && $required) {
+            throw new RuntimeException("The Excel workbook is missing {$name}.");
+        }
+
+        return $content === false ? null : $content;
+    }
+
+    /** @return list<string> */
+    private static function sharedStrings(string $xml): array
+    {
+        $document = new \DOMDocument;
+        if (! $document->loadXML($xml)) {
+            return [];
+        }
+        $xpath = new \DOMXPath($document);
+        $xpath->registerNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        $strings = [];
+        foreach ($xpath->query('//x:si') as $item) {
+            $value = '';
+            foreach ($xpath->query('.//x:t', $item) as $textNode) {
+                $value .= $textNode->textContent;
+            }
+            $strings[] = $value;
+        }
+
+        return $strings;
+    }
+
+    private static function columnNumber(string $name): int
+    {
+        $number = 0;
+        foreach (str_split($name) as $character) {
+            $number = ($number * 26) + ord($character) - 64;
+        }
+
+        return $number;
     }
 
     /**

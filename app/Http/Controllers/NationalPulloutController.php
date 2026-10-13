@@ -223,6 +223,32 @@ class NationalPulloutController extends Controller
         )->deleteFileAfterSend(true);
     }
 
+    public function importExcelWorksheet(Request $request)
+    {
+        $this->headOffice($request);
+        $request->validate([
+            'worksheet' => ['required', 'file', 'max:10240'],
+        ]);
+
+        $worksheet = $request->file('worksheet');
+        if (strtolower($worksheet->getClientOriginalExtension()) !== 'xlsx') {
+            throw ValidationException::withMessages([
+                'worksheet' => 'Please choose a valid .xlsx Excel worksheet.',
+            ]);
+        }
+
+        try {
+            $data = NationalPulloutWorkbook::read($worksheet->getRealPath());
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw ValidationException::withMessages([
+                'worksheet' => 'The Excel worksheet could not be read. Use the downloaded National Bookstore Pullout template.',
+            ]);
+        }
+
+        return response()->json($data);
+    }
+
     private function csvResponse(string $filename, string $poNumber, string $date, string $remarks, callable $writeItems)
     {
         return response()->streamDownload(function () use ($poNumber, $date, $remarks, $writeItems) {

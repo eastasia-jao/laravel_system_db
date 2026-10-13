@@ -7,6 +7,7 @@ use App\Models\NationalPullout;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class NationalPulloutTest extends TestCase
@@ -25,7 +26,7 @@ class NationalPulloutTest extends TestCase
                 ->assertOk()
                 ->assertSee('National Bookstore Pullout')
                 ->assertDontSee('Download Print-Ready Excel Worksheet')
-                ->assertSee('Import Items (CSV)')
+                ->assertSee('Import Items (CSV / Excel)')
                 ->assertSee('Download Excel Worksheet')
                 ->assertSee('id="downloadPulloutWorksheet"', false)
                 ->assertSee('Export Items (Excel)')
@@ -152,7 +153,8 @@ class NationalPulloutTest extends TestCase
         $this->actingAs($admin)
             ->get(route('national-pullouts.create', ['hub_id' => $headOffice->id]))
             ->assertOk()
-            ->assertSee('for="pulloutCsvFile"', false)
+            ->assertSee('for="pulloutWorksheetFile"', false)
+            ->assertSee('.csv,.xlsx', false)
             ->assertSee("row.querySelector('.pullout-product-results').addEventListener('click'", false)
             ->assertSee("const results = row.querySelector('.pullout-product-results');", false)
             ->assertSee('results.style.width = `${bounds.width}px`;', false)
@@ -160,10 +162,48 @@ class NationalPulloutTest extends TestCase
             ->assertSee("const selectedProductIds = excludedRow", false)
             ->assertSee("document.addEventListener('scroll', hideProductResults, true)", false)
             ->assertSee('/inventory-transactions/national-pullout/worksheet/excel/export', false)
+            ->assertSee('/inventory-transactions/national-pullout/worksheet/excel/import', false)
             ->assertDontSee('pullout-export-check')
             ->assertDontSee('pullout-unit-type')
             ->assertDontSee('pullout-purpose')
             ->assertDontSee('pullout-physical-stock');
+    }
+
+    public function test_excel_worksheet_can_be_imported_with_document_and_item_values(): void
+    {
+        [$headOffice] = $this->hubs();
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+        $product = $this->product();
+        $path = \App\Support\NationalPulloutWorkbook::create([[
+            'name' => $product->name,
+            'quantity' => 5,
+            'purpose' => 'National Bookstore Pullout',
+            'physical_stock' => 10,
+            'actual_pullout' => 3,
+        ]], [
+            'po_number' => 'PO-IMPORT-1',
+            'occurred_on' => '2026-10-13',
+            'remarks' => 'Imported worksheet',
+        ]);
+
+        try {
+            $file = new UploadedFile($path, 'national-pullout.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+            $this->actingAs($admin)->postJson(route('national-pullouts.import-excel-worksheet'), [
+                'hub_id' => $headOffice->id,
+                'worksheet' => $file,
+            ])->assertOk()->assertExactJson([
+                'po_number' => 'PO-IMPORT-1',
+                'occurred_on' => '2026-10-13',
+                'remarks' => 'Imported worksheet',
+                'items' => [[
+                    'name' => $product->name,
+                    'quantity' => '5',
+                    'actual_pullout' => '3',
+                ]],
+            ]);
+        } finally {
+            if (is_file($path)) unlink($path);
+        }
     }
 
     public function test_exporting_current_items_uses_the_excel_worksheet_template(): void
