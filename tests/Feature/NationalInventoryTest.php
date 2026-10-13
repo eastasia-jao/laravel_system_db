@@ -29,7 +29,9 @@ class NationalInventoryTest extends TestCase
             $this->actingAs($user)
                 ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
                 ->assertOk()
-                ->assertSee('Separate inventory:');
+                ->assertSee('Separate inventory:')
+                ->assertSee('Good Items')
+                ->assertSee('Damaged Items');
             $this->actingAs($user)
                 ->get(route('products.index', ['hub_id' => $branch->id]))
                 ->assertOk()
@@ -55,9 +57,9 @@ class NationalInventoryTest extends TestCase
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
         $csv = implode("\n", [
-            'ID,Item ID,Name,Description,Barcode,Brand,Stock,Unit Type',
-            '1,="00001",National Brush,National-only brush,="007661234567891234567890",ArtCo,15,PCS',
-            '2,NAT-2,National Paint,National-only paint,90002,ColorCo,9,CAN',
+            'ID,Item ID,Name,Description,Barcode,Brand,Good Items,Damaged Items,Unit Type',
+            '1,="00001",National Brush,National-only brush,="007661234567891234567890",ArtCo,15,2,PCS',
+            '2,NAT-2,National Paint,National-only paint,90002,ColorCo,9,0,CAN',
         ])."\n";
 
         $this->actingAs($admin)
@@ -72,6 +74,7 @@ class NationalInventoryTest extends TestCase
         $this->assertDatabaseCount('national_products', 2);
         $this->assertDatabaseCount('products', 0);
         $this->assertSame('007661234567891234567890', NationalProduct::where('item_id', '00001')->value('barcode'));
+        $this->assertSame(2, NationalProduct::where('item_id', '00001')->value('damaged_stock'));
         $this->actingAs($admin)
             ->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
             ->assertOk()
@@ -90,7 +93,7 @@ class NationalInventoryTest extends TestCase
         $export = $response->streamedContent();
         $this->assertStringContainsString('National Brush', $export);
         $lines = preg_split('/\r\n|\r|\n/', preg_replace('/^\xEF\xBB\xBF/', '', $export));
-        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Stock', 'Unit Type'], str_getcsv($lines[0]));
+        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Good Items', 'Damaged Items', 'Unit Type'], str_getcsv($lines[0]));
         $firstProduct = str_getcsv($lines[1]);
         $this->assertSame('="00001"', $firstProduct[1]);
         $this->assertSame('="007661234567891234567890"', $firstProduct[4]);
@@ -140,7 +143,7 @@ class NationalInventoryTest extends TestCase
         $export = preg_replace('/^\xEF\xBB\xBF/', '', $response->streamedContent());
         $lines = array_values(array_filter(preg_split('/\r\n|\r|\n/', $export), fn ($line) => $line !== ''));
         $this->assertCount(1, $lines);
-        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Stock', 'Unit Type'], str_getcsv($lines[0]));
+        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Good Items', 'Damaged Items', 'Unit Type'], str_getcsv($lines[0]));
 
         $exportLog = StaffActivityLog::where('action_type', 'product_export')->sole();
         $this->assertSame(0, $exportLog->details['item_count']);

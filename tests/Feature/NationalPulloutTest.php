@@ -397,7 +397,8 @@ class NationalPulloutTest extends TestCase
                 'type' => 'return',
             ]));
 
-        $this->assertSame(9, $product->fresh()->stock);
+        $this->assertSame(8, $product->fresh()->stock);
+        $this->assertSame(1, $product->fresh()->damaged_stock);
         $returns = InventoryTransaction::where('channel', 'national_bookstore')->get();
         $this->assertCount(2, $returns);
         $this->assertSame(['damaged', 'good'], $returns->pluck('condition')->sort()->values()->all());
@@ -413,7 +414,15 @@ class NationalPulloutTest extends TestCase
         $payload['items'][0]['good_quantity'] = 2;
         $this->actingAs($admin)->post(route('inventory-transactions.return.store'), $payload)
             ->assertSessionHasErrors('items');
-        $this->assertSame(9, $product->fresh()->stock);
+        $this->assertSame(8, $product->fresh()->stock);
+        $this->assertSame(1, $product->fresh()->damaged_stock);
+
+        $this->actingAs($admin)->get(route('national-inventory.index', ['hub_id' => $headOffice->id]))
+            ->assertOk()
+            ->assertSee('Good Items')
+            ->assertSee('Damaged Items')
+            ->assertViewHas('nationalProducts', fn ($products) => (int) $products->first()->stock === 8
+                && (int) $products->first()->damaged_stock === 1);
 
         $this->actingAs($admin)->get(route('inventory-transactions.index', [
             'hub_id' => $headOffice->id,

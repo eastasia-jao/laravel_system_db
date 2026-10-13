@@ -15,7 +15,7 @@ use Illuminate\Validation\ValidationException;
 class NationalInventoryController extends Controller
 {
     private const EXPORT_HEADERS = [
-        'ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Stock', 'Unit Type',
+        'ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Good Items', 'Damaged Items', 'Unit Type',
     ];
 
     public function index(Request $request)
@@ -88,7 +88,7 @@ class NationalInventoryController extends Controller
                 }
                 $seenItemIds[$itemId] = $line;
 
-                $rows[] = [
+                $row = [
                     'item_id' => $itemId,
                     'name' => $name,
                     'description' => $value('description') ?: null,
@@ -97,6 +97,10 @@ class NationalInventoryController extends Controller
                     'stock' => $this->stock($value('stock'), $line),
                     'unit_type' => $value('unit_type') ?: null,
                 ];
+                if ($columns->has('damaged_stock')) {
+                    $row['damaged_stock'] = $this->stock($value('damaged_stock'), $line, 'Damaged Items');
+                }
+                $rows[] = $row;
             }
         } finally {
             fclose($stream);
@@ -197,6 +201,7 @@ class NationalInventoryController extends Controller
                         CsvIdentifier::write($product->barcode, "National product {$product->id} Barcode"),
                         $product->brand,
                         $product->stock,
+                        $product->damaged_stock,
                         $product->unit_type,
                     ]);
                 }
@@ -271,19 +276,20 @@ class NationalInventoryController extends Controller
             'description' => 'description',
             'barcode' => 'barcode',
             'brand' => 'brand',
-            'stock', 'quantity' => 'stock',
+            'stock', 'quantity', 'good items', 'good stock' => 'stock',
+            'damaged items', 'damaged stock' => 'damaged_stock',
             'unit type', 'unit' => 'unit_type',
             default => Str::snake($header),
         };
     }
 
-    private function stock(string $value, int $line): int
+    private function stock(string $value, int $line, string $label = 'Stock'): int
     {
         if ($value === '') {
             return 0;
         }
         if (filter_var($value, FILTER_VALIDATE_INT) === false || (int) $value < 0) {
-            throw ValidationException::withMessages(['file' => "Row {$line} Stock must be a non-negative whole number."]);
+            throw ValidationException::withMessages(['file' => "Row {$line} {$label} must be a non-negative whole number."]);
         }
 
         return (int) $value;

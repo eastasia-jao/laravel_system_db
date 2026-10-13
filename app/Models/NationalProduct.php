@@ -14,10 +14,12 @@ class NationalProduct extends Model
         'brand',
         'unit_type',
         'stock',
+        'damaged_stock',
         'status',
     ];
 
     protected $casts = [
         'stock' => 'integer',
+        'damaged_stock' => 'integer',
     ];
 }

@@ -85,7 +85,7 @@
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 national-inventory-table" id="nationalInventoryTable">
-                <thead><tr><th class="text-center national-selection-col" style="width:48px"><input type="checkbox" class="form-check-input" id="nationalSelectAll" aria-label="Select all National products on this page"></th><th>Product</th><th>Item ID</th><th>Barcode</th><th>Brand</th><th>Unit Type</th><th class="text-center">Stock</th><th>Status</th><th class="text-end national-actions-col">Actions</th></tr></thead>
+                <thead><tr><th class="text-center national-selection-col" style="width:48px"><input type="checkbox" class="form-check-input" id="nationalSelectAll" aria-label="Select all National products on this page"></th><th>Product</th><th>Item ID</th><th>Barcode</th><th>Brand</th><th>Unit Type</th><th class="text-center">Good Items</th><th class="text-center">Damaged Items</th><th>Status</th><th class="text-end national-actions-col">Actions</th></tr></thead>
                 <tbody>
                     @forelse($nationalProducts as $product)
                     <tr>
@@ -96,6 +96,7 @@
                         <td>{{ $product->brand ?: '—' }}</td>
                         <td>{{ $product->unit_type ?: '—' }}</td>
                         <td class="text-center fw-bold">{{ number_format($product->stock) }}</td>
+                        <td class="text-center fw-bold text-danger">{{ number_format($product->damaged_stock) }}</td>
                         <td><span class="badge {{ $product->status === 'active' ? 'text-bg-success' : 'text-bg-secondary' }}">{{ ucfirst($product->status) }}</span></td>
                         <td class="text-end national-actions-col">
                             <div class="d-flex justify-content-end gap-2">
@@ -108,7 +109,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="9" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
+                    <tr><td colspan="10" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -145,7 +146,8 @@
                         <div class="col-12"><label class="form-label fw-semibold">Description</label><textarea name="description" rows="2" class="form-control">{{ $product->description }}</textarea></div>
                         <div class="col-md-6"><label class="form-label fw-semibold">Barcode</label><input type="text" name="barcode" value="{{ $product->barcode }}" class="form-control"></div>
                         <div class="col-md-6"><label class="form-label fw-semibold">Brand</label><input type="text" name="brand" value="{{ $product->brand }}" class="form-control"></div>
-                        <div class="col-md-6"><label class="form-label fw-semibold">Stock</label><input type="number" name="stock" value="{{ $product->stock }}" min="0" step="1" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Good Items</label><input type="number" name="stock" value="{{ $product->stock }}" min="0" step="1" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Damaged Items</label><input type="number" value="{{ $product->damaged_stock }}" class="form-control" readonly aria-readonly="true"><div class="form-text">Updated through National Bookstore returns.</div></div>
                         <div class="col-md-6"><label class="form-label fw-semibold">Unit Type</label><input type="text" name="unit_type" value="{{ $product->unit_type }}" class="form-control"></div>
                     </div>
                 </div>
@@ -167,7 +169,7 @@
             <div class="modal-body">
                 <label for="nationalCsvFile" class="form-label fw-semibold">National product CSV</label>
                 <input id="nationalCsvFile" type="file" name="file" class="form-control" accept=".csv,text/csv" required>
-                <div class="form-text mt-2">CSV columns: ID, Item ID, Name, Description, Barcode, Brand, Stock, and Unit Type. Existing Item IDs are updated; new Item IDs are created.</div>
+                <div class="form-text mt-2">CSV columns: ID, Item ID, Name, Description, Barcode, Brand, Good Items, Damaged Items, and Unit Type. The older Stock column is still accepted as Good Items.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

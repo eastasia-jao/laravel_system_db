@@ -1581,7 +1581,12 @@ class InventoryTransactionController extends Controller
                     continue;
                 }
 
-                $product->increment('stock', $quantity);
+                if ($goodQuantity > 0) {
+                    $product->increment('stock', $goodQuantity);
+                }
+                if ($damagedQuantity > 0) {
+                    $product->increment('damaged_stock', $damagedQuantity);
+                }
                 foreach (['good' => $goodQuantity, 'damaged' => $damagedQuantity] as $condition => $conditionQuantity) {
                     if ($conditionQuantity < 1) {
                         continue;
