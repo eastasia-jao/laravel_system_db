@@ -83,6 +83,7 @@
     .transfer-detail-section { border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; overflow: hidden; }
     .transfer-detail-section-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
     .transfer-detail-section-title { color: #334155; font-size: .72rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+    .national-pullout-detail-items { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; }
     .transfer-detail-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
     .transfer-detail-item + .transfer-detail-item { border-top: 1px solid #eef2f7; }
     .transfer-detail-item-name { color: #1e293b; font-weight: 700; }
@@ -332,18 +333,20 @@
                                 <div class="col-12">
                                     <div class="transfer-detail-section">
                                         <div class="transfer-detail-section-header"><span class="transfer-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2 text-primary"></i>Items pulled out</span><span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} actual pull-out</span></div>
-                                        @foreach($group as $entry)
-                                            @php
-                                                $pulloutItem = $entry->getRelation('nationalPulloutItem');
-                                            @endphp
-                                            <div class="transfer-detail-item align-items-start">
-                                                <div>
-                                                    <div class="transfer-detail-item-name">{{ $pulloutItem?->product_name ?? 'Unknown product' }}</div>
-                                                    <div class="transfer-detail-item-id">Item ID: {{ $pulloutItem?->item_id ?? '—' }} · Requested qty: {{ $pulloutItem?->quantity ?? 0 }}</div>
+                                        <div class="national-pullout-detail-items" aria-label="National Bookstore pull-out items">
+                                            @foreach($group as $entry)
+                                                @php
+                                                    $pulloutItem = $entry->getRelation('nationalPulloutItem');
+                                                @endphp
+                                                <div class="transfer-detail-item align-items-start">
+                                                    <div>
+                                                        <div class="transfer-detail-item-name">{{ $pulloutItem?->product_name ?? 'Unknown product' }}</div>
+                                                        <div class="transfer-detail-item-id">Item ID: {{ $pulloutItem?->item_id ?? '—' }} · Requested qty: {{ $pulloutItem?->quantity ?? 0 }}</div>
+                                                    </div>
+                                                    <div class="transfer-detail-qty">Actual {{ $pulloutItem?->actual_pullout ?? $entry->quantity }}</div>
                                                 </div>
-                                                <div class="transfer-detail-qty">Actual {{ $pulloutItem?->actual_pullout ?? $entry->quantity }}</div>
-                                            </div>
-                                        @endforeach
+                                            @endforeach
+                                        </div>
                                     </div>
                                 </div>
                             @elseif($isFullyBookedGroup)
