@@ -39,7 +39,7 @@
         <div class="d-flex flex-wrap gap-2 mb-4">
             <label class="btn btn-outline-primary" id="importPulloutCsv" for="pulloutCsvFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV)</label>
             <button type="button" class="btn btn-outline-secondary" id="downloadPulloutWorksheet"><i class="fa-solid fa-file-excel me-1"></i>Download Excel Worksheet</button>
-            <button type="button" class="btn btn-outline-success" id="exportPulloutSelected"><i class="fa-solid fa-file-export me-1"></i>Export Selected Items</button>
+            <button type="button" class="btn btn-outline-success" id="exportPulloutItems"><i class="fa-solid fa-file-excel me-1"></i>Export Items (Excel)</button>
             <input type="file" class="visually-hidden" id="pulloutCsvFile" accept=".csv,text/csv" tabindex="-1" aria-label="Choose a pullout items CSV file">
         </div>
         <div id="pulloutCsvMessage" class="small mb-3" role="alert" hidden></div>
@@ -94,6 +94,13 @@
     });
     const itemsBody = document.getElementById('nationalPulloutItems');
     const message = document.getElementById('pulloutCsvMessage');
+    const hideProductResults = () => document.querySelectorAll('.pullout-product-results').forEach(result => result.hidden = true);
+    const selectedProductIds = excludedRow => new Set(
+        [...itemsBody.querySelectorAll('.national-pullout-item')]
+            .filter(row => row !== excludedRow)
+            .map(row => row.querySelector('.pullout-product-id').value)
+            .filter(Boolean)
+    );
     let rowIndex = 0;
 
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
@@ -103,6 +110,10 @@
         message.textContent = text;
     };
     const selectProduct = (row, product) => {
+        if (selectedProductIds(row).has(String(product.id))) {
+            showMessage(`${product.name} is already included in Items to Pull Out.`, true);
+            return;
+        }
         row.querySelector('.pullout-product-search').value = product.name;
         row.querySelector('.pullout-product-id').value = product.id;
         row.dataset.physicalStock = product.stock;
@@ -111,9 +122,10 @@
     const renderResults = (row, term) => {
         const results = row.querySelector('.pullout-product-results');
         const search = row.querySelector('.pullout-product-search');
+        const selectedIds = selectedProductIds(row);
         const matches = products.filter(product => {
             const haystack = `${product.name} ${product.item_id}`.toLowerCase();
-            return haystack.includes(term.toLowerCase());
+            return !selectedIds.has(String(product.id)) && haystack.includes(term.toLowerCase());
         }).slice(0, 20);
         results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)}</small></button>`).join('');
         const bounds = search.getBoundingClientRect();
@@ -127,7 +139,7 @@
         const row = document.createElement('tr');
         row.className = 'national-pullout-item';
         row.innerHTML = `
-            <td><div class="d-flex align-items-center gap-2"><input type="checkbox" class="form-check-input pullout-export-check" aria-label="Select row for CSV export"><div class="position-relative flex-grow-1"><input type="search" class="form-control pullout-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" class="pullout-product-id" name="items[${index}][product_id]"><div class="pullout-product-results" hidden></div></div><button type="button" class="btn btn-outline-danger remove-pullout-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div></td>
+            <td><div class="d-flex align-items-center gap-2"><div class="position-relative flex-grow-1"><input type="search" class="form-control pullout-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" class="pullout-product-id" name="items[${index}][product_id]"><div class="pullout-product-results" hidden></div></div><button type="button" class="btn btn-outline-danger remove-pullout-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div></td>
             <td><input type="number" class="form-control pullout-qty" name="items[${index}][quantity]" min="1" step="1" required></td>
             <td><input type="number" class="form-control pullout-actual" name="items[${index}][actual_pullout]" min="1" step="1" required></td>
 `;
@@ -152,11 +164,9 @@
         return row;
     };
     document.addEventListener('click', event => {
-        if (!event.target.closest('.position-relative')) document.querySelectorAll('.pullout-product-results').forEach(result => result.hidden = true);
+        if (!event.target.closest('.position-relative')) hideProductResults();
     });
-    document.querySelector('.national-pullout-items-scroll').addEventListener('scroll', () => {
-        document.querySelectorAll('.pullout-product-results').forEach(result => result.hidden = true);
-    });
+    document.addEventListener('scroll', hideProductResults, true);
     document.getElementById('addNationalPulloutItem').addEventListener('click', () => addRow());
     addRow();
 
@@ -176,36 +186,6 @@
         if (field !== '' || row.length) { row.push(field.replace(/\r$/, '')); rows.push(row); }
         return rows;
     };
-    const csvCell = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const worksheetRows = itemRows => [
-        [
-            'P.O.#', document.getElementById('pulloutPoNumber').value.trim(),
-            'Date:', document.getElementById('pulloutDate').value,
-            'Remarks:', document.getElementById('pulloutRemarks').value.trim(),
-        ],
-        [],
-        ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out'],
-        ...itemRows,
-    ];
-    const downloadCsv = rows => {
-        const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n');
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
-        link.download = `NATIONAL_BOOKSTORE_PULLOUT_${(document.getElementById('pulloutPoNumber').value || 'SELECTED').replace(/[^A-Za-z0-9_-]+/g, '_')}.csv`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-    };
-    const exportRows = selectedOnly => {
-        const rows = [...itemsBody.querySelectorAll('.national-pullout-item')].filter(row => !selectedOnly || row.querySelector('.pullout-export-check').checked);
-        if (!rows.length) return showMessage('Select at least one item to export.', true);
-        downloadCsv(worksheetRows(rows.map(row => [
-                row.querySelector('.pullout-product-search').value,
-                row.querySelector('.pullout-qty').value,
-                'National Bookstore Pullout',
-                row.dataset.physicalStock || '',
-                row.querySelector('.pullout-actual').value,
-            ])));
-    };
     document.getElementById('downloadPulloutWorksheet').addEventListener('click', () => {
         const parameters = new URLSearchParams({
             hub_id: document.querySelector('[name="hub_id"]').value,
@@ -215,7 +195,32 @@
         });
         window.location.assign(`{{ route('national-pullouts.excel-worksheet') }}?${parameters.toString()}`);
     });
-    document.getElementById('exportPulloutSelected').addEventListener('click', () => exportRows(true));
+    document.getElementById('exportPulloutItems').addEventListener('click', () => {
+        const rows = [...itemsBody.querySelectorAll('.national-pullout-item')]
+            .filter(row => row.querySelector('.pullout-product-id').value);
+        if (!rows.length) return showMessage('Add at least one product before exporting.', true);
+        const exportForm = document.createElement('form');
+        exportForm.method = 'POST';
+        exportForm.action = '{{ route('national-pullouts.export-excel-worksheet') }}';
+        const fields = {
+            _token: document.querySelector('#nationalPulloutForm [name="_token"]').value,
+            hub_id: document.querySelector('[name="hub_id"]').value,
+            po_number: document.getElementById('pulloutPoNumber').value.trim(),
+            occurred_on: document.getElementById('pulloutDate').value,
+            remarks: document.getElementById('pulloutRemarks').value.trim(),
+        };
+        Object.entries(fields).forEach(([name, value]) => {
+            const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; exportForm.appendChild(input);
+        });
+        rows.forEach((row, index) => {
+            [['product_id', '.pullout-product-id'], ['quantity', '.pullout-qty'], ['actual_pullout', '.pullout-actual']].forEach(([field, selector]) => {
+                const input = document.createElement('input'); input.type = 'hidden'; input.name = `items[${index}][${field}]`; input.value = row.querySelector(selector).value; exportForm.appendChild(input);
+            });
+        });
+        document.body.appendChild(exportForm);
+        exportForm.submit();
+        exportForm.remove();
+    });
 
     const fileInput = document.getElementById('pulloutCsvFile');
     fileInput.addEventListener('change', async () => {

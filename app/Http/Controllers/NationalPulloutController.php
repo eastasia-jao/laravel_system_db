@@ -181,6 +181,48 @@ class NationalPulloutController extends Controller
         );
     }
 
+    public function exportExcelWorksheet(Request $request)
+    {
+        $this->headOffice($request);
+        $validated = $request->validate([
+            'po_number' => ['nullable', 'string', 'max:100'],
+            'occurred_on' => ['nullable', 'date'],
+            'remarks' => ['nullable', 'string', 'max:2000'],
+            'items' => ['required', 'array', 'min:1', 'max:200'],
+            'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:national_products,id'],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1'],
+            'items.*.actual_pullout' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $products = NationalProduct::query()
+            ->where('status', 'active')
+            ->whereIn('id', collect($validated['items'])->pluck('product_id'))
+            ->get()
+            ->keyBy('id');
+        if ($products->count() !== count($validated['items'])) {
+            throw ValidationException::withMessages(['items' => 'One or more National products are inactive or unavailable.']);
+        }
+
+        $items = collect($validated['items'])->map(function (array $item) use ($products) {
+            $product = $products->get((int) $item['product_id']);
+
+            return [
+                'name' => $product->name,
+                'quantity' => $item['quantity'] ?? '',
+                'purpose' => 'National Bookstore Pullout',
+                'physical_stock' => (int) $product->stock,
+                'actual_pullout' => $item['actual_pullout'] ?? '',
+            ];
+        })->all();
+        $path = NationalPulloutWorkbook::create($items, $validated);
+
+        return response()->download(
+            $path,
+            'NATIONAL_BOOKSTORE_PULLOUT_'.now()->format('Ymd_His').'.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
+    }
+
     private function csvResponse(string $filename, string $poNumber, string $date, string $remarks, callable $writeItems)
     {
         return response()->streamDownload(function () use ($poNumber, $date, $remarks, $writeItems) {

@@ -28,7 +28,7 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('Import Items (CSV)')
                 ->assertSee('Download Excel Worksheet')
                 ->assertSee('id="downloadPulloutWorksheet"', false)
-                ->assertSee('Export Selected Items')
+                ->assertSee('Export Items (Excel)')
                 ->assertSee('P.O. Number')
                 ->assertSee('Items to Pull Out')
                 ->assertSee('<th style="min-width:320px">Product Item Name</th>', false)
@@ -157,10 +157,49 @@ class NationalPulloutTest extends TestCase
             ->assertSee("const results = row.querySelector('.pullout-product-results');", false)
             ->assertSee('results.style.width = `${bounds.width}px`;', false)
             ->assertSee("const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-Out'];", false)
-            ->assertSee("'P.O.#', document.getElementById('pulloutPoNumber').value.trim()", false)
+            ->assertSee("const selectedProductIds = excludedRow", false)
+            ->assertSee("document.addEventListener('scroll', hideProductResults, true)", false)
+            ->assertSee('/inventory-transactions/national-pullout/worksheet/excel/export', false)
+            ->assertDontSee('pullout-export-check')
             ->assertDontSee('pullout-unit-type')
             ->assertDontSee('pullout-purpose')
             ->assertDontSee('pullout-physical-stock');
+    }
+
+    public function test_exporting_current_items_uses_the_excel_worksheet_template(): void
+    {
+        [$headOffice] = $this->hubs();
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+        $product = $this->product();
+
+        $response = $this->actingAs($admin)->post(route('national-pullouts.export-excel-worksheet'), [
+            'hub_id' => $headOffice->id,
+            'po_number' => 'PO-EXPORT-1',
+            'occurred_on' => '2026-10-13',
+            'remarks' => 'Current form items',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 5,
+                'actual_pullout' => 3,
+            ]],
+        ])->assertOk();
+
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->baseResponse->headers->get('Content-Type')
+        );
+        $path = $response->baseResponse->getFile()->getPathname();
+        try {
+            $workbook = new \PharData($path, 0, null, \Phar::ZIP);
+            $sheet = $workbook['xl/worksheets/sheet1.xml']->getContent();
+            $this->assertStringContainsString('P.O. #: PO-EXPORT-1', $sheet);
+            $this->assertStringContainsString($product->name, $sheet);
+            $this->assertStringContainsString('<v>5</v>', $sheet);
+            $this->assertStringContainsString('<v>3</v>', $sheet);
+        } finally {
+            unset($workbook);
+            unlink($path);
+        }
     }
 
     public function test_saving_a_pullout_deducts_actual_quantity_and_appears_in_transaction_logs(): void
