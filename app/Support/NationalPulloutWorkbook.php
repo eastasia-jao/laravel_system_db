@@ -151,7 +151,7 @@ class NationalPulloutWorkbook
                 .'<sheetData>'.$sheetData.'</sheetData>'
                 .'<mergeCells count="2"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/></mergeCells>'
                 .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
-                .'<pageMargins left="0.6" right="0" top="0" bottom="0" header="0" footer="0"/>'
+                .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
                 .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/>'
                 .'</worksheet>',
         ];

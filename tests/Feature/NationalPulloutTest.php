@@ -115,7 +115,7 @@ class NationalPulloutTest extends TestCase
             $workbookXml = $workbook['xl/workbook.xml']->getContent();
             $styles = $workbook['xl/styles.xml']->getContent();
             $this->assertStringContainsString('paperSize="1" orientation="portrait" fitToWidth="1"', $sheet);
-            $this->assertStringContainsString('left="0.6" right="0" top="0" bottom="0"', $sheet);
+            $this->assertStringContainsString('left="0.6" right="0.6" top="0.6" bottom="0"', $sheet);
             $this->assertStringContainsString('width="9.5" customWidth="1"', $sheet);
             $this->assertStringContainsString('ht="20" customHeight="1"', $sheet);
             $this->assertStringContainsString('name="_xlnm.Print_Titles"', $workbookXml);
