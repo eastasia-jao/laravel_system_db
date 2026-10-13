@@ -142,7 +142,7 @@ class NationalPulloutTest extends TestCase
         $this->actingAs($admin)
             ->get(route('national-pullouts.create', ['hub_id' => $headOffice->id]))
             ->assertOk()
-            ->assertSee('showPicker')
+            ->assertSee('for="pulloutCsvFile"', false)
             ->assertSee("const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-Out'];", false)
             ->assertDontSee('pullout-unit-type')
             ->assertDontSee('pullout-purpose')

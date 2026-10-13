@@ -36,7 +36,7 @@
 
         <div class="d-flex flex-wrap gap-2 mb-4">
             <a class="btn btn-outline-success" href="{{ route('national-pullouts.excel-worksheet', ['hub_id' => $hub->id]) }}"><i class="fa-solid fa-file-excel me-1"></i>Download Print-Ready Excel Worksheet</a>
-            <button type="button" class="btn btn-outline-primary" id="importPulloutCsv"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV)</button>
+            <label class="btn btn-outline-primary" id="importPulloutCsv" for="pulloutCsvFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV)</label>
             <a class="btn btn-outline-secondary" href="{{ route('national-pullouts.worksheet', ['hub_id' => $hub->id]) }}"><i class="fa-solid fa-download me-1"></i>Download CSV Worksheet</a>
             <button type="button" class="btn btn-outline-success" id="exportPulloutSelected"><i class="fa-solid fa-file-export me-1"></i>Export Selected Items</button>
             <input type="file" class="visually-hidden" id="pulloutCsvFile" accept=".csv,text/csv" tabindex="-1" aria-label="Choose a pullout items CSV file">
@@ -193,10 +193,6 @@
     document.getElementById('exportPulloutSelected').addEventListener('click', () => exportRows(true));
 
     const fileInput = document.getElementById('pulloutCsvFile');
-    document.getElementById('importPulloutCsv').addEventListener('click', () => {
-        if (typeof fileInput.showPicker === 'function') fileInput.showPicker();
-        else fileInput.click();
-    });
     fileInput.addEventListener('change', async () => {
         if (!fileInput.files[0]) return;
         try {
