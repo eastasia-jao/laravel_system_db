@@ -310,12 +310,18 @@
                                 <p class="small text-muted mb-3">Choose the products and quantities from {{ $order->storeHub?->name ?? 'this hub' }}. Stock will be updated when you complete the order.</p>
                                 <div class="fully-booked-pullout-rows">
                                     <div class="row g-2 align-items-center fully-booked-pullout-row mb-2">
-                                        <div class="col-md-8">
+                                        <div class="col-md-6">
                                             <div class="position-relative fully-booked-product-search">
                                                 <input type="search" class="form-control product-search" placeholder="Type product name, item code, or barcode" autocomplete="off" aria-label="Search products" aria-autocomplete="list" aria-expanded="false" required>
                                                 <div class="product-search-results list-group" role="listbox" hidden></div>
                                             </div>
                                             <input type="hidden" name="items[0][product_id]" class="product-id">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <select name="items[0][stock_condition]" class="form-select stock-condition-select" aria-label="Stock condition" required>
+                                                <option value="good">Good</option>
+                                                <option value="damaged">Damaged</option>
+                                            </select>
                                         </div>
                                         <div class="col-md-3"><input type="number" name="items[0][quantity]" min="1" class="form-control" placeholder="Quantity" aria-label="Quantity" required></div>
                                         <div class="col-md-1"><button type="button" class="btn btn-outline-danger remove-fully-booked-row" disabled aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div>

@@ -461,7 +461,12 @@
                                                 ? ($item->quantity ?? 0) 
                                                 : ($item['quantity'] ?? 0);
 
-                                            $stockDetails = $inventory['products'][(int) $pId] ?? [
+                                            $stockCondition = is_object($item)
+                                                ? ($item->stock_condition ?? 'good')
+                                                : ($item['stock_condition'] ?? 'good');
+                                            $stockKey = (int) $pId.':'.$stockCondition;
+
+                                            $stockDetails = $inventory['products'][$stockKey] ?? [
                                                 'available' => 0,
                                                 'shortage' => $quantity,
                                             ];
@@ -501,6 +506,7 @@
                                             <td class="order-product-name">
                                                 {{ $productName }}
                                                 @if($prod?->item_id)<span class="order-product-code">{{ $prod->item_id }}</span>@endif
+                                                <span class="badge {{ $stockCondition === 'damaged' ? 'text-bg-danger' : 'text-bg-success' }} mt-1">{{ ucfirst($stockCondition) }} stock</span>
                                             </td>
                                             <td class="text-center">{{ $quantity }}</td>
                                             <td class="text-center">{{ $stockDetails['available'] }}</td>
@@ -508,11 +514,13 @@
                                                 @if($stockDetails['shortage'] > 0)
                                                     <span class="badge bg-danger d-inline-block mb-2">SHORT {{ $stockDetails['shortage'] }}</span>
                                                     @can('manage-inventory')
+                                                        @if($stockCondition === 'good')
                                                         <a href="{{ route('stock-allocation.index', ['hub_id' => $sale->store_hub_id, 'search' => $prod?->item_id ?: $productName, 'product_id' => $prod?->id, 'return_to' => 'verification-queue', 'return_hub_id' => $sale->store_hub_id]) }}"
                                                            class="btn btn-sm btn-outline-primary text-nowrap d-block"
                                                            title="Open this product in Stock Allocation">
                                                             <i class="fa-solid fa-layer-group me-1"></i> Stock Allocation
                                                         </a>
+                                                        @endif
                                                     @endcan
                                                 @else
                                                     <span class="badge bg-success">READY</span>

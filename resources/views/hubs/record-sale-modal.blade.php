@@ -258,25 +258,25 @@
     }
     #recordSaleModal #productRowsContainer > .row:first-child { padding: .48rem .6rem; }
     #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(1),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(1) { grid-column: span 5; width: auto; }
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(1) { grid-column: span 4; width: auto; }
     #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(2),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(2) { grid-column: span 1; width: auto; }
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(2) { grid-column: span 2; width: auto; }
     #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(3),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(3) { grid-column: span 2; width: auto; }
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(3) { grid-column: span 1; width: auto; }
     #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(4),
     #recordSaleModal #productRowsContainer .product-row > :nth-child(4) { grid-column: span 1; width: auto; }
     #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(5),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(5) { grid-column: span 2; width: auto; }
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(5) { grid-column: span 1; width: auto; }
     #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(6),
-    #recordSaleModal #productRowsContainer .product-row > :nth-child(6) { grid-column: span 1; width: auto; }
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(6) { grid-column: span 2; width: auto; }
     #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(7),
     #recordSaleModal #productRowsContainer .product-row > :nth-child(7) { grid-column: span 1; width: auto; }
-    #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) > .row:first-child > :nth-child(6),
-    #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(6) { display: none !important; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :nth-child(8),
+    #recordSaleModal #productRowsContainer .product-row > :nth-child(8) { grid-column: span 1; width: auto; }
     #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) > .row:first-child > :nth-child(7),
-    #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(7) { grid-column: span 1; }
+    #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(7) { display: none !important; }
     #recordSaleModal #productRowsContainer.has-tiktok-fee > .row:first-child > :nth-child(1),
-    #recordSaleModal #productRowsContainer.has-tiktok-fee .product-row > :nth-child(1) { grid-column: span 4; }
+    #recordSaleModal #productRowsContainer.has-tiktok-fee .product-row > :nth-child(1) { grid-column: span 3; }
     #recordSaleModal #productRowsContainer .product-row {
         position: relative;
         margin: 0 0 .55rem !important;
@@ -399,8 +399,9 @@
         #recordSaleModal #productRowsContainer .product-row > :nth-child(3),
         #recordSaleModal #productRowsContainer .product-row > :nth-child(4),
         #recordSaleModal #productRowsContainer .product-row > :nth-child(5),
-        #recordSaleModal #productRowsContainer.has-tiktok-fee .product-row > :nth-child(6) { grid-column: span 1; width: auto; }
-        #recordSaleModal #productRowsContainer .product-row > :nth-child(7) { position: absolute; top: .7rem; right: .7rem; width: 40px; }
+        #recordSaleModal #productRowsContainer .product-row > :nth-child(6),
+        #recordSaleModal #productRowsContainer.has-tiktok-fee .product-row > :nth-child(7) { grid-column: span 1; width: auto; }
+        #recordSaleModal #productRowsContainer .product-row > :nth-child(8) { position: absolute; top: .7rem; right: .7rem; width: 40px; }
         #recordSaleModal #productRowsContainer .remove-row-btn { width: 40px !important; min-height: 40px; }
         #recordSaleModal .marketplace-details-grid { grid-template-columns: 1fr; }
         #recordSaleModal .marketplace-details-grid > .marketplace-fields,
@@ -521,6 +522,7 @@
                         <!-- Header Labels for Grid Alignment -->
                         <div class="row g-2 fw-bold text-secondary small mb-2 d-none d-md-flex">
                             <div class="col-md-3">Product Description</div>
+                            <div class="col-md-2">Stock Condition</div>
                             <div class="col-md-1">Qty</div>
                             <div class="col-md-2">Regular Price</div>
                             <div class="col-md-1 text-danger">Disc %</div>
@@ -536,6 +538,14 @@
                                 <label class="form-label fw-bold d-md-none">Product Description</label>
                                 <input type="search" class="form-control product-search" list="saleProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" required>
                                 <input type="hidden" name="items[0][product_id]" class="product-id">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label fw-bold d-md-none">Stock Condition</label>
+                                <select name="items[0][stock_condition]" class="form-select stock-condition-select" required>
+                                    <option value="good">Good</option>
+                                    <option value="damaged">Damaged</option>
+                                </select>
                             </div>
 
                             <!-- Quantity -->
@@ -1028,6 +1038,8 @@
         'shopee' => $product->shopee_price ?? 0,
         'lazada' => $product->lazada_price ?? 0,
         'tiktok' => $product->sales_price ?? 0,
+        'good_stock' => (int) $product->stock,
+        'damaged_stock' => (int) $product->damaged_stock,
     ])->values();
 @endphp
 <script>
@@ -1064,6 +1076,7 @@ document.addEventListener('DOMContentLoaded', function () {
             barcode: product.barcode, description: product.description || '',
             sales: product.sales_price || 0, wholesale: product.wholesale_price || 0,
             shopee: product.shopee_price || 0, lazada: product.lazada_price || 0, tiktok: product.sales_price || 0,
+            good_stock: Number(product.stock || 0), damaged_stock: Number(product.damaged_stock || 0),
         }), true, 'item_id');
     const bindProductSearch = row => {
         const input = row.querySelector('.product-search');
@@ -1338,6 +1351,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     <input type="search" class="form-control product-search" list="saleProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" required>
                     <input type="hidden" name="items[${rowIndex}][product_id]" class="product-id">
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold d-md-none">Stock Condition</label>
+                    <select name="items[${rowIndex}][stock_condition]" class="form-select stock-condition-select" required>
+                        <option value="good">Good</option>
+                        <option value="damaged">Damaged</option>
+                    </select>
+                </div>
                 <div class="col-md-1">
                     <label class="form-label fw-bold d-md-none">Quantity</label>
                     <input type="number" name="items[${rowIndex}][quantity]" class="form-control qty-input calc-trigger" min="1" value="1" required>
@@ -1394,6 +1414,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateRowDisplay(row) {
         if (!row) return;
         const priceDisplay = row.querySelector('.item-price-display');
+        const conditionSelect = row.querySelector('.stock-condition-select');
+        const updateConditionLabels = () => {
+            if (!conditionSelect) return;
+            conditionSelect.options[0].textContent = `Good (${Number(row.dataset.good_stock || 0)})`;
+            conditionSelect.options[1].textContent = `Damaged (${Number(row.dataset.damaged_stock || 0)})`;
+        };
         if (!row.dataset.id) {
             if (priceDisplay) priceDisplay.value = '₱0.00';
             row.setAttribute('data-unit-price', '0');
@@ -1401,8 +1427,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const totalDisplay = row.querySelector('.item-total-display');
             if (unitPriceInput) unitPriceInput.value = '0.00';
             if (totalDisplay) totalDisplay.value = '₱0.00';
+            updateConditionLabels();
             return;
         }
+
+        updateConditionLabels();
 
         const channelVal = channelSelect ? (channelSelect.value || '').trim() : '';
         let price = 0;

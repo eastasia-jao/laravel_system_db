@@ -287,6 +287,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('Complete Order & Update Stock', false)
             ->assertSee('Export CSV')
             ->assertSee('name="items[0][product_id]"', false)
+            ->assertSee('name="items[0][stock_condition]"', false)
             ->assertDontSee('id="fullyBookedAttachment"', false);
 
         $csvScript = file_get_contents(public_path('js/fully-booked-pullout.js'));
@@ -382,6 +383,45 @@ class FullyBookedOrderTest extends TestCase
             ->firstWhere('id', $product->id);
         $this->assertSame(5, $listedProduct->allocation_values['online']);
         $this->assertSame(3, $listedProduct->sold_values->get('online'));
+
+        $damagedProduct = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'FB-DAMAGED-1',
+            'name' => 'Fully Booked Damaged Product',
+            'stock' => 0,
+            'damaged_stock' => 2,
+            'status' => 'active',
+        ]);
+        ProductStockAllocation::create(['product_id' => $damagedProduct->id, 'online' => 1]);
+        $damagedOrder = FullyBookedOrder::create([
+            'order_number' => 'FB-DAMAGED-001',
+            'store_hub_id' => $hub->id,
+            'store_name' => 'Head Office',
+            'sales_staff_id' => $staff->id,
+            'submitted_by' => $staff->id,
+            'attachment_path' => 'fully-booked-orders/damaged.pdf',
+            'original_filename' => 'damaged.pdf',
+            'mime_type' => 'application/pdf',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($inventoryStaff)->post(route('inventory-transactions.fully-booked.pull-out', $damagedOrder), [
+            'items' => [[
+                'product_id' => $damagedProduct->id,
+                'quantity' => 1,
+                'stock_condition' => 'damaged',
+            ]],
+        ])->assertRedirect();
+
+        $this->assertSame(0, (int) $damagedProduct->fresh()->stock);
+        $this->assertSame(1, (int) $damagedProduct->fresh()->damaged_stock);
+        $this->assertSame(1, (int) $damagedProduct->stockAllocation()->value('online'));
+        $this->assertDatabaseHas('fully_booked_order_items', [
+            'fully_booked_order_id' => $damagedOrder->id,
+            'product_id' => $damagedProduct->id,
+            'stock_condition' => 'damaged',
+            'quantity' => 1,
+        ]);
     }
 
     public function test_fully_booked_return_log_displays_its_source_attachment(): void

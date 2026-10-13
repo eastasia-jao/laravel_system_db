@@ -164,6 +164,7 @@ class FullyBookedOrderController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.stock_condition' => ['nullable', Rule::in(['good', 'damaged'])],
         ]);
 
         DB::transaction(function () use ($request, $fullyBookedOrder, $validated) {
@@ -190,19 +191,23 @@ class FullyBookedOrderController extends Controller
                     ]);
                 }
                 $quantity = (int) $entry['quantity'];
-                if ($product->stock < $quantity) {
+                $stockCondition = $entry['stock_condition'] ?? 'good';
+                $stockColumn = $stockCondition === 'damaged' ? 'damaged_stock' : 'stock';
+                if ((int) $product->{$stockColumn} < $quantity) {
                     throw ValidationException::withMessages([
-                        'items' => "Not enough stock for {$product->name}. Available: {$product->stock}.",
+                        'items' => "Not enough {$stockCondition} stock for {$product->name}. Available: {$product->{$stockColumn}}.",
                     ]);
                 }
 
-                $product->decrement('stock', $quantity);
-                $allocation = ProductStockAllocation::where('product_id', $product->id)
-                    ->lockForUpdate()
-                    ->first();
-                if ($allocation) {
-                    $allocation->online = max(0, (int) $allocation->online - $quantity);
-                    $allocation->save();
+                $product->decrement($stockColumn, $quantity);
+                if ($stockCondition === 'good') {
+                    $allocation = ProductStockAllocation::where('product_id', $product->id)
+                        ->lockForUpdate()
+                        ->first();
+                    if ($allocation) {
+                        $allocation->online = max(0, (int) $allocation->online - $quantity);
+                        $allocation->save();
+                    }
                 }
                 $transaction = InventoryTransaction::create([
                     'reference' => $order->order_number,
@@ -211,6 +216,7 @@ class FullyBookedOrderController extends Controller
                     'product_id' => $product->id,
                     'channel' => 'fully_booked',
                     'source' => 'fully_booked',
+                    'condition' => $stockCondition,
                     'quantity' => $quantity,
                     'occurred_on' => now()->toDateString(),
                     'notes' => 'Fully Booked attachment pull-out',
@@ -222,10 +228,12 @@ class FullyBookedOrderController extends Controller
                     'product_name' => $product->name ?: $product->description ?: 'Unknown product',
                     'item_id' => $product->item_id,
                     'quantity' => $quantity,
+                    'stock_condition' => $stockCondition,
                     'inventory_transaction_id' => $transaction->id,
                 ]);
                 $sale->items()->updateOrCreate([
                     'product_id' => $product->id,
+                    'stock_condition' => $stockCondition,
                 ], [
                     'quantity' => $quantity,
                     'unit_price' => 0,

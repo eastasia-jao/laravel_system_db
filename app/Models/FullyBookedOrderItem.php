@@ -13,6 +13,7 @@ class FullyBookedOrderItem extends Model
         'product_name',
         'item_id',
         'quantity',
+        'stock_condition',
         'inventory_transaction_id',
     ];
 
