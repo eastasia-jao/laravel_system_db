@@ -751,19 +751,12 @@
                                     <div class="form-text">Optional. Attach the customer order document for inventory verification (up to 5 MB).</div>
                                 </div>
 
-                                <!-- Sub Total & Total Amount Summary Row -->
+                                <!-- Wholesale Order Total -->
                                 <div class="col-12 sale-field-heading">Order total</div>
-                                <div class="col-md-6">
-                                    <div class="sale-summary-card">
-                                    <label class="form-label fw-bold">Sub Total</label>
-                                    <input type="text" id="wholesaleSubTotalDisplay" class="form-control bg-white fw-bold" readonly value="₱0.00">
-                                    <input type="hidden" id="wholesaleSubTotal" name="sub_total" value="0.00">
-                                    </div>
-                                </div>
-
-                                <div class="col-md-6">
+                                <div class="col-12">
                                     <div class="sale-summary-card sale-summary-card-highlight">
                                     <label class="form-label fw-bold text-success">Total Amount</label>
+                                    <input type="hidden" id="wholesaleSubTotal" name="sub_total" value="0.00">
                                     <input type="text" id="wholesaleGrandTotal" name="grand_total" class="form-control bg-white fw-bold text-success fs-5" readonly value="₱0.00">
                                     </div>
                                 </div>
@@ -1501,7 +1494,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (grandTotalInput) grandTotalInput.value = '₱' + cumulativeSubTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         } else if (channelVal === 'wholesale') {
             const subTotalInput = document.getElementById('wholesaleSubTotal');
-            const subTotalDisplay = document.getElementById('wholesaleSubTotalDisplay');
             const grandTotalInput = document.getElementById('wholesaleGrandTotal');
             const addDiscInput = document.getElementById('wholesaleAdditionalDiscount');
             const shipTypeSelect = document.getElementById('wholesaleShippingType');
@@ -1513,7 +1505,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const discountedSubTotal = cumulativeSubTotal * (1 - (addDiscPercent / 100));
             const wholesaleGrandTotal = discountedSubTotal;
             if (subTotalInput) subTotalInput.value = cumulativeSubTotal.toFixed(2);
-            if (subTotalDisplay) subTotalDisplay.value = '₱' + cumulativeSubTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             
             if (grandTotalInput) {
                 grandTotalInput.value = '₱' + wholesaleGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
