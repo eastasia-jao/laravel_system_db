@@ -797,10 +797,12 @@ class SalesReportController extends Controller
             $willBeReceived = $validated['return_status'] === 'received';
             if (! $wasReceived && $willBeReceived && $quantity > 0) {
                 $product = $transactionItem->product()->lockForUpdate()->firstOrFail();
-                $product->increment('stock', $quantity);
                 if ($condition === 'good') {
+                    $product->increment('stock', $quantity);
                     ProductStockAllocation::firstOrCreate(['product_id' => $product->id])
                         ->increment('tiktok', $quantity);
+                } else {
+                    $product->increment('damaged_stock', $quantity);
                 }
 
                 InventoryTransaction::create([

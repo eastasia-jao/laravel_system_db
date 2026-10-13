@@ -1453,8 +1453,11 @@ class InventoryTransactionController extends Controller
                     ]);
                 }
 
-                if ($quantity > 0) {
-                    $product->increment('stock', $quantity);
+                if ($goodQuantity > 0) {
+                    $product->increment('stock', $goodQuantity);
+                }
+                if ($damagedQuantity > 0) {
+                    $product->increment('damaged_stock', $damagedQuantity);
                 }
                 if ($goodQuantity > 0 && $returnChannel && ! in_array($returnChannel, ['walk_in', 'fully_booked'], true)) {
                     ProductStockAllocation::firstOrCreate(['product_id' => $product->id])

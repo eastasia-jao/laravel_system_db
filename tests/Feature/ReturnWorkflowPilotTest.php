@@ -73,6 +73,7 @@ class ReturnWorkflowPilotTest extends TestCase
 
         $pendingSale = PendingSale::sole();
         $this->assertSame(10, (int) $product->fresh()->stock);
+        $this->assertSame(0, (int) $product->fresh()->damaged_stock);
 
         $this->actingAs($inventoryStaff)
             ->post(route('sales.confirmPending', $pendingSale))
@@ -135,7 +136,8 @@ class ReturnWorkflowPilotTest extends TestCase
             ]))
             ->assertSessionHasNoErrors();
 
-        $this->assertSame(10, (int) $product->fresh()->stock);
+        $this->assertSame(9, (int) $product->fresh()->stock);
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
         $this->assertSame(2, InventoryTransaction::where('type', 'return')
             ->where('transaction_item_id', $item->id)
             ->sum('quantity'));
@@ -158,7 +160,8 @@ class ReturnWorkflowPilotTest extends TestCase
         $lookup->assertOk()
             ->assertJsonPath('transaction.id', $sale->id)
             ->assertJsonPath('transaction.items.0.returned_quantity', 2);
-        $this->assertSame(10, (int) $product->fresh()->stock);
+        $this->assertSame(9, (int) $product->fresh()->stock);
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
         $this->assertSame(2, InventoryTransaction::where('type', 'return')
             ->where('transaction_item_id', $item->id)
             ->sum('quantity'));

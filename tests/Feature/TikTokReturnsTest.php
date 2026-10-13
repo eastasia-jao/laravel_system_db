@@ -62,7 +62,8 @@ class TikTokReturnsTest extends TestCase
         $this->assertEquals(0, InventoryTransaction::count());
         $this->assertEquals(-30, $sale->fresh()->netTikTokPayout());
         $this->patch($url, ['return_status' => 'received', 'return_condition' => 'damaged', 'returned_quantity' => 2, 'refund_status' => 'completed', 'customer_refund_amount' => 200])->assertSessionHasNoErrors();
-        $this->assertEquals(10, $product->fresh()->stock);
+        $this->assertEquals(8, $product->fresh()->stock);
+        $this->assertEquals(2, $product->fresh()->damaged_stock);
         $this->assertEquals(8, $product->stockAllocation->fresh()->tiktok);
         $this->assertDatabaseHas('inventory_transactions', ['condition' => 'damaged', 'quantity' => 2]);
         $this->patch(route('hub.report.tiktok.update', [$hub->id, $sale->id]), ['sales_after_transaction_fee' => -30, 'refund_shipping_fee' => 10, 'payout_includes_refunds' => 1])

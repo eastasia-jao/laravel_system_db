@@ -8,7 +8,7 @@
 
 <style>
     .product-list-table {
-        min-width: 980px;
+        min-width: 1220px;
     }
 
     .product-list-table thead th {
@@ -147,7 +147,10 @@
                             <th>Retail Department</th>
                             <th>Unit</th>
                             <th class="text-end">{{ $usesWholesalePricing ? 'Wholesale Price' : 'Retail Price' }}</th>
-                            <th class="text-center">{{ $displayChannelLabel }}</th>
+                            <th class="text-center">Good Items</th>
+                            <th class="text-center">Damaged Items</th>
+                            <th class="text-center">Total Physical Stock</th>
+                            @if($displayChannel)<th class="text-center">{{ $displayChannelLabel }}</th>@endif
                             @can('manage-inventory')
                             <th class="text-end action-header-text" style="width: 9%;">Actions</th>
                             @can('full-access')
@@ -174,7 +177,10 @@
                                 <td>{{ $product->retail_department ?: '-' }}</td>
                                 <td class="text-nowrap">{{ $product->unit_type ?? '-' }}</td>
                                 <td class="text-end product-price-cell">&#8369;{{ number_format($usesWholesalePricing ? $product->wholesale_price : $product->sales_price, 2) }}</td>
-                                <td class="text-center product-stock-cell">{{ $displayChannel ? ($product->allocated_available_stock ?? 0) : ($product->stock ?? 0) }}</td>
+                                <td class="text-center product-stock-cell">{{ number_format($product->stock ?? 0) }}</td>
+                                <td class="text-center fw-bold text-danger">{{ number_format($product->damaged_stock ?? 0) }}</td>
+                                <td class="text-center fw-bold product-total-physical-stock">{{ number_format(($product->stock ?? 0) + ($product->damaged_stock ?? 0)) }}</td>
+                                @if($displayChannel)<td class="text-center product-stock-cell">{{ $product->allocated_available_stock ?? 0 }}</td>@endif
                                 
                                 @can('manage-inventory')
                                 <td class="text-end standard-actions-col">
@@ -201,7 +207,7 @@
                                 @endcan
                             </tr>
                         @empty
-                            <tr><td colspan="11" class="text-center py-5 text-muted">No products found.</td></tr>
+                            <tr><td colspan="13" class="text-center py-5 text-muted">No products found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

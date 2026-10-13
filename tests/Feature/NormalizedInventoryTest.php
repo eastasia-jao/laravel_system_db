@@ -18,6 +18,32 @@ class NormalizedInventoryTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_head_office_and_branch_product_lists_show_good_damaged_and_total_physical_stock(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Stock Head Office', 'code' => 'STOCK-HO', 'status' => 'active', 'is_head_office' => true]);
+        $branch = StoreHub::create(['name' => 'Stock Branch', 'code' => 'STOCK-BR', 'status' => 'active', 'is_head_office' => false]);
+        foreach ([$headOffice, $branch] as $hub) {
+            Product::create([
+                'store_hub_id' => $hub->id,
+                'item_id' => 'STOCK-'.$hub->id,
+                'name' => $hub->name.' Product',
+                'stock' => 7,
+                'damaged_stock' => 2,
+                'status' => 'active',
+            ]);
+        }
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+
+        foreach ([$headOffice, $branch] as $hub) {
+            $this->actingAs($admin)->get(route('products.index', ['hub_id' => $hub->id]))
+                ->assertOk()
+                ->assertSee('Good Items')
+                ->assertSee('Damaged Items')
+                ->assertSee('Total Physical Stock')
+                ->assertSee('<td class="text-center fw-bold product-total-physical-stock">9</td>', false);
+        }
+    }
+
     public function test_associate_search_ignores_other_branch_and_unassigned_accounts_see_no_products(): void
     {
         $hub = StoreHub::create(['name' => 'Assigned branch', 'code' => 'ASSIGNED', 'status' => 'active']);

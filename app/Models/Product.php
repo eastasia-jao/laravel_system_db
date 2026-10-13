@@ -34,11 +34,14 @@ class Product extends Model
         'lazada_price',
         'tiktok_price',
         'stock',
+        'damaged_stock',
         'status',
         'store_hub_id',
     ];
 
     protected $casts = [
+        'stock' => 'integer',
+        'damaged_stock' => 'integer',
         'cost_price' => 'decimal:2',
         'sales_price' => 'decimal:2',
         'wholesale_price' => 'decimal:2',

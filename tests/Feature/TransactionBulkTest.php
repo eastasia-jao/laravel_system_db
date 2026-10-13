@@ -204,7 +204,8 @@ class TransactionBulkTest extends TestCase
         $this->assertDatabaseHas('inventory_transactions', [
             'type' => 'return', 'transaction_item_id' => $item->id, 'condition' => 'damaged', 'quantity' => 1, 'refund_amount' => 0,
         ]);
-        $this->assertSame(1, (int) $product->fresh()->stock);
+        $this->assertSame(0, (int) $product->fresh()->stock);
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
     }
 
     public function test_good_and_damaged_returns_restore_the_correct_channel_and_physical_balances(): void
@@ -239,7 +240,8 @@ class TransactionBulkTest extends TestCase
                 ->assertRedirect(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'return']))
                 ->assertSessionHas('success', 'Return items recorded successfully.');
 
-            $this->assertSame(10, $product->fresh()->stock, "{$channel} should restore both returned units to physical stock.");
+            $this->assertSame(9, $product->fresh()->stock, "{$channel} should restore only the good unit to usable stock.");
+            $this->assertSame(1, $product->fresh()->damaged_stock, "{$channel} should track the damaged unit separately.");
             $this->assertSame(9, (int) $product->stockAllocation->fresh()->{$channel}, "{$channel} should restore only the good unit to its allocation.");
         }
     }
