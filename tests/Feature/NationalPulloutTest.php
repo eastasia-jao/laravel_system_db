@@ -119,9 +119,10 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString('width="9.5" customWidth="1"', $sheet);
             $this->assertStringContainsString('ht="20" customHeight="1"', $sheet);
             $this->assertStringContainsString('name="_xlnm.Print_Titles"', $workbookXml);
-            $this->assertStringContainsString('dimension ref="A1:E3"', $sheet);
-            $this->assertStringContainsString('<mergeCell ref="A1:B1"/>', $sheet);
-            $this->assertStringContainsString('<mergeCell ref="D1:E1"/>', $sheet);
+            $this->assertStringContainsString('dimension ref="A1:F3"', $sheet);
+            $this->assertStringContainsString('<mergeCell ref="B1:C1"/>', $sheet);
+            $this->assertStringContainsString('<mergeCell ref="E1:F1"/>', $sheet);
+            $this->assertStringContainsString('NBS', $sheet);
             $this->assertStringContainsString('P.O. #: PO-5001', $sheet);
             $this->assertStringContainsString('Date: 2026-10-13', $sheet);
             $this->assertStringContainsString('Remarks: National Bookstore replenishment', $sheet);
@@ -131,10 +132,10 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString('Physical Stocks', $sheet);
             $this->assertStringContainsString('Actual Pull-out', $sheet);
             $this->assertStringNotContainsString('Unit Type', $sheet);
-            $this->assertStringContainsString('r="A3"', $sheet);
+            $this->assertStringContainsString('r="B3"', $sheet);
             $this->assertStringContainsString($product->name, $sheet);
-            $this->assertStringContainsString('<c r="B3" s="4"/>', $sheet);
-            $this->assertStringContainsString('<c r="E3" s="4"/>', $sheet);
+            $this->assertStringContainsString('<c r="C3" s="4"/>', $sheet);
+            $this->assertStringContainsString('<c r="F3" s="4"/>', $sheet);
             $this->assertStringContainsString('wrapText="1"', $styles);
         } finally {
             unset($workbook);

@@ -87,24 +87,26 @@ class NationalPulloutWorkbook
         $lastRow = count($items) + 2;
         $rows = [
             self::rowXml(1, [
+                'NBS',
                 'P.O. #: '.($document['po_number'] ?? ''),
                 '',
                 'Date: '.($document['occurred_on'] ?? ''),
                 'Remarks: '.($document['remarks'] ?? ''),
                 '',
-            ], 20, 3),
-            self::rowXml(2, ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-out'], 30, 2),
+            ], 20, 3, [0 => 5]),
+            self::rowXml(2, ['', 'Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-out'], 30, 2),
         ];
 
         foreach ($items as $index => $item) {
             $row = $index + 3;
             $rows[] = self::rowXml($row, [
+                '',
                 $item['name'],
                 $item['quantity'],
                 $item['purpose'],
                 $item['physical_stock'],
                 $item['actual_pullout'],
-            ], 20, 1, [1 => 4, 3 => 4, 4 => 4]);
+            ], 20, 1, [2 => 4, 4 => 4, 5 => 4]);
         }
 
         $sheetData = implode('', $rows);
@@ -125,7 +127,7 @@ class NationalPulloutWorkbook
             'xl/workbook.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 .'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
                 .'<sheets><sheet name="Pullout" sheetId="1" r:id="rId1"/></sheets>'
-                .'<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'Pullout\'!$A$1:$E$'.$lastRow.'</definedName>'
+                .'<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'Pullout\'!$A$1:$F$'.$lastRow.'</definedName>'
                 .'<definedName name="_xlnm.Print_Titles" localSheetId="0">\'Pullout\'!$1:$2</definedName></definedNames>'
                 .'</workbook>',
             'xl/_rels/workbook.xml.rels' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -137,16 +139,17 @@ class NationalPulloutWorkbook
             'xl/worksheets/sheet1.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
                 .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
-                .'<dimension ref="A1:E'.$lastRow.'"/>'
+                .'<dimension ref="A1:F'.$lastRow.'"/>'
                 .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews>'
                 .'<sheetFormatPr defaultRowHeight="15"/>'
-                .'<cols><col min="1" max="1" width="48" customWidth="1"/>'
-                .'<col min="2" max="2" width="9.5" customWidth="1"/>'
-                .'<col min="3" max="3" width="20" customWidth="1"/>'
-                .'<col min="4" max="4" width="18" customWidth="1"/>'
-                .'<col min="5" max="5" width="16" customWidth="1"/></cols>'
+                .'<cols><col min="1" max="1" width="8" customWidth="1"/>'
+                .'<col min="2" max="2" width="48" customWidth="1"/>'
+                .'<col min="3" max="3" width="9.5" customWidth="1"/>'
+                .'<col min="4" max="4" width="20" customWidth="1"/>'
+                .'<col min="5" max="5" width="18" customWidth="1"/>'
+                .'<col min="6" max="6" width="16" customWidth="1"/></cols>'
                 .'<sheetData>'.$sheetData.'</sheetData>'
-                .'<mergeCells count="2"><mergeCell ref="A1:B1"/><mergeCell ref="D1:E1"/></mergeCells>'
+                .'<mergeCells count="2"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/></mergeCells>'
                 .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
                 .'<pageMargins left="0.6" right="0" top="0" bottom="0" header="0" footer="0"/>'
                 .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/>'
@@ -195,18 +198,20 @@ class NationalPulloutWorkbook
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            .'<fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts>'
-            .'<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
-            .'<fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/><bgColor indexed="64"/></patternFill></fill></fills>'
+            .'<fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="10"/><name val="Arial"/></font></fonts>'
+            .'<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+            .'<fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/><bgColor indexed="64"/></patternFill></fill>'
+            .'<fill><patternFill patternType="solid"><fgColor rgb="FFD92D20"/><bgColor indexed="64"/></patternFill></fill></fills>'
             .'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'
             .'<border><left style="thin"><color rgb="FF64748B"/></left><right style="thin"><color rgb="FF64748B"/></right>'
             .'<top style="thin"><color rgb="FF64748B"/></top><bottom style="thin"><color rgb="FF64748B"/></bottom><diagonal/></border></borders>'
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            .'<cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            .'<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .'<xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0"><alignment vertical="center" shrinkToFit="1"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"><alignment vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf>'
             .'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             .'</styleSheet>';
     }
