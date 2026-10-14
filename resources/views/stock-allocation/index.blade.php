@@ -16,6 +16,7 @@
     .allocation-table .remaining-column { width: 12%; }
     .allocation-table .product-cell { width: 28%; min-width: 280px; }
     .allocation-table .physical-cell { width: 12%; text-align: center; }
+    .allocation-table .physical-cell small { display: block; margin-top: .2rem; font-size: .68rem; font-weight: 500; }
     .allocation-table .channel-cell { position: relative; width: 9.5%; padding: .55rem .45rem 1.45rem; text-align: center; }
     .allocation-table .channel-input { width: 100%; min-width: 0; border-radius: 9px; text-align: center; }
     .allocation-table .channel-input:focus { border-color: #2563eb; box-shadow: 0 0 0 .18rem rgba(37,99,235,.12); }
@@ -139,7 +140,10 @@
                                 <div class="fw-semibold">{{ $product->name }}</div>
                                 <small class="text-muted">{{ $product->item_id }}{{ $product->barcode ? ' · '.$product->barcode : '' }}</small>
                             </td>
-                            <td class="physical-cell fw-semibold">{{ $product->stock }}</td>
+                            <td class="physical-cell fw-semibold">
+                                <span class="total-physical-stock">{{ $product->starting_inventory }}</span>
+                                <small><span class="text-success">Good: {{ $product->stock }}</span> Â· <span class="text-danger">Damaged: {{ $product->damaged_stock }}</span></small>
+                            </td>
                             @foreach(['online', 'wholesale', 'shopee', 'lazada', 'tiktok'] as $channel)
                                 <td class="channel-cell">
                                     @if($canEditAllocations)

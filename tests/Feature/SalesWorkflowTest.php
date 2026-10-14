@@ -16,7 +16,7 @@ class SalesWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_sales_staff_only_see_allocated_channel_stock_and_cannot_select_damaged_stock(): void
+    public function test_sales_staff_only_see_allocated_channel_stock_without_condition_controls(): void
     {
         $hub = StoreHub::create([
             'name' => 'Channel Allocation Head Office',
@@ -120,8 +120,8 @@ class SalesWorkflowTest extends TestCase
             'active_only' => 1,
         ]))
             ->assertOk()
-            ->assertJsonPath('0.stock', 5)
-            ->assertJsonPath('0.channel_available_stock', 5)
+            ->assertJsonPath('0.stock', 7)
+            ->assertJsonPath('0.channel_available_stock', 7)
             ->assertJsonMissingPath('0.damaged_stock');
 
         $this->get(route('products.index', ['hub_id' => $hub->id]))
@@ -136,7 +136,7 @@ class SalesWorkflowTest extends TestCase
             ->assertDontSee('name="items[0][stock_condition]"', false);
     }
 
-    public function test_no_sales_channel_can_sell_damaged_stock(): void
+    public function test_all_sales_channels_can_sell_from_damaged_physical_stock(): void
     {
         $hub = StoreHub::create([
             'name' => 'Damaged Rejection Head Office',
@@ -150,43 +150,37 @@ class SalesWorkflowTest extends TestCase
             $product = Product::create([
                 'store_hub_id' => $hub->id,
                 'item_id' => 'DAMAGED-REJECT-'.strtoupper($channel),
-                'name' => ucfirst($channel).' Damaged Rejection Product',
+                'name' => ucfirst($channel).' Damaged Sellable Product',
                 'sales_price' => 100,
                 'stock' => 0,
                 'damaged_stock' => 1,
                 'status' => 'active',
             ]);
 
+            if ($channel !== 'walk_in') {
+                ProductStockAllocation::create([
+                    'product_id' => $product->id,
+                    $channel => 1,
+                ]);
+            }
+
             $this->actingAs($admin)->post(route('sales.store'), [
                 'store_hub_id' => $hub->id,
                 'sales_channel' => $channel,
+                'status' => 'completed',
                 'order_date' => '2026-10-13',
                 'customer_name' => 'Damaged Stock Customer',
                 'items' => [[
                     'product_id' => $product->id,
                     'quantity' => 1,
                     'unit_price' => 100,
-                    'stock_condition' => 'damaged',
                 ]],
-            ])->assertSessionHasErrors('items.0.stock_condition');
-
-            $this->post(route('sales.storeMultiChannelSale'), [
-                'store_hub_id' => $hub->id,
-                'sales_channel' => $channel,
-                'placed_order_date' => '2026-10-13',
-                'customer_name' => 'Damaged Stock Customer',
-                'items' => [[
-                    'product_id' => $product->id,
-                    'quantity' => 1,
-                    'unit_price' => 100,
-                    'stock_condition' => 'damaged',
-                ]],
-            ])->assertSessionHasErrors('items.0.stock_condition');
+            ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
             $this->assertSame(0, (int) $product->fresh()->stock);
-            $this->assertSame(1, (int) $product->fresh()->damaged_stock);
+            $this->assertSame(0, (int) $product->fresh()->damaged_stock);
         }
-        $this->assertDatabaseCount('sales_transactions', 0);
+        $this->assertDatabaseCount('sales_transactions', 6);
     }
 
     public function test_tiktok_customer_lookup_searches_existing_customers_by_name(): void

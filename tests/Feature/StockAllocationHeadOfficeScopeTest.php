@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -12,6 +13,37 @@ use Tests\TestCase;
 class StockAllocationHeadOfficeScopeTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_damaged_units_are_included_in_physical_stock_and_can_be_allocated(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-DAMAGED', 'status' => 'active', 'is_head_office' => true]);
+        $product = Product::create([
+            'store_hub_id' => $headOffice->id,
+            'item_id' => 'CANVAS-24X24',
+            'name' => 'Fredrix Stretched Canvas Roll Label 24x24',
+            'stock' => 47,
+            'damaged_stock' => 1,
+            'status' => 'active',
+        ]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
+
+        $response = $this->actingAs($admin)->get(route('stock-allocation.index', ['hub_id' => $headOffice->id]));
+
+        $response->assertOk()
+            ->assertSee('<span class="total-physical-stock">48</span>', false)
+            ->assertSee('Good: 47')
+            ->assertSee('Damaged: 1')
+            ->assertSee('max="48"', false);
+
+        $this->post(route('stock-allocation.update'), [
+            'hub_id' => $headOffice->id,
+            'allocations' => [
+                $product->id => ['online' => 48, 'wholesale' => 0, 'shopee' => 0, 'lazada' => 0, 'tiktok' => 0],
+            ],
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertSame(48, (int) ProductStockAllocation::where('product_id', $product->id)->value('online'));
+    }
 
     public function test_all_stores_allocation_scope_only_lists_head_office_hubs_and_products(): void
     {

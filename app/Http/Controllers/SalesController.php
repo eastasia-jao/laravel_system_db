@@ -133,8 +133,11 @@ class SalesController extends Controller
                     $stockCondition = $itemData['stock_condition'] ?? 'good';
                     $stockColumn = $stockCondition === 'damaged' ? 'damaged_stock' : 'stock';
 
-                    if ($status === 'completed' && (int) $product->{$stockColumn} < $quantity) {
-                        throw new \RuntimeException("Not enough {$stockCondition} stock for \"{$product->name}\" (have {$product->{$stockColumn}}, need {$quantity}).");
+                    $availablePhysicalStock = $stockCondition === 'damaged'
+                        ? (int) $product->damaged_stock
+                        : $product->sellableStock();
+                    if ($status === 'completed' && $availablePhysicalStock < $quantity) {
+                        throw new \RuntimeException("Not enough sellable stock for \"{$product->name}\" (have {$availablePhysicalStock}, need {$quantity}).");
                     }
 
                     $unitPrice = $itemData['unit_price'] ?? $itemData['price'] ?? $product->sales_price ?? 0;
@@ -163,7 +166,11 @@ class SalesController extends Controller
                             }
                             $allocation->decrement($normalizedChannel, $quantity);
                         }
-                        $product->decrement($stockColumn, $quantity);
+                        if ($stockCondition === 'good') {
+                            $product->consumeSellableStock($quantity);
+                        } else {
+                            $product->decrement($stockColumn, $quantity);
+                        }
                         InventoryTransaction::create([
                             'type' => 'sold',
                             'reference' => $transaction->order_number,
@@ -408,7 +415,9 @@ class SalesController extends Controller
 
                 $stockKey = $product->id.':'.$stockCondition;
                 $requestedQuantities[$stockKey] = ($requestedQuantities[$stockKey] ?? 0) + $quantity;
-                $availableStocks[$stockKey] = (int) ($stockCondition === 'damaged' ? $product->damaged_stock : $product->stock);
+                $availableStocks[$stockKey] = $stockCondition === 'damaged'
+                    ? (int) $product->damaged_stock
+                    : $product->sellableStock();
             }
 
             $inventoryReady = collect($requestedQuantities)->every(
@@ -731,7 +740,9 @@ class SalesController extends Controller
                         'line_total' => $lineTotal,
                     ]);
 
-                    $stockBefore = (int) $product->{$stockColumn};
+                    $stockBefore = $stockCondition === 'damaged'
+                        ? (int) $product->damaged_stock
+                        : $product->sellableStock();
                     $allocation = $stockCondition === 'good' && $channel !== 'walk_in'
                         ? ProductStockAllocation::where('product_id', $product->id)->lockForUpdate()->first()
                         : null;
@@ -754,7 +765,11 @@ class SalesController extends Controller
                             throw ValidationException::withMessages(['stock' => "Not enough stock for {$product->name}."]);
                         }
                     }
-                    $product->decrement($stockColumn, $quantity);
+                    if ($stockCondition === 'good') {
+                        $product->consumeSellableStock($quantity);
+                    } else {
+                        $product->decrement($stockColumn, $quantity);
+                    }
                     InventoryTransaction::create([
                         'type' => 'sold',
                         'reference' => $transaction->order_number,

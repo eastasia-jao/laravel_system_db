@@ -87,7 +87,7 @@ class StockAllocationController extends Controller
             $product->allocation_values = $allocated;
             $product->sold_values = $sold;
             $product->remaining_values = $allocated;
-            $product->starting_inventory = (int) $product->stock;
+            $product->starting_inventory = $product->sellableStock();
 
             return $product;
         });
@@ -151,7 +151,7 @@ class StockAllocationController extends Controller
                 }
 
                 $total = collect(self::CHANNELS)->sum(fn ($channel) => (int) $values[$channel]);
-                if ($total > (int) $product->stock) {
+                if ($total > $product->sellableStock()) {
                     abort(422, "The allocation for {$product->name} exceeds its physical stock remaining.");
                 }
 

@@ -164,9 +164,38 @@ class Product extends Model
     {
         $allocated = $this->stockAllocation?->{$channel};
         if ($allocated === null) {
-            return $fallbackToPhysical ? (int) $this->stock : 0;
+            return $fallbackToPhysical ? $this->sellableStock() : 0;
         }
         return max(0, (int) $allocated);
+    }
+
+    public function sellableStock(): int
+    {
+        return max(0, (int) $this->stock) + max(0, (int) $this->damaged_stock);
+    }
+
+    /**
+     * Consume sellable physical stock, using good units before damaged units.
+     *
+     * @return array{good: int, damaged: int}
+     */
+    public function consumeSellableStock(int $quantity): array
+    {
+        if ($quantity < 0 || $this->sellableStock() < $quantity) {
+            throw new \RuntimeException("Not enough sellable stock for {$this->name}.");
+        }
+
+        $goodQuantity = min(max(0, (int) $this->stock), $quantity);
+        $damagedQuantity = $quantity - $goodQuantity;
+
+        if ($goodQuantity > 0) {
+            $this->decrement('stock', $goodQuantity);
+        }
+        if ($damagedQuantity > 0) {
+            $this->decrement('damaged_stock', $damagedQuantity);
+        }
+
+        return ['good' => $goodQuantity, 'damaged' => $damagedQuantity];
     }
 
     public function unallocatedStock(): int
@@ -175,7 +204,7 @@ class Product extends Model
         $allocated = collect(['online', 'wholesale', 'shopee', 'lazada', 'tiktok'])
             ->sum(fn ($channel) => (int) ($allocation?->{$channel} ?? 0));
 
-        return max(0, (int) $this->stock - $allocated);
+        return max(0, $this->sellableStock() - $allocated);
     }
 
     public function inventoryTransactions()

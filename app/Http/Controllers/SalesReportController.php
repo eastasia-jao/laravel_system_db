@@ -1192,7 +1192,7 @@ class SalesReportController extends Controller
                     'online' => $replacementProduct->channelAvailableStock($channel, false),
                     default => $replacementProduct->channelAvailableStock($channel),
                 };
-                if ((int) $replacementProduct->stock < $requestedQuantity || $channelAvailable < $requestedQuantity) {
+                if ($replacementProduct->sellableStock() < $requestedQuantity || $channelAvailable < $requestedQuantity) {
                     throw ValidationException::withMessages([
                         'replacement' => "Not enough {$channel} stock for {$replacementProduct->name}. Available: {$channelAvailable}; requested: {$requestedQuantity}.",
                     ]);
@@ -1233,7 +1233,7 @@ class SalesReportController extends Controller
             }
             foreach ($requestedByProduct as $productId => $requestedQuantity) {
                 $replacementProduct = $products->get((int) $productId);
-                $replacementProduct->decrement('stock', $requestedQuantity);
+                $replacementProduct->consumeSellableStock($requestedQuantity);
                 if ($channel !== 'walk_in') {
                     ProductStockAllocation::where('product_id', $replacementProduct->id)->lockForUpdate()->first()?->decrement($channel, $requestedQuantity);
                 }
