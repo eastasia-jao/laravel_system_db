@@ -218,4 +218,57 @@ class EventPulloutWorkbookTest extends TestCase
             }
         }
     }
+
+    public function test_large_event_workbook_import_matches_products_in_bounded_batches(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office',
+            'code' => 'EVENT-HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $product = Product::create([
+            'name' => 'Event Product',
+            'item_id' => 'EVENT-123',
+            'barcode' => 'EVENT-456',
+            'store_hub_id' => $hub->id,
+            'stock' => 2000,
+            'damaged_stock' => 0,
+            'status' => 'active',
+        ]);
+        $item = [
+            'name' => 'Event Product',
+            'barcode' => 'EVENT-456',
+            'item_id' => 'EVENT-123',
+            'physical_stock' => 2000,
+            'good_stock' => 2000,
+            'damaged_stock' => 0,
+            'pullout_qty' => '',
+            'actual_pullout' => 1,
+            'stock_condition' => 'good',
+        ];
+        $path = EventPulloutWorkbook::create(array_fill(0, 801, $item));
+
+        try {
+            $this->actingAs(User::factory()->create(['role' => 'admin']))
+                ->post(route('inventory-transactions.sponsor.worksheet.import'), [
+                    'hub_id' => $hub->id,
+                    'file' => new UploadedFile(
+                        $path,
+                        'large-event-pullout.xlsx',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        null,
+                        true
+                    ),
+                ])
+                ->assertOk()
+                ->assertJsonCount(801, 'items')
+                ->assertJsonPath('items.0.product_id', $product->id)
+                ->assertJsonPath('items.800.product_id', $product->id);
+        } finally {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+    }
 }

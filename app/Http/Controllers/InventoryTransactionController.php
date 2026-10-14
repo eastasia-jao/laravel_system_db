@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\InventoryTransaction;
-use App\Models\NationalPullout;
-use App\Models\NationalProduct;
 use App\Models\FullyBookedOrder;
-use App\Models\FullyBookedOrderItem;
+use App\Models\InventoryTransaction;
+use App\Models\NationalProduct;
+use App\Models\NationalPullout;
 use App\Models\Product;
+use App\Models\ProductReplacement;
 use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StaffActivityLog;
@@ -17,9 +17,9 @@ use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
 use App\Support\CsvIdentifier;
 use App\Support\EventPulloutWorkbook;
-use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -144,9 +144,54 @@ class InventoryTransactionController extends Controller
         ]);
         $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
         $workbook = EventPulloutWorkbook::read($validated['file']->getRealPath());
-        $products = Product::where('store_hub_id', $hub->id)
-            ->where('status', 'active')
-            ->get();
+        $rowsToMatch = array_values(array_filter(
+            $workbook['items'],
+            fn (array $row) => trim($row['actual_pullout']) !== ''
+        ));
+        $productsByItemId = [];
+        $productsByBarcode = [];
+        foreach (array_chunk($rowsToMatch, 400) as $lookupRows) {
+            $itemIds = collect($lookupRows)
+                ->map(fn (array $row) => trim($row['item_id']))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            $barcodes = collect($lookupRows)
+                ->map(fn (array $row) => trim($row['barcode']))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            if ($itemIds === [] && $barcodes === []) {
+                continue;
+            }
+
+            $products = Product::where('store_hub_id', $hub->id)
+                ->where('status', 'active')
+                ->where(function ($query) use ($itemIds, $barcodes) {
+                    if ($itemIds !== []) {
+                        $query->whereHas('catalogProduct', fn ($catalog) => $catalog->whereIn('item_id', $itemIds));
+                    }
+                    if ($barcodes !== []) {
+                        $itemIds === []
+                            ? $query->whereIn('barcode', $barcodes)
+                            : $query->orWhereIn('barcode', $barcodes);
+                    }
+                })
+                ->get();
+
+            foreach ($products as $product) {
+                $itemId = trim((string) $product->item_id);
+                $barcode = trim((string) $product->barcode);
+                if ($itemId !== '') {
+                    $productsByItemId[$itemId][$product->id] = $product;
+                }
+                if ($barcode !== '') {
+                    $productsByBarcode[$barcode][$product->id] = $product;
+                }
+            }
+        }
         $items = [];
         $errors = [];
 
@@ -190,18 +235,21 @@ class InventoryTransactionController extends Controller
             $itemId = trim($row['item_id']);
             $barcode = trim($row['barcode']);
             $matches = $itemId !== ''
-                ? $products->where('item_id', $itemId)
-                : $products->where('barcode', $barcode);
+                ? array_values($productsByItemId[$itemId] ?? [])
+                : array_values($productsByBarcode[$barcode] ?? []);
             if ($itemId !== '' && $barcode !== '') {
-                $matches = $matches->where('barcode', $barcode);
+                $matches = array_values(array_filter(
+                    $matches,
+                    fn (Product $product) => (string) $product->barcode === $barcode
+                ));
             }
-            if ($matches->count() !== 1) {
-                $errors[] = "Row {$line}: ".($itemId ?: $barcode ?: $name)." is missing, ambiguous, or not active in the selected store.";
+            if (count($matches) !== 1) {
+                $errors[] = "Row {$line}: ".($itemId ?: $barcode ?: $name).' is missing, ambiguous, or not active in the selected store.';
 
                 continue;
             }
 
-            $product = $matches->first();
+            $product = $matches[0];
             $items[] = [
                 'product_id' => $product->id,
                 'quantity' => (int) $quantity,
@@ -419,16 +467,16 @@ class InventoryTransactionController extends Controller
                         ->concat($transaction->replacements
                             ->where('status', 'approved')
                             ->map(fn ($replacement) => [
-                            'id' => null,
-                            'replacement_id' => $replacement->id,
-                            'product_id' => $replacement->replacement_product_id,
-                            'name' => $replacement->replacementProduct?->name ?? 'Product #'.$replacement->replacement_product_id,
-                            'item_id' => $replacement->replacementProduct?->item_id,
-                            'quantity' => (int) ($replacement->replacement_quantity ?: $replacement->quantity),
-                            'returned_quantity' => (int) $replacement->inventoryReturns->sum('quantity'),
-                            'unit_price' => (float) $replacement->replacement_unit_price,
-                            'discount_percentage' => (float) ($replacement->replacement_discount_percentage ?? 0),
-                        ]))
+                                'id' => null,
+                                'replacement_id' => $replacement->id,
+                                'product_id' => $replacement->replacement_product_id,
+                                'name' => $replacement->replacementProduct?->name ?? 'Product #'.$replacement->replacement_product_id,
+                                'item_id' => $replacement->replacementProduct?->item_id,
+                                'quantity' => (int) ($replacement->replacement_quantity ?: $replacement->quantity),
+                                'returned_quantity' => (int) $replacement->inventoryReturns->sum('quantity'),
+                                'unit_price' => (float) $replacement->replacement_unit_price,
+                                'discount_percentage' => (float) ($replacement->replacement_discount_percentage ?? 0),
+                            ]))
                         ->values(),
                 ],
             ]);
@@ -552,9 +600,9 @@ class InventoryTransactionController extends Controller
             ->map(fn (InventoryTransaction $transaction) => $transaction->salesTransaction?->order_number)
             ->filter();
         $fullyBookedReferences = $transactions
-                ->where('type', 'sponsor_workshop')
-                ->where('channel', 'fully_booked')
-                ->pluck('reference')
+            ->where('type', 'sponsor_workshop')
+            ->where('channel', 'fully_booked')
+            ->pluck('reference')
             ->merge($fullyBookedReturnReferences)
             ->filter()
             ->unique();
@@ -680,28 +728,28 @@ class InventoryTransactionController extends Controller
             ->where('status', '!=', 'pending')
             ->whereNull('pulled_out_at')
             ->mapWithKeys(function (FullyBookedOrder $order) {
-            $transaction = new InventoryTransaction;
-            $transaction->setRawAttributes([
-                'id' => 'fully-booked-'.$order->id,
-                'type' => 'fully_booked',
-                'reference' => $order->order_number,
-                'store_hub_id' => $order->store_hub_id,
-                'channel' => 'fully_booked',
-                'quantity' => 0,
-                'occurred_on' => ($order->status === 'rejected'
-                    ? ($order->reviewed_at ?? $order->created_at)
-                    : $order->created_at)?->toDateString(),
-                'created_at' => $order->status === 'rejected'
-                    ? ($order->reviewed_at ?? $order->created_at)
-                    : $order->created_at,
-                'created_by' => $order->submitted_by,
-                'status' => $order->status,
-            ], true);
-            $transaction->setRelation('storeHub', $order->storeHub);
-            $transaction->setRelation('creator', $order->submitter);
-            $transaction->setRelation('fullyBookedOrder', $order);
+                $transaction = new InventoryTransaction;
+                $transaction->setRawAttributes([
+                    'id' => 'fully-booked-'.$order->id,
+                    'type' => 'fully_booked',
+                    'reference' => $order->order_number,
+                    'store_hub_id' => $order->store_hub_id,
+                    'channel' => 'fully_booked',
+                    'quantity' => 0,
+                    'occurred_on' => ($order->status === 'rejected'
+                        ? ($order->reviewed_at ?? $order->created_at)
+                        : $order->created_at)?->toDateString(),
+                    'created_at' => $order->status === 'rejected'
+                        ? ($order->reviewed_at ?? $order->created_at)
+                        : $order->created_at,
+                    'created_by' => $order->submitted_by,
+                    'status' => $order->status,
+                ], true);
+                $transaction->setRelation('storeHub', $order->storeHub);
+                $transaction->setRelation('creator', $order->submitter);
+                $transaction->setRelation('fullyBookedOrder', $order);
 
-            return ['fully-booked-'.$order->id => collect([$transaction])];
+                return ['fully-booked-'.$order->id => collect([$transaction])];
             });
 
         $nationalPullouts = in_array($user?->role, ['admin', 'inventory_staff'], true)
@@ -858,7 +906,7 @@ class InventoryTransactionController extends Controller
             if ($user?->store_hub_id && ! in_array($user?->role, ['sales_associate', 'inventory_staff'], true)) {
                 $hubs = $hubs->filter(fn (StoreHub $hub) => (int) $hub->id === (int) $user->store_hub_id)->values();
             }
-                $allHubs = $allHubs->filter(fn (StoreHub $hub) => ! $hub->is_head_office)->values();
+            $allHubs = $allHubs->filter(fn (StoreHub $hub) => ! $hub->is_head_office)->values();
             $hubId = ($hubs->firstWhere('id', $hubId) ?: $hubs->first())?->id;
         }
         if ($type === 'stock_transfer') {
@@ -1396,11 +1444,11 @@ class InventoryTransactionController extends Controller
             $sourceName = StoreHub::find($sourceHubId)?->name ?? 'the source branch';
             $targetName = StoreHub::find($targetHubId)?->name ?? 'the destination branch';
             $receivingAssociates->each(fn (User $recipient) => $recipient->notify(new InventoryWorkflowNotification(
-                    'branch_transfer_approved',
-                    "Transfer Document {$documentNo} from {$sourceName} to {$targetName} was approved. The transferred stock is now available at your branch.",
-                    $targetHubId,
-                    route('hub.dashboard', $targetHubId)
-                )));
+                'branch_transfer_approved',
+                "Transfer Document {$documentNo} from {$sourceName} to {$targetName} was approved. The transferred stock is now available at your branch.",
+                $targetHubId,
+                route('hub.dashboard', $targetHubId)
+            )));
         }
 
         return back()->with('success', 'Branch-to-branch transfer request '.$decision.'.');
@@ -1638,7 +1686,7 @@ class InventoryTransactionController extends Controller
                     ]);
                 }
                 $replacement = ! empty($item['replacement_id'])
-                    ? \App\Models\ProductReplacement::whereKey($item['replacement_id'])
+                    ? ProductReplacement::whereKey($item['replacement_id'])
                         ->where('transaction_id', $validated['sales_transaction_id'])
                         ->where('status', 'approved')
                         ->where('replacement_product_id', $product->id)
