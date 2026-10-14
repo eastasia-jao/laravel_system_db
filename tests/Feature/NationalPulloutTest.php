@@ -157,6 +157,8 @@ class NationalPulloutTest extends TestCase
             ->assertSee('id="pulloutImportLoading" class="national-pullout-import-overlay"', false)
             ->assertSee('id="pulloutImportProgress"', false)
             ->assertSee("request.upload.addEventListener('progress'", false)
+            ->assertSee("window.AppAlert.show(", false)
+            ->assertSee("'Pullout items imported'", false)
             ->assertSee('for="pulloutWorksheetFile"', false)
             ->assertSee('.csv,.xlsx', false)
             ->assertSee("row.querySelector('.pullout-product-results').addEventListener('click'", false)

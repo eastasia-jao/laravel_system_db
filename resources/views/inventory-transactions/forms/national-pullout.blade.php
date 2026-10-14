@@ -121,6 +121,7 @@
     });
     const itemsBody = document.getElementById('nationalPulloutItems');
     const message = document.getElementById('pulloutCsvMessage');
+    let importedItemCount = 0;
     const hideProductResults = () => document.querySelectorAll('.pullout-product-results').forEach(result => result.hidden = true);
     const selectedProductIds = excludedRow => new Set(
         [...itemsBody.querySelectorAll('.national-pullout-item')]
@@ -278,6 +279,7 @@
         }
         message.hidden = true;
         message.textContent = '';
+        importedItemCount = imported.length;
         return true;
     };
 
@@ -392,6 +394,13 @@
                 await new Promise(resolve => setTimeout(resolve, 350));
             }
             importLoading.hidden = true;
+            if (imported) {
+                await window.AppAlert.show(
+                    `${importedItemCount} item row(s) imported. Review the quantities before saving.`,
+                    'success',
+                    { title: 'Pullout items imported', buttonLabel: 'Continue' }
+                );
+            }
         }
     });
 
