@@ -185,7 +185,7 @@
 
     <div class="card log-table-card shadow-sm rounded-4 overflow-hidden">
         <div class="table-responsive"><table class="table table-hover align-middle mb-0 inventory-log-table">
-            <thead class="table-light small text-uppercase"><tr><th>Date</th><th>Type</th><th>Transaction Details</th><th>Hub</th><th>Channel / Source</th><th class="text-end">Qty</th><th>Transfer</th><th>User</th><th>Actions</th></tr></thead>
+            <thead class="table-light small text-uppercase"><tr><th>Date / Time</th><th>Type</th><th>Transaction Details</th><th>Hub</th><th>Channel / Source</th><th class="text-end">Qty</th><th>Transfer</th><th>User</th><th>Actions</th></tr></thead>
             <tbody>
             @forelse($transactions as $groupKey => $group)
                 @php
@@ -240,7 +240,10 @@
                         : collect();
                 @endphp
                 <tr>
-                    <td>{{ $transaction->occurred_on->format('M d, Y') }}</td>
+                    <td>
+                        <span class="d-block">{{ $transaction->occurred_on->format('M d, Y') }}</span>
+                        <small class="text-muted">{{ $transaction->created_at?->format('h:i A') ?? 'Time unavailable' }}</small>
+                    </td>
                     @php
                         $typeClass = $isReplacementGroup ? 'replacement' : ($isReturnGroup ? 'return' : ($isSoldOrder ? 'sold' : ($isTransferGroup ? 'transfer' : 'other')));
                         $typeIcon = match (true) {

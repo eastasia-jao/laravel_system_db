@@ -817,6 +817,51 @@ class TransactionBulkTest extends TestCase
         $this->assertSame(25, $secondPage->total());
     }
 
+    public function test_transaction_logs_are_sorted_by_date_then_time_descending(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Sorted Logs Hub', 'code' => 'SORTED-LOGS', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $product = Product::create([
+            'name' => 'Sorted Logs Product', 'item_id' => 'SORTED-1',
+            'store_hub_id' => $hub->id, 'stock' => 10, 'status' => 'active',
+        ]);
+
+        foreach ([
+            ['reference' => 'OLDER-DATE-LATE-CREATED', 'occurred_on' => '2026-10-13', 'created_at' => '2026-10-14 11:00:00'],
+            ['reference' => 'NEWER-DATE-EARLY-TIME', 'occurred_on' => '2026-10-14', 'created_at' => '2026-10-14 08:00:00'],
+            ['reference' => 'NEWER-DATE-LATE-TIME', 'occurred_on' => '2026-10-14', 'created_at' => '2026-10-14 15:30:00'],
+        ] as $attributes) {
+            $transaction = InventoryTransaction::create($attributes + [
+                'type' => 'sponsor_workshop',
+                'store_hub_id' => $hub->id,
+                'product_id' => $product->id,
+                'source' => 'Sorting test',
+                'quantity' => 1,
+                'created_by' => $admin->id,
+                'updated_at' => $attributes['created_at'],
+            ]);
+            $transaction->forceFill([
+                'created_at' => $attributes['created_at'],
+                'updated_at' => $attributes['created_at'],
+            ])->saveQuietly();
+        }
+
+        $response = $this->actingAs($admin)->get(route('inventory-transactions.index', [
+            'hub_id' => $hub->id,
+            'type' => 'sponsor_workshop',
+        ]))->assertOk();
+
+        $response->assertSeeInOrder([
+            'NEWER-DATE-LATE-TIME',
+            'NEWER-DATE-EARLY-TIME',
+            'OLDER-DATE-LATE-CREATED',
+        ])->assertSee('Date / Time')
+            ->assertSee('03:30 PM')
+            ->assertSee('08:00 AM');
+    }
+
     public function test_branch_transfer_starts_with_the_only_item_delete_button_disabled(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));

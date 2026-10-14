@@ -498,6 +498,9 @@ class InventoryTransactionController extends Controller
                 'occurred_on' => ($order->status === 'rejected'
                     ? ($order->reviewed_at ?? $order->created_at)
                     : $order->created_at)?->toDateString(),
+                'created_at' => $order->status === 'rejected'
+                    ? ($order->reviewed_at ?? $order->created_at)
+                    : $order->created_at,
                 'created_by' => $order->submitted_by,
                 'status' => $order->status,
             ], true);
@@ -533,6 +536,7 @@ class InventoryTransactionController extends Controller
                     'source' => 'National Bookstore',
                     'quantity' => $item->actual_pullout,
                     'occurred_on' => $pullout->occurred_on?->toDateString(),
+                    'created_at' => $pullout->created_at,
                     'notes' => $pullout->remarks,
                     'created_by' => $pullout->created_by,
                 ], true);
@@ -549,7 +553,24 @@ class InventoryTransactionController extends Controller
         $transactionGroups = collect($transactionGroups->all())
             ->merge($fullyBookedGroups)
             ->merge($nationalPulloutGroups)
-            ->sortByDesc(fn ($group) => $group->first()->occurred_on?->timestamp)
+            ->sort(function ($leftGroup, $rightGroup) {
+                $sortValues = static function ($group): array {
+                    $transaction = $group->first();
+
+                    return [
+                        $transaction->occurred_on?->timestamp ?? 0,
+                        $group->max(fn ($entry) => $entry->created_at?->timestamp ?? 0),
+                        (string) $transaction->getKey(),
+                    ];
+                };
+
+                [$leftDate, $leftTime, $leftId] = $sortValues($leftGroup);
+                [$rightDate, $rightTime, $rightId] = $sortValues($rightGroup);
+
+                return ($rightDate <=> $leftDate)
+                    ?: ($rightTime <=> $leftTime)
+                    ?: strnatcasecmp($rightId, $leftId);
+            })
             ->values();
         $page = LengthAwarePaginator::resolveCurrentPage();
         $transactions = new LengthAwarePaginator(
