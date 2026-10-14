@@ -173,13 +173,13 @@ class EventPulloutWorkbook
             .'<sheetFormatPr defaultRowHeight="15"/>'
             .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="7" width="20" customWidth="1"/></cols>'
             .'<sheetData>'
-            .'<row r="1" ht="20" customHeight="1">'
+            .'<row r="1" ht="60" customHeight="1">'
             .self::inlineCell('A1', 'EVENT PULL-OUT', 1)
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
             .self::inlineCell('C1', $document['occurred_on'] ?? '', 2)
             .self::inlineCell('D1', 'Event / Recipient: '.($document['source'] ?? ''), 2)
             .self::inlineCell('F1', 'Remarks: '.($document['notes'] ?? ''), 2)
-            .'</row><row r="2" ht="30" customHeight="1">';
+            .'</row><row r="2" ht="40" customHeight="1">';
 
         foreach ([
             'Name / Description',
@@ -205,7 +205,7 @@ class EventPulloutWorkbook
                 $item['damaged_stock'],
                 $item['actual_pullout'],
             ];
-            $xml .= '<row r="'.$rowNumber.'" ht="20" customHeight="1">';
+            $xml .= '<row r="'.$rowNumber.'" ht="30" customHeight="1">';
             foreach ($values as $columnIndex => $value) {
                 $cell = self::columnName($columnIndex + 1).$rowNumber;
                 $xml .= is_int($value)

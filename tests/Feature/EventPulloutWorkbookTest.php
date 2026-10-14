@@ -54,9 +54,9 @@ class EventPulloutWorkbookTest extends TestCase
         unset($archive);
         $this->assertStringContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);
         $this->assertStringContainsString('<mergeCell ref="F1:G1"/>', $worksheetXml);
-        $this->assertStringContainsString('<row r="1" ht="20" customHeight="1">', $worksheetXml);
-        $this->assertStringContainsString('<row r="2" ht="30" customHeight="1">', $worksheetXml);
-        $this->assertStringContainsString('<row r="3" ht="20" customHeight="1">', $worksheetXml);
+        $this->assertStringContainsString('<row r="1" ht="60" customHeight="1">', $worksheetXml);
+        $this->assertStringContainsString('<row r="2" ht="40" customHeight="1">', $worksheetXml);
+        $this->assertStringContainsString('<row r="3" ht="30" customHeight="1">', $worksheetXml);
         $this->assertStringContainsString('<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>', $worksheetXml);
         $this->assertStringContainsString('<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/>', $worksheetXml);
         $this->assertSame('SW-EVENT-HO-20261001-120000-ABC123', $workbook['reference']);
