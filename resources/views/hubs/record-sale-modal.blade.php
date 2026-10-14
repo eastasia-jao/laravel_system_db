@@ -1079,6 +1079,22 @@ document.addEventListener('DOMContentLoaded', function () {
             good_stock_available: Number(product.good_stock_available ?? product.stock ?? 0),
             damaged_stock_available: Number(product.damaged_stock_available ?? 0),
         }), true, 'item_id');
+    const usedProductConditions = (currentRow, productId) => new Set(
+        [...document.querySelectorAll('#productRowsContainer .product-row')]
+            .filter(otherRow => otherRow !== currentRow
+                && String(otherRow.querySelector('.product-id')?.value || '') === String(productId))
+            .map(otherRow => otherRow.querySelector('.item-status-select')?.value || 'good')
+    );
+    const availableProductConditions = product => {
+        const conditions = [];
+        const goodStock = Math.min(
+            Number(product.good_stock_available || 0),
+            Number(product.channel_available_stock || 0)
+        );
+        if (goodStock > 0) conditions.push('good');
+        if (Number(product.damaged_stock_available || 0) > 0) conditions.push('damaged');
+        return conditions;
+    };
     const bindProductSearch = row => {
         const input = row.querySelector('.product-search');
         const hidden = row.querySelector('.product-id');
@@ -1086,6 +1102,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const value = input.value.trim().toLowerCase();
             if (!value) {
                 hidden.value = '';
+                input.setCustomValidity('');
                 Object.keys(row.dataset).forEach(key => delete row.dataset[key]);
                 updateRowDisplay(row);
                 calculateTotals();
@@ -1099,11 +1116,29 @@ document.addEventListener('DOMContentLoaded', function () {
                     item.name,
                 ].some(identifier => String(identifier || '').trim().toLowerCase() === value)
             );
-            hidden.value = product ? product.id : '';
-            input.setCustomValidity(product ? '' : 'Select a product from the search suggestions.');
             if (product) {
+                const usedConditions = usedProductConditions(row, product.id);
+                const selectedCondition = availableProductConditions(product)
+                    .find(condition => !usedConditions.has(condition));
+                if (usedConditions.size > 0 && !selectedCondition) {
+                    hidden.value = '';
+                    input.value = '';
+                    input.setCustomValidity('This product is already added with every available item status.');
+                    Object.keys(row.dataset).forEach(key => delete row.dataset[key]);
+                    updateRowDisplay(row);
+                    calculateTotals();
+                    window.AppAlert?.show('This product is already added with every available item status.', 'warning');
+                    return;
+                }
+
+                hidden.value = product.id;
+                input.setCustomValidity('');
                 Object.entries(product).forEach(([key, item]) => row.dataset[key] = item ?? '');
+                const itemStatusSelect = row.querySelector('.item-status-select');
+                if (itemStatusSelect && selectedCondition) itemStatusSelect.value = selectedCondition;
             } else {
+                hidden.value = '';
+                input.setCustomValidity('Select a product from the search suggestions.');
                 Object.keys(row.dataset).forEach(key => delete row.dataset[key]);
             }
             updateRowDisplay(row);
@@ -1449,6 +1484,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('change', function(e) {
         if (!e.target.matches('.item-status-select')) return;
         const row = e.target.closest('.product-row');
+        const productId = row.querySelector('.product-id')?.value;
+        if (productId && usedProductConditions(row, productId).has(e.target.value)) {
+            e.target.value = e.target.value === 'good' ? 'damaged' : 'good';
+            window.AppAlert?.show('This product already has a row with that item status.', 'warning');
+        }
         updateRowDisplay(row);
         calculateTotals();
     });

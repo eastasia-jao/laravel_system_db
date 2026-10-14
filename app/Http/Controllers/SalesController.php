@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -70,6 +71,7 @@ class SalesController extends Controller
             'items.*.discount_percentage' => 'nullable|numeric|between:0,100',
             'items.*.discount' => 'nullable|numeric|between:0,100',
         ]);
+        $this->validateUniqueProductConditions($request);
 
         $this->ensureHubAccess((int) $request->store_hub_id);
 
@@ -320,6 +322,7 @@ class SalesController extends Controller
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
         }
+        $this->validateUniqueProductConditions($request);
 
         $this->ensureHubAccess((int) $request->store_hub_id);
         $channel = $this->normalizeSalesChannel($request->sales_channel ?? $request->channel_type ?? 'online');
@@ -1172,6 +1175,29 @@ class SalesController extends Controller
         }
 
         return $value;
+    }
+
+    private function validateUniqueProductConditions(Request $request): void
+    {
+        $seen = [];
+        $errors = [];
+
+        foreach ($request->input('items', []) as $index => $item) {
+            if (empty($item['product_id'])) {
+                continue;
+            }
+
+            $condition = ($item['stock_condition'] ?? 'good') === 'damaged' ? 'damaged' : 'good';
+            $key = (int) $item['product_id'].':'.$condition;
+            if (isset($seen[$key])) {
+                $errors["items.{$index}.product_id"] = 'This product is already added with the same item status.';
+            }
+            $seen[$key] = true;
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
     }
 
     private function inventoryAvailability(PendingSale $pendingSale, bool $lockForUpdate = false): array

@@ -388,6 +388,26 @@ function removeRow(button) {
     }
 }
 
+function walkInUsedProductConditions(currentRow, productId) {
+    return new Set(
+        [...document.querySelectorAll('#walk-in-product-rows .product-row')]
+            .filter(otherRow => otherRow !== currentRow
+                && String(otherRow.querySelector('.product-id')?.value || '') === String(productId))
+            .map(otherRow => otherRow.querySelector('.item-status-select')?.value || 'good')
+    );
+}
+
+function walkInAvailableProductConditions(product) {
+    const conditions = [];
+    const goodStock = Math.min(
+        Number(product.good_stock_available || 0),
+        Number(product.channel_available_stock || 0)
+    );
+    if (goodStock > 0) conditions.push('good');
+    if (Number(product.damaged_stock_available || 0) > 0) conditions.push('damaged');
+    return conditions;
+}
+
 function updateRowPrice(inputElement) {
     const row = inputElement.closest('.product-row');
     const value = inputElement.value.trim().toLowerCase();
@@ -406,8 +426,31 @@ function updateRowPrice(inputElement) {
         }
     }
 
-    row.querySelector('.product-id').value = matched ? matched.id : '';
-    inputElement.setCustomValidity(matched ? '' : 'Select a product from the search suggestions.');
+    const productIdInput = row.querySelector('.product-id');
+    if (matched) {
+        const usedConditions = walkInUsedProductConditions(row, matched.id);
+        const selectedCondition = walkInAvailableProductConditions(matched)
+            .find(condition => !usedConditions.has(condition));
+        if (usedConditions.size > 0 && !selectedCondition) {
+            productIdInput.value = '';
+            inputElement.value = '';
+            inputElement.setCustomValidity('This product is already added with every available item status.');
+            Object.keys(row.dataset).forEach(key => delete row.dataset[key]);
+            row.querySelector('.price-input').value = '0.00';
+            updateWalkInRowAvailability(row);
+            calculateTotals();
+            window.AppAlert?.show('This product is already added with every available item status.', 'warning');
+            return;
+        }
+
+        productIdInput.value = matched.id;
+        inputElement.setCustomValidity('');
+        const itemStatusSelect = row.querySelector('.item-status-select');
+        if (itemStatusSelect && selectedCondition) itemStatusSelect.value = selectedCondition;
+    } else {
+        productIdInput.value = '';
+        inputElement.setCustomValidity(value ? 'Select a product from the search suggestions.' : '');
+    }
     const price = matched ? matched.price : 0;
     const priceInput = row.querySelector('.price-input');
     const allocatedStockDisplay = row.querySelector('.channel-stock-availability');
@@ -449,7 +492,13 @@ function updateWalkInRowAvailability(row) {
 
 document.addEventListener('change', event => {
     if (!event.target.matches('#walk-in-product-rows .item-status-select')) return;
-    updateWalkInRowAvailability(event.target.closest('.product-row'));
+    const row = event.target.closest('.product-row');
+    const productId = row.querySelector('.product-id')?.value;
+    if (productId && walkInUsedProductConditions(row, productId).has(event.target.value)) {
+        event.target.value = event.target.value === 'good' ? 'damaged' : 'good';
+        window.AppAlert?.show('This product already has a row with that item status.', 'warning');
+    }
+    updateWalkInRowAvailability(row);
 });
 
 function calculateTotals() {

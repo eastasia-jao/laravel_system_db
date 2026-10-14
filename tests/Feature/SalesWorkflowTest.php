@@ -142,7 +142,8 @@ class SalesWorkflowTest extends TestCase
         $this->get(route('hub.dashboard', $hub->id))
             ->assertOk()
             ->assertSee('Available Stock')
-            ->assertSee('name="items[0][stock_condition]"', false);
+            ->assertSee('name="items[0][stock_condition]"', false)
+            ->assertSee('walkInUsedProductConditions', false);
     }
 
     public function test_all_sales_channels_can_sell_from_damaged_physical_stock(): void
@@ -231,6 +232,78 @@ class SalesWorkflowTest extends TestCase
             'stock_condition' => 'damaged',
             'quantity' => 1,
         ]);
+    }
+
+    public function test_sales_allow_same_product_with_different_status_but_reject_duplicate_status_rows(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Unique Sale Items Head Office',
+            'code' => 'UNIQUE-SALE-ITEMS-HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'UNIQUE-SALE-ITEM-1',
+            'name' => 'Good and Damage Product',
+            'sales_price' => 100,
+            'stock' => 4,
+            'damaged_stock' => 2,
+            'status' => 'active',
+        ]);
+
+        $differentConditions = [
+            ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100, 'stock_condition' => 'good'],
+            ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 75, 'stock_condition' => 'damaged'],
+        ];
+        $this->actingAs($admin)->post(route('sales.store'), [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'walk_in',
+            'order_date' => '2026-10-14',
+            'items' => $differentConditions,
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $duplicateGoodItems = [
+            ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100, 'stock_condition' => 'good'],
+            ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100, 'stock_condition' => 'good'],
+        ];
+        $this->post(route('sales.store'), [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'walk_in',
+            'order_date' => '2026-10-14',
+            'items' => $duplicateGoodItems,
+        ])->assertSessionHasErrors('items.1.product_id');
+
+        $duplicateDamageItems = [
+            ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 75, 'stock_condition' => 'damaged'],
+            ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 75, 'stock_condition' => 'damaged'],
+        ];
+        $this->post(route('sales.storeMultiChannelSale'), [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'shopee',
+            'placed_order_date' => '2026-10-14',
+            'customer_name' => 'Duplicate Item Customer',
+            'items' => $duplicateDamageItems,
+        ])->assertSessionHasErrors('items.1.product_id');
+
+        ProductStockAllocation::create(['product_id' => $product->id, 'shopee' => 2]);
+        $this->post(route('sales.storeMultiChannelSale'), [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'shopee',
+            'placed_order_date' => '2026-10-14',
+            'customer_name' => 'Mixed Condition Customer',
+            'items' => $differentConditions,
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertDatabaseCount('sales_transactions', 1);
+        $this->assertDatabaseCount('transaction_items', 2);
+        $this->assertDatabaseCount('pending_sales', 1);
+
+        $this->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('usedProductConditions', false)
+            ->assertSee('This product is already added with every available item status.', false);
     }
 
     public function test_tiktok_customer_lookup_searches_existing_customers_by_name(): void
