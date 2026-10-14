@@ -167,12 +167,13 @@ class EventPulloutWorkbook
         $lastRow = count($items) + 2;
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
             .'<dimension ref="A1:G'.$lastRow.'"/>'
             .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews>'
-            .'<sheetFormatPr defaultRowHeight="18"/>'
+            .'<sheetFormatPr defaultRowHeight="15"/>'
             .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="7" width="20" customWidth="1"/></cols>'
             .'<sheetData>'
-            .'<row r="1" ht="34" customHeight="1">'
+            .'<row r="1" ht="20" customHeight="1">'
             .self::inlineCell('A1', 'EVENT PULL-OUT', 1)
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
             .self::inlineCell('C1', $document['occurred_on'] ?? '', 2)
@@ -204,7 +205,7 @@ class EventPulloutWorkbook
                 $item['damaged_stock'],
                 $item['actual_pullout'],
             ];
-            $xml .= '<row r="'.$rowNumber.'">';
+            $xml .= '<row r="'.$rowNumber.'" ht="20" customHeight="1">';
             foreach ($values as $columnIndex => $value) {
                 $cell = self::columnName($columnIndex + 1).$rowNumber;
                 $xml .= is_int($value)
@@ -215,8 +216,9 @@ class EventPulloutWorkbook
         }
 
         $xml .= '</sheetData><mergeCells count="2"><mergeCell ref="D1:E1"/><mergeCell ref="F1:G1"/></mergeCells>'
-            .'<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>'
-            .'<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
+            .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
+            .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
+            .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
 
         return [
             '[Content_Types].xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
