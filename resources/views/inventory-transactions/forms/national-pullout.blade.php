@@ -239,7 +239,8 @@
         if (!imported.length) { showMessage(`No completed pull-out rows were found in the ${sourceLabel}.`, true); return false; }
         itemsBody.innerHTML = '';
         imported.forEach(values => addRow(values));
-        showMessage(`${imported.length} item row(s) imported. Review the quantities before saving.`);
+        message.hidden = true;
+        message.textContent = '';
         return true;
     };
 
