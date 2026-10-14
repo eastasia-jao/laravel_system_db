@@ -263,7 +263,7 @@ class InventoryTransactionController extends Controller
                 'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
                 'good_stock' => (int) $product->stock,
                 'damaged_stock' => (int) $product->damaged_stock,
-                'pullout_qty' => $item['pullout_qty'] ?? '',
+                'pullout_qty' => '',
                 'actual_pullout' => '',
             ];
         })->all();
