@@ -16,6 +16,7 @@ use App\Models\TransactionItem;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
 use App\Support\CsvIdentifier;
+use App\Support\EventPulloutWorkbook;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -94,6 +95,187 @@ class InventoryTransactionController extends Controller
         return response()->streamDownload($callback, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    public function downloadEventWorksheet(Request $request)
+    {
+        $validated = $request->validate([
+            'hub_id' => ['required', 'integer', 'exists:store_hubs,id'],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'occurred_on' => ['nullable', 'date_format:Y-m-d'],
+            'source' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
+        $items = Product::where('store_hub_id', $hub->id)
+            ->where('status', 'active')
+            ->orderByCatalog()
+            ->get()
+            ->map(fn (Product $product) => [
+                'name' => $product->description ?: $product->name,
+                'barcode' => (string) ($product->barcode ?? ''),
+                'item_id' => (string) $product->item_id,
+                'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
+                'good_stock' => (int) $product->stock,
+                'damaged_stock' => (int) $product->damaged_stock,
+                'actual_pullout' => '',
+            ])->all();
+        $path = EventPulloutWorkbook::create($items, [
+            'reference' => $validated['reference'] ?? '',
+            'occurred_on' => $validated['occurred_on'] ?? now()->toDateString(),
+            'source' => $validated['source'] ?? '',
+            'notes' => $validated['notes'] ?? '',
+        ]);
+        $hubCode = Str::upper(Str::slug($hub->code, '_')) ?: (string) $hub->id;
+
+        return response()->download(
+            $path,
+            $hubCode.'_Download_Event_Pullout_'.now()->format('Ymd_His').'.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
+    }
+
+    public function importEventWorksheet(Request $request)
+    {
+        $validated = $request->validate([
+            'hub_id' => ['required', 'integer', 'exists:store_hubs,id'],
+            'file' => ['required', 'file', 'mimes:xlsx', 'max:10240'],
+        ]);
+        $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
+        $workbook = EventPulloutWorkbook::read($validated['file']->getRealPath());
+        $products = Product::where('store_hub_id', $hub->id)
+            ->where('status', 'active')
+            ->get();
+        $items = [];
+        $errors = [];
+
+        foreach ($workbook['items'] as $index => $row) {
+            $quantity = trim($row['actual_pullout']);
+            if ($quantity === '') {
+                continue;
+            }
+
+            $line = $index + 3;
+            $name = trim($row['name']);
+            $condition = 'good';
+            if (preg_match('/\s+\((GOOD|DAMAGED)\)\s*$/i', $name, $match)) {
+                $condition = strtolower($match[1]);
+                $name = trim(substr($name, 0, -strlen($match[0])));
+            }
+            if (! preg_match('/^[1-9]\d*$/', $quantity) || filter_var($quantity, FILTER_VALIDATE_INT) === false) {
+                $errors[] = "Row {$line}: Physical Actual-Pullout must be a positive whole number.";
+
+                continue;
+            }
+
+            $itemId = trim($row['item_id']);
+            $barcode = trim($row['barcode']);
+            $matches = $itemId !== ''
+                ? $products->where('item_id', $itemId)
+                : $products->where('barcode', $barcode);
+            if ($itemId !== '' && $barcode !== '') {
+                $matches = $matches->where('barcode', $barcode);
+            }
+            if ($matches->count() !== 1) {
+                $errors[] = "Row {$line}: ".($itemId ?: $barcode ?: $name)." is missing, ambiguous, or not active in the selected store.";
+
+                continue;
+            }
+
+            $product = $matches->first();
+            $items[] = [
+                'product_id' => $product->id,
+                'quantity' => (int) $quantity,
+                'stock_condition' => $condition,
+            ];
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages(['file' => implode("\n", $errors)]);
+        }
+        if ($items === []) {
+            throw ValidationException::withMessages(['file' => 'No quantities found. Enter a quantity in Physical Actual-Pullout before importing.']);
+        }
+
+        return response()->json([
+            'items' => $items,
+            'metadata' => [
+                'reference' => $workbook['reference'],
+                'occurred_on' => $workbook['occurred_on'],
+                'source' => $workbook['source'],
+                'notes' => $workbook['notes'],
+            ],
+        ]);
+    }
+
+    public function exportEventItems(Request $request)
+    {
+        $validated = $request->validate([
+            'hub_id' => ['required', 'integer', 'exists:store_hubs,id'],
+            'occurred_on' => ['required', 'date_format:Y-m-d'],
+            'source' => ['required', 'string', 'max:100'],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'integer'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.stock_condition' => ['required', Rule::in(['good', 'damaged'])],
+        ]);
+        $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
+        $products = Product::where('store_hub_id', $hub->id)
+            ->where('status', 'active')
+            ->whereIn('id', collect($validated['items'])->pluck('product_id'))
+            ->get()
+            ->keyBy('id');
+        $quantities = collect($validated['items'])->groupBy(
+            fn ($item) => $item['product_id'].':'.$item['stock_condition']
+        )->map(fn ($rows) => $rows->sum('quantity'));
+        foreach ($quantities as $key => $quantity) {
+            [$productId, $condition] = explode(':', (string) $key, 2);
+            $product = $products->get((int) $productId);
+            if (! $product) {
+                throw ValidationException::withMessages(['items' => 'One or more selected products are not active in the selected store.']);
+            }
+            $available = (int) $product->{$condition === 'damaged' ? 'damaged_stock' : 'stock'};
+            if ($quantity > $available) {
+                throw ValidationException::withMessages(['items' => "Not enough {$condition} stock for {$product->name}."]);
+            }
+        }
+
+        $items = collect($validated['items'])->map(function ($item) use ($products) {
+            $product = $products->get((int) $item['product_id']);
+            $condition = $item['stock_condition'];
+
+            return [
+                'name' => ($product->description ?: $product->name).' ('.strtoupper($condition).')',
+                'barcode' => (string) ($product->barcode ?? ''),
+                'item_id' => (string) $product->item_id,
+                'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
+                'good_stock' => (int) $product->stock,
+                'damaged_stock' => (int) $product->damaged_stock,
+                'actual_pullout' => (int) $item['quantity'],
+            ];
+        })->all();
+        $path = EventPulloutWorkbook::create($items, [
+            'reference' => $validated['reference'] ?? '',
+            'occurred_on' => $validated['occurred_on'],
+            'source' => $validated['source'],
+            'notes' => $validated['notes'] ?? '',
+        ]);
+        $hubCode = Str::upper(Str::slug($hub->code, '_')) ?: (string) $hub->id;
+
+        return response()->download(
+            $path,
+            $hubCode.'_Exp_Event_Pullout_'.now()->format('Ymd_His').'.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
+    }
+
+    private function authorizeEventWorkbookHub(int $hubId): StoreHub
+    {
+        abort_unless(auth()->user()?->can('manage-inventory'), 403);
+
+        return StoreHub::whereKey($hubId)->where('status', 'active')->firstOrFail();
     }
 
     public function returnSalesLookup(Request $request)

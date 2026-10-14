@@ -254,6 +254,15 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         ->middleware(['can:view-inventory', 'can:view-sponsor-workshop'])
         ->defaults('type', 'sponsor_workshop')
         ->name('inventory-transactions.sponsor.create');
+    Route::get('/inventory-transactions/sponsor-workshop/worksheet', [InventoryTransactionController::class, 'downloadEventWorksheet'])
+        ->middleware(['can:view-inventory', 'can:view-sponsor-workshop'])
+        ->name('inventory-transactions.sponsor.worksheet');
+    Route::post('/inventory-transactions/sponsor-workshop/worksheet/import', [InventoryTransactionController::class, 'importEventWorksheet'])
+        ->middleware(['can:view-inventory', 'can:view-sponsor-workshop'])
+        ->name('inventory-transactions.sponsor.worksheet.import');
+    Route::post('/inventory-transactions/sponsor-workshop/worksheet/export', [InventoryTransactionController::class, 'exportEventItems'])
+        ->middleware(['can:view-inventory', 'can:view-sponsor-workshop'])
+        ->name('inventory-transactions.sponsor.worksheet.export');
     Route::post('/fully-booked-orders', [FullyBookedOrderController::class, 'store'])
         ->middleware(['can:view-inventory', 'can:request-fully-booked-orders'])
         ->name('fully-booked-orders.store');

@@ -93,7 +93,7 @@ export function csvText(rows, identifierColumns = []) {
         return '"' + text.replaceAll('"', '""') + '"';
     }).join(',')).join('\r\n');
 }
-export function setupBulkItems({ products, type, hubCode, endpoint, transferDirection = 'ho_to_branch', isActive = () => true }) {
+export function setupBulkItems({ products, type, hubCode, endpoint, transferDirection = 'ho_to_branch', worksheetUrl = null, isActive = () => true }) {
     const panel = document.getElementById('transactionBulk'), form = panel.closest('form');
     const prefix = { stock_transfer: 'transfer', branch_transfer: 'transfer', sponsor_workshop: 'sponsor', restock: 'restock', return: 'return' }[type];
     const container = document.getElementById(prefix + 'Items'), template = container.querySelector('.' + prefix + '-item').cloneNode(true);
@@ -110,6 +110,64 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     const options = [...document.getElementById(prefix + 'ProductOptions').options];
     const labels = new Map(products.map((p, i) => [String(p.id), options[i].value]));
     const labelIds = new Map([...labels].map(([id, label]) => [label.toLowerCase(), id]));
+    const eventImportUrl = importButton.dataset.bulkImportUrl;
+    const eventExportUrl = panel.querySelector('[data-bulk="export"]').dataset.bulkExportUrl;
+    const csrfToken = form.querySelector('input[name="_token"]')?.value || '';
+    const eventMetadata = () => ({
+        hub_id: form.querySelector('[name="store_hub_id"]')?.value || '',
+        occurred_on: form.querySelector('[name="occurred_on"]')?.value || '',
+        source: form.querySelector('[name="source"]')?.value || '',
+        reference: form.querySelector('[name="reference"]')?.value || '',
+        notes: form.querySelector('[name="notes"]')?.value || ''
+    });
+    const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob), link = document.createElement('a');
+        link.href = url; link.download = filename; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    const downloadEventWorkbook = async items => {
+        const response = await fetch(eventExportUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            body: JSON.stringify({ ...eventMetadata(), items })
+        });
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(Object.values(body.errors || {}).flat().join('\n') || body.message || 'Unable to export the Event workbook. Please retry.');
+        }
+        const filename = response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/i)?.[1]
+            || exportFilename(type, hubCode, new Date()).replace(/\.csv$/i, '.xlsx');
+        downloadBlob(await response.blob(), filename);
+    };
+    const readEventWorkbook = async upload => {
+        const data = new FormData();
+        data.set('file', upload);
+        data.set('hub_id', eventMetadata().hub_id);
+        const response = await fetch(eventImportUrl, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            body: data
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(Object.values(body.errors || {}).flat().join('\n') || body.message || 'Unable to import the Event workbook. Please retry.');
+        }
+        const metadata = body.metadata || {};
+        for (const [key, value] of Object.entries(metadata)) {
+            const field = form.querySelector(`[name="${key}"]`);
+            if (field && value) field.value = value;
+        }
+        return body.items;
+    };
+    panel.querySelector('[data-bulk-worksheet-url]')?.addEventListener('click', event => {
+        if (!worksheetUrl) return;
+        event.preventDefault();
+        const url = new URL(worksheetUrl, location.origin);
+        Object.entries(eventMetadata()).forEach(([key, value]) => {
+            if (value) url.searchParams.set(key, value);
+        });
+        window.location.href = url.toString();
+    });
     let catalogLoaded = !endpoint, loading;
     const loadCatalog = () => {
         if (catalogLoaded) return Promise.resolve();
@@ -185,6 +243,10 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     panel.querySelector('[data-bulk="export"]').onclick = () => {
         const items = selected().filter(i => i.product_id || i.quantity);
         if (!items.length || items.some(i => !byId.has(i.product_id) || !/^[1-9]\d*$/.test(i.quantity) || (type === 'return' && !i.condition) || (type === 'sponsor_workshop' && !i.stock_condition))) return show('Select valid products and quantities (and applicable conditions) before exporting.', true);
+        if (type === 'sponsor_workshop') {
+            downloadEventWorkbook(items).catch(error => show(error.message, true));
+            return;
+        }
         download(items);
     };
     panel.querySelector('[data-bulk="import"]').onclick = () => file.click();
@@ -207,11 +269,13 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
         }, 40);
         try {
             await new Promise(resolve => requestAnimationFrame(resolve));
-            if (file.files[0].size > 10 * 1024 * 1024) throw new Error('Choose a CSV file smaller than 10 MB.');
+            const upload = file.files[0];
+            if (upload.size > 10 * 1024 * 1024) throw new Error('Choose a file smaller than 10 MB.');
             await loadCatalog();
-            importLoadingText.textContent = 'Reading and validating the CSV file...';
-            const csv = await file.files[0].text();
-            const items = importRows(csv, products, type);
+            importLoadingText.textContent = 'Reading and validating the selected file...';
+            const items = type === 'sponsor_workshop' && /\.xlsx$/i.test(upload.name)
+                ? await readEventWorkbook(upload)
+                : importRows(await upload.text(), products, type);
             importLoadingText.textContent = 'Preparing imported items...';
             const fragment = document.createDocumentFragment();
             items.forEach(item => {
