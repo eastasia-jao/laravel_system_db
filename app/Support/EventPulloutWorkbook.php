@@ -181,7 +181,10 @@ class EventPulloutWorkbook
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
             .self::inlineCell('C1', $document['occurred_on'] ?? '', 2)
             .self::inlineCell('D1', 'Event / Recipient: '.($document['source'] ?? ''), 2)
+            .self::inlineCell('E1', '', 2)
             .self::inlineCell('F1', 'Remarks: '.($document['notes'] ?? ''), 2)
+            .self::inlineCell('G1', '', 2)
+            .self::inlineCell('H1', '', 2)
             .'</row><row r="2" ht="40" customHeight="1">';
 
         foreach ([
@@ -269,7 +272,7 @@ class EventPulloutWorkbook
             .'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD1D5DB"/></left><right style="thin"><color rgb="FFD1D5DB"/></right><top style="thin"><color rgb="FFD1D5DB"/></top><bottom style="thin"><color rgb="FFD1D5DB"/></bottom><diagonal/></border></borders>'
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
             .'<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-            .'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>'
+            .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>'
             .'<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'

@@ -65,6 +65,11 @@ class EventPulloutWorkbookTest extends TestCase
         $this->assertStringContainsString('<font><b/><sz val="11"/><name val="Calibri"/></font>', $stylesXml);
         $this->assertStringContainsString('<alignment horizontal="left" vertical="top" wrapText="1"/>', $stylesXml);
         $this->assertStringContainsString('<c r="A2" s="6"', $worksheetXml);
+        $this->assertStringContainsString('<c r="A1" s="1"', $worksheetXml);
+        $this->assertStringContainsString('<c r="B1" s="2"', $worksheetXml);
+        $this->assertStringContainsString('<c r="E1" s="2"', $worksheetXml);
+        $this->assertStringContainsString('<c r="G1" s="2"', $worksheetXml);
+        $this->assertStringContainsString('fontId="1" fillId="0" borderId="1"', $stylesXml);
         $this->assertStringContainsString('<c r="B2" s="3"', $worksheetXml);
         $this->assertStringContainsString('<c r="B3" s="4"', $worksheetXml);
         $this->assertStringContainsString('<c r="C3" s="5"', $worksheetXml);
