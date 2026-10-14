@@ -623,6 +623,7 @@ class TransactionBulkTest extends TestCase
         $product = Product::create([
             'name' => 'Event Pullout Product',
             'item_id' => 'EVENT-PULLOUT-1',
+            'barcode' => '987654321',
             'store_hub_id' => $hub->id,
             'stock' => 5,
             'damaged_stock' => 2,
@@ -637,8 +638,9 @@ class TransactionBulkTest extends TestCase
         $eventForm->assertViewHas('sponsorProductOptions', fn ($options) =>
             $options->contains(fn ($option) => $option['good_stock_available'] === 5
                 && $option['damaged_stock_available'] === 2
-                && $option['label'] === 'Event Pullout Product (Item ID: EVENT-PULLOUT-1)')
+                && $option['label'] === 'Event Pullout Product (Item ID: EVENT-PULLOUT-1 · Barcode: 987654321)')
         );
+        $eventForm->assertSee('Barcode: ${product.barcode}', false);
         $formHtml = $eventForm->getContent();
         $this->assertLessThan(
             strpos($formHtml, 'name="items[0][quantity]"'),

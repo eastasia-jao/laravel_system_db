@@ -934,7 +934,7 @@ class InventoryTransactionController extends Controller
             'description' => $product->description ?: $product->name,
             'good_stock_available' => max(0, (int) $product->stock),
             'damaged_stock_available' => max(0, (int) $product->damaged_stock),
-            'label' => ($product->name ?: $product->description ?: 'Unnamed product').' (Item ID: '.$product->item_id.')',
+            'label' => ($product->name ?: $product->description ?: 'Unnamed product').' (Item ID: '.$product->item_id.($product->barcode ? ' · Barcode: '.$product->barcode : '').')',
         ])->values();
 
         $form = $type === 'branch_transfer' ? 'stock_transfer' : $type;
