@@ -59,7 +59,7 @@ class EventPulloutWorkbook
     }
 
     /**
-     * @return array{reference: string, occurred_on: string, source: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, good_stock: string, damaged_stock: string, pullout_qty: string, actual_pullout: string}>}
+     * @return array{reference: string, occurred_on: string, source: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, good_stock: string, damaged_stock: string, pullout_qty: string, actual_pullout: string, stock_condition: string}>}
      */
     public static function read(string $path): array
     {
@@ -147,6 +147,7 @@ class EventPulloutWorkbook
                 'damaged_stock' => $row[$columns['damaged items']] ?? '',
                 'pullout_qty' => $pulloutColumn === null ? '' : ($row[$pulloutColumn] ?? ''),
                 'actual_pullout' => $row[$columns['physical actual pullout']] ?? '',
+                'stock_condition' => $row[$columns['stock condition'] ?? 0] ?? '',
             ];
         }
 
@@ -160,7 +161,7 @@ class EventPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, pullout_qty: int|string, actual_pullout: int|string}>  $items
+     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, pullout_qty: int|string, actual_pullout: int|string, stock_condition?: string}>  $items
      * @param  array{reference?: string, occurred_on?: string, source?: string, notes?: string}  $document
      * @return array<string, string>
      */
@@ -170,10 +171,10 @@ class EventPulloutWorkbook
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
-            .'<dimension ref="A1:H'.$lastRow.'"/>'
+            .'<dimension ref="A1:I'.$lastRow.'"/>'
             .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews>'
             .'<sheetFormatPr defaultRowHeight="15"/>'
-            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="8" width="20" customWidth="1"/></cols>'
+            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="8" width="20" customWidth="1"/><col min="9" max="9" width="0" hidden="1" customWidth="1"/></cols>'
             .'<sheetData>'
             .'<row r="1" ht="60" customHeight="1">'
             .self::inlineCell('A1', 'EVENT PULL-OUT', 1)
@@ -192,6 +193,7 @@ class EventPulloutWorkbook
             'Damaged Items',
             'Pull-Out Qty',
             'Physical Actual-Pullout',
+            'Stock Condition',
         ] as $index => $heading) {
             $style = $index === 0 ? 6 : 3;
             $xml .= self::inlineCell(self::columnName($index + 1).'2', $heading, $style);
@@ -209,10 +211,16 @@ class EventPulloutWorkbook
                 $item['damaged_stock'],
                 $item['pullout_qty'],
                 $item['actual_pullout'],
+                $item['stock_condition'] ?? '',
             ];
             $xml .= '<row r="'.$rowNumber.'" ht="30" customHeight="1">';
             foreach ($values as $columnIndex => $value) {
                 $cell = self::columnName($columnIndex + 1).$rowNumber;
+                if ($columnIndex === 8) {
+                    $xml .= self::inlineCell($cell, (string) $value, 4);
+
+                    continue;
+                }
                 $style = $columnIndex >= 2 ? 5 : 4;
                 $xml .= is_int($value)
                     ? '<c r="'.$cell.'" s="'.$style.'"><v>'.$value.'</v></c>'
