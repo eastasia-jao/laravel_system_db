@@ -31,7 +31,7 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Total Physical Stocks')
-            ->assertSee('<span class="total-physical-stock">48</span>', false)
+            ->assertSee('<span class="total-physical-stock">47</span>', false)
             ->assertDontSee('Good Stock:')
             ->assertDontSee('Damaged Stock:')
             ->assertSee('max="47"', false);

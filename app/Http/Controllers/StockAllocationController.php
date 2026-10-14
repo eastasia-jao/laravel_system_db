@@ -88,7 +88,7 @@ class StockAllocationController extends Controller
             $product->sold_values = $sold;
             $product->remaining_values = $allocated;
             $product->starting_inventory = max(0, (int) $product->stock);
-            $product->physical_stock_total = $product->sellableStock();
+            $product->physical_stock_total = max(0, (int) $product->stock);
 
             return $product;
         });
