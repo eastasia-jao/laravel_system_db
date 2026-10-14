@@ -169,15 +169,17 @@ class InventoryTransactionController extends Controller
 
             $products = Product::where('store_hub_id', $hub->id)
                 ->where('status', 'active')
-                ->where(function ($query) use ($itemIds, $barcodes) {
-                    if ($itemIds !== []) {
-                        $query->whereHas('catalogProduct', fn ($catalog) => $catalog->whereIn('item_id', $itemIds));
-                    }
-                    if ($barcodes !== []) {
-                        $itemIds === []
-                            ? $query->whereIn('barcode', $barcodes)
-                            : $query->orWhereIn('barcode', $barcodes);
-                    }
+                ->whereHas('catalogProduct', function ($catalog) use ($itemIds, $barcodes) {
+                    $catalog->where(function ($query) use ($itemIds, $barcodes) {
+                        if ($itemIds !== []) {
+                            $query->whereIn('item_id', $itemIds);
+                        }
+                        if ($barcodes !== []) {
+                            $itemIds === []
+                                ? $query->whereIn('barcode', $barcodes)
+                                : $query->orWhereIn('barcode', $barcodes);
+                        }
+                    });
                 })
                 ->get();
 
