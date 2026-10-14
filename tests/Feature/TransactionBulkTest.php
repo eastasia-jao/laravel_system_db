@@ -636,7 +636,14 @@ class TransactionBulkTest extends TestCase
             ->assertSee('<option value="damaged">Damaged</option>', false);
         $eventForm->assertViewHas('sponsorProductOptions', fn ($options) =>
             $options->contains(fn ($option) => $option['good_stock_available'] === 5
-                && $option['damaged_stock_available'] === 2)
+                && $option['damaged_stock_available'] === 2
+                && $option['label'] === 'Event Pullout Product (Item ID: EVENT-PULLOUT-1)')
+        );
+        $formHtml = $eventForm->getContent();
+        $this->assertLessThan(
+            strpos($formHtml, 'name="items[0][quantity]"'),
+            strpos($formHtml, 'name="items[0][pullout_qty]"'),
+            'The record-only Pull-Out Qty field should appear before Actual Pull Out.'
         );
 
         $this->post(route('inventory-transactions.store'), [

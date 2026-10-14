@@ -51,11 +51,16 @@ window.transactionProductLabel = (product, showDamagedStock = false) => {
         : `stock: ${product.stock}`;
     return `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}${product.barcode ? ' · ' + product.barcode : ''} (${stockLabel})`;
 };
-window.setupTransactionSuggestions = (container, list, options, endpoint, showDamagedStock = false) => {
+window.setupTransactionSuggestions = (container, list, options, endpoint, showDamagedStock = false, labelProduct = null) => {
     window.transactionProducts = window.transactionProducts || new Map();
     window.transactionProductOptions = options;
     setupProductSuggestions(container, list, options, endpoint, product => {
         window.transactionProducts.set(String(product.id), product);
-        return { ...product, label: transactionProductLabel(product, showDamagedStock) };
+        return {
+            ...product,
+            label: labelProduct
+                ? labelProduct(product)
+                : transactionProductLabel(product, showDamagedStock)
+        };
     }, true, 'item_id');
 };
