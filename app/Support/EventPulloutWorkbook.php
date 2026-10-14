@@ -112,7 +112,7 @@ class EventPulloutWorkbook
                 }
             }
         }
-        $metadata['occurred_on'] = $rows[1][3] ?? '';
+        $metadata['occurred_on'] = preg_replace('/^Date:\s*/i', '', $rows[1][4] ?? '') ?? '';
 
         $columns = [];
         foreach ($rows[2] ?? [] as $column => $heading) {
@@ -176,16 +176,16 @@ class EventPulloutWorkbook
             .'<sheetFormatPr defaultRowHeight="15"/>'
             .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="8" width="20" customWidth="1"/><col min="9" max="9" width="0" hidden="1" customWidth="1"/></cols>'
             .'<sheetData>'
-            .'<row r="1" ht="60" customHeight="1">'
+            .'<row r="1" ht="20.1" customHeight="1">'
             .self::inlineCell('A1', 'EVENT PULL-OUT', 1)
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
-            .self::inlineCell('C1', $document['occurred_on'] ?? '', 2)
-            .self::inlineCell('D1', 'Event / Recipient: '.($document['source'] ?? ''), 2)
-            .self::inlineCell('E1', '', 2)
-            .self::inlineCell('F1', 'Remarks: '.($document['notes'] ?? ''), 2)
-            .self::inlineCell('G1', '', 2)
+            .self::inlineCell('C1', '', 2)
+            .self::inlineCell('D1', 'Date: '.($document['occurred_on'] ?? ''), 2)
+            .self::inlineCell('E1', 'Event / Recipient: '.($document['source'] ?? ''), 2)
+            .self::inlineCell('F1', '', 2)
+            .self::inlineCell('G1', 'Remarks: '.($document['notes'] ?? ''), 2)
             .self::inlineCell('H1', '', 2)
-            .'</row><row r="2" ht="40" customHeight="1">';
+            .'</row><row r="2" ht="30" customHeight="1">';
 
         foreach ([
             'Name / Description',
@@ -198,8 +198,7 @@ class EventPulloutWorkbook
             'Physical Actual-Pullout',
             'Stock Condition',
         ] as $index => $heading) {
-            $style = $index === 0 ? 6 : 3;
-            $xml .= self::inlineCell(self::columnName($index + 1).'2', $heading, $style);
+            $xml .= self::inlineCell(self::columnName($index + 1).'2', $heading, 3);
         }
         $xml .= '</row>';
 
@@ -216,7 +215,7 @@ class EventPulloutWorkbook
                 $item['actual_pullout'],
                 $item['stock_condition'] ?? '',
             ];
-            $xml .= '<row r="'.$rowNumber.'" ht="30" customHeight="1">';
+            $xml .= '<row r="'.$rowNumber.'" ht="20.1" customHeight="1">';
             foreach ($values as $columnIndex => $value) {
                 $cell = self::columnName($columnIndex + 1).$rowNumber;
                 if ($columnIndex === 8) {
@@ -232,7 +231,7 @@ class EventPulloutWorkbook
             $xml .= '</row>';
         }
 
-        $xml .= '</sheetData><mergeCells count="2"><mergeCell ref="D1:E1"/><mergeCell ref="F1:H1"/></mergeCells>'
+        $xml .= '</sheetData><mergeCells count="3"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/><mergeCell ref="G1:H1"/></mergeCells>'
             .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
             .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
             .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
@@ -267,17 +266,16 @@ class EventPulloutWorkbook
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            .'<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="16"/><color rgb="FF6B7280"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'
-            .'<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/><bgColor indexed="64"/></patternFill></fill></fills>'
-            .'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD1D5DB"/></left><right style="thin"><color rgb="FFD1D5DB"/></right><top style="thin"><color rgb="FFD1D5DB"/></top><bottom style="thin"><color rgb="FFD1D5DB"/></bottom><diagonal/></border></borders>'
+            .'<fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts>'
+            .'<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD92D20"/><bgColor indexed="64"/></patternFill></fill></fills>'
+            .'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF64748B"/></left><right style="thin"><color rgb="FF64748B"/></right><top style="thin"><color rgb="FF64748B"/></top><bottom style="thin"><color rgb="FF64748B"/></bottom><diagonal/></border></borders>'
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            .'<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-            .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>'
-            .'<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>'
-            .'<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
-            .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'
-            .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
-            .'<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf></cellXfs>'
+            .'<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            .'<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+            .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" shrinkToFit="1"/></xf>'
+            .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>'
             .'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
     }
 
