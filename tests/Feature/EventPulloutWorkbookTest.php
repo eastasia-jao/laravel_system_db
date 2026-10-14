@@ -119,8 +119,8 @@ class EventPulloutWorkbookTest extends TestCase
                 'reference' => 'SW-EVENT-123',
                 'notes' => 'Selected items',
                 'items' => [
-                    ['product_id' => $product->id, 'quantity' => 2, 'pullout_qty' => 4, 'stock_condition' => 'good'],
-                    ['product_id' => $product->id, 'quantity' => 1, 'pullout_qty' => 2, 'stock_condition' => 'damaged'],
+                    ['product_id' => $product->id, 'stock_condition' => 'good'],
+                    ['product_id' => $product->id, 'stock_condition' => 'damaged'],
                 ],
             ])
             ->assertOk()

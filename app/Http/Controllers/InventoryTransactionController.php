@@ -227,8 +227,7 @@ class InventoryTransactionController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.pullout_qty' => ['nullable', 'integer', 'min:0'],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1'],
             'items.*.stock_condition' => ['required', Rule::in(['good', 'damaged'])],
         ]);
         $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
@@ -237,19 +236,8 @@ class InventoryTransactionController extends Controller
             ->whereIn('id', collect($validated['items'])->pluck('product_id'))
             ->get()
             ->keyBy('id');
-        $quantities = collect($validated['items'])->groupBy(
-            fn ($item) => $item['product_id'].':'.$item['stock_condition']
-        )->map(fn ($rows) => $rows->sum('quantity'));
-        foreach ($quantities as $key => $quantity) {
-            [$productId, $condition] = explode(':', (string) $key, 2);
-            $product = $products->get((int) $productId);
-            if (! $product) {
-                throw ValidationException::withMessages(['items' => 'One or more selected products are not active in the selected store.']);
-            }
-            $available = (int) $product->{$condition === 'damaged' ? 'damaged_stock' : 'stock'};
-            if ($quantity > $available) {
-                throw ValidationException::withMessages(['items' => "Not enough {$condition} stock for {$product->name}."]);
-            }
+        if (count($products) !== count(collect($validated['items'])->pluck('product_id')->unique())) {
+            throw ValidationException::withMessages(['items' => 'One or more selected products are not active in the selected store.']);
         }
 
         $items = collect($validated['items'])->map(function ($item) use ($products) {

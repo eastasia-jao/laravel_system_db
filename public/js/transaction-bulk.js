@@ -245,7 +245,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     };
     panel.querySelector('[data-bulk="export"]').onclick = () => {
         const items = selected().filter(i => i.product_id || i.quantity);
-        if (!items.length || items.some(i => !byId.has(i.product_id) || !/^[1-9]\d*$/.test(i.quantity) || (type === 'return' && !i.condition) || (type === 'sponsor_workshop' && (!i.stock_condition || (i.pullout_qty !== '' && !/^(0|[1-9]\d*)$/.test(i.pullout_qty)))))) return show('Select valid products and quantities (and applicable conditions) before exporting.', true);
+        if (!items.length || items.some(i => !byId.has(i.product_id) || (type === 'return' && !i.condition) || (type === 'sponsor_workshop' && !i.stock_condition) || (type !== 'sponsor_workshop' && !/^[1-9]\d*$/.test(i.quantity)))) return show('Select valid products (and applicable conditions) before exporting.', true);
         if (type === 'sponsor_workshop') {
             downloadEventWorkbook(items).catch(error => show(error.message, true));
             return;
