@@ -51,6 +51,7 @@ class EventPulloutWorkbookTest extends TestCase
         $workbook = EventPulloutWorkbook::read($workbookPath);
         $archive = new PharData($workbookPath, 0, null, Phar::ZIP);
         $worksheetXml = $archive['xl/worksheets/sheet1.xml']->getContent();
+        $stylesXml = $archive['xl/styles.xml']->getContent();
         unset($archive);
         $this->assertStringContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);
         $this->assertStringContainsString('<mergeCell ref="F1:G1"/>', $worksheetXml);
@@ -59,6 +60,12 @@ class EventPulloutWorkbookTest extends TestCase
         $this->assertStringContainsString('<row r="3" ht="30" customHeight="1">', $worksheetXml);
         $this->assertStringContainsString('<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>', $worksheetXml);
         $this->assertStringContainsString('<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/>', $worksheetXml);
+        $this->assertStringContainsString('<alignment horizontal="left" vertical="top" wrapText="1"/>', $stylesXml);
+        $this->assertStringContainsString('<c r="A2" s="6"', $worksheetXml);
+        $this->assertStringContainsString('<c r="B2" s="3"', $worksheetXml);
+        $this->assertStringContainsString('<c r="B3" s="4"', $worksheetXml);
+        $this->assertStringContainsString('<c r="C3" s="5"', $worksheetXml);
+        $this->assertStringContainsString('<c r="D3" s="5"', $worksheetXml);
         $this->assertSame('SW-EVENT-HO-20261001-120000-ABC123', $workbook['reference']);
         $this->assertSame('2026-10-01', $workbook['occurred_on']);
         $this->assertSame('Book Fair', $workbook['source']);
