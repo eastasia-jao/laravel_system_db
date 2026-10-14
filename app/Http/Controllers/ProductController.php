@@ -908,6 +908,8 @@ class ProductController extends Controller
             $product->setAttribute('item_id', $product->catalogProduct?->item_id);
             $product->setAttribute('name', $product->catalogProduct?->name);
             $product->setAttribute('barcode', $product->catalogProduct?->barcode);
+            $product->setAttribute('good_stock_available', max(0, (int) $product->stock));
+            $product->setAttribute('damaged_stock_available', max(0, (int) $product->damaged_stock));
         });
 
         if ($stockChannel && $products->isNotEmpty()) {

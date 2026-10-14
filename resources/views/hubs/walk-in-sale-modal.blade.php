@@ -22,6 +22,9 @@
     #walk-in-product-rows .product-row { margin-bottom: .65rem !important; }
     #walk-in-product-rows .product-row:last-child { margin-bottom: 0 !important; }
     #walkInSaleModal .product-search { min-height: 34px; }
+    #walkInSaleModal .item-status-field { margin-top: .4rem; }
+    #walkInSaleModal .item-status-field[hidden] { display: none !important; }
+    #walkInSaleModal .item-status-select { border-color: #fda4af; background: #fff7f7; }
     @media (max-width: 767.98px) {
         #walk-in-product-rows { max-height: 240px; }
         #walkInSaleModal .modal-footer { gap: .5rem; }
@@ -134,11 +137,18 @@
                     </div>
 
                     <div id="walk-in-product-rows" tabindex="0" role="region" aria-label="Order items">
-                        <div class="row g-2 align-items-center product-row mb-3">
+                        <div class="row g-2 align-items-start product-row mb-3">
                             <div class="col-md-3">
                                 <label class="form-label small">Product <span class="text-danger">*</span></label>
                                 <input type="search" class="form-control product-search" list="walkInProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" required>
                                 <input type="hidden" name="items[0][product_id]" class="product-id">
+                                <div class="item-status-field" hidden>
+                                    <label class="form-label small fw-bold text-danger">Item Status</label>
+                                    <select name="items[0][stock_condition]" class="form-select item-status-select" disabled>
+                                        <option value="good">Good</option>
+                                        <option value="damaged">Damage</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label small">Available Stock</label>
@@ -191,6 +201,9 @@
         'barcode' => $product->barcode,
         'description' => $product->description ?: $product->name,
         'price' => $product->sales_price ?? 0,
+        'channel_available_stock' => $product->unallocatedStock(),
+        'good_stock_available' => max(0, (int) $product->stock),
+        'damaged_stock_available' => max(0, (int) $product->damaged_stock),
     ])->values();
 @endphp
 <script>
@@ -215,6 +228,8 @@ setupProductSuggestions(document.getElementById('walkInSaleModal'), walkInDataLi
         id: product.id, label: `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}`,
         barcode: product.barcode, description: product.description || product.name, price: product.sales_price || 0,
         channel_available_stock: Number(product.channel_available_stock ?? product.stock ?? 0),
+        good_stock_available: Number(product.good_stock_available ?? product.stock ?? 0),
+        damaged_stock_available: Number(product.damaged_stock_available ?? 0),
     }), true);
 const walkInCustomerName = document.getElementById('walkInCustomerName');
 const walkInCustomerContact = document.getElementById('walkInCustomerContact');
@@ -253,6 +268,12 @@ walkInLocation.addEventListener('change', () => {
         row.querySelector('.product-search').setCustomValidity('');
         row.querySelector('.product-id').value = '';
         row.querySelector('.price-input').value = '0.00';
+        row.querySelector('.item-status-field').hidden = true;
+        row.querySelector('.item-status-select').disabled = true;
+        row.querySelector('.item-status-select').value = 'good';
+        delete row.dataset.channel_available_stock;
+        delete row.dataset.good_stock_available;
+        delete row.dataset.damaged_stock_available;
     });
     calculateTotals();
     walkInCustomerName.value = '';
@@ -335,6 +356,11 @@ function addWalkInProductRow() {
     });
     newRow.querySelector('.channel-stock-availability')?.replaceChildren('—');
 
+    newRow.querySelector('.item-status-field').hidden = true;
+    newRow.querySelector('.item-status-select').disabled = true;
+    newRow.querySelector('.item-status-select').value = 'good';
+    Object.keys(newRow.dataset).forEach(key => delete newRow.dataset[key]);
+
     container.appendChild(newRow);
     container.scrollTop = container.scrollHeight;
     const newSearch = newRow.querySelector('.product-search');
@@ -380,10 +406,39 @@ function updateRowPrice(inputElement) {
 
     priceInput.value = parseFloat(price).toFixed(2);
     if (allocatedStockDisplay) {
-        allocatedStockDisplay.textContent = matched ? Number(matched.channel_available_stock || 0) : '—';
+        row.dataset.channel_available_stock = matched ? Number(matched.channel_available_stock || 0) : 0;
+        row.dataset.good_stock_available = matched ? Number(matched.good_stock_available || 0) : 0;
+        row.dataset.damaged_stock_available = matched ? Number(matched.damaged_stock_available || 0) : 0;
+        updateWalkInRowAvailability(row);
     }
     calculateTotals();
 }
+
+function updateWalkInRowAvailability(row) {
+    const itemStatusField = row.querySelector('.item-status-field');
+    const itemStatusSelect = row.querySelector('.item-status-select');
+    const quantityInput = row.querySelector('.qty-input');
+    const availableStockDisplay = row.querySelector('.channel-stock-availability');
+    const hasProduct = Boolean(row.querySelector('.product-id').value);
+    const damagedStock = Number(row.dataset.damaged_stock_available || 0);
+    const hasDamagedStock = hasProduct && damagedStock > 0;
+
+    itemStatusField.hidden = !hasDamagedStock;
+    itemStatusSelect.disabled = !hasDamagedStock;
+    if (!hasDamagedStock) itemStatusSelect.value = 'good';
+
+    const conditionStock = itemStatusSelect.value === 'damaged'
+        ? damagedStock
+        : Number(row.dataset.good_stock_available || 0);
+    const availableStock = Math.min(Number(row.dataset.channel_available_stock || 0), conditionStock);
+    availableStockDisplay.textContent = hasProduct ? availableStock : '—';
+    quantityInput.max = hasProduct ? String(availableStock) : '';
+}
+
+document.addEventListener('change', event => {
+    if (!event.target.matches('#walk-in-product-rows .item-status-select')) return;
+    updateWalkInRowAvailability(event.target.closest('.product-row'));
+});
 
 function calculateTotals() {
     let grandTotal = 0;

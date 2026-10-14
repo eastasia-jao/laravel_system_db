@@ -16,7 +16,7 @@ class SalesWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_sales_staff_only_see_allocated_channel_stock_without_condition_controls(): void
+    public function test_sales_staff_see_condition_selector_only_for_products_with_damaged_stock(): void
     {
         $hub = StoreHub::create([
             'name' => 'Channel Allocation Head Office',
@@ -53,6 +53,8 @@ class SalesWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('0.stock', 5)
             ->assertJsonPath('0.channel_available_stock', 5)
+            ->assertJsonPath('0.good_stock_available', 40)
+            ->assertJsonPath('0.damaged_stock_available', 7)
             ->assertJsonMissingPath('0.damaged_stock')
             ->assertJsonMissingPath('0.stock_allocation');
 
@@ -71,11 +73,13 @@ class SalesWorkflowTest extends TestCase
         $this->actingAs($staff)->get(route('hub.dashboard', $hub->id))
             ->assertOk()
             ->assertSee('Available Stock')
-            ->assertDontSee('name="items[0][stock_condition]"', false);
+            ->assertSee('name="items[0][stock_condition]"', false)
+            ->assertSee('class="item-status-field" hidden', false)
+            ->assertSee('itemStatusField.hidden = !hasDamagedStock;', false);
 
         $this->actingAs($admin)->get(route('hub.dashboard', $hub->id))
             ->assertOk()
-            ->assertDontSee('name="items[0][stock_condition]"', false);
+            ->assertSee('name="items[0][stock_condition]"', false);
 
         $this->actingAs($staff)->post(route('sales.store'), [
             'store_hub_id' => $hub->id,
@@ -87,7 +91,10 @@ class SalesWorkflowTest extends TestCase
                 'stock_condition' => 'damaged',
                 'unit_price' => 100,
             ]],
-        ])->assertSessionHasErrors('items.0.stock_condition');
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertSame(6, (int) $product->fresh()->damaged_stock);
+        $this->assertSame(4, (int) $product->stockAllocation()->value('shopee'));
     }
 
     public function test_sales_associates_only_see_walk_in_available_stock(): void
@@ -122,6 +129,8 @@ class SalesWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('0.stock', 7)
             ->assertJsonPath('0.channel_available_stock', 7)
+            ->assertJsonPath('0.good_stock_available', 8)
+            ->assertJsonPath('0.damaged_stock_available', 2)
             ->assertJsonMissingPath('0.damaged_stock');
 
         $this->get(route('products.index', ['hub_id' => $hub->id]))
@@ -133,7 +142,7 @@ class SalesWorkflowTest extends TestCase
         $this->get(route('hub.dashboard', $hub->id))
             ->assertOk()
             ->assertSee('Available Stock')
-            ->assertDontSee('name="items[0][stock_condition]"', false);
+            ->assertSee('name="items[0][stock_condition]"', false);
     }
 
     public function test_all_sales_channels_can_sell_from_damaged_physical_stock(): void
@@ -174,6 +183,7 @@ class SalesWorkflowTest extends TestCase
                     'product_id' => $product->id,
                     'quantity' => 1,
                     'unit_price' => 100,
+                    'stock_condition' => 'damaged',
                 ]],
             ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
@@ -181,6 +191,55 @@ class SalesWorkflowTest extends TestCase
             $this->assertSame(0, (int) $product->fresh()->damaged_stock);
         }
         $this->assertDatabaseCount('sales_transactions', 6);
+    }
+
+    public function test_record_sale_form_preserves_damaged_status_through_inventory_verification(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Damaged Verification Head Office',
+            'code' => 'DAMAGED-VERIFY-HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'DAMAGED-VERIFY-1',
+            'name' => 'Damaged Verification Product',
+            'sales_price' => 100,
+            'stock' => 5,
+            'damaged_stock' => 2,
+            'status' => 'active',
+        ]);
+        ProductStockAllocation::create(['product_id' => $product->id, 'shopee' => 2]);
+
+        $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'shopee',
+            'placed_order_date' => '2026-10-14',
+            'customer_name' => 'Damaged Verification Customer',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+                'stock_condition' => 'damaged',
+            ]],
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $pendingSale = PendingSale::sole();
+        $this->assertSame('damaged', $pendingSale->items[0]['stock_condition']);
+
+        $this->post(route('sales.confirmPending', $pendingSale))
+            ->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertSame(5, (int) $product->fresh()->stock);
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
+        $this->assertSame(1, (int) $product->stockAllocation()->value('shopee'));
+        $this->assertDatabaseHas('transaction_items', [
+            'product_id' => $product->id,
+            'stock_condition' => 'damaged',
+            'quantity' => 1,
+        ]);
     }
 
     public function test_tiktok_customer_lookup_searches_existing_customers_by_name(): void

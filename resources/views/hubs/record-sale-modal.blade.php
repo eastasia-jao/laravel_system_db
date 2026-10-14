@@ -271,6 +271,7 @@
     #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(7) { display: none !important; }
     #recordSaleModal #productRowsContainer .product-row {
         position: relative;
+        align-items: start;
         margin: 0 0 .55rem !important;
         padding: .65rem .6rem !important;
         border: 1px solid #e2e8f0 !important;
@@ -278,6 +279,10 @@
         background: #fff;
         box-shadow: none;
     }
+    #recordSaleModal #productRowsContainer .item-status-field { margin-top: .45rem; }
+    #recordSaleModal #productRowsContainer .item-status-field[hidden] { display: none !important; }
+    #recordSaleModal #productRowsContainer .item-status-field .form-label { margin-bottom: .2rem; color: #9f1239; font-size: .68rem; }
+    #recordSaleModal #productRowsContainer .item-status-select { min-height: 34px; border-color: #fda4af; background: #fff7f7; font-size: .76rem; }
     #recordSaleModal #productRowsContainer .product-row:nth-child(odd) { background: #fbfdff; }
     #recordSaleModal #productRowsContainer .product-row:hover { border-color: #bfdbfe !important; background: #f8fbff; }
     #recordSaleModal #productRowsContainer .remove-row-btn { width: 38px !important; min-width: 38px; padding: 0; }
@@ -526,6 +531,13 @@
                                 <label class="form-label fw-bold d-md-none">Product Description</label>
                                 <input type="search" class="form-control product-search" list="saleProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" required>
                                 <input type="hidden" name="items[0][product_id]" class="product-id">
+                                <div class="item-status-field" hidden>
+                                    <label class="form-label fw-bold" for="itemStatus0">Item Status</label>
+                                    <select name="items[0][stock_condition]" id="itemStatus0" class="form-select item-status-select" disabled>
+                                        <option value="good">Good</option>
+                                        <option value="damaged">Damage</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div class="col-md-2">
@@ -1012,6 +1024,9 @@
         'shopee' => $product->shopee_price ?? 0,
         'lazada' => $product->lazada_price ?? 0,
         'tiktok' => $product->sales_price ?? 0,
+        'good_stock_available' => max(0, (int) $product->stock),
+        'damaged_stock_available' => max(0, (int) $product->damaged_stock),
+        'channel_available_stock' => (int) ($product->channel_available_stock ?? $product->sellableStock()),
     ])->values();
 @endphp
 <script>
@@ -1055,6 +1070,8 @@ document.addEventListener('DOMContentLoaded', function () {
             sales: product.sales_price || 0, wholesale: product.wholesale_price || 0,
             shopee: product.shopee_price || 0, lazada: product.lazada_price || 0, tiktok: product.sales_price || 0,
             channel_available_stock: Number(product.channel_available_stock ?? product.stock ?? 0),
+            good_stock_available: Number(product.good_stock_available ?? product.stock ?? 0),
+            damaged_stock_available: Number(product.damaged_stock_available ?? 0),
         }), true, 'item_id');
     const bindProductSearch = row => {
         const input = row.querySelector('.product-search');
@@ -1106,6 +1123,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 const product = products.find(item => Number(item.id) === Number(productId));
                 if (product) {
                     row.dataset.channel_available_stock = Number(product.channel_available_stock || 0);
+                    row.dataset.good_stock_available = Number(product.good_stock_available || 0);
+                    row.dataset.damaged_stock_available = Number(product.damaged_stock_available || 0);
                     updateRowDisplay(row);
                 }
             } catch (error) {
@@ -1357,6 +1376,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     <label class="form-label fw-bold d-md-none">Product Description</label>
                     <input type="search" class="form-control product-search" list="saleProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" required>
                     <input type="hidden" name="items[${rowIndex}][product_id]" class="product-id">
+                    <div class="item-status-field" hidden>
+                        <label class="form-label fw-bold" for="itemStatus${rowIndex}">Item Status</label>
+                        <select name="items[${rowIndex}][stock_condition]" id="itemStatus${rowIndex}" class="form-select item-status-select" disabled>
+                            <option value="good">Good</option>
+                            <option value="damaged">Damage</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-bold d-md-none">Available Stock</label>
@@ -1414,15 +1440,38 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    document.addEventListener('change', function(e) {
+        if (!e.target.matches('.item-status-select')) return;
+        const row = e.target.closest('.product-row');
+        updateRowDisplay(row);
+        calculateTotals();
+    });
+
     // Update individual row prices based on the selected channel pricing attributes
     function updateRowDisplay(row) {
         if (!row) return;
         const priceDisplay = row.querySelector('.item-price-display');
         const allocatedStockDisplay = row.querySelector('.channel-stock-availability');
+        const itemStatusField = row.querySelector('.item-status-field');
+        const itemStatusSelect = row.querySelector('.item-status-select');
+        const damagedStock = Number(row.dataset.damaged_stock_available || 0);
+        const hasDamagedStock = Boolean(row.dataset.id) && damagedStock > 0;
+        if (itemStatusField && itemStatusSelect) {
+            itemStatusField.hidden = !hasDamagedStock;
+            itemStatusSelect.disabled = !hasDamagedStock;
+            if (!hasDamagedStock) itemStatusSelect.value = 'good';
+        }
         if (allocatedStockDisplay) {
+            const channelStock = Number(row.dataset.channel_available_stock || 0);
+            const conditionStock = itemStatusSelect?.value === 'damaged'
+                ? damagedStock
+                : Number(row.dataset.good_stock_available || 0);
+            const availableStock = Math.min(channelStock, conditionStock);
             allocatedStockDisplay.textContent = row.dataset.id
-                ? Number(row.dataset.channel_available_stock || 0)
+                ? availableStock
                 : '—';
+            const quantityInput = row.querySelector('.qty-input');
+            if (quantityInput) quantityInput.max = row.dataset.id ? String(availableStock) : '';
         }
         if (!row.dataset.id) {
             if (priceDisplay) priceDisplay.value = '₱0.00';
