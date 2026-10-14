@@ -178,6 +178,68 @@ class NormalizedInventoryTest extends TestCase
             });
     }
 
+    public function test_all_channel_product_lists_show_current_remaining_allocation_without_deducting_sales_twice(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Current Allocation Head Office',
+            'code' => 'CURRENT-ALLOC-HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['online', 'wholesale', 'shopee', 'lazada', 'tiktok', 'walk_in'],
+        ]);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'CURRENT-ALLOC-1',
+            'name' => 'Current allocation product',
+            'stock' => 60,
+            'damaged_stock' => 2,
+            'status' => 'active',
+        ]);
+        ProductStockAllocation::create([
+            'product_id' => $product->id,
+            'online' => 10,
+            'wholesale' => 10,
+            'shopee' => 10,
+            'lazada' => 10,
+            'tiktok' => 10,
+        ]);
+
+        $this->actingAs($staff);
+        foreach (['online', 'wholesale', 'shopee', 'lazada', 'tiktok', 'walk_in'] as $channel) {
+            $this->post(route('sales.store'), [
+                'store_hub_id' => $hub->id,
+                'sales_channel' => $channel,
+                'customer_name' => 'Historical Sale Customer',
+                'order_date' => '2026-10-14',
+                'status' => 'completed',
+                'items' => [[
+                    'product_id' => $product->id,
+                    'quantity' => 2,
+                    'unit_price' => 100,
+                    'stock_condition' => 'good',
+                ]],
+            ])->assertSessionHasNoErrors()->assertSessionHas('success');
+        }
+
+        foreach (['online', 'wholesale', 'shopee', 'lazada', 'tiktok'] as $channel) {
+            $this->get(route('products.index', ['channel' => $channel]))
+                ->assertOk()
+                ->assertViewHas('products', function ($products) use ($product) {
+                    return (int) $products->firstWhere('id', $product->id)->allocated_available_stock === 8;
+                });
+        }
+
+        $this->get(route('products.index', ['channel' => 'walk_in']))
+            ->assertOk()
+            ->assertViewHas('products', function ($products) use ($product) {
+                return (int) $products->firstWhere('id', $product->id)->allocated_available_stock === 8;
+            });
+    }
+
     public function test_shared_fields_are_not_stored_on_branch_rows_and_updates_keep_stock_independent(): void
     {
         $office = StoreHub::create(['name' => 'Office', 'code' => 'HO', 'status' => 'active']);

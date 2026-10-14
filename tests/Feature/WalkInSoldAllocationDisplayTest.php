@@ -85,7 +85,7 @@ class WalkInSoldAllocationDisplayTest extends TestCase
 
         $this->assertSame(0, $product->unallocatedStock());
         $this->actingAs($admin)->post(route('sales.confirmPending', $pending))
-            ->assertSessionHas('error', 'Awaiting stock: Reserved Item (requested 1, available 0, short 1). No stock was deducted.');
+            ->assertSessionHas('error', 'Awaiting stock: Reserved Item (Good) (requested 1, available 0, short 1). No stock was deducted.');
         $this->assertSame(50, $product->fresh()->stock);
         $this->assertDatabaseCount('sales_transactions', 0);
 

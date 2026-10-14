@@ -127,8 +127,8 @@ class SalesWorkflowTest extends TestCase
             'active_only' => 1,
         ]))
             ->assertOk()
-            ->assertJsonPath('0.stock', 7)
-            ->assertJsonPath('0.channel_available_stock', 7)
+            ->assertJsonPath('0.stock', 5)
+            ->assertJsonPath('0.channel_available_stock', 5)
             ->assertJsonPath('0.good_stock_available', 8)
             ->assertJsonPath('0.damaged_stock_available', 2)
             ->assertJsonMissingPath('0.damaged_stock');

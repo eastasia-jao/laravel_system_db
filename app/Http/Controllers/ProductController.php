@@ -124,53 +124,11 @@ class ProductController extends Controller
         }
 
         $products = $query->orderByCatalog('item_id')->paginate(10)->appends($request->query());
-        $productIds = $products->getCollection()->pluck('id');
-        $channelAliases = $displayChannel ? $this->salesChannelAliases($displayChannel) : [];
-        $soldByProduct = DB::table('transaction_items')
-            ->join('sales_transactions', 'sales_transactions.id', '=', 'transaction_items.transaction_id')
-            ->whereIn('transaction_items.product_id', $productIds)
-            ->when($displayChannel, function ($query) use ($displayChannel) {
-                $aliases = $this->salesChannelAliases($displayChannel);
-                $query->whereRaw(
-                    'LOWER(REPLACE(REPLACE(sales_transactions.channel_type, ?, ?), ?, ?)) IN ('.implode(',', array_fill(0, count($aliases), '?')).')',
-                    ['-', '_', ' ', '_', ...$aliases]
-                );
-            }, function ($query) {
-                $query->whereRaw('1 = 0');
-            })
-            ->where(function ($query) {
-                $query->whereNull('sales_transactions.status')
-                    ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
-            })
-            ->select('transaction_items.product_id')->selectRaw('SUM(transaction_items.quantity) AS quantity')
-            ->groupBy('transaction_items.product_id')->pluck('quantity', 'transaction_items.product_id');
-        $channelMovements = $displayChannel
-            ? DB::table('inventory_transactions')
-                ->whereIn('product_id', $productIds)
-                ->whereIn('type', ['return', 'replacement_return', 'replacement_out'])
-                ->whereRaw(
-                    'LOWER(REPLACE(REPLACE(channel, ?, ?), ?, ?)) IN ('.implode(',', array_fill(0, count($channelAliases), '?')).')',
-                    ['-', '_', ' ', '_', ...$channelAliases]
-                )
-                ->select('product_id', 'type')
-                ->selectRaw('SUM(quantity) AS quantity')
-                ->groupBy('product_id', 'type')
-                ->get()
-                ->groupBy('product_id')
-            : collect();
-        $products->getCollection()->each(function (Product $product) use ($displayChannel, $soldByProduct, $channelMovements) {
+        $products->getCollection()->each(function (Product $product) use ($displayChannel) {
             $allocated = $displayChannel === 'walk_in'
                 ? $product->unallocatedStock()
                 : (int) ($displayChannel ? ($product->stockAllocation?->{$displayChannel} ?? 0) : 0);
-            $movements = $channelMovements->get($product->id, collect())->keyBy('type');
-            $returned = (int) ($movements->get('return')->quantity ?? 0)
-                + (int) ($movements->get('replacement_return')->quantity ?? 0);
-            $replacementOut = (int) ($movements->get('replacement_out')->quantity ?? 0);
-            $used = max(0, (int) ($soldByProduct[$product->id] ?? 0) - $returned + $replacementOut);
-            $product->setAttribute(
-                'allocated_available_stock',
-                max(0, $allocated - ($displayChannel === 'walk_in' ? 0 : $used))
-            );
+            $product->setAttribute('allocated_available_stock', max(0, $allocated));
         });
 
         $brands = Brand::all();

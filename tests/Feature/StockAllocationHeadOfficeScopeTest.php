@@ -14,7 +14,7 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_damaged_units_are_included_in_physical_stock_and_can_be_allocated(): void
+    public function test_only_good_units_can_be_allocated_while_damaged_units_remain_separately_sellable(): void
     {
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-DAMAGED', 'status' => 'active', 'is_head_office' => true]);
         $product = Product::create([
@@ -30,19 +30,29 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         $response = $this->actingAs($admin)->get(route('stock-allocation.index', ['hub_id' => $headOffice->id]));
 
         $response->assertOk()
-            ->assertSee('<span class="total-physical-stock">48</span>', false)
+            ->assertSee('Good Stock Available for Allocation')
+            ->assertSee('<span class="total-physical-stock">47</span>', false)
             ->assertSee('Good: 47')
-            ->assertSee('Damaged: 1')
-            ->assertSee('max="48"', false);
+            ->assertSee('Damaged (sellable separately): 1')
+            ->assertSee('max="47"', false);
 
         $this->post(route('stock-allocation.update'), [
             'hub_id' => $headOffice->id,
             'allocations' => [
                 $product->id => ['online' => 48, 'wholesale' => 0, 'shopee' => 0, 'lazada' => 0, 'tiktok' => 0],
             ],
+        ])->assertUnprocessable();
+
+        $this->post(route('stock-allocation.update'), [
+            'hub_id' => $headOffice->id,
+            'allocations' => [
+                $product->id => ['online' => 10, 'wholesale' => 7, 'shopee' => 10, 'lazada' => 10, 'tiktok' => 10],
+            ],
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
-        $this->assertSame(48, (int) ProductStockAllocation::where('product_id', $product->id)->value('online'));
+        $savedAllocation = ProductStockAllocation::where('product_id', $product->id)->firstOrFail();
+        $this->assertSame(47, array_sum($savedAllocation->only(['online', 'wholesale', 'shopee', 'lazada', 'tiktok'])));
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
     }
 
     public function test_all_stores_allocation_scope_only_lists_head_office_hubs_and_products(): void

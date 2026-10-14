@@ -164,7 +164,7 @@ class Product extends Model
     {
         $allocated = $this->stockAllocation?->{$channel};
         if ($allocated === null) {
-            return $fallbackToPhysical ? $this->sellableStock() : 0;
+            return $fallbackToPhysical ? max(0, (int) $this->stock) : 0;
         }
         return max(0, (int) $allocated);
     }
@@ -204,7 +204,7 @@ class Product extends Model
         $allocated = collect(['online', 'wholesale', 'shopee', 'lazada', 'tiktok'])
             ->sum(fn ($channel) => (int) ($allocation?->{$channel} ?? 0));
 
-        return max(0, $this->sellableStock() - $allocated);
+        return max(0, (int) $this->stock - $allocated);
     }
 
     public function inventoryTransactions()

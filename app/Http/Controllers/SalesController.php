@@ -420,7 +420,7 @@ class SalesController extends Controller
                 $requestedQuantities[$stockKey] = ($requestedQuantities[$stockKey] ?? 0) + $quantity;
                 $availableStocks[$stockKey] = $stockCondition === 'damaged'
                     ? (int) $product->damaged_stock
-                    : $product->sellableStock();
+                    : max(0, (int) $product->stock);
             }
 
             $inventoryReady = collect($requestedQuantities)->every(

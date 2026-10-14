@@ -32,7 +32,7 @@
 @php($returnToQueue = request('return_to') === 'verification-queue')
 @php($returnHubId = request('return_hub_id') ?: $hub?->id)
 <div class="p-5 workspace-page">
-    <x-page-header class="mb-4" eyebrow="Inventory control center" title="Sales Stock Allocation" description="Distribute physical stock across sales channels and monitor what remains available." icon="fa-layer-group">
+    <x-page-header class="mb-4" eyebrow="Inventory control center" title="Sales Stock Allocation" description="Distribute Good stock across sales channels. Damaged stock remains sellable separately through Item Status = Damage." icon="fa-layer-group">
         @if($canEditAllocations)
             <x-slot:actions>
                 @if($returnToQueue && $returnHubId)
@@ -123,7 +123,7 @@
                     <thead class="small text-uppercase">
                         <tr>
                             <th>Product</th>
-                            <th>Physical Stock Remaining</th>
+                            <th>Good Stock Available for Allocation</th>
                             <th>Online / Event / Restock</th>
                             <th>Wholesale</th>
                             <th>Shopee</th>
@@ -140,9 +140,9 @@
                                 <div class="fw-semibold">{{ $product->name }}</div>
                                 <small class="text-muted">{{ $product->item_id }}{{ $product->barcode ? ' · '.$product->barcode : '' }}</small>
                             </td>
-                            <td class="physical-cell fw-semibold">
+                            <td class="physical-cell fw-semibold" data-allocatable-stock="{{ $product->starting_inventory }}">
                                 <span class="total-physical-stock">{{ $product->starting_inventory }}</span>
-                                <small><span class="text-success">Good: {{ $product->stock }}</span> Â· <span class="text-danger">Damaged: {{ $product->damaged_stock }}</span></small>
+                                <small><span class="text-success">Good: {{ $product->stock }}</span> Â· <span class="text-danger">Damaged (sellable separately): {{ $product->damaged_stock }}</span></small>
                             </td>
                             @foreach(['online', 'wholesale', 'shopee', 'lazada', 'tiktok'] as $channel)
                                 <td class="channel-cell">
@@ -164,7 +164,12 @@
                                     <small class="sold-count">Sold via walk-in</small>
                                 @endif
                             </td>
-                            <td class="fw-bold remaining-cell">{{ $product->remaining_values->sum() }}</td>
+                            <td class="fw-bold remaining-cell">
+                                {{ $product->remaining_values->sum() }}
+                                @if($product->remaining_values->sum() > $product->starting_inventory)
+                                    <small class="d-block text-danger fw-semibold">Reduce by {{ $product->remaining_values->sum() - $product->starting_inventory }}</small>
+                                @endif
+                            </td>
                         </tr>
                     @empty
                         <tr><td colspan="9" class="text-center text-muted py-5">No products found.</td></tr>
@@ -199,8 +204,7 @@
             const inputs = [...row.querySelectorAll('.channel-input')];
             if (!inputs.length) return;
 
-            const physicalStock = Number(row.querySelector('.physical-cell')?.textContent.trim() || 0);
-            const startingInventory = inputs.reduce((maximum, input) => Math.max(maximum, Number(input.max || 0)), physicalStock);
+            const startingInventory = Number(row.querySelector('.physical-cell')?.dataset.allocatableStock || 0);
             let allocated = 0;
             let exceedingInput = null;
             for (const input of inputs) {
