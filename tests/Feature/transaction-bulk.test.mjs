@@ -28,7 +28,9 @@ test('Excel text identifiers preserve leading zeros and long barcodes for every 
     const csv = csvText([['Item ID', 'Barcode', 'Quantity', 'Condition'], ['0001', barcode, 2, 'good']], [0, 1]);
     assert.equal(parseCsv(csv)[1][1], `="${barcode}"`);
     for (const type of ['stock_transfer', 'branch_transfer', 'sponsor_workshop', 'restock', 'return']) {
-        assert.equal(importRows(csv, catalog, type)[0].product_id, 1);
+        const imported = importRows(csv, catalog, type)[0];
+        assert.equal(imported.product_id, 1);
+        if (type === 'sponsor_workshop') assert.equal(imported.pullout_qty, 2);
         assert.match(exportFilename(type, 'AC CUBAO', new Date('2026-09-10T12:34:56.789Z')), /^AC_CUBAO_Exp_.*_20260910_123456\.csv$/);
     }
     assert.match(exportFilename('stock_transfer', 'AC BRANCH', new Date('2026-09-10T12:34:56.789Z'), 'branch_to_ho'), /^AC_BRANCH_Exp_StockTrf_B2HO_20260910_123456\.csv$/);

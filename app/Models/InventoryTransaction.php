@@ -9,7 +9,7 @@ class InventoryTransaction extends Model
 {
     protected $fillable = [
         'reference', 'type', 'store_hub_id', 'product_id', 'source_hub_id',
-        'target_hub_id', 'channel', 'source', 'condition', 'quantity',
+        'target_hub_id', 'channel', 'source', 'condition', 'quantity', 'pullout_qty',
         'occurred_on', 'notes', 'created_by', 'sales_transaction_id',
         'transaction_item_id', 'product_replacement_id',
         'national_pullout_id', 'national_pullout_item_id', 'national_product_id',
@@ -20,6 +20,7 @@ class InventoryTransaction extends Model
     protected $casts = [
         'occurred_on' => 'date',
         'quantity' => 'integer',
+        'pullout_qty' => 'integer',
         'refund_amount' => 'decimal:2',
         'reviewed_at' => 'datetime',
     ];

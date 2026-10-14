@@ -561,7 +561,8 @@ class TransactionBulkTest extends TestCase
             ->assertSee('Reference Document No.')
             ->assertSee('id="sponsorItemsHeader"', false)
             ->assertSee('aria-label="Product"', false)
-            ->assertSee('aria-label="Quantity"', false)
+            ->assertSee('aria-label="Actual Pull Out"', false)
+            ->assertSee('aria-label="Pull-Out Qty (record only)"', false)
             ->assertSee('readonly', false)
             ->assertSee('SW-HEAD-OFFICE-'.now()->format('Ymd').'-', false);
         $this->assertSame($hub->id, $formResponse->viewData('hubId'));
@@ -644,8 +645,8 @@ class TransactionBulkTest extends TestCase
             'occurred_on' => '2026-10-14',
             'source' => 'Community Event',
             'items' => [
-                ['product_id' => $product->id, 'quantity' => 2, 'stock_condition' => 'good'],
-                ['product_id' => $product->id, 'quantity' => 1, 'stock_condition' => 'damaged'],
+                ['product_id' => $product->id, 'quantity' => 2, 'pullout_qty' => 3, 'stock_condition' => 'good'],
+                ['product_id' => $product->id, 'quantity' => 1, 'pullout_qty' => 2, 'stock_condition' => 'damaged'],
             ],
         ])->assertSessionHasNoErrors();
 
@@ -656,13 +657,21 @@ class TransactionBulkTest extends TestCase
             'product_id' => $product->id,
             'condition' => 'good',
             'quantity' => 2,
+            'pullout_qty' => 3,
         ]);
         $this->assertDatabaseHas('inventory_transactions', [
             'type' => 'sponsor_workshop',
             'product_id' => $product->id,
             'condition' => 'damaged',
             'quantity' => 1,
+            'pullout_qty' => 2,
         ]);
+        $this->get(route('inventory-transactions.index', [
+            'hub_id' => $hub->id,
+            'type' => 'sponsor_workshop',
+        ]))->assertOk()
+            ->assertSee('Pull-Out Qty (record only): 3')
+            ->assertSee('Pull-Out Qty (record only): 2');
 
         $this->post(route('inventory-transactions.store'), [
             'type' => 'sponsor_workshop',

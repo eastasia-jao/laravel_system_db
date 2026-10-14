@@ -75,7 +75,7 @@ export function importRows(text, products, type) {
             product_id: matches[0].id,
             quantity: Number(quantity),
             ...(type === 'return' ? { condition } : {}),
-            ...(type === 'sponsor_workshop' ? { stock_condition: condition || 'good' } : {})
+            ...(type === 'sponsor_workshop' ? { stock_condition: condition || 'good', pullout_qty: Number(quantity) } : {})
         });
     });
     if (errors.length) throw new Error(`No items imported. Fix these errors and retry:\n${errors.join('\n')}`);
@@ -222,7 +222,10 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
         product_id: row.querySelector('.product-id').value,
         quantity: row.querySelector('[name$="[quantity]"]').value,
         ...(type === 'return' ? { condition: row.querySelector('select').value } : {}),
-        ...(type === 'sponsor_workshop' ? { stock_condition: row.querySelector('[name$="[stock_condition]"]').value } : {})
+        ...(type === 'sponsor_workshop' ? {
+            stock_condition: row.querySelector('[name$="[stock_condition]"]').value,
+            pullout_qty: row.querySelector('[name$="[pullout_qty]"]').value
+        } : {})
     }));
     const heading = type === 'restock' ? 'Actual Added Qty' : type === 'return' ? 'Actual Return Qty' : 'Physical Actual Pullout';
     const download = items => {
@@ -242,7 +245,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     };
     panel.querySelector('[data-bulk="export"]').onclick = () => {
         const items = selected().filter(i => i.product_id || i.quantity);
-        if (!items.length || items.some(i => !byId.has(i.product_id) || !/^[1-9]\d*$/.test(i.quantity) || (type === 'return' && !i.condition) || (type === 'sponsor_workshop' && !i.stock_condition))) return show('Select valid products and quantities (and applicable conditions) before exporting.', true);
+        if (!items.length || items.some(i => !byId.has(i.product_id) || !/^[1-9]\d*$/.test(i.quantity) || (type === 'return' && !i.condition) || (type === 'sponsor_workshop' && (!i.stock_condition || (i.pullout_qty !== '' && !/^(0|[1-9]\d*)$/.test(i.pullout_qty)))))) return show('Select valid products and quantities (and applicable conditions) before exporting.', true);
         if (type === 'sponsor_workshop') {
             downloadEventWorkbook(items).catch(error => show(error.message, true));
             return;
@@ -287,7 +290,10 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
                 });
                 row.querySelector('[name$="[quantity]"]').value = item.quantity;
                 if (type === 'return') row.querySelector('select').value = item.condition;
-                if (type === 'sponsor_workshop') row.querySelector('[name$="[stock_condition]"]').value = item.stock_condition;
+                if (type === 'sponsor_workshop') {
+                    row.querySelector('[name$="[stock_condition]"]').value = item.stock_condition;
+                    row.querySelector('[name$="[pullout_qty]"]').value = item.pullout_qty ?? '';
+                }
                 row.querySelector('button').disabled = false;
                 fragment.appendChild(row);
             });

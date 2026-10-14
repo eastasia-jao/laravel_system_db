@@ -532,11 +532,11 @@
                                 </div>
                                 <div class="col-12">
                                     <div class="transfer-detail-section">
-                                        <div class="transfer-detail-section-header"><span class="transfer-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2" style="color:#6d28d9;"></i>Items pulled out</span><span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} total</span></div>
+                                        <div class="transfer-detail-section-header"><span class="transfer-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2" style="color:#6d28d9;"></i>Items pulled out</span><span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} actual pull out{{ $group->sum('pullout_qty') ? ' · '.$group->sum('pullout_qty').' Pull-Out Qty (record only)' : '' }}</span></div>
                                         @foreach($group as $entry)
                                             <div class="transfer-detail-item">
-                                                <div><div class="transfer-detail-item-name">{{ $entry->product?->name ?? 'Unknown product' }}</div><div class="transfer-detail-item-id">Item ID: {{ $entry->product?->item_id ?? '—' }}</div></div>
-                                                <div class="transfer-detail-qty">Qty {{ $entry->quantity }}</div>
+                                                <div><div class="transfer-detail-item-name">{{ $entry->product?->name ?? 'Unknown product' }}</div><div class="transfer-detail-item-id">Item ID: {{ $entry->product?->item_id ?? '—' }}{{ $entry->pullout_qty !== null ? ' · Pull-Out Qty (record only): '.$entry->pullout_qty : '' }}</div></div>
+                                                <div class="transfer-detail-qty">Actual {{ $entry->quantity }}</div>
                                             </div>
                                         @endforeach
                                     </div>

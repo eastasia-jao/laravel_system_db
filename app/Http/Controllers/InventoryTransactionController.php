@@ -118,6 +118,7 @@ class InventoryTransactionController extends Controller
                 'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
                 'good_stock' => (int) $product->stock,
                 'damaged_stock' => (int) $product->damaged_stock,
+                'pullout_qty' => '',
                 'actual_pullout' => '',
             ])->all();
         $path = EventPulloutWorkbook::create($items, [
@@ -157,6 +158,13 @@ class InventoryTransactionController extends Controller
 
             $line = $index + 3;
             $name = trim($row['name']);
+            $pulloutQuantity = trim($row['pullout_qty']);
+            if ($pulloutQuantity !== ''
+                && (! preg_match('/^\d+$/', $pulloutQuantity) || filter_var($pulloutQuantity, FILTER_VALIDATE_INT) === false)) {
+                $errors[] = "Row {$line}: Pull-Out Qty must be a non-negative whole number.";
+
+                continue;
+            }
             $condition = 'good';
             if (preg_match('/\s+\((GOOD|DAMAGED)\)\s*$/i', $name, $match)) {
                 $condition = strtolower($match[1]);
@@ -186,6 +194,7 @@ class InventoryTransactionController extends Controller
             $items[] = [
                 'product_id' => $product->id,
                 'quantity' => (int) $quantity,
+                'pullout_qty' => $pulloutQuantity === '' ? null : (int) $pulloutQuantity,
                 'stock_condition' => $condition,
             ];
         }
@@ -219,6 +228,7 @@ class InventoryTransactionController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.pullout_qty' => ['nullable', 'integer', 'min:0'],
             'items.*.stock_condition' => ['required', Rule::in(['good', 'damaged'])],
         ]);
         $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
@@ -253,6 +263,7 @@ class InventoryTransactionController extends Controller
                 'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
                 'good_stock' => (int) $product->stock,
                 'damaged_stock' => (int) $product->damaged_stock,
+                'pullout_qty' => $item['pullout_qty'] ?? '',
                 'actual_pullout' => (int) $item['quantity'],
             ];
         })->all();
@@ -1406,6 +1417,7 @@ class InventoryTransactionController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.pullout_qty' => ['nullable', 'integer', 'min:0'],
             'items.*.stock_condition' => ['nullable', Rule::in(['good', 'damaged'])],
         ]);
         $user = auth()->user();
@@ -1433,10 +1445,14 @@ class InventoryTransactionController extends Controller
             $quantities = collect($validated['items'])->groupBy(
                 fn ($item) => $item['product_id'].':'.($item['stock_condition'] ?? 'good')
             )
-                ->map(fn ($rows) => $rows->sum('quantity'));
+                ->map(fn ($rows) => [
+                    'quantity' => $rows->sum('quantity'),
+                    'pullout_qty' => $rows->sum(fn ($item) => (int) ($item['pullout_qty'] ?? 0)),
+                ]);
 
-            foreach ($quantities as $stockKey => $quantity) {
+            foreach ($quantities as $stockKey => $amounts) {
                 [$productId, $stockCondition] = explode(':', (string) $stockKey, 2);
+                $quantity = $amounts['quantity'];
                 $product = $products->get((int) $productId);
                 if (! $product) {
                     throw ValidationException::withMessages([
@@ -1459,6 +1475,7 @@ class InventoryTransactionController extends Controller
                     'source' => $validated['source'],
                     'condition' => $stockCondition,
                     'quantity' => $quantity,
+                    'pullout_qty' => $amounts['pullout_qty'] > 0 ? $amounts['pullout_qty'] : null,
                     'occurred_on' => $validated['occurred_on'],
                     'notes' => $validated['notes'] ?? null,
                     'created_by' => auth()->id(),

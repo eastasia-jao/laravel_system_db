@@ -54,7 +54,8 @@ class EventPulloutWorkbookTest extends TestCase
         $stylesXml = $archive['xl/styles.xml']->getContent();
         unset($archive);
         $this->assertStringContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);
-        $this->assertStringContainsString('<mergeCell ref="F1:G1"/>', $worksheetXml);
+        $this->assertStringContainsString('<mergeCell ref="F1:H1"/>', $worksheetXml);
+        $this->assertStringContainsString('<dimension ref="A1:H3"/>', $worksheetXml);
         $this->assertStringContainsString('<row r="1" ht="60" customHeight="1">', $worksheetXml);
         $this->assertStringContainsString('<row r="2" ht="40" customHeight="1">', $worksheetXml);
         $this->assertStringContainsString('<row r="3" ht="30" customHeight="1">', $worksheetXml);
@@ -66,6 +67,10 @@ class EventPulloutWorkbookTest extends TestCase
         $this->assertStringContainsString('<c r="B3" s="4"', $worksheetXml);
         $this->assertStringContainsString('<c r="C3" s="5"', $worksheetXml);
         $this->assertStringContainsString('<c r="D3" s="5"', $worksheetXml);
+        $this->assertStringContainsString('<c r="G2" s="3"', $worksheetXml);
+        $this->assertStringContainsString('<c r="H2" s="3"', $worksheetXml);
+        $this->assertSame('', $workbook['items'][0]['pullout_qty']);
+        $this->assertSame('', $workbook['items'][0]['actual_pullout']);
         $this->assertSame('SW-EVENT-HO-20261001-120000-ABC123', $workbook['reference']);
         $this->assertSame('2026-10-01', $workbook['occurred_on']);
         $this->assertSame('Book Fair', $workbook['source']);
@@ -77,6 +82,7 @@ class EventPulloutWorkbookTest extends TestCase
             'physical_stock' => '15',
             'good_stock' => '12',
             'damaged_stock' => '3',
+            'pullout_qty' => '',
             'actual_pullout' => '',
         ]], $workbook['items']);
         $this->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
@@ -111,8 +117,8 @@ class EventPulloutWorkbookTest extends TestCase
                 'reference' => 'SW-EVENT-123',
                 'notes' => 'Selected items',
                 'items' => [
-                    ['product_id' => $product->id, 'quantity' => 2, 'stock_condition' => 'good'],
-                    ['product_id' => $product->id, 'quantity' => 1, 'stock_condition' => 'damaged'],
+                    ['product_id' => $product->id, 'quantity' => 2, 'pullout_qty' => 4, 'stock_condition' => 'good'],
+                    ['product_id' => $product->id, 'quantity' => 1, 'pullout_qty' => 2, 'stock_condition' => 'damaged'],
                 ],
             ])
             ->assertOk()
@@ -120,10 +126,14 @@ class EventPulloutWorkbookTest extends TestCase
 
         $workbook = EventPulloutWorkbook::read($response->baseResponse->getFile()->getPathname());
         $this->assertSame([
-            ['name' => 'Event Product (GOOD)', 'quantity' => '2'],
-            ['name' => 'Event Product (DAMAGED)', 'quantity' => '1'],
+            ['name' => 'Event Product (GOOD)', 'pullout_qty' => '4', 'quantity' => '2'],
+            ['name' => 'Event Product (DAMAGED)', 'pullout_qty' => '2', 'quantity' => '1'],
         ], array_map(
-            fn ($item) => ['name' => $item['name'], 'quantity' => $item['actual_pullout']],
+            fn ($item) => [
+                'name' => $item['name'],
+                'pullout_qty' => $item['pullout_qty'],
+                'quantity' => $item['actual_pullout'],
+            ],
             $workbook['items']
         ));
     }
@@ -151,6 +161,7 @@ class EventPulloutWorkbookTest extends TestCase
             'physical_stock' => 15,
             'good_stock' => 12,
             'damaged_stock' => 3,
+            'pullout_qty' => 5,
             'actual_pullout' => 1,
         ]], [
             'reference' => 'SW-EVENT-123',
@@ -174,6 +185,7 @@ class EventPulloutWorkbookTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('items.0.product_id', $product->id)
                 ->assertJsonPath('items.0.quantity', 1)
+                ->assertJsonPath('items.0.pullout_qty', 5)
                 ->assertJsonPath('items.0.stock_condition', 'damaged')
                 ->assertJsonPath('metadata.reference', 'SW-EVENT-123')
                 ->assertJsonPath('metadata.occurred_on', '2026-10-01')

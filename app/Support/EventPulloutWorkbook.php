@@ -10,7 +10,7 @@ use ZipArchive;
 class EventPulloutWorkbook
 {
     /**
-     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, actual_pullout: int|string}>  $items
+     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, pullout_qty: int|string, actual_pullout: int|string}>  $items
      * @param  array{reference?: string, occurred_on?: string, source?: string, notes?: string}  $document
      */
     public static function create(array $items, array $document = []): string
@@ -59,7 +59,7 @@ class EventPulloutWorkbook
     }
 
     /**
-     * @return array{reference: string, occurred_on: string, source: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, good_stock: string, damaged_stock: string, actual_pullout: string}>}
+     * @return array{reference: string, occurred_on: string, source: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, good_stock: string, damaged_stock: string, pullout_qty: string, actual_pullout: string}>}
      */
     public static function read(string $path): array
     {
@@ -131,6 +131,7 @@ class EventPulloutWorkbook
         if (array_diff($required, array_keys($columns))) {
             throw new RuntimeException('The Excel worksheet must contain the Event pull-out headers in row 2.');
         }
+        $pulloutColumn = $columns['pull out qty'] ?? null;
 
         $items = [];
         foreach ($rows as $rowNumber => $row) {
@@ -144,6 +145,7 @@ class EventPulloutWorkbook
                 'physical_stock' => $row[$columns['physical stocks qty']] ?? '',
                 'good_stock' => $row[$columns['good items']] ?? '',
                 'damaged_stock' => $row[$columns['damaged items']] ?? '',
+                'pullout_qty' => $pulloutColumn === null ? '' : ($row[$pulloutColumn] ?? ''),
                 'actual_pullout' => $row[$columns['physical actual pullout']] ?? '',
             ];
         }
@@ -158,7 +160,7 @@ class EventPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, actual_pullout: int|string}>  $items
+     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, pullout_qty: int|string, actual_pullout: int|string}>  $items
      * @param  array{reference?: string, occurred_on?: string, source?: string, notes?: string}  $document
      * @return array<string, string>
      */
@@ -168,10 +170,10 @@ class EventPulloutWorkbook
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
-            .'<dimension ref="A1:G'.$lastRow.'"/>'
+            .'<dimension ref="A1:H'.$lastRow.'"/>'
             .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews>'
             .'<sheetFormatPr defaultRowHeight="15"/>'
-            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="7" width="20" customWidth="1"/></cols>'
+            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="8" width="20" customWidth="1"/></cols>'
             .'<sheetData>'
             .'<row r="1" ht="60" customHeight="1">'
             .self::inlineCell('A1', 'EVENT PULL-OUT', 1)
@@ -188,6 +190,7 @@ class EventPulloutWorkbook
             'Physical Stocks Qty',
             'Good Items',
             'Damaged Items',
+            'Pull-Out Qty',
             'Physical Actual-Pullout',
         ] as $index => $heading) {
             $style = $index === 0 ? 6 : 3;
@@ -204,6 +207,7 @@ class EventPulloutWorkbook
                 $item['physical_stock'],
                 $item['good_stock'],
                 $item['damaged_stock'],
+                $item['pullout_qty'],
                 $item['actual_pullout'],
             ];
             $xml .= '<row r="'.$rowNumber.'" ht="30" customHeight="1">';
@@ -217,7 +221,7 @@ class EventPulloutWorkbook
             $xml .= '</row>';
         }
 
-        $xml .= '</sheetData><mergeCells count="2"><mergeCell ref="D1:E1"/><mergeCell ref="F1:G1"/></mergeCells>'
+        $xml .= '</sheetData><mergeCells count="2"><mergeCell ref="D1:E1"/><mergeCell ref="F1:H1"/></mergeCells>'
             .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
             .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
             .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
