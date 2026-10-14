@@ -252,19 +252,27 @@
     #recordSaleModal #productRowsContainer > .row:first-child,
     #recordSaleModal #productRowsContainer .product-row {
         display: grid !important;
-        grid-template-columns: minmax(180px, 2.4fr) minmax(80px, .9fr) minmax(58px, .65fr) minmax(105px, 1.2fr) minmax(76px, .85fr) minmax(125px, 1.4fr) minmax(100px, 1fr) 42px;
+        grid-template-columns: minmax(180px, 2.4fr) minmax(80px, .9fr) minmax(58px, .65fr) minmax(105px, 1.2fr) minmax(76px, .85fr) minmax(125px, 1.4fr) 42px;
         gap: .55rem;
         align-items: end;
+    }
+    @media (min-width: 768px) {
+        #recordSaleModal #productRowsContainer.has-tiktok-fee > .row:first-child,
+        #recordSaleModal #productRowsContainer.has-tiktok-fee .product-row {
+            grid-template-columns: minmax(180px, 2.4fr) minmax(80px, .9fr) minmax(58px, .65fr) minmax(105px, 1.2fr) minmax(76px, .85fr) minmax(125px, 1.4fr) minmax(100px, 1fr) 42px;
+        }
     }
     #recordSaleModal #productRowsContainer > .row:first-child { padding: .48rem .6rem; }
     #recordSaleModal #productRowsContainer > .row:first-child > *,
     #recordSaleModal #productRowsContainer .product-row > * { width: auto; min-width: 0; }
+    #recordSaleModal #productRowsContainer > .row:first-child > :last-child,
+    #recordSaleModal #productRowsContainer .product-row > :last-child { justify-self: center; text-align: center; }
     #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) > .row:first-child > :nth-child(7),
     #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(7) { display: none !important; }
     #recordSaleModal #productRowsContainer .product-row {
         position: relative;
         margin: 0 0 .55rem !important;
-        padding: .65rem !important;
+        padding: .65rem .6rem !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 11px;
         background: #fff;
