@@ -128,8 +128,8 @@ class EventPulloutWorkbookTest extends TestCase
 
         $workbook = EventPulloutWorkbook::read($response->baseResponse->getFile()->getPathname());
         $this->assertSame([
-            ['name' => 'Event Product (GOOD)', 'pullout_qty' => '4', 'quantity' => '2'],
-            ['name' => 'Event Product (DAMAGED)', 'pullout_qty' => '2', 'quantity' => '1'],
+            ['name' => 'Event Product (GOOD)', 'pullout_qty' => '4', 'quantity' => ''],
+            ['name' => 'Event Product (DAMAGED)', 'pullout_qty' => '2', 'quantity' => ''],
         ], array_map(
             fn ($item) => [
                 'name' => $item['name'],

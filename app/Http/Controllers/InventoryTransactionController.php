@@ -264,7 +264,7 @@ class InventoryTransactionController extends Controller
                 'good_stock' => (int) $product->stock,
                 'damaged_stock' => (int) $product->damaged_stock,
                 'pullout_qty' => $item['pullout_qty'] ?? '',
-                'actual_pullout' => (int) $item['quantity'],
+                'actual_pullout' => '',
             ];
         })->all();
         $path = EventPulloutWorkbook::create($items, [
