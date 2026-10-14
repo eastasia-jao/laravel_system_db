@@ -32,8 +32,8 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         $response->assertOk()
             ->assertSee('Total Physical Stocks')
             ->assertSee('<span class="total-physical-stock">48</span>', false)
-            ->assertSee('Good: 47')
-            ->assertSee('Damaged (sellable separately): 1')
+            ->assertSee('Good Stock: 47')
+            ->assertSee('Damaged Stock: 1')
             ->assertSee('max="47"', false);
 
         $this->post(route('stock-allocation.update'), [

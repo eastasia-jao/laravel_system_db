@@ -142,7 +142,7 @@
                             </td>
                             <td class="physical-cell fw-semibold" data-allocatable-stock="{{ $product->starting_inventory }}">
                                 <span class="total-physical-stock">{{ $product->physical_stock_total }}</span>
-                                <small><span class="text-success">Good: {{ $product->stock }}</span> Â· <span class="text-danger">Damaged (sellable separately): {{ $product->damaged_stock }}</span></small>
+                                <small><span class="text-success">Good Stock: {{ $product->stock }}</span> &middot; <span class="text-danger">Damaged Stock: {{ $product->damaged_stock }}</span></small>
                             </td>
                             @foreach(['online', 'wholesale', 'shopee', 'lazada', 'tiktok'] as $channel)
                                 <td class="channel-cell">
