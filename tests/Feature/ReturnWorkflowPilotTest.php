@@ -167,6 +167,117 @@ class ReturnWorkflowPilotTest extends TestCase
             ->sum('quantity'));
     }
 
+    public function test_event_pullout_returns_restore_good_and_damaged_stock_and_reject_over_returns(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Event Return Hub',
+            'code' => 'EVENT-RET',
+            'status' => 'active',
+            'is_head_office' => false,
+        ]);
+        $staff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
+        $this->actingAs($staff)
+            ->get(route('inventory-transactions.return.create', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('Return Source')
+            ->assertSee('<option value="event">Event</option>', false)
+            ->assertDontSee('<option value="shopee">', false);
+        $product = Product::create([
+            'name' => 'Event Return Product',
+            'item_id' => 'EVENT-RETURN-001',
+            'store_hub_id' => $hub->id,
+            'stock' => 3,
+            'damaged_stock' => 0,
+            'status' => 'active',
+        ]);
+        foreach ([
+            ['condition' => 'good', 'quantity' => 2],
+            ['condition' => 'damaged', 'quantity' => 1],
+        ] as $pullout) {
+            InventoryTransaction::create([
+                'type' => 'sponsor_workshop',
+                'reference' => 'SW-EVENT-RETURN-001',
+                'store_hub_id' => $hub->id,
+                'product_id' => $product->id,
+                'source' => 'Community Event',
+                'condition' => $pullout['condition'],
+                'quantity' => $pullout['quantity'],
+                'occurred_on' => '2026-10-01',
+                'created_by' => $staff->id,
+            ]);
+        }
+
+        $this->actingAs($staff)
+            ->getJson(route('inventory-transactions.return.sales', [
+                'hub_id' => $hub->id,
+                'channel' => 'event',
+                'date' => '2026-10-14',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('orders.0.id', 'SW-EVENT-RETURN-001')
+            ->assertJsonPath('orders.0.source', 'Community Event');
+
+        $this->getJson(route('inventory-transactions.return.sales', [
+            'hub_id' => $hub->id,
+            'channel' => 'event',
+            'event_reference' => 'SW-EVENT-RETURN-001',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('transaction.items.0.quantity', 3)
+            ->assertJsonPath('transaction.items.0.returned_quantity', 0);
+
+        $returnData = [
+            'type' => 'return',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-14',
+            'channel' => 'event',
+            'reference' => 'SW-EVENT-RETURN-001',
+            'event_reference' => 'SW-EVENT-RETURN-001',
+            'items' => [[
+                'product_id' => $product->id,
+                'good_quantity' => 1,
+                'damaged_quantity' => 1,
+            ]],
+        ];
+        $this->post(route('inventory-transactions.return.store'), $returnData)
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Return items recorded successfully.');
+
+        $this->assertSame(4, (int) $product->fresh()->stock);
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
+        $this->assertDatabaseHas('inventory_transactions', [
+            'type' => 'return',
+            'reference' => 'SW-EVENT-RETURN-001',
+            'channel' => 'event',
+            'condition' => 'good',
+            'quantity' => 1,
+        ]);
+        $this->assertDatabaseHas('inventory_transactions', [
+            'type' => 'return',
+            'reference' => 'SW-EVENT-RETURN-001',
+            'channel' => 'event',
+            'condition' => 'damaged',
+            'quantity' => 1,
+        ]);
+
+        $this->post(route('inventory-transactions.return.store'), array_replace_recursive($returnData, [
+            'items' => [[
+                'good_quantity' => 2,
+                'damaged_quantity' => 0,
+            ]],
+        ]))->assertSessionHasErrors('items');
+
+        $this->getJson(route('inventory-transactions.return.sales', [
+            'hub_id' => $hub->id,
+            'channel' => 'event',
+            'event_reference' => 'SW-EVENT-RETURN-001',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('transaction.items.0.returned_quantity', 2);
+        $this->assertSame(4, (int) $product->fresh()->stock);
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
+    }
+
     public function test_inventory_staff_can_select_any_active_store_when_recording_returns_without_sidebar_return_link(): void
     {
         $assignedBranch = StoreHub::create([

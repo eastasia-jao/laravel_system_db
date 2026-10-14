@@ -346,6 +346,7 @@ class InventoryTransactionController extends Controller
             'channel' => ['required', 'string', 'max:50'],
             'customer' => ['nullable', 'string', 'max:255'],
             'transaction_id' => ['nullable', 'integer'],
+            'event_reference' => ['nullable', 'string', 'max:100'],
             'date' => ['nullable', 'date_format:Y-m-d'],
         ]);
         $user = auth()->user();
@@ -356,18 +357,98 @@ class InventoryTransactionController extends Controller
             403
         );
 
+        $isEventReturn = strtolower(trim($validated['channel'])) === 'event';
         $normalizedChannel = $this->normalizeChannel($validated['channel']);
         $lookupHub = StoreHub::findOrFail((int) $validated['hub_id']);
         if ($user?->role === 'inventory_staff') {
             abort_unless($lookupHub->status === 'active', 403);
         }
-        if (! $lookupHub->is_head_office && $normalizedChannel !== 'walk_in') {
+        if (! $lookupHub->is_head_office && $normalizedChannel !== 'walk_in' && ! $isEventReturn) {
             throw ValidationException::withMessages([
                 'channel' => 'Only Walk-In sales can be selected for a branch store.',
             ]);
         }
         if ($user?->role === 'sales_associate') {
             abort_unless($normalizedChannel === 'walk_in', 403, 'Sales associates can only view Walk-In sales.');
+        }
+        if ($isEventReturn) {
+            abort_unless(in_array($user?->role, ['admin', 'inventory_staff'], true), 403, 'Only inventory staff can record Event returns.');
+            $eventQuery = InventoryTransaction::query()
+                ->where('store_hub_id', $validated['hub_id'])
+                ->where('type', 'sponsor_workshop')
+                ->whereNotNull('reference');
+
+            if ($request->filled('event_reference')) {
+                $reference = $validated['event_reference'];
+                $pullouts = $eventQuery->where('reference', $reference)
+                    ->with('product')
+                    ->orderBy('id')
+                    ->get();
+                abort_if($pullouts->isEmpty(), 404, 'Event pullout reference not found.');
+                $returnedByProduct = InventoryTransaction::query()
+                    ->where('store_hub_id', $validated['hub_id'])
+                    ->where('type', 'return')
+                    ->where('channel', 'event')
+                    ->where('reference', $reference)
+                    ->selectRaw('product_id, SUM(quantity) as returned_quantity')
+                    ->groupBy('product_id')
+                    ->pluck('returned_quantity', 'product_id');
+                $items = $pullouts->groupBy('product_id')
+                    ->map(function ($rows, $productId) use ($returnedByProduct) {
+                        $first = $rows->first();
+
+                        return [
+                            'product_id' => $productId,
+                            'name' => $first->product?->name ?? 'Product #'.$productId,
+                            'item_id' => $first->product?->item_id,
+                            'quantity' => (int) $rows->sum('quantity'),
+                            'returned_quantity' => (int) ($returnedByProduct[$productId] ?? 0),
+                            'unit_price' => 0,
+                        ];
+                    })
+                    ->values();
+
+                return response()->json([
+                    'transaction' => [
+                        'id' => $reference,
+                        'order_number' => $reference,
+                        'customer_name' => $pullouts->first()->source,
+                        'items' => $items,
+                    ],
+                ]);
+            }
+
+            $pullouts = $eventQuery->orderByDesc('occurred_on')->orderByDesc('id')->get();
+            $references = $pullouts->groupBy('reference');
+            $returned = InventoryTransaction::query()
+                ->where('store_hub_id', $validated['hub_id'])
+                ->where('type', 'return')
+                ->where('channel', 'event')
+                ->whereIn('reference', $references->keys())
+                ->selectRaw('reference, product_id, SUM(quantity) as returned_quantity')
+                ->groupBy('reference', 'product_id')
+                ->get()
+                ->groupBy('reference')
+                ->map(fn ($rows) => $rows->keyBy('product_id'));
+
+            return response()->json([
+                'orders' => $references
+                    ->filter(function ($rows, $reference) use ($returned) {
+                        $alreadyReturned = $returned->get($reference, collect());
+
+                        return $rows->groupBy('product_id')->contains(
+                            fn ($productRows, $productId) => (int) $productRows->sum('quantity')
+                                > (int) ($alreadyReturned->get($productId)?->returned_quantity ?? 0)
+                        );
+                    })
+                    ->map(fn ($rows, $reference) => [
+                        'id' => $reference,
+                        'order_number' => $reference,
+                        'order_date' => optional($rows->first()->occurred_on)->format('M d, Y'),
+                        'source' => $rows->first()->source,
+                    ])
+                    ->values(),
+            ]);
         }
         if ($normalizedChannel === 'national_bookstore') {
             abort_unless(
@@ -1616,6 +1697,9 @@ class InventoryTransactionController extends Controller
 
     private function storeReturn(Request $request)
     {
+        if (strtolower(trim((string) $request->input('channel'))) === 'event') {
+            return $this->storeEventReturn($request);
+        }
         if ($this->normalizeChannel($request->input('channel')) === 'national_bookstore') {
             return $this->storeNationalBookstoreReturn($request);
         }
@@ -1791,6 +1875,112 @@ class InventoryTransactionController extends Controller
 
         $this->notifyInventoryStaff($validated);
         $this->notifySalesSubmitter($validated);
+
+        $redirect = in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)
+            ? redirect()->route('inventory-transactions.index', [
+                'hub_id' => $validated['store_hub_id'],
+                'type' => 'return',
+            ])
+            : redirect()->route('inventory-transactions.return.create', ['hub_id' => $validated['store_hub_id']]);
+
+        return $redirect->with('success', 'Return items recorded successfully.');
+    }
+
+    private function storeEventReturn(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => ['required', Rule::in(['return'])],
+            'store_hub_id' => ['required', 'exists:store_hubs,id'],
+            'occurred_on' => ['required', 'date'],
+            'channel' => ['required', Rule::in(['event'])],
+            'event_reference' => ['required', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.good_quantity' => ['nullable', 'integer', 'min:0'],
+            'items.*.damaged_quantity' => ['nullable', 'integer', 'min:0'],
+        ]);
+        $user = auth()->user();
+        abort_unless(in_array($user?->role, ['admin', 'inventory_staff'], true), 403, 'Only inventory staff can record Event returns.');
+        $hub = StoreHub::findOrFail($validated['store_hub_id']);
+        abort_unless($hub->status === 'active', 403, 'Event returns can only be recorded for an active store.');
+
+        $quantities = collect($validated['items'])
+            ->groupBy('product_id')
+            ->map(fn ($rows) => [
+                'good' => $rows->sum(fn ($item) => (int) ($item['good_quantity'] ?? 0)),
+                'damaged' => $rows->sum(fn ($item) => (int) ($item['damaged_quantity'] ?? 0)),
+            ]);
+        if ($quantities->sum(fn ($amounts) => $amounts['good'] + $amounts['damaged']) < 1) {
+            throw ValidationException::withMessages(['items' => 'Enter at least one good or damaged return quantity.']);
+        }
+
+        DB::transaction(function () use ($validated, $quantities) {
+            $pullouts = InventoryTransaction::query()
+                ->where('store_hub_id', $validated['store_hub_id'])
+                ->where('type', 'sponsor_workshop')
+                ->where('reference', $validated['event_reference'])
+                ->lockForUpdate()
+                ->get()
+                ->groupBy('product_id');
+            if ($pullouts->isEmpty()) {
+                throw ValidationException::withMessages(['event_reference' => 'The selected Event pullout could not be found.']);
+            }
+
+            $products = Product::where('store_hub_id', $validated['store_hub_id'])
+                ->whereIn('id', $quantities->keys())
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $alreadyReturned = InventoryTransaction::query()
+                ->where('store_hub_id', $validated['store_hub_id'])
+                ->where('type', 'return')
+                ->where('channel', 'event')
+                ->where('reference', $validated['event_reference'])
+                ->whereIn('product_id', $quantities->keys())
+                ->selectRaw('product_id, SUM(quantity) as returned_quantity')
+                ->groupBy('product_id')
+                ->pluck('returned_quantity', 'product_id');
+
+            foreach ($quantities as $productId => $amounts) {
+                $productPullouts = $pullouts->get($productId);
+                $product = $products->get((int) $productId);
+                $quantity = $amounts['good'] + $amounts['damaged'];
+                $available = (int) ($productPullouts?->sum('quantity') ?? 0)
+                    - (int) ($alreadyReturned[$productId] ?? 0);
+                if (! $product || ! $productPullouts || $quantity > $available) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Each returned product must belong to the selected Event and cannot exceed its remaining pullout quantity.',
+                    ]);
+                }
+
+                if ($amounts['good'] > 0) {
+                    $product->increment('stock', $amounts['good']);
+                }
+                if ($amounts['damaged'] > 0) {
+                    $product->increment('damaged_stock', $amounts['damaged']);
+                }
+
+                foreach (['good' => $amounts['good'], 'damaged' => $amounts['damaged']] as $condition => $conditionQuantity) {
+                    if ($conditionQuantity < 1) {
+                        continue;
+                    }
+                    InventoryTransaction::create([
+                        'type' => 'return',
+                        'reference' => $validated['event_reference'],
+                        'store_hub_id' => $product->store_hub_id,
+                        'product_id' => $product->id,
+                        'channel' => 'event',
+                        'source' => $productPullouts->first()->source,
+                        'condition' => $condition,
+                        'quantity' => $conditionQuantity,
+                        'occurred_on' => $validated['occurred_on'],
+                        'notes' => $validated['notes'] ?? null,
+                        'created_by' => auth()->id(),
+                    ]);
+                }
+            }
+        });
 
         $redirect = in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)
             ? redirect()->route('inventory-transactions.index', [

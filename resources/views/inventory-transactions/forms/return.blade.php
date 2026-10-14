@@ -7,8 +7,10 @@
         ? $hubs
         : $hubs->whereIn('id', $currentUser?->accessibleStoreHubIds() ?? [])->values();
     $hubSelectionLocked = ! in_array($currentUser?->role, ['admin', 'inventory_staff'], true) && $visibleHubs->count() <= 1;
+    $staffCanSelectEventReturn = in_array($currentUser?->role, ['admin', 'inventory_staff'], true)
+        && $selectedHub && ! $selectedHub->is_head_office;
     $channelSelectionLocked = $currentUser?->role === 'sales_associate'
-        || ($selectedHub && ! $selectedHub->is_head_office);
+        || ($selectedHub && ! $selectedHub->is_head_office && ! $staffCanSelectEventReturn);
 @endphp
 <style>
     .transaction-form-card { border:1px solid #e2e8f0 !important; }
@@ -40,6 +42,7 @@
         <input type="hidden" name="type" value="return">
         <input type="hidden" name="sales_transaction_id" id="salesTransactionId">
         <input type="hidden" name="national_pullout_id" id="nationalPulloutId">
+        <input type="hidden" name="event_reference" id="eventReference">
         <div class="row g-3">
             <div class="col-md-4"><label class="form-label">Store Hub</label><select name="store_hub_id" class="form-select" required @disabled($hubSelectionLocked || $visibleHubs->isEmpty()) onchange="window.location.href='{{ route('inventory-transactions.return.create') }}?hub_id='+this.value">
                 @foreach($visibleHubs as $hub)<option value="{{ $hub->id }}" @selected((int) $hubId === (int) $hub->id)>{{ $hub->name }}</option>@endforeach
@@ -51,18 +54,20 @@
                 <div class="col-12"><div class="alert alert-warning mb-0">Your account has no assigned store. Contact an administrator before recording return items.</div></div>
             @endif
             <div class="col-md-4"><label class="form-label">Return Date</label><input type="date" name="occurred_on" id="returnDate" value="{{ old('occurred_on', now()->toDateString()) }}" class="form-control" required></div>
-            <div class="col-md-4"><label class="form-label">Sales Channel</label><select name="channel" id="returnChannel" class="form-select" required @disabled($channelSelectionLocked)>
+            <div class="col-md-4"><label class="form-label">Return Source</label><select name="channel" id="returnChannel" class="form-select" required @disabled($channelSelectionLocked)>
                 @if($channelSelectionLocked)
                     <option value="walk_in" selected>Walk-In</option>
+                @elseif($staffCanSelectEventReturn)
+                    <option value="walk_in" selected>Walk-in</option><option value="event">Event</option>
                 @else
-                    <option value="">Select channel</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok</option><option value="online">Online</option><option value="walk_in">Walk-in</option><option value="wholesale">Wholesale</option><option value="fully_booked">Fully Booked</option><option value="national_bookstore">National Bookstore</option>
+                    <option value="">Select return source</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok</option><option value="online">Online</option><option value="walk_in">Walk-in</option><option value="wholesale">Wholesale</option><option value="fully_booked">Fully Booked</option><option value="national_bookstore">National Bookstore</option><option value="event">Event</option>
                 @endif
             </select>
             @if($channelSelectionLocked)
                 <input type="hidden" name="channel" value="walk_in">
             @endif
             </div>
-            <div class="col-md-4" id="returnCustomerField"><label class="form-label">Customer <span id="customerOptionalLabel" class="text-muted fw-normal">(required)</span></label><select id="returnCustomer" class="form-select" required disabled><option value="">Select return date and sales channel first</option></select></div>
+            <div class="col-md-4" id="returnCustomerField"><label class="form-label" id="returnCustomerLabel">Customer <span id="customerOptionalLabel" class="text-muted fw-normal">(required)</span></label><select id="returnCustomer" class="form-select" required disabled><option value="">Select return date and return source first</option></select></div>
             <div class="col-md-4"><label class="form-label" id="returnReferenceLabel">Sales Reference</label><select name="reference" id="returnOrder" class="form-select" required disabled><option value="">Select customer first</option></select></div>
             <input type="hidden" name="source" id="returnSource">
         </div>
@@ -71,7 +76,7 @@
             <h5 class="fw-bold mb-0">Returned Items</h5>
         </div>
         <div class="return-entry-layout">
-            <div id="returnItems"><div class="text-muted p-3">Select a date, customer, and sales reference to load the purchased products.</div></div>
+            <div id="returnItems"><div class="text-muted p-3">Select a return source and reference to load its products.</div></div>
             <div class="return-notes-panel"><label class="form-label" for="returnNotes">Notes</label><textarea id="returnNotes" name="notes" class="form-control" rows="6" maxlength="120" placeholder="Add notes about the returned items"></textarea><div class="form-text text-end"><span id="returnNotesCount">0</span>/120</div></div>
             <div class="return-actions"><button class="btn btn-primary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Return Items</button><a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a></div>
         </div>
@@ -91,6 +96,7 @@
     const order = document.getElementById('returnOrder');
     const transactionId = document.getElementById('salesTransactionId');
     const nationalPulloutId = document.getElementById('nationalPulloutId');
+    const eventReference = document.getElementById('eventReference');
     const referenceLabel = document.getElementById('returnReferenceLabel');
     const container = document.getElementById('returnItems');
     const attachmentPreview = document.getElementById('returnAttachmentPreview');
@@ -103,11 +109,11 @@
         select.disabled = !items.length;
     };
     const updateCustomerState = () => {
-        const referenceOnly = ['fully_booked', 'national_bookstore'].includes(channel.value);
+        const referenceOnly = ['fully_booked', 'national_bookstore', 'event'].includes(channel.value);
         customer.required = !referenceOnly;
         document.getElementById('customerOptionalLabel').textContent = referenceOnly ? '' : '(required)';
         document.getElementById('returnCustomerField').classList.toggle('d-none', referenceOnly);
-        referenceLabel.textContent = channel.value === 'national_bookstore' ? 'P.O. #' : 'Sales Reference';
+        referenceLabel.textContent = channel.value === 'national_bookstore' ? 'P.O. #' : channel.value === 'event' ? 'Event Reference' : channel.value === 'fully_booked' ? 'Order Reference' : 'Sales Reference';
         if (referenceOnly) {
             customer.value = '';
             document.getElementById('returnSource').value = '';
@@ -118,6 +124,7 @@
         order.disabled = true;
         transactionId.value = '';
         nationalPulloutId.value = '';
+        eventReference.value = '';
         attachmentPreview.replaceChildren();
         attachmentPreview.hidden = true;
     };
@@ -156,16 +163,17 @@
         return response.json();
     };
     channel.addEventListener('change', async () => {
-        customer.disabled = true; resetOrder('Loading sales references...'); container.innerHTML = '<div class="text-muted p-3">Loading customers...</div>';
+        customer.disabled = true; resetOrder('Loading references...'); container.innerHTML = '<div class="text-muted p-3">Loading return sources...</div>';
         try {
             updateCustomerState();
             const data = await load({});
-            if (['fully_booked', 'national_bookstore'].includes(channel.value)) {
+            if (['fully_booked', 'national_bookstore', 'event'].includes(channel.value)) {
                 const isNational = channel.value === 'national_bookstore';
-                setOptions(order, data.orders || [], isNational ? 'Select P.O. number' : 'Select order number', value => value.order_number);
+                const isEvent = channel.value === 'event';
+                setOptions(order, data.orders || [], isNational ? 'Select P.O. number' : isEvent ? 'Select Event reference' : 'Select order number', value => isEvent ? `${value.order_number} (${value.source || 'Event'} · ${value.order_date || 'undated'})` : value.order_number);
                 container.innerHTML = data.orders?.length
-                    ? `<div class="text-muted p-3">Select ${isNational ? 'a P.O. number' : 'an order number'} to load its pulled-out products.</div>`
-                    : `<div class="alert alert-warning mb-0">No ${isNational ? 'returnable National Bookstore records' : 'Fully Booked orders'} were found${isNational ? '.' : ' on the selected date.'}</div>`;
+                    ? `<div class="text-muted p-3">Select ${isNational ? 'a P.O. number' : isEvent ? 'an Event reference' : 'an order number'} to load its ${isEvent ? 'pulled-out' : 'ordered'} products.</div>`
+                    : `<div class="alert alert-warning mb-0">No ${isNational ? 'returnable National Bookstore records' : isEvent ? 'returnable Event pullouts' : 'Fully Booked orders'} were found${isNational ? '.' : ' on the selected date.'}</div>`;
                 return;
             }
             setOptions(customer, data.customers || [], 'Select customer', value => value);
@@ -186,25 +194,29 @@
     });
     order.addEventListener('change', async () => {
         const isNational = channel.value === 'national_bookstore';
-        transactionId.value = isNational ? '' : order.value;
+        const isEvent = channel.value === 'event';
+        transactionId.value = isNational || isEvent ? '' : order.value;
         nationalPulloutId.value = isNational ? order.value : '';
+        eventReference.value = isEvent ? order.value : '';
         attachmentPreview.replaceChildren();
         attachmentPreview.hidden = true;
         container.innerHTML = '<div class="text-muted p-3">Loading ordered products...</div>';
         try {
-            const data = await load({ transaction_id: order.value });
+            const data = await load(isEvent ? { event_reference: order.value } : { transaction_id: order.value });
             if (channel.value === 'fully_booked') {
                 showFullyBookedAttachment(data.transaction?.fully_booked_attachment);
             }
             const items = data.transaction?.items || [];
             const partialWholesaleReturn = channel.value === 'wholesale' && data.transaction?.payment_status === 'partial';
-            const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada', 'national_bookstore'].includes(channel.value) && !partialWholesaleReturn;
+            const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada', 'national_bookstore', 'event'].includes(channel.value) && !partialWholesaleReturn;
             container.innerHTML = items.length ? items.map((item, index) => {
                 const remaining = Math.max(0, item.quantity - (item.returned_quantity || 0));
                 return `
                 <div class="return-item ${supportsAutoRefund ? '' : 'return-item-no-refund'}" data-unit-price="${Number(item.unit_price || 0)}" data-discount="${Number(item.discount_percentage || 0)}">
                     <div><label class="form-label d-block">${item.item_id || ''}${item.replacement_id ? ' (Replacement)' : ''}</label><input class="form-control" value="${item.name}" readonly>${isNational
                         ? `<input type="hidden" name="items[${index}][national_product_id]" value="${item.national_product_id}"><input type="hidden" name="items[${index}][national_pullout_item_id]" value="${item.national_pullout_item_id}">`
+                        : isEvent
+                            ? `<input type="hidden" name="items[${index}][product_id]" value="${item.product_id}">`
                         : `<input type="hidden" name="items[${index}][product_id]" value="${item.product_id}"><input type="hidden" name="items[${index}][transaction_item_id]" value="${item.id || ''}"><input type="hidden" name="items[${index}][replacement_id]" value="${item.replacement_id || ''}">`}</div>
                     <div><label class="form-label">Good Qty</label><input type="number" name="items[${index}][good_quantity]" min="0" max="${remaining}" value="0" class="form-control" ${remaining ? '' : 'disabled'}></div>
                     <div><label class="form-label">Damaged Qty</label><input type="number" name="items[${index}][damaged_quantity]" min="0" max="${remaining}" value="0" class="form-control" ${remaining ? '' : 'disabled'}></div>
