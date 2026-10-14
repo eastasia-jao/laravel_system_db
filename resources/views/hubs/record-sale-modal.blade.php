@@ -279,16 +279,6 @@
         background: #fff;
         box-shadow: none;
     }
-    #recordSaleModal #productRowsContainer .item-status-field {
-        grid-template-columns: auto minmax(0, 1fr);
-        align-items: center;
-        gap: .4rem;
-        margin-top: .45rem;
-    }
-    #recordSaleModal #productRowsContainer .item-status-field:not([hidden]) { display: grid; }
-    #recordSaleModal #productRowsContainer .item-status-field[hidden] { display: none !important; }
-    #recordSaleModal #productRowsContainer .item-status-field .form-label { margin: 0; color: #9f1239; font-size: .68rem; white-space: nowrap; }
-    #recordSaleModal #productRowsContainer .item-status-select { min-height: 34px; border-color: #fda4af; background: #fff7f7; font-size: .76rem; }
     #recordSaleModal #productRowsContainer .product-row:nth-child(odd) { background: #fbfdff; }
     #recordSaleModal #productRowsContainer .product-row:hover { border-color: #bfdbfe !important; background: #f8fbff; }
     #recordSaleModal #productRowsContainer .remove-row-btn { width: 38px !important; min-width: 38px; padding: 0; }
@@ -537,13 +527,6 @@
                                 <label class="form-label fw-bold d-md-none">Product Description</label>
                                 <input type="search" class="form-control product-search" list="saleProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" required>
                                 <input type="hidden" name="items[0][product_id]" class="product-id">
-                                <div class="item-status-field" hidden>
-                                    <label class="form-label fw-bold" for="itemStatus0">Item Status</label>
-                                    <select name="items[0][stock_condition]" id="itemStatus0" class="form-select item-status-select" disabled>
-                                        <option value="good">Good</option>
-                                        <option value="damaged">Damage</option>
-                                    </select>
-                                </div>
                             </div>
 
                             <div class="col-md-2">
@@ -1031,7 +1014,6 @@
         'lazada' => $product->lazada_price ?? 0,
         'tiktok' => $product->sales_price ?? 0,
         'good_stock_available' => max(0, (int) $product->stock),
-        'damaged_stock_available' => max(0, (int) $product->damaged_stock),
         'channel_available_stock' => (int) ($product->channel_available_stock ?? $product->sellableStock()),
     ])->values();
 @endphp
@@ -1077,24 +1059,13 @@ document.addEventListener('DOMContentLoaded', function () {
             shopee: product.shopee_price || 0, lazada: product.lazada_price || 0, tiktok: product.sales_price || 0,
             channel_available_stock: Number(product.channel_available_stock ?? product.stock ?? 0),
             good_stock_available: Number(product.good_stock_available ?? product.stock ?? 0),
-            damaged_stock_available: Number(product.damaged_stock_available ?? 0),
         }), true, 'item_id');
-    const usedProductConditions = (currentRow, productId) => new Set(
+    const alreadySelectedProduct = (currentRow, productId) => (
         [...document.querySelectorAll('#productRowsContainer .product-row')]
             .filter(otherRow => otherRow !== currentRow
                 && String(otherRow.querySelector('.product-id')?.value || '') === String(productId))
-            .map(otherRow => otherRow.querySelector('.item-status-select')?.value || 'good')
+            .length > 0
     );
-    const availableProductConditions = product => {
-        const conditions = [];
-        const goodStock = Math.min(
-            Number(product.good_stock_available || 0),
-            Number(product.channel_available_stock || 0)
-        );
-        if (goodStock > 0) conditions.push('good');
-        if (Number(product.damaged_stock_available || 0) > 0) conditions.push('damaged');
-        return conditions;
-    };
     const bindProductSearch = row => {
         const input = row.querySelector('.product-search');
         const hidden = row.querySelector('.product-id');
@@ -1117,25 +1088,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 ].some(identifier => String(identifier || '').trim().toLowerCase() === value)
             );
             if (product) {
-                const usedConditions = usedProductConditions(row, product.id);
-                const selectedCondition = availableProductConditions(product)
-                    .find(condition => !usedConditions.has(condition));
-                if (usedConditions.size > 0 && !selectedCondition) {
+                if (alreadySelectedProduct(row, product.id)) {
                     hidden.value = '';
                     input.value = '';
-                    input.setCustomValidity('This product is already added with every available item status.');
+                    input.setCustomValidity('This product is already added.');
                     Object.keys(row.dataset).forEach(key => delete row.dataset[key]);
                     updateRowDisplay(row);
                     calculateTotals();
-                    window.AppAlert?.show('This product is already added with every available item status.', 'warning');
+                    window.AppAlert?.show('This product is already added.', 'warning');
                     return;
                 }
 
                 hidden.value = product.id;
                 input.setCustomValidity('');
                 Object.entries(product).forEach(([key, item]) => row.dataset[key] = item ?? '');
-                const itemStatusSelect = row.querySelector('.item-status-select');
-                if (itemStatusSelect && selectedCondition) itemStatusSelect.value = selectedCondition;
             } else {
                 hidden.value = '';
                 input.setCustomValidity('Select a product from the search suggestions.');
@@ -1165,7 +1131,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (product) {
                     row.dataset.channel_available_stock = Number(product.channel_available_stock || 0);
                     row.dataset.good_stock_available = Number(product.good_stock_available || 0);
-                    row.dataset.damaged_stock_available = Number(product.damaged_stock_available || 0);
                     updateRowDisplay(row);
                 }
             } catch (error) {
@@ -1417,13 +1382,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     <label class="form-label fw-bold d-md-none">Product Description</label>
                     <input type="search" class="form-control product-search" list="saleProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" required>
                     <input type="hidden" name="items[${rowIndex}][product_id]" class="product-id">
-                    <div class="item-status-field" hidden>
-                        <label class="form-label fw-bold" for="itemStatus${rowIndex}">Item Status</label>
-                        <select name="items[${rowIndex}][stock_condition]" id="itemStatus${rowIndex}" class="form-select item-status-select" disabled>
-                            <option value="good">Good</option>
-                            <option value="damaged">Damage</option>
-                        </select>
-                    </div>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-bold d-md-none">Available Stock</label>
@@ -1481,42 +1439,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    document.addEventListener('change', function(e) {
-        if (!e.target.matches('.item-status-select')) return;
-        const row = e.target.closest('.product-row');
-        const productId = row.querySelector('.product-id')?.value;
-        if (productId && usedProductConditions(row, productId).has(e.target.value)) {
-            e.target.value = e.target.value === 'good' ? 'damaged' : 'good';
-            window.AppAlert?.show('This product already has a row with that item status.', 'warning');
-        }
-        updateRowDisplay(row);
-        calculateTotals();
-    });
-
     // Update individual row prices based on the selected channel pricing attributes
     function updateRowDisplay(row) {
         if (!row) return;
         const priceDisplay = row.querySelector('.item-price-display');
         const allocatedStockDisplay = row.querySelector('.channel-stock-availability');
-        const itemStatusField = row.querySelector('.item-status-field');
-        const itemStatusSelect = row.querySelector('.item-status-select');
         const goodStock = Number(row.dataset.good_stock_available || 0);
-        const damagedStock = Number(row.dataset.damaged_stock_available || 0);
-        const hasDamagedStock = Boolean(row.dataset.id) && damagedStock > 0;
-        if (itemStatusField && itemStatusSelect) {
-            itemStatusField.hidden = !hasDamagedStock;
-            itemStatusSelect.disabled = !hasDamagedStock;
-            if (!hasDamagedStock) {
-                itemStatusSelect.value = 'good';
-            } else if (goodStock <= 0) {
-                itemStatusSelect.value = 'damaged';
-            }
-        }
         if (allocatedStockDisplay) {
             const channelStock = Number(row.dataset.channel_available_stock || 0);
-            const availableStock = itemStatusSelect?.value === 'damaged'
-                ? damagedStock
-                : Math.min(channelStock, goodStock);
+            const availableStock = Math.min(channelStock, goodStock);
             allocatedStockDisplay.textContent = row.dataset.id
                 ? availableStock
                 : '—';

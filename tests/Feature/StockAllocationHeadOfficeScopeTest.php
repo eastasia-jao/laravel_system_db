@@ -14,7 +14,7 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_only_good_units_can_be_allocated_while_damaged_units_remain_separately_sellable(): void
+    public function test_only_good_units_can_be_allocated_and_condition_label_is_hidden(): void
     {
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-DAMAGED', 'status' => 'active', 'is_head_office' => true]);
         $product = Product::create([
@@ -32,8 +32,8 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         $response->assertOk()
             ->assertSee('Total Physical Stocks')
             ->assertSee('<span class="total-physical-stock">48</span>', false)
-            ->assertSee('Good Stock: 47')
-            ->assertSee('Damaged Stock: 1')
+            ->assertDontSee('Good Stock:')
+            ->assertDontSee('Damaged Stock:')
             ->assertSee('max="47"', false);
 
         $this->post(route('stock-allocation.update'), [

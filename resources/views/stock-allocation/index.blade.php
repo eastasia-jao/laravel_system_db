@@ -32,7 +32,7 @@
 @php($returnToQueue = request('return_to') === 'verification-queue')
 @php($returnHubId = request('return_hub_id') ?: $hub?->id)
 <div class="p-5 workspace-page">
-    <x-page-header class="mb-4" eyebrow="Inventory control center" title="Sales Stock Allocation" description="Distribute Good stock across sales channels. Damaged stock remains sellable separately through Item Status = Damage." icon="fa-layer-group">
+    <x-page-header class="mb-4" eyebrow="Inventory control center" title="Sales Stock Allocation" description="Distribute good stock across sales channels. Damaged stock is tracked separately and cannot be allocated for sale." icon="fa-layer-group">
         @if($canEditAllocations)
             <x-slot:actions>
                 @if($returnToQueue && $returnHubId)
@@ -142,7 +142,6 @@
                             </td>
                             <td class="physical-cell fw-semibold" data-allocatable-stock="{{ $product->starting_inventory }}">
                                 <span class="total-physical-stock">{{ $product->physical_stock_total }}</span>
-                                <small><span class="text-success">Good Stock: {{ $product->stock }}</span> &middot; <span class="text-danger">Damaged Stock: {{ $product->damaged_stock }}</span></small>
                             </td>
                             @foreach(['online', 'wholesale', 'shopee', 'lazada', 'tiktok'] as $channel)
                                 <td class="channel-cell">
