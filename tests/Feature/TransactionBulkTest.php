@@ -610,6 +610,76 @@ class TransactionBulkTest extends TestCase
         $this->assertStringContainsString('Second Workshop Product', $logContent);
     }
 
+    public function test_sponsor_workshop_pullout_can_consume_damaged_stock_separately_from_good_stock(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $hub = StoreHub::create([
+            'name' => 'Event Pullout Hub',
+            'code' => 'EVENT-PULLOUT',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $product = Product::create([
+            'name' => 'Event Pullout Product',
+            'item_id' => 'EVENT-PULLOUT-1',
+            'store_hub_id' => $hub->id,
+            'stock' => 5,
+            'damaged_stock' => 2,
+            'status' => 'active',
+        ]);
+
+        $eventForm = $this->actingAs($admin)
+            ->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('name="items[0][stock_condition]"', false)
+            ->assertSee('<option value="damaged">Damaged</option>', false);
+        $eventForm->assertViewHas('sponsorProductOptions', fn ($options) =>
+            $options->contains(fn ($option) => $option['good_stock_available'] === 5
+                && $option['damaged_stock_available'] === 2)
+        );
+
+        $this->post(route('inventory-transactions.store'), [
+            'type' => 'sponsor_workshop',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-14',
+            'source' => 'Community Event',
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 2, 'stock_condition' => 'good'],
+                ['product_id' => $product->id, 'quantity' => 1, 'stock_condition' => 'damaged'],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(3, (int) $product->fresh()->stock);
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
+        $this->assertDatabaseHas('inventory_transactions', [
+            'type' => 'sponsor_workshop',
+            'product_id' => $product->id,
+            'condition' => 'good',
+            'quantity' => 2,
+        ]);
+        $this->assertDatabaseHas('inventory_transactions', [
+            'type' => 'sponsor_workshop',
+            'product_id' => $product->id,
+            'condition' => 'damaged',
+            'quantity' => 1,
+        ]);
+
+        $this->post(route('inventory-transactions.store'), [
+            'type' => 'sponsor_workshop',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-14',
+            'source' => 'Community Event',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 2,
+                'stock_condition' => 'damaged',
+            ]],
+        ])->assertSessionHasErrors('items');
+
+        $this->assertSame(3, (int) $product->fresh()->stock);
+        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
+    }
+
     public function test_restock_form_uses_compact_items_and_an_automated_reference_number(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));

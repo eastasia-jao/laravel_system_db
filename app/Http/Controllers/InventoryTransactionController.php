@@ -688,7 +688,9 @@ class InventoryTransactionController extends Controller
             'item_id' => $product->item_id,
             'barcode' => $product->barcode,
             'description' => $product->description ?: $product->name,
-            'label' => $product->item_id.' — '.($product->name ?: $product->description).($product->description && strcasecmp(trim($product->description), trim($product->name)) !== 0 && $product->name ? ' / '.$product->description : '').($product->barcode ? ' · '.$product->barcode : '').' (stock: '.$product->stock.')',
+            'good_stock_available' => max(0, (int) $product->stock),
+            'damaged_stock_available' => max(0, (int) $product->damaged_stock),
+            'label' => $product->item_id.' — '.($product->name ?: $product->description).($product->description && strcasecmp(trim($product->description), trim($product->name)) !== 0 && $product->name ? ' / '.$product->description : '').($product->barcode ? ' · '.$product->barcode : '').' (good: '.$product->stock.' · damaged: '.$product->damaged_stock.')',
         ])->values();
 
         $form = $type === 'branch_transfer' ? 'stock_transfer' : $type;
@@ -875,6 +877,7 @@ class InventoryTransactionController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.stock_condition' => ['nullable', Rule::in(['good', 'damaged'])],
         ]);
         $sourceHub = StoreHub::findOrFail((int) $validated['store_hub_id']);
         $submittedReference = (string) ($validated['reference'] ?? '');
@@ -1221,6 +1224,7 @@ class InventoryTransactionController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.stock_condition' => ['nullable', Rule::in(['good', 'damaged'])],
         ]);
         $user = auth()->user();
         if ($user?->role !== 'admin' && $user?->role !== 'inventory_staff' && $user?->store_hub_id && (int) $user->store_hub_id !== (int) $validated['store_hub_id']) {
@@ -1244,29 +1248,34 @@ class InventoryTransactionController extends Controller
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
-            $quantities = collect($validated['items'])->groupBy('product_id')
+            $quantities = collect($validated['items'])->groupBy(
+                fn ($item) => $item['product_id'].':'.($item['stock_condition'] ?? 'good')
+            )
                 ->map(fn ($rows) => $rows->sum('quantity'));
 
-            foreach ($quantities as $productId => $quantity) {
+            foreach ($quantities as $stockKey => $quantity) {
+                [$productId, $stockCondition] = explode(':', (string) $stockKey, 2);
                 $product = $products->get((int) $productId);
                 if (! $product) {
                     throw ValidationException::withMessages([
                         'items' => 'One or more selected products are not active in the selected store.',
                     ]);
                 }
-                if ((int) $product->stock < (int) $quantity) {
+                $stockColumn = $stockCondition === 'damaged' ? 'damaged_stock' : 'stock';
+                if ((int) $product->{$stockColumn} < (int) $quantity) {
                     throw ValidationException::withMessages([
-                        'items' => "Not enough stock for {$product->name}.",
+                        'items' => "Not enough {$stockCondition} stock for {$product->name}.",
                     ]);
                 }
 
-                $product->decrement('stock', $quantity);
+                $product->decrement($stockColumn, $quantity);
                 InventoryTransaction::create([
                     'type' => 'sponsor_workshop',
                     'reference' => $validated['reference'],
                     'store_hub_id' => $product->store_hub_id,
                     'product_id' => $product->id,
                     'source' => $validated['source'],
+                    'condition' => $stockCondition,
                     'quantity' => $quantity,
                     'occurred_on' => $validated['occurred_on'],
                     'notes' => $validated['notes'] ?? null,

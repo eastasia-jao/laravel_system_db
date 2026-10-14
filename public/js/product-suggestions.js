@@ -45,12 +45,17 @@ window.setupProductSuggestions = function (root, list, options, endpoint, mapPro
     });
 };
 
-window.transactionProductLabel = product => `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}${product.barcode ? ' · ' + product.barcode : ''} (stock: ${product.stock})`;
-window.setupTransactionSuggestions = (container, list, options, endpoint) => {
+window.transactionProductLabel = (product, showDamagedStock = false) => {
+    const stockLabel = showDamagedStock
+        ? `good: ${product.good_stock_available ?? product.stock ?? 0} · damaged: ${product.damaged_stock_available ?? 0}`
+        : `stock: ${product.stock}`;
+    return `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}${product.barcode ? ' · ' + product.barcode : ''} (${stockLabel})`;
+};
+window.setupTransactionSuggestions = (container, list, options, endpoint, showDamagedStock = false) => {
     window.transactionProducts = window.transactionProducts || new Map();
     window.transactionProductOptions = options;
     setupProductSuggestions(container, list, options, endpoint, product => {
         window.transactionProducts.set(String(product.id), product);
-        return { ...product, label: transactionProductLabel(product) };
+        return { ...product, label: transactionProductLabel(product, showDamagedStock) };
     }, true, 'item_id');
 };

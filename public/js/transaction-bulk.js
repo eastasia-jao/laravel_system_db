@@ -28,7 +28,7 @@ export function readIdentifier(value) {
     return text;
 }
 export function findReviewProductRow(rows, message) {
-    const productName = message.match(/Not enough stock for (.+?)(?:\.|$)/i)?.[1]?.trim()
+    const productName = message.match(/Not enough (?:(?:good|damaged) )?stock for (.+?)(?:\.|$)/i)?.[1]?.trim()
         || message.match(/The product (.+?) is not listed in the selected target store/i)?.[1]?.trim();
     if (!productName) return null;
     const normalizedName = productName.toLocaleLowerCase();
@@ -47,7 +47,7 @@ export function importRows(text, products, type) {
     const rows = parseCsv(text), headers = (rows.shift() || []).map(v => clean(v).toLowerCase());
     const itemColumn = headers.indexOf('item id'), barcodeColumn = headers.indexOf('barcode');
     const quantityColumn = headers.findIndex(h => ['quantity', 'actual pull out qty', 'physical actual pullout', 'actual added qty', 'actual return qty'].includes(h));
-    const conditionColumn = headers.indexOf('condition');
+    const conditionColumn = headers.findIndex(h => ['condition', 'stock condition'].includes(h));
     if ((itemColumn < 0 && barcodeColumn < 0) || quantityColumn < 0) throw new Error('CSV requires Item ID or Barcode, and a Quantity column (or the worksheet quantity heading).');
     const index = key => {
         const map = new Map();
@@ -70,7 +70,13 @@ export function importRows(text, products, type) {
         if (!/^[1-9]\d*$/.test(quantity) || !Number.isSafeInteger(Number(quantity))) return fail('Quantity must be a positive whole number.');
         const condition = clean(row[conditionColumn]).toLowerCase();
         if (type === 'return' && !['good', 'damaged'].includes(condition)) return fail('Condition must be good or damaged.');
-        items.push({ product_id: matches[0].id, quantity: Number(quantity), ...(type === 'return' ? { condition } : {}) });
+        if (type === 'sponsor_workshop' && condition && !['good', 'damaged'].includes(condition)) return fail('Stock condition must be good or damaged.');
+        items.push({
+            product_id: matches[0].id,
+            quantity: Number(quantity),
+            ...(type === 'return' ? { condition } : {}),
+            ...(type === 'sponsor_workshop' ? { stock_condition: condition || 'good' } : {})
+        });
     });
     if (errors.length) throw new Error(`No items imported. Fix these errors and retry:\n${errors.join('\n')}`);
     if (!items.length) throw new Error('No quantities found. Fill in at least one quantity before importing.');
@@ -157,14 +163,17 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     const selected = () => itemRows().map(row => ({
         product_id: row.querySelector('.product-id').value,
         quantity: row.querySelector('[name$="[quantity]"]').value,
-        ...(type === 'return' ? { condition: row.querySelector('select').value } : {})
+        ...(type === 'return' ? { condition: row.querySelector('select').value } : {}),
+        ...(type === 'sponsor_workshop' ? { stock_condition: row.querySelector('[name$="[stock_condition]"]').value } : {})
     }));
     const heading = type === 'restock' ? 'Actual Added Qty' : type === 'return' ? 'Actual Return Qty' : 'Physical Actual Pullout';
     const download = items => {
-        const rows = [['Name / Description', 'Barcode', 'Item ID', 'Physical Stocks Qty', heading, ...(type === 'return' ? ['Condition'] : [])]];
+        const conditionHeading = type === 'return' ? ['Condition'] : type === 'sponsor_workshop' ? ['Stock Condition'] : [];
+        const rows = [['Name / Description', 'Barcode', 'Item ID', 'Physical Stocks Qty', heading, ...conditionHeading]];
         items.forEach(item => {
             const p = byId.get(String(item.product_id));
-            rows.push([p.description || p.name, p.barcode, p.item_id, p.stock, item.quantity, ...(type === 'return' ? [item.condition || ''] : [])]);
+            const condition = type === 'return' ? item.condition : item.stock_condition;
+            rows.push([p.description || p.name, p.barcode, p.item_id, p.stock, item.quantity, ...(conditionHeading.length ? [condition || ''] : [])]);
         });
         let csv;
         try { csv = csvText(rows, [1, 2]); }
@@ -175,7 +184,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     };
     panel.querySelector('[data-bulk="export"]').onclick = () => {
         const items = selected().filter(i => i.product_id || i.quantity);
-        if (!items.length || items.some(i => !byId.has(i.product_id) || !/^[1-9]\d*$/.test(i.quantity) || (type === 'return' && !i.condition))) return show('Select valid products and quantities (and return conditions) before exporting.', true);
+        if (!items.length || items.some(i => !byId.has(i.product_id) || !/^[1-9]\d*$/.test(i.quantity) || (type === 'return' && !i.condition) || (type === 'sponsor_workshop' && !i.stock_condition))) return show('Select valid products and quantities (and applicable conditions) before exporting.', true);
         download(items);
     };
     panel.querySelector('[data-bulk="import"]').onclick = () => file.click();
@@ -214,6 +223,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
                 });
                 row.querySelector('[name$="[quantity]"]').value = item.quantity;
                 if (type === 'return') row.querySelector('select').value = item.condition;
+                if (type === 'sponsor_workshop') row.querySelector('[name$="[stock_condition]"]').value = item.stock_condition;
                 row.querySelector('button').disabled = false;
                 fragment.appendChild(row);
             });
