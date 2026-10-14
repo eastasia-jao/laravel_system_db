@@ -30,8 +30,8 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         $response = $this->actingAs($admin)->get(route('stock-allocation.index', ['hub_id' => $headOffice->id]));
 
         $response->assertOk()
-            ->assertSee('Good Stock Available for Allocation')
-            ->assertSee('<span class="total-physical-stock">47</span>', false)
+            ->assertSee('Total Physical Stocks')
+            ->assertSee('<span class="total-physical-stock">48</span>', false)
             ->assertSee('Good: 47')
             ->assertSee('Damaged (sellable separately): 1')
             ->assertSee('max="47"', false);
