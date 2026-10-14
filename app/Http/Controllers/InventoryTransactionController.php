@@ -780,6 +780,17 @@ class InventoryTransactionController extends Controller
             if ($transaction->type === 'return' && $transaction->national_pullout_id) {
                 return 'national-return-'.($transaction->transfer_batch_id ?: $transaction->id);
             }
+            if ($transaction->type === 'return' && $transaction->channel === 'event') {
+                $batch = $transaction->transfer_batch_id
+                    ?: implode('-', [
+                        $transaction->store_hub_id,
+                        $transaction->reference,
+                        $transaction->created_by,
+                        $transaction->created_at?->format('YmdHis') ?: $transaction->id,
+                    ]);
+
+                return 'event-return-'.$batch;
+            }
             if (in_array($transaction->type, ['return', 'sold'], true) && $transaction->salesTransaction) {
                 return $transaction->type.'-'.$transaction->salesTransaction->id;
             }
@@ -1915,7 +1926,8 @@ class InventoryTransactionController extends Controller
             throw ValidationException::withMessages(['items' => 'Enter at least one good or damaged return quantity.']);
         }
 
-        DB::transaction(function () use ($validated, $quantities) {
+        $batchId = (string) Str::uuid();
+        DB::transaction(function () use ($validated, $quantities, $batchId) {
             $pullouts = InventoryTransaction::query()
                 ->where('store_hub_id', $validated['store_hub_id'])
                 ->where('type', 'sponsor_workshop')
@@ -1977,6 +1989,7 @@ class InventoryTransactionController extends Controller
                         'occurred_on' => $validated['occurred_on'],
                         'notes' => $validated['notes'] ?? null,
                         'created_by' => auth()->id(),
+                        'transfer_batch_id' => $batchId,
                     ]);
                 }
             }

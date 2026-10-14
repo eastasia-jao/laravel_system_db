@@ -197,7 +197,8 @@
                         || ($transaction->type === 'sponsor_workshop' && $transaction->channel === 'fully_booked' && $fullyBookedOrder);
                     $fullyBookedOrder = $isFullyBookedGroup ? $fullyBookedOrder : null;
                     $isNationalReturn = $transaction->type === 'return' && $transaction->national_pullout_id;
-                    $isReturnGroup = $transaction->type === 'return' && ($transaction->salesTransaction || $isNationalReturn);
+                    $isEventReturn = $transaction->type === 'return' && $transaction->channel === 'event';
+                    $isReturnGroup = $transaction->type === 'return' && ($transaction->salesTransaction || $isNationalReturn || $isEventReturn);
                     $fullyBookedReturnOrder = $isReturnGroup && $transaction->salesTransaction?->channel_type === 'fully_booked'
                         ? $transaction->getRelation('fullyBookedOrder')
                         : null;
@@ -279,9 +280,9 @@
                             <strong>{{ $transaction->productReplacement->originalProduct?->name ?? 'Original item' }} → {{ $transaction->productReplacement->replacementProduct?->name ?? 'Replacement item' }}</strong>
                             <small class="d-block text-muted">Returned {{ $transaction->productReplacement->quantity }} · Replaced with {{ $transaction->productReplacement->replacement_quantity ?: $transaction->productReplacement->quantity }}</small>
                         @elseif($isReturnGroup)
-                            <strong>{{ $isNationalReturn ? 'Return P.O. #' : 'Return order' }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</strong>
+                            <strong>{{ $isNationalReturn ? 'Return P.O. #' : ($isEventReturn ? 'Event return' : 'Return order') }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</strong>
                             <small class="d-block text-muted">
-                                {{ $isNationalReturn ? 'National Bookstore' : ($transaction->salesTransaction?->customer_name ?? 'Customer —') }}
+                                {{ $isNationalReturn ? 'National Bookstore' : ($isEventReturn ? ($transaction->source ?: 'Event') : ($transaction->salesTransaction?->customer_name ?? 'Customer —')) }}
                                 · {{ $group->where('condition', 'good')->sum('quantity') }} good
                                 · {{ $group->where('condition', 'damaged')->sum('quantity') }} damaged
                                 @if($group->sum('refund_amount') > 0) · Refund ₱{{ number_format($group->sum('refund_amount'), 2) }} @endif
@@ -424,8 +425,8 @@
                                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                                             <div>
                                                 <div class="text-uppercase small fw-bold text-primary">Return record</div>
-                                                <h5 class="mb-1">{{ $isNationalReturn ? 'National Bookstore' : ($transaction->salesTransaction?->customer_name ?? 'Customer —') }}</h5>
-                                                <div class="return-detail-meta">{{ $isNationalReturn ? 'P.O. #' : 'Order' }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</div>
+                                                <h5 class="mb-1">{{ $isNationalReturn ? 'National Bookstore' : ($isEventReturn ? ($transaction->source ?: 'Event') : ($transaction->salesTransaction?->customer_name ?? 'Customer —')) }}</h5>
+                                                <div class="return-detail-meta">{{ $isNationalReturn ? 'P.O. #' : ($isEventReturn ? 'Event reference' : 'Order') }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</div>
                                             </div>
                                             <span class="badge text-bg-info">RETURN ITEMS</span>
                                         </div>
@@ -433,7 +434,7 @@
                                     @php
                                         $returnChannel = strtolower(str_replace(['-', ' '], '_', (string) ($transaction->salesTransaction?->channel_type ?? $transaction->channel ?? '')));
                                         $showReturnRefund = ! $isFullyBookedGroup
-                                            && ! in_array($returnChannel, ['shopee', 'lazada', 'tiktok', 'fully_booked', 'national_bookstore'], true);
+                                            && ! in_array($returnChannel, ['shopee', 'lazada', 'tiktok', 'fully_booked', 'national_bookstore', 'event'], true);
                                     @endphp
                                     <div class="row g-2 mb-3">
                                         <div class="{{ $showReturnRefund ? 'col-md-4' : 'col-md-6' }}"><div class="return-detail-kpi good"><div class="small text-muted">Good quantity</div><div class="value">{{ $group->where('condition', 'good')->sum('quantity') }}</div></div></div>

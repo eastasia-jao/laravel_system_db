@@ -259,6 +259,19 @@ class ReturnWorkflowPilotTest extends TestCase
             'condition' => 'damaged',
             'quantity' => 1,
         ]);
+        $this->actingAs($staff)
+            ->get(route('inventory-transactions.index', [
+                'hub_id' => $hub->id,
+                'type' => 'return',
+            ]))
+            ->assertOk()
+            ->assertSee('Event return SW-EVENT-RETURN-001')
+            ->assertSee('Community Event')
+            ->assertViewHas('transactions', function ($logs) {
+                return $logs->total() === 1
+                    && $logs->getCollection()->first()->count() === 2
+                    && $logs->getCollection()->first()->sum('quantity') === 2;
+            });
 
         $this->post(route('inventory-transactions.return.store'), array_replace_recursive($returnData, [
             'items' => [[
