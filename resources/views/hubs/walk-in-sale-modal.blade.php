@@ -22,8 +22,16 @@
     #walk-in-product-rows .product-row { margin-bottom: .65rem !important; }
     #walk-in-product-rows .product-row:last-child { margin-bottom: 0 !important; }
     #walkInSaleModal .product-search { min-height: 34px; }
-    #walkInSaleModal .item-status-field { margin-top: .4rem; }
+    #walkInSaleModal .product-row { align-items: flex-start !important; }
+    #walkInSaleModal .item-status-field {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: .4rem;
+        margin-top: .4rem;
+    }
+    #walkInSaleModal .item-status-field:not([hidden]) { display: grid; }
     #walkInSaleModal .item-status-field[hidden] { display: none !important; }
+    #walkInSaleModal .item-status-field .form-label { margin: 0; white-space: nowrap; }
     #walkInSaleModal .item-status-select { border-color: #fda4af; background: #fff7f7; }
     @media (max-width: 767.98px) {
         #walk-in-product-rows { max-height: 240px; }
@@ -420,17 +428,21 @@ function updateWalkInRowAvailability(row) {
     const quantityInput = row.querySelector('.qty-input');
     const availableStockDisplay = row.querySelector('.channel-stock-availability');
     const hasProduct = Boolean(row.querySelector('.product-id').value);
+    const goodStock = Number(row.dataset.good_stock_available || 0);
     const damagedStock = Number(row.dataset.damaged_stock_available || 0);
     const hasDamagedStock = hasProduct && damagedStock > 0;
 
     itemStatusField.hidden = !hasDamagedStock;
     itemStatusSelect.disabled = !hasDamagedStock;
-    if (!hasDamagedStock) itemStatusSelect.value = 'good';
+    if (!hasDamagedStock) {
+        itemStatusSelect.value = 'good';
+    } else if (goodStock <= 0) {
+        itemStatusSelect.value = 'damaged';
+    }
 
-    const conditionStock = itemStatusSelect.value === 'damaged'
+    const availableStock = itemStatusSelect.value === 'damaged'
         ? damagedStock
-        : Number(row.dataset.good_stock_available || 0);
-    const availableStock = Math.min(Number(row.dataset.channel_available_stock || 0), conditionStock);
+        : Math.min(Number(row.dataset.channel_available_stock || 0), goodStock);
     availableStockDisplay.textContent = hasProduct ? availableStock : '—';
     quantityInput.max = hasProduct ? String(availableStock) : '';
 }

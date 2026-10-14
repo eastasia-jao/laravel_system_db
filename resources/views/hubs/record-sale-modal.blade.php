@@ -254,7 +254,7 @@
         display: grid !important;
         grid-template-columns: minmax(180px, 2.4fr) minmax(80px, .9fr) minmax(58px, .65fr) minmax(105px, 1.2fr) minmax(76px, .85fr) minmax(125px, 1.4fr) 42px;
         gap: .55rem;
-        align-items: end;
+        align-items: start;
     }
     @media (min-width: 768px) {
         #recordSaleModal #productRowsContainer.has-tiktok-fee > .row:first-child,
@@ -271,7 +271,7 @@
     #recordSaleModal #productRowsContainer:not(.has-tiktok-fee) .product-row > :nth-child(7) { display: none !important; }
     #recordSaleModal #productRowsContainer .product-row {
         position: relative;
-        align-items: start;
+        align-items: start !important;
         margin: 0 0 .55rem !important;
         padding: .65rem .6rem !important;
         border: 1px solid #e2e8f0 !important;
@@ -279,9 +279,15 @@
         background: #fff;
         box-shadow: none;
     }
-    #recordSaleModal #productRowsContainer .item-status-field { margin-top: .45rem; }
+    #recordSaleModal #productRowsContainer .item-status-field {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: .4rem;
+        margin-top: .45rem;
+    }
+    #recordSaleModal #productRowsContainer .item-status-field:not([hidden]) { display: grid; }
     #recordSaleModal #productRowsContainer .item-status-field[hidden] { display: none !important; }
-    #recordSaleModal #productRowsContainer .item-status-field .form-label { margin-bottom: .2rem; color: #9f1239; font-size: .68rem; }
+    #recordSaleModal #productRowsContainer .item-status-field .form-label { margin: 0; color: #9f1239; font-size: .68rem; white-space: nowrap; }
     #recordSaleModal #productRowsContainer .item-status-select { min-height: 34px; border-color: #fda4af; background: #fff7f7; font-size: .76rem; }
     #recordSaleModal #productRowsContainer .product-row:nth-child(odd) { background: #fbfdff; }
     #recordSaleModal #productRowsContainer .product-row:hover { border-color: #bfdbfe !important; background: #f8fbff; }
@@ -1368,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const isTikTok = channelVal === 'tiktok';
 
             const newRow = document.createElement('div');
-            newRow.className = 'row g-2 align-items-end product-row mb-3 pb-3 border-bottom';
+            newRow.className = 'row g-2 align-items-start product-row mb-3 pb-3 border-bottom';
             newRow.setAttribute('data-index', rowIndex);
 
             newRow.innerHTML = `
@@ -1454,19 +1460,23 @@ document.addEventListener('DOMContentLoaded', function () {
         const allocatedStockDisplay = row.querySelector('.channel-stock-availability');
         const itemStatusField = row.querySelector('.item-status-field');
         const itemStatusSelect = row.querySelector('.item-status-select');
+        const goodStock = Number(row.dataset.good_stock_available || 0);
         const damagedStock = Number(row.dataset.damaged_stock_available || 0);
         const hasDamagedStock = Boolean(row.dataset.id) && damagedStock > 0;
         if (itemStatusField && itemStatusSelect) {
             itemStatusField.hidden = !hasDamagedStock;
             itemStatusSelect.disabled = !hasDamagedStock;
-            if (!hasDamagedStock) itemStatusSelect.value = 'good';
+            if (!hasDamagedStock) {
+                itemStatusSelect.value = 'good';
+            } else if (goodStock <= 0) {
+                itemStatusSelect.value = 'damaged';
+            }
         }
         if (allocatedStockDisplay) {
             const channelStock = Number(row.dataset.channel_available_stock || 0);
-            const conditionStock = itemStatusSelect?.value === 'damaged'
+            const availableStock = itemStatusSelect?.value === 'damaged'
                 ? damagedStock
-                : Number(row.dataset.good_stock_available || 0);
-            const availableStock = Math.min(channelStock, conditionStock);
+                : Math.min(channelStock, goodStock);
             allocatedStockDisplay.textContent = row.dataset.id
                 ? availableStock
                 : '—';

@@ -155,16 +155,20 @@ class SalesController extends Controller
                     ]);
 
                     if ($status === 'completed') {
-                        if ($normalizedChannel === 'walk_in') {
-                            if ($product->unallocatedStock() < $quantity) {
-                                throw new \RuntimeException("Not enough unallocated physical stock for \"{$product->name}\".");
+                        // Damaged items use only their physical damaged-stock pool, so
+                        // channel allocation checks and deductions apply to Good items only.
+                        if ($stockCondition === 'good') {
+                            if ($normalizedChannel === 'walk_in') {
+                                if ($product->unallocatedStock() < $quantity) {
+                                    throw new \RuntimeException("Not enough unallocated physical stock for \"{$product->name}\".");
+                                }
+                            } else {
+                                $allocation = ProductStockAllocation::where('product_id', $product->id)->lockForUpdate()->first();
+                                if (! $allocation || (int) $allocation->{$normalizedChannel} < $quantity) {
+                                    throw new \RuntimeException("Not enough allocated stock for \"{$product->name}\".");
+                                }
+                                $allocation->decrement($normalizedChannel, $quantity);
                             }
-                        } else {
-                            $allocation = ProductStockAllocation::where('product_id', $product->id)->lockForUpdate()->first();
-                            if (! $allocation || (int) $allocation->{$normalizedChannel} < $quantity) {
-                                throw new \RuntimeException("Not enough allocated stock for \"{$product->name}\".");
-                            }
-                            $allocation->decrement($normalizedChannel, $quantity);
                         }
                         $product->decrement($stockColumn, $quantity);
                         InventoryTransaction::create([
@@ -739,24 +743,28 @@ class SalesController extends Controller
                     $stockBefore = $stockCondition === 'damaged'
                         ? (int) $product->damaged_stock
                         : (int) $product->stock;
-                    $allocation = $channel !== 'walk_in'
+                    $allocation = $stockCondition === 'good' && $channel !== 'walk_in'
                         ? ProductStockAllocation::where('product_id', $product->id)->lockForUpdate()->first()
                         : null;
-                    $channelStockBefore = $channel === 'walk_in'
-                        ? $product->unallocatedStock()
-                        : ($allocation ? (int) $allocation->{$channel} : $stockBefore);
-                    if ($channel === 'walk_in') {
-                        if ($product->unallocatedStock() < $quantity) {
-                            throw ValidationException::withMessages(['stock' => "Not enough unallocated physical stock for {$product->name}."]);
-                        }
-                    } else {
-                        if ($allocation && (int) $allocation->{$channel} < $quantity) {
-                            throw ValidationException::withMessages(['stock' => "Not enough allocated stock for {$product->name}."]);
-                        }
-                        if ($allocation) {
-                            $allocation->decrement($channel, $quantity);
-                        } elseif ($stockBefore < $quantity) {
-                            throw ValidationException::withMessages(['stock' => "Not enough stock for {$product->name}."]);
+                    $channelStockBefore = $stockCondition === 'damaged'
+                        ? $stockBefore
+                        : ($channel === 'walk_in'
+                            ? $product->unallocatedStock()
+                            : ($allocation ? (int) $allocation->{$channel} : $stockBefore));
+                    if ($stockCondition === 'good') {
+                        if ($channel === 'walk_in') {
+                            if ($product->unallocatedStock() < $quantity) {
+                                throw ValidationException::withMessages(['stock' => "Not enough unallocated physical stock for {$product->name}."]);
+                            }
+                        } else {
+                            if ($allocation && (int) $allocation->{$channel} < $quantity) {
+                                throw ValidationException::withMessages(['stock' => "Not enough allocated stock for {$product->name}."]);
+                            }
+                            if ($allocation) {
+                                $allocation->decrement($channel, $quantity);
+                            } elseif ($stockBefore < $quantity) {
+                                throw ValidationException::withMessages(['stock' => "Not enough stock for {$product->name}."]);
+                            }
                         }
                     }
                     $product->decrement($stockColumn, $quantity);
@@ -1197,7 +1205,9 @@ class SalesController extends Controller
             $channelStock = $channel === 'walk_in'
                 ? (int) ($product?->unallocatedStock() ?? 0)
                 : (int) ($product?->stockAllocation?->{$channel} ?? 0);
-            $available = max(0, min($conditionStock, $channelStock));
+            $available = $stockCondition === 'damaged'
+                ? max(0, $conditionStock)
+                : max(0, min($conditionStock, $channelStock));
 
             return [(string) $stockKey => [
                 'name' => ($product?->name ?? 'Unavailable product #'.$productId).' ('.ucfirst($stockCondition).')',

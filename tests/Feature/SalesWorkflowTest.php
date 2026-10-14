@@ -94,7 +94,7 @@ class SalesWorkflowTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $this->assertSame(6, (int) $product->fresh()->damaged_stock);
-        $this->assertSame(4, (int) $product->stockAllocation()->value('shopee'));
+        $this->assertSame(5, (int) $product->stockAllocation()->value('shopee'));
     }
 
     public function test_sales_associates_only_see_walk_in_available_stock(): void
@@ -166,13 +166,6 @@ class SalesWorkflowTest extends TestCase
                 'status' => 'active',
             ]);
 
-            if ($channel !== 'walk_in') {
-                ProductStockAllocation::create([
-                    'product_id' => $product->id,
-                    $channel => 1,
-                ]);
-            }
-
             $this->actingAs($admin)->post(route('sales.store'), [
                 'store_hub_id' => $hub->id,
                 'sales_channel' => $channel,
@@ -211,8 +204,6 @@ class SalesWorkflowTest extends TestCase
             'damaged_stock' => 2,
             'status' => 'active',
         ]);
-        ProductStockAllocation::create(['product_id' => $product->id, 'shopee' => 2]);
-
         $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
             'store_hub_id' => $hub->id,
             'sales_channel' => 'shopee',
@@ -234,7 +225,7 @@ class SalesWorkflowTest extends TestCase
 
         $this->assertSame(5, (int) $product->fresh()->stock);
         $this->assertSame(1, (int) $product->fresh()->damaged_stock);
-        $this->assertSame(1, (int) $product->stockAllocation()->value('shopee'));
+        $this->assertFalse(ProductStockAllocation::where('product_id', $product->id)->exists());
         $this->assertDatabaseHas('transaction_items', [
             'product_id' => $product->id,
             'stock_condition' => 'damaged',
