@@ -103,7 +103,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     const importLoadingText = document.getElementById('transactionImportLoadingText');
     const importProgressBar = document.getElementById('transactionImportProgressBar');
     const importProgressText = document.getElementById('transactionImportProgressText');
-    const importProgress = importProgressBar.parentElement;
+    const importProgress = document.getElementById('transactionImportProgress');
     const byId = window.transactionProducts || new Map();
     products.forEach(p => byId.set(String(p.id), p));
     window.transactionProducts = byId;
@@ -139,26 +139,47 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
             || exportFilename(type, hubCode, new Date()).replace(/\.csv$/i, '.xlsx');
         downloadBlob(await response.blob(), filename);
     };
-    const readEventWorkbook = async upload => {
+    const readEventWorkbook = (upload, onUploadProgress) => new Promise((resolve, reject) => {
         const data = new FormData();
         data.set('file', upload);
         data.set('hub_id', eventMetadata().hub_id);
-        const response = await fetch(eventImportUrl, {
-            method: 'POST',
-            headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrfToken },
-            body: data
+        const request = new XMLHttpRequest();
+        request.open('POST', eventImportUrl);
+        request.setRequestHeader('Accept', 'application/json');
+        request.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+        request.upload.addEventListener('progress', event => {
+            if (event.lengthComputable) onUploadProgress(event.loaded / event.total);
         });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(Object.values(body.errors || {}).flat().join('\n') || body.message || 'Unable to import the Event workbook. Please retry.');
-        }
-        const metadata = body.metadata || {};
-        for (const [key, value] of Object.entries(metadata)) {
-            const field = form.querySelector(`[name="${key}"]`);
-            if (field && value) field.value = value;
-        }
-        return body.items;
-    };
+        request.upload.addEventListener('load', () => onUploadProgress(1));
+        request.addEventListener('load', () => {
+            let body = {};
+            try { body = JSON.parse(request.responseText); }
+            catch { reject(new Error('The server returned an invalid response while importing the Event workbook.')); return; }
+            if (request.status < 200 || request.status >= 300) {
+                reject(new Error(Object.values(body.errors || {}).flat().join('\n') || body.message || 'Unable to import the Event workbook. Please retry.'));
+                return;
+            }
+            const metadata = body.metadata || {};
+            for (const [key, value] of Object.entries(metadata)) {
+                const field = form.querySelector(`[name="${key}"]`);
+                if (field && value) field.value = value;
+            }
+            resolve(body.items);
+        });
+        request.addEventListener('error', () => reject(new Error('Network error while importing the Event workbook. Please retry.')));
+        request.addEventListener('abort', () => reject(new Error('Event workbook import was cancelled.')));
+        request.send(data);
+    });
+    const readTextFile = (upload, onProgress) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener('progress', event => {
+            if (event.lengthComputable) onProgress(event.loaded / event.total);
+        });
+        reader.addEventListener('load', () => resolve(String(reader.result ?? '')));
+        reader.addEventListener('error', () => reject(new Error('Unable to read the selected file. Please try again.')));
+        reader.addEventListener('abort', () => reject(new Error('File reading was cancelled.')));
+        reader.readAsText(upload);
+    });
     panel.querySelector('[data-bulk-worksheet-url]')?.addEventListener('click', event => {
         if (!worksheetUrl) return;
         event.preventDefault();
@@ -169,7 +190,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
         window.location.href = url.toString();
     });
     let catalogLoaded = !endpoint, loading;
-    const loadCatalog = () => {
+    const loadCatalog = onBatchLoaded => {
         if (catalogLoaded) return Promise.resolve();
         if (loading) return loading;
         loading = (async () => {
@@ -191,6 +212,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
                         if (!known.has(id)) { products.push(product); known.add(id); }
                         if (!selectableIds.has(id)) { selectable.push({ ...product, label }); selectableIds.add(id); }
                     }
+                    onBatchLoaded?.(products.length);
                     if (batch.length < 500) break;
                     const next = Number(batch[batch.length - 1].id);
                     if (next <= after) throw new Error('Product loading did not advance. Please retry.');
@@ -258,45 +280,72 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
         importButton.disabled = true;
         file.disabled = true;
         importLoading.hidden = false;
-        let progress = 1;
         let imported = false;
         const updateProgress = value => {
-            progress = Math.min(100, Math.max(1, value));
+            const progress = Math.min(100, Math.max(0, Math.round(value)));
+            importProgress.classList.remove('transaction-import-progress-indeterminate');
+            importProgress.setAttribute('aria-valuenow', String(progress));
+            importProgress.removeAttribute('aria-valuetext');
             importProgressBar.style.width = `${progress}%`;
             importProgressText.textContent = `${progress}%`;
-            importProgress.setAttribute('aria-valuenow', String(progress));
         };
-        updateProgress(progress);
-        const progressTimer = setInterval(() => {
-            if (progress < 95) updateProgress(progress + 1);
-        }, 40);
+        const setIndeterminate = text => {
+            if (text) importLoadingText.textContent = text;
+            importProgress.classList.add('transaction-import-progress-indeterminate');
+            importProgress.removeAttribute('aria-valuenow');
+            importProgress.setAttribute('aria-valuetext', 'Working');
+            importProgressText.textContent = 'Working…';
+        };
+        updateProgress(0);
         try {
             await new Promise(resolve => requestAnimationFrame(resolve));
             const upload = file.files[0];
             if (upload.size > 10 * 1024 * 1024) throw new Error('Choose a file smaller than 10 MB.');
-            await loadCatalog();
-            importLoadingText.textContent = 'Reading and validating the selected file...';
-            const items = type === 'sponsor_workshop' && /\.xlsx$/i.test(upload.name)
-                ? await readEventWorkbook(upload)
-                : importRows(await upload.text(), products, type);
-            importLoadingText.textContent = 'Preparing imported items...';
-            const fragment = document.createDocumentFragment();
-            items.forEach(item => {
-                const row = template.cloneNode(true), search = row.querySelector('.product-search'), hidden = row.querySelector('.product-id');
-                search.value = labels.get(String(item.product_id)); hidden.value = item.product_id;
-                search.addEventListener('input', () => {
-                    hidden.value = labelIds.get(search.value.trim().toLowerCase()) || '';
-                    search.setCustomValidity(hidden.value ? '' : 'Select a product from the search suggestions.');
-                });
-                row.querySelector('[name$="[quantity]"]').value = item.quantity;
-                if (type === 'return') row.querySelector('select').value = item.condition;
-                if (type === 'sponsor_workshop') {
-                    row.querySelector('[name$="[stock_condition]"]').value = item.stock_condition;
-                    row.querySelector('[name$="[pullout_qty]"]').value = item.pullout_qty ?? '';
-                }
-                row.querySelector('button').disabled = false;
-                fragment.appendChild(row);
+            setIndeterminate('Loading the store product list...');
+            await loadCatalog(count => {
+                importLoadingText.textContent = `Loading the store product list... ${count.toLocaleString()} products loaded`;
             });
+            updateProgress(45);
+            importLoadingText.textContent = 'Reading the selected file...';
+            let items;
+            if (type === 'sponsor_workshop' && /\.xlsx$/i.test(upload.name)) {
+                setIndeterminate('Uploading workbook to validate product items...');
+                items = await readEventWorkbook(upload, ratio => {
+                    if (ratio >= 1) {
+                        setIndeterminate('Checking the workbook and matching products...');
+                    } else {
+                        updateProgress(45 + ratio * 35);
+                    }
+                });
+            } else {
+                const csv = await readTextFile(upload, ratio => updateProgress(45 + ratio * 25));
+                setIndeterminate('Validating product names and quantities...');
+                items = importRows(csv, products, type);
+            }
+            updateProgress(82);
+            importLoadingText.textContent = 'Adding imported items to the form...';
+            const fragment = document.createDocumentFragment();
+            for (let start = 0; start < items.length; start += 50) {
+                const batch = items.slice(start, start + 50);
+                batch.forEach(item => {
+                    const row = template.cloneNode(true), search = row.querySelector('.product-search'), hidden = row.querySelector('.product-id');
+                    search.value = labels.get(String(item.product_id)); hidden.value = item.product_id;
+                    search.addEventListener('input', () => {
+                        hidden.value = labelIds.get(search.value.trim().toLowerCase()) || '';
+                        search.setCustomValidity(hidden.value ? '' : 'Select a product from the search suggestions.');
+                    });
+                    row.querySelector('[name$="[quantity]"]').value = item.quantity;
+                    if (type === 'return') row.querySelector('select').value = item.condition;
+                    if (type === 'sponsor_workshop') {
+                        row.querySelector('[name$="[stock_condition]"]').value = item.stock_condition;
+                        row.querySelector('[name$="[pullout_qty]"]').value = item.pullout_qty ?? '';
+                    }
+                    row.querySelector('button').disabled = false;
+                    fragment.appendChild(row);
+                });
+                updateProgress(82 + ((start + batch.length) / items.length) * 17);
+                await new Promise(resolve => requestAnimationFrame(resolve));
+            }
             itemRows().forEach(row => {
                 if (!row.querySelector('.product-search').value && !row.querySelector('[name$="[quantity]"]').value) row.remove();
             });
@@ -311,7 +360,6 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
             imported = true;
         } catch (error) { show(error.message, true); }
         finally {
-            clearInterval(progressTimer);
             if (imported) {
                 importLoadingText.textContent = 'Import complete';
                 updateProgress(100);

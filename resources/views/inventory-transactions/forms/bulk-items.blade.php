@@ -42,9 +42,20 @@
         animation: transaction-import-spin .8s linear infinite;
     }
     @keyframes transaction-import-spin { to { transform: rotate(360deg); } }
+    .transaction-import-progress-indeterminate { overflow: hidden; }
+    .transaction-import-progress-indeterminate .progress-bar {
+        width: 38% !important;
+        background-image: none;
+        animation: transaction-import-progress-slide 1.1s ease-in-out infinite;
+    }
+    @keyframes transaction-import-progress-slide {
+        from { transform: translateX(-110%); }
+        to { transform: translateX(270%); }
+    }
     @media (prefers-reduced-motion: reduce) {
         .transaction-item-review-highlight { animation: none; outline: 3px solid rgba(220, 53, 69, 0.65); }
-        .transaction-import-spinner { animation-duration: 2s; }
+        .transaction-import-spinner,
+        .transaction-import-progress-indeterminate .progress-bar { animation-duration: 2.5s; }
     }
 </style>
 <div id="transactionBulk" class="mb-3">
@@ -76,7 +87,7 @@
                 <span>Import progress</span>
                 <span id="transactionImportProgressText" class="fw-semibold text-primary">1%</span>
             </div>
-            <div class="progress" style="height: 9px;" role="progressbar" aria-label="Item import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="1">
+            <div id="transactionImportProgress" class="progress" style="height: 9px;" role="progressbar" aria-label="Item import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="1">
                 <div id="transactionImportProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 1%; transition: width .12s linear;"></div>
             </div>
             <small class="d-block text-muted mt-3">Please keep this page open while your product list is loaded.</small>
@@ -86,7 +97,7 @@
 </div>
 @push('scripts')
 <script type="module">
-    import { setupBulkItems } from {{ Illuminate\Support\Js::from(asset('js/transaction-bulk.js?v=20261015-event-pullout-qty')) }};
+    import { setupBulkItems } from {{ Illuminate\Support\Js::from(asset('js/transaction-bulk.js?v=20261014-live-import-progress')) }};
     setupBulkItems({ products: {{ Illuminate\Support\Js::from($bulkProducts) }}, type: {{ Illuminate\Support\Js::from($type) }}, hubCode: {{ Illuminate\Support\Js::from($selectedHub?->code ?? $hubId) }}, endpoint: {{ Illuminate\Support\Js::from(route('hub.products.search.ajax', $hubId ?? 0)) }}, transferDirection: {{ Illuminate\Support\Js::from($type === 'stock_transfer' ? ($transferDirection ?? 'ho_to_branch') : null) }}, worksheetUrl: {{ Illuminate\Support\Js::from($eventWorkbook ? route('inventory-transactions.sponsor.worksheet') : null) }}, isActive: () => document.getElementById('activityType')?.value !== 'fully_booked' });
 </script>
 @endpush
