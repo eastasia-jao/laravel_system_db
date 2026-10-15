@@ -138,6 +138,7 @@ a, button, input, select, textarea { transition: color var(--ac-transition), bac
 #appSidebar .nav-link.active-link > i:first-child { color: var(--ac-primary); }
 #appSidebar .brand-copy { overflow: hidden; white-space: nowrap; }
 #appSidebar #notificationToggle { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; }
+#appSidebar #notificationToggle #notificationBadge { top: 5px !important; right: 5px; left: auto !important; transform: none !important; min-width: 16px; min-height: 16px; padding: .15rem .3rem; display: inline-flex; align-items: center; justify-content: center; font-size: .6rem; line-height: 1; }
 #appSidebar .sidebar-notification-menu { width: min(380px, calc(100vw - 1rem)); max-height: min(520px, calc(100dvh - 2rem)); overflow-x: hidden; overflow-y: auto; border: 1px solid var(--ac-border) !important; border-radius: 14px; background: var(--ac-surface); box-shadow: 0 18px 48px rgba(15, 23, 42, .16) !important; z-index: 1085; }
 #appSidebar .sidebar-notification-menu > .border-bottom { position: sticky; top: 0; z-index: 2; background: var(--ac-surface); }
 #appSidebar .sidebar-notification-menu #sidebarNotificationItems > a:hover { background: var(--ac-primary-soft); }

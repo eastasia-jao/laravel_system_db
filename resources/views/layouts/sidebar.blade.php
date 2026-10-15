@@ -272,10 +272,17 @@
     (() => {
         const items = document.getElementById('sidebarNotificationItems');
         const badge = document.getElementById('notificationBadge');
+        const notificationToggle = document.getElementById('notificationToggle');
         const feedUrl = @json(route('notifications.feed'));
         if (!items || !badge) return;
 
         let refreshing = false;
+        let badgeDismissed = false;
+        let lastUnreadCount = Number(badge.textContent.trim()) || 0;
+        notificationToggle?.addEventListener('shown.bs.dropdown', () => {
+            badgeDismissed = true;
+            badge.classList.add('d-none');
+        });
         const refreshNotifications = async () => {
             if (refreshing || document.hidden) return;
             refreshing = true;
@@ -289,8 +296,10 @@
                 const payload = await response.json();
                 items.innerHTML = payload.html || '';
                 const unread = Number(payload.unread_count || 0);
+                if (unread > lastUnreadCount) badgeDismissed = false;
+                lastUnreadCount = unread;
                 badge.textContent = unread;
-                badge.classList.toggle('d-none', unread === 0);
+                badge.classList.toggle('d-none', unread === 0 || badgeDismissed);
             } catch (error) {
                 console.warn('Notification refresh failed.', error);
             } finally {
