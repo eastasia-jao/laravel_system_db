@@ -78,7 +78,9 @@ class InventoryItemsWorkbookTest extends TestCase
         $this->assertSame('10', $workbook['items'][0]['physical_stock']);
         $this->assertSame('', $workbook['items'][0]['quantity']);
         $this->assertStringContainsString('<dimension ref="A1:E3"/>', $worksheetXml);
-        $this->assertStringContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);
+        $this->assertStringNotContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);
+        $this->assertStringContainsString('<c r="D1" s="2"', $worksheetXml);
+        $this->assertStringContainsString('<c r="E1" s="2"', $worksheetXml);
         $this->assertStringContainsString('Target Branch: '.$branch->name, $worksheetXml);
         $this->assertStringNotContainsString('Good Items', $worksheetXml);
         $this->assertStringNotContainsString('Damaged Items', $worksheetXml);

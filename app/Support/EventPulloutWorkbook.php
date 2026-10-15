@@ -361,14 +361,8 @@ class EventPulloutWorkbook
             .self::inlineCell('A1', $document['title'] ?? 'INVENTORY ITEMS', 1)
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
             .self::inlineCell('C1', 'Date: '.($document['occurred_on'] ?? ''), 2)
-            .self::inlineCell(
-                'D1',
-                ($document['target'] ?? '') !== ''
-                    ? 'Target Branch: '.$document['target']."\nRemarks: ".($document['notes'] ?? '')
-                    : 'Remarks: '.($document['notes'] ?? ''),
-                2
-            )
-            .self::inlineCell('E1', '', 2)
+            .self::inlineCell('D1', ($document['target'] ?? '') !== '' ? 'Target Branch: '.$document['target'] : '', 2)
+            .self::inlineCell('E1', 'Remarks: '.($document['notes'] ?? ''), 2)
             .'</row><row r="2" ht="30" customHeight="1">';
 
         foreach ([
@@ -402,7 +396,7 @@ class EventPulloutWorkbook
             $xml .= '</row>';
         }
 
-        $xml .= '</sheetData><mergeCells count="1"><mergeCell ref="D1:E1"/></mergeCells>'
+        $xml .= '</sheetData>'
             .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
             .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
             .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
