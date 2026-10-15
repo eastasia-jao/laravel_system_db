@@ -110,11 +110,15 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     const options = [...document.getElementById(prefix + 'ProductOptions').options];
     const labels = new Map(products.map((p, i) => [String(p.id), options[i].value]));
     const labelIds = new Map([...labels].map(([id, label]) => [label.toLowerCase(), id]));
-    const eventImportUrl = importButton.dataset.bulkImportUrl;
-    const eventExportUrl = panel.querySelector('[data-bulk="export"]').dataset.bulkExportUrl;
+    const workbookImportUrl = importButton.dataset.bulkImportUrl;
+    const workbookExportUrl = panel.querySelector('[data-bulk="export"]').dataset.bulkExportUrl;
+    const inventoryWorkbook = ['stock_transfer', 'branch_transfer', 'restock'].includes(type);
     const csrfToken = form.querySelector('input[name="_token"]')?.value || '';
-    const eventMetadata = () => ({
+    const workbookMetadata = () => ({
         hub_id: form.querySelector('[name="store_hub_id"]')?.value || '',
+        type,
+        target_hub_id: form.querySelector('[name="target_hub_id"]')?.value || '',
+        transfer_direction: form.querySelector('[name="transfer_direction"]')?.value || transferDirection || '',
         occurred_on: form.querySelector('[name="occurred_on"]')?.value || '',
         source: form.querySelector('[name="source"]')?.value || '',
         reference: form.querySelector('[name="reference"]')?.value || '',
@@ -125,26 +129,27 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
         link.href = url; link.download = filename; link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
-    const downloadEventWorkbook = async items => {
-        const response = await fetch(eventExportUrl, {
+    const downloadWorkbook = async items => {
+        const response = await fetch(workbookExportUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrfToken },
-            body: JSON.stringify({ ...eventMetadata(), items })
+            body: JSON.stringify({ ...workbookMetadata(), items })
         });
         if (!response.ok) {
             const body = await response.json().catch(() => ({}));
-            throw new Error(Object.values(body.errors || {}).flat().join('\n') || body.message || 'Unable to export the Event workbook. Please retry.');
+            throw new Error(Object.values(body.errors || {}).flat().join('\n') || body.message || 'Unable to export the Excel workbook. Please retry.');
         }
         const filename = response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/i)?.[1]
             || exportFilename(type, hubCode, new Date()).replace(/\.csv$/i, '.xlsx');
         downloadBlob(await response.blob(), filename);
     };
-    const readEventWorkbook = (upload, onUploadProgress) => new Promise((resolve, reject) => {
+    const readWorkbook = (upload, onUploadProgress) => new Promise((resolve, reject) => {
         const data = new FormData();
         data.set('file', upload);
-        data.set('hub_id', eventMetadata().hub_id);
+        data.set('hub_id', workbookMetadata().hub_id);
+        data.set('type', type);
         const request = new XMLHttpRequest();
-        request.open('POST', eventImportUrl);
+        request.open('POST', workbookImportUrl);
         request.setRequestHeader('Accept', 'application/json');
         request.setRequestHeader('X-CSRF-TOKEN', csrfToken);
         request.upload.addEventListener('progress', event => {
@@ -154,9 +159,9 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
         request.addEventListener('load', () => {
             let body = {};
             try { body = JSON.parse(request.responseText); }
-            catch { reject(new Error('The server returned an invalid response while importing the Event workbook.')); return; }
+            catch { reject(new Error('The server returned an invalid response while importing the Excel workbook.')); return; }
             if (request.status < 200 || request.status >= 300) {
-                reject(new Error(Object.values(body.errors || {}).flat().join('\n') || body.message || 'Unable to import the Event workbook. Please retry.'));
+                reject(new Error(Object.values(body.errors || {}).flat().join('\n') || body.message || 'Unable to import the Excel workbook. Please retry.'));
                 return;
             }
             const metadata = body.metadata || {};
@@ -166,8 +171,8 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
             }
             resolve(body.items);
         });
-        request.addEventListener('error', () => reject(new Error('Network error while importing the Event workbook. Please retry.')));
-        request.addEventListener('abort', () => reject(new Error('Event workbook import was cancelled.')));
+        request.addEventListener('error', () => reject(new Error('Network error while importing the Excel workbook. Please retry.')));
+        request.addEventListener('abort', () => reject(new Error('Excel workbook import was cancelled.')));
         request.send(data);
     });
     const readTextFile = (upload, onProgress) => new Promise((resolve, reject) => {
@@ -184,7 +189,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
         if (!worksheetUrl) return;
         event.preventDefault();
         const url = new URL(worksheetUrl, location.origin);
-        Object.entries(eventMetadata()).forEach(([key, value]) => {
+        Object.entries(workbookMetadata()).forEach(([key, value]) => {
             if (value) url.searchParams.set(key, value);
         });
         window.location.href = url.toString();
@@ -268,8 +273,8 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     panel.querySelector('[data-bulk="export"]').onclick = () => {
         const items = selected().filter(i => i.product_id || i.quantity);
         if (!items.length || items.some(i => !byId.has(i.product_id) || (type === 'return' && !i.condition) || (type === 'sponsor_workshop' && !i.stock_condition) || (type !== 'sponsor_workshop' && !/^[1-9]\d*$/.test(i.quantity)))) return show('Select valid products (and applicable conditions) before exporting.', true);
-        if (type === 'sponsor_workshop') {
-            downloadEventWorkbook(items).catch(error => show(error.message, true));
+        if (workbookExportUrl) {
+            downloadWorkbook(items).catch(error => show(error.message, true));
             return;
         }
         download(items);
@@ -308,19 +313,21 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
             updateProgress(45);
             importLoadingText.textContent = 'Reading the selected file...';
             let items;
-            if (type === 'sponsor_workshop' && /\.xlsx$/i.test(upload.name)) {
+            if (workbookImportUrl && /\.xlsx$/i.test(upload.name)) {
                 setIndeterminate('Uploading workbook to validate product items...');
-                items = await readEventWorkbook(upload, ratio => {
+                items = await readWorkbook(upload, ratio => {
                     if (ratio >= 1) {
                         setIndeterminate('Checking the workbook and matching products...');
                     } else {
                         updateProgress(45 + ratio * 35);
                     }
                 });
-            } else {
+            } else if (!inventoryWorkbook) {
                 const csv = await readTextFile(upload, ratio => updateProgress(45 + ratio * 25));
                 setIndeterminate('Validating product names and quantities...');
                 items = importRows(csv, products, type);
+            } else {
+                throw new Error('Choose an Excel workbook in .xlsx format.');
             }
             updateProgress(82);
             importLoadingText.textContent = 'Adding imported items to the form...';

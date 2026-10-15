@@ -97,6 +97,216 @@ class InventoryTransactionController extends Controller
         ]);
     }
 
+    public function downloadInventoryItemsWorkbook(Request $request)
+    {
+        $validated = $request->validate($this->inventoryWorkbookRules());
+        $hub = $this->authorizeInventoryWorkbookHub((int) $validated['hub_id']);
+        $items = Product::where('store_hub_id', $hub->id)
+            ->where('status', 'active')
+            ->orderByCatalog()
+            ->get()
+            ->map(fn (Product $product) => $this->inventoryWorkbookProduct($product, ''))
+            ->all();
+        $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated, $hub));
+
+        return response()->download(
+            $path,
+            $this->inventoryWorkbookFilename($hub, $validated['type'], 'Download'),
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
+    }
+
+    public function importInventoryItemsWorkbook(Request $request)
+    {
+        $validated = $request->validate([
+            'hub_id' => ['required', 'integer', 'exists:store_hubs,id'],
+            'type' => ['required', Rule::in(['stock_transfer', 'branch_transfer', 'restock'])],
+            'file' => ['required', 'file', 'mimes:xlsx', 'max:10240'],
+        ]);
+        $hub = $this->authorizeInventoryWorkbookHub((int) $validated['hub_id']);
+        try {
+            $workbook = EventPulloutWorkbook::readInventoryItems($validated['file']->getRealPath());
+        } catch (\RuntimeException $exception) {
+            throw ValidationException::withMessages(['file' => $exception->getMessage()]);
+        }
+
+        $rowsToMatch = array_values(array_filter(
+            $workbook['items'],
+            fn (array $row) => trim($row['quantity']) !== ''
+        ));
+        $productsByItemId = [];
+        $productsByBarcode = [];
+        foreach (array_chunk($rowsToMatch, 400) as $lookupRows) {
+            $itemIds = collect($lookupRows)->pluck('item_id')->map(fn ($value) => trim($value))->filter()->unique()->values()->all();
+            $barcodes = collect($lookupRows)->pluck('barcode')->map(fn ($value) => trim($value))->filter()->unique()->values()->all();
+            if ($itemIds === [] && $barcodes === []) {
+                continue;
+            }
+            $products = Product::where('store_hub_id', $hub->id)
+                ->where('status', 'active')
+                ->whereHas('catalogProduct', function ($catalog) use ($itemIds, $barcodes) {
+                    $catalog->where(function ($query) use ($itemIds, $barcodes) {
+                        if ($itemIds !== []) {
+                            $query->whereIn('item_id', $itemIds);
+                        }
+                        if ($barcodes !== []) {
+                            $itemIds === [] ? $query->whereIn('barcode', $barcodes) : $query->orWhereIn('barcode', $barcodes);
+                        }
+                    });
+                })->get();
+            foreach ($products as $product) {
+                if (($itemId = trim((string) $product->item_id)) !== '') {
+                    $productsByItemId[$itemId][$product->id] = $product;
+                }
+                if (($barcode = trim((string) $product->barcode)) !== '') {
+                    $productsByBarcode[$barcode][$product->id] = $product;
+                }
+            }
+        }
+
+        $items = [];
+        $errors = [];
+        foreach ($workbook['items'] as $index => $row) {
+            $quantity = trim($row['quantity']);
+            if ($quantity === '') {
+                continue;
+            }
+            $line = $index + 3;
+            if (! preg_match('/^[1-9]\d*$/', $quantity) || filter_var($quantity, FILTER_VALIDATE_INT) === false) {
+                $errors[] = "Row {$line}: Quantity must be a positive whole number.";
+
+                continue;
+            }
+            $itemId = trim($row['item_id']);
+            $barcode = trim($row['barcode']);
+            $matches = $itemId !== '' ? array_values($productsByItemId[$itemId] ?? []) : array_values($productsByBarcode[$barcode] ?? []);
+            if ($itemId !== '' && $barcode !== '') {
+                $matches = array_values(array_filter($matches, fn (Product $product) => (string) $product->barcode === $barcode));
+            }
+            if (count($matches) !== 1) {
+                $errors[] = 'Row '.$line.': '.($itemId ?: $barcode ?: trim($row['name']) ?: 'product').' is missing, ambiguous, or not active in the selected store.';
+
+                continue;
+            }
+            $items[] = ['product_id' => $matches[0]->id, 'quantity' => (int) $quantity];
+        }
+        if ($errors !== []) {
+            throw ValidationException::withMessages(['file' => implode("\n", $errors)]);
+        }
+        if ($items === []) {
+            throw ValidationException::withMessages(['file' => 'No quantities found. Enter a Quantity before importing.']);
+        }
+
+        return response()->json([
+            'items' => $items,
+            'metadata' => [
+                'reference' => $workbook['reference'],
+                'occurred_on' => $workbook['occurred_on'],
+                'notes' => $workbook['notes'],
+            ],
+        ]);
+    }
+
+    public function exportInventoryItemsWorkbook(Request $request)
+    {
+        $validated = $request->validate(array_merge($this->inventoryWorkbookRules(), [
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'integer'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+        ]));
+        $hub = $this->authorizeInventoryWorkbookHub((int) $validated['hub_id']);
+        $productIds = collect($validated['items'])->pluck('product_id')->map(fn ($id) => (int) $id)->unique();
+        $products = Product::where('store_hub_id', $hub->id)
+            ->where('status', 'active')
+            ->whereIn('id', $productIds)
+            ->get()
+            ->keyBy('id');
+        if ($products->count() !== $productIds->count()) {
+            throw ValidationException::withMessages(['items' => 'One or more products are not active in the selected store.']);
+        }
+        $items = collect($validated['items'])->map(function (array $item) use ($products) {
+            return $this->inventoryWorkbookProduct($products->get((int) $item['product_id']), (int) $item['quantity']);
+        })->all();
+        $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated, $hub));
+
+        return response()->download(
+            $path,
+            $this->inventoryWorkbookFilename($hub, $validated['type'], 'Export'),
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
+    }
+
+    private function inventoryWorkbookRules(): array
+    {
+        return [
+            'hub_id' => ['required', 'integer', 'exists:store_hubs,id'],
+            'type' => ['required', Rule::in(['stock_transfer', 'branch_transfer', 'restock'])],
+            'target_hub_id' => ['nullable', 'integer', 'exists:store_hubs,id'],
+            'transfer_direction' => ['nullable', Rule::in(['ho_to_branch', 'branch_to_ho'])],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'occurred_on' => ['nullable', 'date_format:Y-m-d'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ];
+    }
+
+    private function authorizeInventoryWorkbookHub(int $hubId): StoreHub
+    {
+        $user = auth()->user();
+        abort_unless(
+            in_array($user?->role, ['admin', 'inventory_staff'], true)
+                || ($user?->role === 'sales_associate' && $user->canAccessHub($hubId)),
+            403
+        );
+
+        return StoreHub::whereKey($hubId)->where('status', 'active')->firstOrFail();
+    }
+
+    private function inventoryWorkbookProduct(Product $product, int|string $quantity): array
+    {
+        return [
+            'name' => $product->description ?: $product->name,
+            'barcode' => (string) ($product->barcode ?? ''),
+            'item_id' => (string) $product->item_id,
+            'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
+            'good_stock' => (int) $product->stock,
+            'damaged_stock' => (int) $product->damaged_stock,
+            'quantity' => $quantity,
+        ];
+    }
+
+    private function inventoryWorkbookDocument(array $data, StoreHub $hub): array
+    {
+        $target = isset($data['target_hub_id']) ? StoreHub::find($data['target_hub_id']) : null;
+        $title = match ($data['type']) {
+            'branch_transfer' => 'BRANCH TO BRANCH',
+            'restock' => 'WAREHOUSE TO HO RESTOCK',
+            default => ($data['transfer_direction'] ?? 'ho_to_branch') === 'branch_to_ho' ? 'BRANCH TO HO' : 'HO TO BRANCH',
+        };
+        $route = $data['type'] === 'restock'
+            ? 'Warehouse to '.$hub->name
+            : $hub->name.' to '.($target?->name ?? '');
+
+        return [
+            'title' => $title,
+            'reference' => $data['reference'] ?? '',
+            'occurred_on' => $data['occurred_on'] ?? now()->toDateString(),
+            'route' => trim($route),
+            'notes' => $data['notes'] ?? '',
+        ];
+    }
+
+    private function inventoryWorkbookFilename(StoreHub $hub, string $type, string $action): string
+    {
+        $hubCode = Str::upper(Str::slug($hub->code, '_')) ?: (string) $hub->id;
+        $label = match ($type) {
+            'branch_transfer' => 'StockTrf_B2B',
+            'restock' => 'Restock_Warehouse_HO',
+            default => 'StockTrf_HO_Branch',
+        };
+
+        return $hubCode.'_'.Str::studly($action).'_'.$label.'_'.now()->format('Ymd_His').'.xlsx';
+    }
+
     public function downloadEventWorksheet(Request $request)
     {
         $validated = $request->validate([

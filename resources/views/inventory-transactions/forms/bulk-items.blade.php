@@ -1,7 +1,20 @@
 @php
     $bulkProducts = $products->map(fn ($product) => $product->only(['id', 'item_id', 'barcode', 'name', 'description', 'stock']))->values();
 @endphp
-@php($eventWorkbook = $type === 'sponsor_workshop')
+@php
+    $eventWorkbook = $type === 'sponsor_workshop';
+    $inventoryWorkbook = in_array($type, ['stock_transfer', 'branch_transfer', 'restock'], true);
+    $serverWorkbook = $eventWorkbook || $inventoryWorkbook;
+    $workbookImportUrl = $eventWorkbook
+        ? route('inventory-transactions.sponsor.worksheet.import')
+        : ($inventoryWorkbook ? route('inventory-transactions.items-workbook.import') : null);
+    $workbookExportUrl = $eventWorkbook
+        ? route('inventory-transactions.sponsor.worksheet.export')
+        : ($inventoryWorkbook ? route('inventory-transactions.items-workbook.export') : null);
+    $workbookDownloadUrl = $eventWorkbook
+        ? route('inventory-transactions.sponsor.worksheet')
+        : ($inventoryWorkbook ? route('inventory-transactions.items-workbook') : null);
+@endphp
 <script src="{{ asset('js/product-suggestions.js') }}?v=20260918-1439"></script>
 <style>
     @keyframes transaction-item-review-blink {
@@ -61,28 +74,28 @@
 <div id="transactionBulk" class="mb-3">
     <div class="d-flex flex-wrap align-items-center gap-2">
         <button type="button" class="btn btn-outline-primary btn-sm" data-bulk="import"
-            @if($eventWorkbook) data-bulk-import-url="{{ route('inventory-transactions.sponsor.worksheet.import') }}" @endif>
-            {{ $eventWorkbook ? 'Import Items (Excel / CSV)' : 'Import Items (CSV)' }}
+            @if($serverWorkbook) data-bulk-import-url="{{ $workbookImportUrl }}" @endif>
+            {{ $inventoryWorkbook ? 'Import Items (Excel)' : ($eventWorkbook ? 'Import Items (Excel / CSV)' : 'Import Items (CSV)') }}
         </button>
-        @if($eventWorkbook)
+        @if($serverWorkbook)
             <a class="btn btn-outline-secondary btn-sm"
-                href="{{ route('inventory-transactions.sponsor.worksheet', ['hub_id' => $hubId]) }}"
-                data-bulk-worksheet-url="{{ route('inventory-transactions.sponsor.worksheet') }}">Download Excel Worksheet</a>
+                href="{{ $workbookDownloadUrl }}?hub_id={{ $hubId }}&type={{ $type }}"
+                data-bulk-worksheet-url="{{ $workbookDownloadUrl }}">Download Excel Worksheet</a>
         @else
             <a class="btn btn-outline-secondary btn-sm" href="{{ route('inventory-transactions.product-worksheet', ['hub_id' => $hubId, 'type' => $type]) }}">Download CSV Worksheet</a>
         @endif
         <button type="button" class="btn btn-outline-success btn-sm" data-bulk="export"
-            @if($eventWorkbook) data-bulk-export-url="{{ route('inventory-transactions.sponsor.worksheet.export') }}" @endif>
-            Export Selected Items
+            @if($serverWorkbook) data-bulk-export-url="{{ $workbookExportUrl }}" @endif>
+            {{ $inventoryWorkbook ? 'Export Items (Excel)' : 'Export Selected Items' }}
         </button>
-        <input type="file" accept="{{ $eventWorkbook ? '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : '.csv,text/csv' }}" class="d-none" id="transactionCsv">
+        <input type="file" accept="{{ $inventoryWorkbook ? '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : ($eventWorkbook ? '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : '.csv,text/csv') }}" class="d-none" id="transactionCsv">
     </div>
     <div id="transactionImportLoading" class="transaction-import-overlay" role="status" aria-live="polite" hidden>
         <div class="transaction-import-card">
             <div class="transaction-import-spinner" aria-hidden="true"></div>
             <p class="text-primary small fw-bold text-uppercase mb-2">Product Import</p>
             <h2 class="h5 fw-bold mb-2">Getting your items ready</h2>
-            <p id="transactionImportLoadingText" class="text-muted mb-3">Preparing your {{ $eventWorkbook ? 'Excel / CSV' : 'CSV' }} import...</p>
+            <p id="transactionImportLoadingText" class="text-muted mb-3">Preparing your {{ $inventoryWorkbook ? 'Excel' : ($eventWorkbook ? 'Excel / CSV' : 'CSV') }} import...</p>
             <div class="d-flex justify-content-between align-items-center small text-muted mb-2">
                 <span>Import progress</span>
                 <span id="transactionImportProgressText" class="fw-semibold text-primary">1%</span>
@@ -97,7 +110,7 @@
 </div>
 @push('scripts')
 <script type="module">
-    import { setupBulkItems } from {{ Illuminate\Support\Js::from(asset('js/transaction-bulk.js?v=20261014-live-import-progress')) }};
-    setupBulkItems({ products: {{ Illuminate\Support\Js::from($bulkProducts) }}, type: {{ Illuminate\Support\Js::from($type) }}, hubCode: {{ Illuminate\Support\Js::from($selectedHub?->code ?? $hubId) }}, endpoint: {{ Illuminate\Support\Js::from(route('hub.products.search.ajax', $hubId ?? 0)) }}, transferDirection: {{ Illuminate\Support\Js::from($type === 'stock_transfer' ? ($transferDirection ?? 'ho_to_branch') : null) }}, worksheetUrl: {{ Illuminate\Support\Js::from($eventWorkbook ? route('inventory-transactions.sponsor.worksheet') : null) }}, isActive: () => document.getElementById('activityType')?.value !== 'fully_booked' });
+    import { setupBulkItems } from {{ Illuminate\Support\Js::from(asset('js/transaction-bulk.js?v=20261015-excel-workbooks')) }};
+    setupBulkItems({ products: {{ Illuminate\Support\Js::from($bulkProducts) }}, type: {{ Illuminate\Support\Js::from($type) }}, hubCode: {{ Illuminate\Support\Js::from($selectedHub?->code ?? $hubId) }}, endpoint: {{ Illuminate\Support\Js::from(route('hub.products.search.ajax', $hubId ?? 0)) }}, transferDirection: {{ Illuminate\Support\Js::from($type === 'stock_transfer' ? ($transferDirection ?? 'ho_to_branch') : null) }}, worksheetUrl: {{ Illuminate\Support\Js::from($workbookDownloadUrl) }}, isActive: () => document.getElementById('activityType')?.value !== 'fully_booked' });
 </script>
 @endpush

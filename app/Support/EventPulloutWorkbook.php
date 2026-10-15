@@ -15,13 +15,29 @@ class EventPulloutWorkbook
      */
     public static function create(array $items, array $document = []): string
     {
+        return self::createFiles(self::workbookFiles($items, $document), 'Event pull-out');
+    }
+
+    /**
+     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, quantity: int|string}>  $items
+     * @param  array{title?: string, reference?: string, occurred_on?: string, route?: string, notes?: string}  $document
+     */
+    public static function createInventoryItems(array $items, array $document = []): string
+    {
+        return self::createFiles(self::inventoryWorkbookFiles($items, $document), 'inventory items');
+    }
+
+    /**
+     * @param  array<string, string>  $files
+     */
+    private static function createFiles(array $files, string $label): string
+    {
         $path = tempnam(sys_get_temp_dir(), 'event-pullout-');
         if ($path === false) {
-            throw new RuntimeException('Unable to create the Event pull-out workbook.');
+            throw new RuntimeException("Unable to create the {$label} workbook.");
         }
 
         try {
-            $files = self::workbookFiles($items, $document);
             if (class_exists(ZipArchive::class)) {
                 $archive = new ZipArchive;
                 $result = $archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
@@ -59,46 +75,68 @@ class EventPulloutWorkbook
     }
 
     /**
+     * @return array{reference: string, occurred_on: string, route: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, good_stock: string, damaged_stock: string, quantity: string}>}
+     */
+    public static function readInventoryItems(string $path): array
+    {
+        $rows = self::worksheetRows($path);
+        $metadata = [];
+        foreach ($rows[1] ?? [] as $value) {
+            foreach ([
+                'reference' => '/^Reference Document No\.\:\s*(.*)$/i',
+                'route' => '/^Route\:\s*(.*)$/i',
+                'notes' => '/^Remarks\:\s*(.*)$/i',
+            ] as $key => $pattern) {
+                if (preg_match($pattern, $value, $match)) {
+                    $metadata[$key] = trim($match[1]);
+                }
+            }
+        }
+        $metadata['occurred_on'] = preg_replace('/^Date:\s*/i', '', $rows[1][4] ?? '') ?? '';
+
+        $columns = [];
+        foreach ($rows[2] ?? [] as $column => $heading) {
+            $normalized = strtolower(preg_replace('/[^a-z0-9]+/i', ' ', trim($heading)) ?? '');
+            if ($normalized !== '') {
+                $columns[$normalized] = $column;
+            }
+        }
+        $required = ['name description', 'barcode', 'item id', 'quantity'];
+        if (array_diff($required, array_keys($columns))) {
+            throw new RuntimeException('The Excel worksheet must contain the inventory item headers in row 2.');
+        }
+
+        $items = [];
+        foreach ($rows as $rowNumber => $row) {
+            if ($rowNumber <= 2) {
+                continue;
+            }
+            $items[] = [
+                'name' => $row[$columns['name description']] ?? '',
+                'barcode' => $row[$columns['barcode']] ?? '',
+                'item_id' => $row[$columns['item id']] ?? '',
+                'physical_stock' => $row[$columns['physical stocks qty'] ?? 0] ?? '',
+                'good_stock' => $row[$columns['good items'] ?? 0] ?? '',
+                'damaged_stock' => $row[$columns['damaged items'] ?? 0] ?? '',
+                'quantity' => $row[$columns['quantity']] ?? '',
+            ];
+        }
+
+        return [
+            'reference' => $metadata['reference'] ?? '',
+            'occurred_on' => $metadata['occurred_on'],
+            'route' => $metadata['route'] ?? '',
+            'notes' => $metadata['notes'] ?? '',
+            'items' => $items,
+        ];
+    }
+
+    /**
      * @return array{reference: string, occurred_on: string, source: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, good_stock: string, damaged_stock: string, pullout_qty: string, actual_pullout: string, stock_condition: string}>}
      */
     public static function read(string $path): array
     {
-        $archive = self::openArchive($path);
-        try {
-            $sharedStrings = self::readSharedStrings($archive);
-            $sheetXml = self::archiveEntry($archive, 'xl/worksheets/sheet1.xml');
-        } finally {
-            self::closeArchive($archive);
-        }
-
-        $document = new \DOMDocument;
-        if (! $document->loadXML($sheetXml, LIBXML_NONET)) {
-            throw new RuntimeException('The Excel worksheet XML is invalid.');
-        }
-        $xpath = new \DOMXPath($document);
-        $xpath->registerNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-        $rows = [];
-        foreach ($xpath->query('//x:sheetData/x:row') as $rowNode) {
-            $rowNumber = (int) $rowNode->getAttribute('r');
-            foreach ($xpath->query('./x:c', $rowNode) as $cell) {
-                preg_match('/^([A-Z]+)/', $cell->getAttribute('r'), $match);
-                $column = self::columnNumber($match[1] ?? 'A');
-                $type = $cell->getAttribute('t');
-                if ($type === 'inlineStr') {
-                    $value = '';
-                    foreach ($xpath->query('.//x:is//x:t', $cell) as $textNode) {
-                        $value .= $textNode->textContent;
-                    }
-                } else {
-                    $valueNode = $xpath->query('./x:v', $cell)->item(0);
-                    $value = $valueNode?->textContent ?? '';
-                    if ($type === 's') {
-                        $value = $sharedStrings[(int) $value] ?? '';
-                    }
-                }
-                $rows[$rowNumber][$column] = trim((string) $value);
-            }
-        }
+        $rows = self::worksheetRows($path);
 
         $metadata = [];
         foreach ($rows[1] ?? [] as $value) {
@@ -158,6 +196,49 @@ class EventPulloutWorkbook
             'notes' => $metadata['notes'] ?? '',
             'items' => $items,
         ];
+    }
+
+    /** @return array<int, array<int, string>> */
+    private static function worksheetRows(string $path): array
+    {
+        $archive = self::openArchive($path);
+        try {
+            $sharedStrings = self::readSharedStrings($archive);
+            $sheetXml = self::archiveEntry($archive, 'xl/worksheets/sheet1.xml');
+        } finally {
+            self::closeArchive($archive);
+        }
+
+        $document = new \DOMDocument;
+        if (! $document->loadXML($sheetXml, LIBXML_NONET)) {
+            throw new RuntimeException('The Excel worksheet XML is invalid.');
+        }
+        $xpath = new \DOMXPath($document);
+        $xpath->registerNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        $rows = [];
+        foreach ($xpath->query('//x:sheetData/x:row') as $rowNode) {
+            $rowNumber = (int) $rowNode->getAttribute('r');
+            foreach ($xpath->query('./x:c', $rowNode) as $cell) {
+                preg_match('/^([A-Z]+)/', $cell->getAttribute('r'), $match);
+                $column = self::columnNumber($match[1] ?? 'A');
+                $type = $cell->getAttribute('t');
+                if ($type === 'inlineStr') {
+                    $value = '';
+                    foreach ($xpath->query('.//x:is//x:t', $cell) as $textNode) {
+                        $value .= $textNode->textContent;
+                    }
+                } else {
+                    $valueNode = $xpath->query('./x:v', $cell)->item(0);
+                    $value = $valueNode?->textContent ?? '';
+                    if ($type === 's') {
+                        $value = $sharedStrings[(int) $value] ?? '';
+                    }
+                }
+                $rows[$rowNumber][$column] = trim((string) $value);
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -260,6 +341,81 @@ class EventPulloutWorkbook
             'xl/styles.xml' => self::stylesXml(),
             'xl/worksheets/sheet1.xml' => $xml,
         ];
+    }
+
+    /**
+     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, quantity: int|string}>  $items
+     * @param  array{title?: string, reference?: string, occurred_on?: string, route?: string, notes?: string}  $document
+     * @return array<string, string>
+     */
+    private static function inventoryWorkbookFiles(array $items, array $document): array
+    {
+        $files = self::workbookFiles([], []);
+        $lastRow = count($items) + 2;
+        $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
+            .'<dimension ref="A1:H'.$lastRow.'"/>'
+            .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews>'
+            .'<sheetFormatPr defaultRowHeight="15"/>'
+            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="20" customWidth="1"/><col min="4" max="7" width="18" customWidth="1"/><col min="8" max="8" width="2" customWidth="1"/></cols>'
+            .'<sheetData><row r="1" ht="30" customHeight="1">'
+            .self::inlineCell('A1', $document['title'] ?? 'INVENTORY ITEMS', 1)
+            .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
+            .self::inlineCell('C1', '', 2)
+            .self::inlineCell('D1', 'Date: '.($document['occurred_on'] ?? ''), 2)
+            .self::inlineCell('E1', 'Route: '.($document['route'] ?? ''), 2)
+            .self::inlineCell('F1', '', 2)
+            .self::inlineCell('G1', 'Remarks: '.($document['notes'] ?? ''), 2)
+            .self::inlineCell('H1', '', 2)
+            .'</row><row r="2" ht="30" customHeight="1">';
+
+        foreach ([
+            'Name / Description',
+            'Barcode',
+            'Item ID',
+            'Physical Stocks Qty',
+            'Good Items',
+            'Damaged Items',
+            'Quantity',
+        ] as $index => $heading) {
+            $xml .= self::inlineCell(self::columnName($index + 1).'2', $heading, 3);
+        }
+        $xml .= self::inlineCell('H2', '', 3).'</row>';
+
+        foreach ($items as $index => $item) {
+            $rowNumber = $index + 3;
+            $values = [
+                $item['name'],
+                $item['barcode'],
+                $item['item_id'],
+                $item['physical_stock'],
+                $item['good_stock'],
+                $item['damaged_stock'],
+                $item['quantity'],
+            ];
+            $xml .= '<row r="'.$rowNumber.'" ht="20.1" customHeight="1">';
+            foreach ($values as $columnIndex => $value) {
+                $cell = self::columnName($columnIndex + 1).$rowNumber;
+                $style = $columnIndex >= 2 ? 5 : 4;
+                $xml .= is_int($value)
+                    ? '<c r="'.$cell.'" s="'.$style.'"><v>'.$value.'</v></c>'
+                    : self::inlineCell($cell, (string) $value, $style);
+            }
+            $xml .= '</row>';
+        }
+
+        $xml .= '</sheetData><mergeCells count="3"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/><mergeCell ref="G1:H1"/></mergeCells>'
+            .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
+            .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
+            .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
+
+        $files['xl/workbook.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            .'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            .'<sheets><sheet name="Inventory Items" sheetId="1" r:id="rId1"/></sheets></workbook>';
+        $files['xl/worksheets/sheet1.xml'] = $xml;
+
+        return $files;
     }
 
     private static function stylesXml(): string

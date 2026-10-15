@@ -276,6 +276,15 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
     Route::get('/inventory-transactions/product-worksheet', [InventoryTransactionController::class, 'downloadProductWorksheet'])
         ->middleware('can:manage-branch-transfers')
         ->name('inventory-transactions.product-worksheet');
+    Route::get('/inventory-transactions/items-workbook', [InventoryTransactionController::class, 'downloadInventoryItemsWorkbook'])
+        ->middleware('can:view-inventory')
+        ->name('inventory-transactions.items-workbook');
+    Route::post('/inventory-transactions/items-workbook/import', [InventoryTransactionController::class, 'importInventoryItemsWorkbook'])
+        ->middleware('can:view-inventory')
+        ->name('inventory-transactions.items-workbook.import');
+    Route::post('/inventory-transactions/items-workbook/export', [InventoryTransactionController::class, 'exportInventoryItemsWorkbook'])
+        ->middleware('can:view-inventory')
+        ->name('inventory-transactions.items-workbook.export');
 
     Route::get('/inventory-transactions/branch-transfer/create', [InventoryTransactionController::class, 'create'])
         ->middleware('can:view-inventory')
