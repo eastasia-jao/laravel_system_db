@@ -18,19 +18,29 @@ class ProductExportWorkbook
 
     private static function readRows(string $csv): array
     {
+        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $csv) ?? $csv;
         $stream = fopen('php://temp', 'r+');
         fwrite($stream, $csv);
         rewind($stream);
         $rows = [];
+        $identifierColumns = [];
 
         try {
             while (($row = fgetcsv($stream)) !== false) {
                 if ($rows === [] && isset($row[0])) {
                     $row[0] = preg_replace('/^\xEF\xBB\xBF/', '', $row[0]);
-                }
-                if ($rows !== []) {
-                    $row[1] = CsvIdentifier::read($row[1] ?? '', 'Item ID');
-                    $row[4] = CsvIdentifier::read($row[4] ?? '', 'Barcode');
+                    foreach ($row as $columnIndex => $header) {
+                        $normalizedHeader = strtolower(trim((string) $header));
+                        if ($normalizedHeader === 'item id') {
+                            $identifierColumns[$columnIndex] = 'Item ID';
+                        } elseif ($normalizedHeader === 'barcode') {
+                            $identifierColumns[$columnIndex] = 'Barcode';
+                        }
+                    }
+                } else {
+                    foreach ($identifierColumns as $columnIndex => $label) {
+                        $row[$columnIndex] = CsvIdentifier::read($row[$columnIndex] ?? '', $label);
+                    }
                 }
                 $rows[] = $row;
             }
