@@ -168,6 +168,62 @@ class InventoryItemsWorkbookTest extends TestCase
         }
     }
 
+    public function test_inventory_workbook_import_skips_zero_quantities(): void
+    {
+        [$headOffice, $branch] = $this->hubs();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $products = collect([
+            ['name' => 'Zero Stock Product', 'item_id' => 'ZERO-1', 'quantity' => 0],
+            ['name' => 'Formatted Zero Product', 'item_id' => 'ZERO-2', 'quantity' => '0.0'],
+            ['name' => 'Transfer Product', 'item_id' => 'TRANSFER-3', 'quantity' => 5],
+        ])->map(function (array $item) use ($branch) {
+            Product::create([
+                'name' => $item['name'],
+                'item_id' => $item['item_id'],
+                'barcode' => $item['item_id'].'-BAR',
+                'store_hub_id' => $branch->id,
+                'stock' => 5,
+                'status' => 'active',
+            ]);
+
+            return $item;
+        });
+        $workbookPath = EventPulloutWorkbook::createInventoryItems($products->map(fn (array $item) => [
+            'name' => $item['name'],
+            'barcode' => $item['item_id'].'-BAR',
+            'item_id' => $item['item_id'],
+            'physical_stock' => 5,
+            'quantity' => $item['quantity'],
+        ])->all(), ['target' => $headOffice->name]);
+        $uploadPath = tempnam(sys_get_temp_dir(), 'inventory-workbook-import-');
+        copy($workbookPath, $uploadPath);
+
+        try {
+            $this->actingAs($admin)
+                ->post(route('inventory-transactions.items-workbook.import'), [
+                    'hub_id' => $branch->id,
+                    'type' => 'stock_transfer',
+                    'file' => new UploadedFile(
+                        $uploadPath,
+                        'branch-to-head-office.xlsx',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        null,
+                        true
+                    ),
+                ])
+                ->assertOk()
+                ->assertJsonCount(1, 'items')
+                ->assertJsonPath('items.0.quantity', 5);
+        } finally {
+            if (file_exists($workbookPath)) {
+                unlink($workbookPath);
+            }
+            if (file_exists($uploadPath)) {
+                unlink($uploadPath);
+            }
+        }
+    }
+
     private function hubs(): array
     {
         return [

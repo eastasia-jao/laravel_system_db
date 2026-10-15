@@ -130,9 +130,10 @@ class InventoryTransactionController extends Controller
             throw ValidationException::withMessages(['file' => $exception->getMessage()]);
         }
 
+        $isZeroQuantity = static fn (string $quantity): bool => preg_match('/^\+?0+(?:\.0+)?$/', trim($quantity)) === 1;
         $rowsToMatch = array_values(array_filter(
             $workbook['items'],
-            fn (array $row) => trim($row['quantity']) !== ''
+            fn (array $row) => trim($row['quantity']) !== '' && ! $isZeroQuantity($row['quantity'])
         ));
         $productsByItemId = [];
         $productsByBarcode = [];
@@ -168,7 +169,7 @@ class InventoryTransactionController extends Controller
         $errors = [];
         foreach ($workbook['items'] as $index => $row) {
             $quantity = trim($row['quantity']);
-            if ($quantity === '') {
+            if ($quantity === '' || $isZeroQuantity($quantity)) {
                 continue;
             }
             $line = $index + 3;
