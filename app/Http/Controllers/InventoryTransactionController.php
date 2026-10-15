@@ -317,7 +317,7 @@ class InventoryTransactionController extends Controller
         $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
         $items = Product::where('store_hub_id', $hub->id)
             ->where('status', 'active')
-            ->orderByCatalog()
+            ->orderByCatalog('item_id')
             ->get()
             ->map(fn (Product $product) => [
                 'name' => $product->description ?: $product->name,

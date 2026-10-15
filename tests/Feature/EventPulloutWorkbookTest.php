@@ -108,6 +108,32 @@ class EventPulloutWorkbookTest extends TestCase
             ->assertDontSee('Download CSV Worksheet');
     }
 
+    public function test_event_worksheet_sorts_products_naturally_by_item_id(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office',
+            'code' => 'EVENT-HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        foreach ([10, 2, 1] as $itemId) {
+            Product::create([
+                'name' => 'Product '.$itemId,
+                'item_id' => (string) $itemId,
+                'store_hub_id' => $hub->id,
+                'stock' => 5,
+                'status' => 'active',
+            ]);
+        }
+
+        $response = $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('inventory-transactions.sponsor.worksheet', ['hub_id' => $hub->id]))
+            ->assertOk();
+
+        $workbook = EventPulloutWorkbook::read($response->baseResponse->getFile()->getPathname());
+        $this->assertSame(['1', '2', '10'], array_column($workbook['items'], 'item_id'));
+    }
+
     public function test_selected_event_export_marks_good_and_damaged_rows_for_reimport(): void
     {
         $hub = StoreHub::create([
