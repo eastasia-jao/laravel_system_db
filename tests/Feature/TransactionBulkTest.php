@@ -681,6 +681,7 @@ class TransactionBulkTest extends TestCase
             'type' => 'sponsor_workshop',
         ]))->assertOk()
             ->assertSee('<strong>'.$eventReference.'</strong>', false)
+            ->assertDontSee('total pulled out')
             ->assertSee('Pull-Out Qty (record only): 3')
             ->assertSee('Pull-Out Qty (record only): 2');
 

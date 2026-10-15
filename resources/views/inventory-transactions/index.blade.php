@@ -292,10 +292,8 @@
                             <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} total sold</small>
                         @elseif($isTransferGroup)
                             <strong>{{ $transaction->reference ?: '—' }}</strong>
-                            <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} total transferred</small>
                         @elseif($isSponsorGroup)
                             <strong>{{ $transaction->reference ?: '—' }}</strong>
-                            <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} total pulled out{{ $transaction->source ? ' · '.$transaction->source : '' }}</small>
                         @elseif($isNationalPulloutGroup)
                             <strong>P.O. # {{ $nationalPullout?->po_number ?? $transaction->reference }}</strong>
                             <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} actual pull-out</small>

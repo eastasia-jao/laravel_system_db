@@ -404,6 +404,7 @@ class BranchTransferTest extends TestCase
                 ->assertOk()
                 ->assertSee('.log-type-badge.transfer { width: 14.5rem; justify-content: center;', false)
                 ->assertSee('<strong>'.\App\Models\InventoryTransaction::where('type', 'branch_transfer')->latest('id')->value('reference').'</strong>', false)
+                ->assertDontSee('total transferred')
                 ->assertSee('BRANCH to BRANCH')
                 ->assertDontSee('class="badge mt-1 d-table text-bg-success">APPROVED</span>', false)
                 ->assertDontSee('Stock Transfer (Branch to Branch)');
