@@ -349,6 +349,12 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Valid pull-out consumes Good and Damaged stock separately and creates grouped logs.
 - [ ] Invalid or over-stock request fails atomically.
 - [ ] Event return restores Good and Damaged quantities to their original conditions and rejects over-return.
+- [ ] Confirmed pull-out creates one Event Inventory ledger without deducting stock a second time when viewed or tracked.
+- [ ] Event Inventory compares Actual Released, Sold, Returned Good, Returned Damaged, Remaining, and Missing quantities per product.
+- [ ] Event sale creates a linked sales/audit record, deducts only the Event balance, and leaves Head Office physical stock and marketplace allocations unchanged.
+- [ ] Event Return Items limits returnable quantity to `Actual Released - Event Sold - Previously Returned`.
+- [ ] Reconcile & Close records unresolved remaining quantities as missing, locks further Event sales/returns, and preserves the audit history.
+- [ ] Event Inventory routes are restricted to Admin and Inventory Staff in both the UI and direct requests.
 - [ ] Large workbook import matches products in bounded batches and preserves identifiers.
 
 ## 23. National Inventory and National Pull-out

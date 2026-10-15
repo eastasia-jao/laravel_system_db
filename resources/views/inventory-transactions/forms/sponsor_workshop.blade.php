@@ -128,8 +128,8 @@
                 <div id="sponsorItemsHeader" class="row g-2 fw-semibold text-muted small">
                     <div class="col-md-5">Product</div>
                     <div class="col-md-2">Condition</div>
-                    <div class="col-md-2">Pull-Out Qty</div>
-                    <div class="col-md-2">Actual Pull Out</div>
+                    <div class="col-md-2">Requested Qty</div>
+                    <div class="col-md-2">Actual Released Qty</div>
                     <div class="col-md-1">Action</div>
                 </div>
                 <div id="sponsorItems">
@@ -137,8 +137,8 @@
                         <div class="col-md-5"><input type="search" class="form-control product-search" list="sponsorProductOptions" placeholder="Search product name or Item ID" autocomplete="off" aria-label="Product" required>
                             <input type="hidden" name="items[0][product_id]" class="product-id"></div>
                         <div class="col-md-2"><select name="items[0][stock_condition]" class="form-select" aria-label="Stock condition"><option value="good">Good</option><option value="damaged">Damaged</option></select></div>
-                        <div class="col-md-2"><input type="number" name="items[0][pullout_qty]" min="0" step="1" class="form-control" aria-label="Pull-Out Qty (record only)" placeholder="Pull-Out Qty"></div>
-                        <div class="col-md-2"><input type="number" name="items[0][quantity]" min="1" class="form-control" aria-label="Actual Pull Out" placeholder="Actual Pull Out" required></div>
+                        <div class="col-md-2"><input type="number" name="items[0][pullout_qty]" min="0" step="1" class="form-control" aria-label="Requested Qty (record only)" placeholder="Requested Qty"></div>
+                        <div class="col-md-2"><input type="number" name="items[0][quantity]" min="1" class="form-control" aria-label="Actual Released Qty" placeholder="Actual Released Qty" required></div>
                         <div class="col-md-1"><button type="button" class="btn btn-outline-danger remove-sponsor-item" aria-label="Remove item" disabled><i class="fa-solid fa-trash"></i></button></div>
                     </div>
                 </div>
@@ -424,8 +424,8 @@
         row.innerHTML = `<div class="col-md-5"><input type="search" class="form-control product-search" list="sponsorProductOptions" placeholder="Search product name or Item ID" autocomplete="off" aria-label="Product" required>
             <input type="hidden" name="items[${itemIndex}][product_id]" class="product-id"></div>
             <div class="col-md-2"><select name="items[${itemIndex}][stock_condition]" class="form-select" aria-label="Stock condition"><option value="good">Good</option><option value="damaged">Damaged</option></select></div>
-            <div class="col-md-2"><input type="number" name="items[${itemIndex}][pullout_qty]" min="0" step="1" class="form-control" aria-label="Pull-Out Qty (record only)" placeholder="Pull-Out Qty"></div>
-            <div class="col-md-2"><input type="number" name="items[${itemIndex}][quantity]" min="1" class="form-control" aria-label="Actual Pull Out" placeholder="Actual Pull Out" required></div>
+            <div class="col-md-2"><input type="number" name="items[${itemIndex}][pullout_qty]" min="0" step="1" class="form-control" aria-label="Requested Qty (record only)" placeholder="Requested Qty"></div>
+            <div class="col-md-2"><input type="number" name="items[${itemIndex}][quantity]" min="1" class="form-control" aria-label="Actual Released Qty" placeholder="Actual Released Qty" required></div>
             <div class="col-md-1"><button type="button" class="btn btn-outline-danger remove-sponsor-item" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div>`;
         container.appendChild(row);
         bindProductSearch(row);

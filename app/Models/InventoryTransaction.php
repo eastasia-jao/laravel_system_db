@@ -12,6 +12,7 @@ class InventoryTransaction extends Model
         'target_hub_id', 'channel', 'source', 'condition', 'quantity', 'pullout_qty',
         'occurred_on', 'notes', 'created_by', 'sales_transaction_id',
         'transaction_item_id', 'product_replacement_id',
+        'event_pullout_id', 'event_pullout_item_id',
         'national_pullout_id', 'national_pullout_item_id', 'national_product_id',
         'refund_amount', 'transfer_batch_id', 'status', 'reviewed_by',
         'reviewed_at', 'rejection_reason',
@@ -33,6 +34,16 @@ class InventoryTransaction extends Model
     public function nationalProduct(): BelongsTo
     {
         return $this->belongsTo(NationalProduct::class);
+    }
+
+    public function eventPullout(): BelongsTo
+    {
+        return $this->belongsTo(EventPullout::class);
+    }
+
+    public function eventPulloutItem(): BelongsTo
+    {
+        return $this->belongsTo(EventPulloutItem::class);
     }
 
     public function nationalPullout(): BelongsTo

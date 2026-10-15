@@ -561,8 +561,8 @@ class TransactionBulkTest extends TestCase
             ->assertSee('Reference Document No.')
             ->assertSee('id="sponsorItemsHeader"', false)
             ->assertSee('aria-label="Product"', false)
-            ->assertSee('aria-label="Actual Pull Out"', false)
-            ->assertSee('aria-label="Pull-Out Qty (record only)"', false)
+            ->assertSee('aria-label="Actual Released Qty"', false)
+            ->assertSee('aria-label="Requested Qty (record only)"', false)
             ->assertSee('readonly', false)
             ->assertSee('SW-HEAD-OFFICE-'.now()->format('Ymd').'-', false);
         $this->assertSame($hub->id, $formResponse->viewData('hubId'));
@@ -645,7 +645,7 @@ class TransactionBulkTest extends TestCase
         $this->assertLessThan(
             strpos($formHtml, 'name="items[0][quantity]"'),
             strpos($formHtml, 'name="items[0][pullout_qty]"'),
-            'The record-only Pull-Out Qty field should appear before Actual Pull Out.'
+            'The record-only Requested Qty field should appear before Actual Released Qty.'
         );
 
         $this->post(route('inventory-transactions.store'), [
@@ -682,8 +682,8 @@ class TransactionBulkTest extends TestCase
         ]))->assertOk()
             ->assertSee('<strong>'.$eventReference.'</strong>', false)
             ->assertDontSee('total pulled out')
-            ->assertSee('Pull-Out Qty (record only): 3')
-            ->assertSee('Pull-Out Qty (record only): 2');
+            ->assertSee('Requested Qty: 3')
+            ->assertSee('Requested Qty: 2');
 
         $this->post(route('inventory-transactions.store'), [
             'type' => 'sponsor_workshop',

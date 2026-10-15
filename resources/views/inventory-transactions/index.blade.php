@@ -107,6 +107,7 @@
             $inventoryActions = [
                 ['route' => 'inventory-transactions.transfer.create', 'icon' => 'fa-truck-ramp-box', 'title' => 'Stock Transfer', 'text' => 'HO ↔ Branch'],
                 ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-people-group', 'title' => 'Event / Fully Booked', 'text' => 'Events and orders', 'pending' => $fullyBookedPulloutCount],
+                ['route' => 'event-inventory.index', 'icon' => 'fa-tents', 'title' => 'Event Inventory', 'text' => 'Sales and closeout'],
                 ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock / Added from Request (Warehouse HO)', 'text' => 'Warehouse request'],
                 ['route' => 'inventory-transactions.return.create', 'icon' => 'fa-rotate-left', 'title' => 'Return Items', 'text' => 'Good or damaged'],
             ];
@@ -128,7 +129,7 @@
                 ]]);
             }
         @endphp
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-{{ count($inventoryActions) }} g-3 mb-3 transaction-log-actions">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3 mb-3 transaction-log-actions">
             @foreach($inventoryActions as $action)
                 <div class="col"><a href="{{ route($action['route'], ['hub_id' => $action['hub_id'] ?? $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100 position-relative">
                     <i class="fa-solid {{ $action['icon'] }} text-primary fs-4 mb-2"></i><strong class="text-dark">{{ $action['title'] }}</strong><small class="text-muted">{{ $action['text'] }}</small>
@@ -534,10 +535,10 @@
                                 </div>
                                 <div class="col-12">
                                     <div class="transfer-detail-section">
-                                        <div class="transfer-detail-section-header"><span class="transfer-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2" style="color:#6d28d9;"></i>Items pulled out</span><span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} actual pull out{{ $group->sum('pullout_qty') ? ' · '.$group->sum('pullout_qty').' Pull-Out Qty (record only)' : '' }}</span></div>
+                                        <div class="transfer-detail-section-header"><span class="transfer-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2" style="color:#6d28d9;"></i>Items pulled out</span><span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} actual released{{ $group->sum('pullout_qty') ? ' · '.$group->sum('pullout_qty').' requested' : '' }}</span></div>
                                         @foreach($group as $entry)
                                             <div class="transfer-detail-item">
-                                                <div><div class="transfer-detail-item-name">{{ $entry->product?->name ?? 'Unknown product' }}</div><div class="transfer-detail-item-id">Item ID: {{ $entry->product?->item_id ?? '—' }}{{ $entry->pullout_qty !== null ? ' · Pull-Out Qty (record only): '.$entry->pullout_qty : '' }}</div></div>
+                                                <div><div class="transfer-detail-item-name">{{ $entry->product?->name ?? 'Unknown product' }}</div><div class="transfer-detail-item-id">Item ID: {{ $entry->product?->item_id ?? '—' }}{{ $entry->pullout_qty !== null ? ' · Requested Qty: '.$entry->pullout_qty : '' }}</div></div>
                                                 <div class="transfer-detail-qty">Actual {{ $entry->quantity }}</div>
                                             </div>
                                         @endforeach

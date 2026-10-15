@@ -154,6 +154,13 @@
             </a>
         </li>
         @endcan
+        @can('manage-inventory')
+        <li>
+            <a href="{{ route('event-inventory.index', $sidebarContextHubId ? ['hub_id' => $sidebarContextHubId] : []) }}" class="nav-link {{ request()->routeIs('event-inventory.*') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
+                <i class="fa-solid fa-tents"></i> Event Inventory
+            </a>
+        </li>
+        @endcan
         @can('manage-branch-returns')
         @if(auth()->user()?->role !== 'inventory_staff' && $sidebarContextHub && ! $sidebarContextHub->is_head_office)
         <li>

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ConfigurationController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EventInventoryController;
 use App\Http\Controllers\HubController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
@@ -220,6 +221,9 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
 
     // Product creating/editing/deleting inventory (admin + inventory staff)
     Route::middleware(['can:manage-inventory'])->group(function () {
+        Route::get('/event-inventory', [EventInventoryController::class, 'index'])->name('event-inventory.index');
+        Route::post('/event-inventory/{eventPullout}/sales', [EventInventoryController::class, 'storeSale'])->name('event-inventory.sales.store');
+        Route::patch('/event-inventory/{eventPullout}/close', [EventInventoryController::class, 'close'])->name('event-inventory.close');
         Route::get('/products/national', [NationalInventoryController::class, 'index'])->name('national-inventory.index');
         Route::post('/products/national/import', [NationalInventoryController::class, 'import'])->name('national-inventory.import');
         Route::get('/products/national/export', [NationalInventoryController::class, 'export'])->name('national-inventory.export');

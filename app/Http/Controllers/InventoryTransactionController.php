@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EventPullout;
 use App\Models\FullyBookedOrder;
 use App\Models\InventoryTransaction;
 use App\Models\NationalProduct;
@@ -588,11 +589,25 @@ class InventoryTransactionController extends Controller
 
             if ($request->filled('event_reference')) {
                 $reference = $validated['event_reference'];
+                $event = EventPullout::query()
+                    ->where('store_hub_id', $validated['hub_id'])
+                    ->where('reference', $reference)
+                    ->first();
                 $pullouts = $eventQuery->where('reference', $reference)
                     ->with('product')
                     ->orderBy('id')
                     ->get();
                 abort_if($pullouts->isEmpty(), 404, 'Event pullout reference not found.');
+                abort_if($event?->status === 'closed', 422, 'Closed events cannot accept additional returns.');
+                $soldByProduct = $event
+                    ? InventoryTransaction::query()
+                        ->where('event_pullout_id', $event->id)
+                        ->where('type', 'sold')
+                        ->where('channel', 'event')
+                        ->selectRaw('product_id, SUM(quantity) as sold_quantity')
+                        ->groupBy('product_id')
+                        ->pluck('sold_quantity', 'product_id')
+                    : collect();
                 $returnedByProduct = InventoryTransaction::query()
                     ->where('store_hub_id', $validated['hub_id'])
                     ->where('type', 'return')
@@ -602,7 +617,7 @@ class InventoryTransactionController extends Controller
                     ->groupBy('product_id')
                     ->pluck('returned_quantity', 'product_id');
                 $items = $pullouts->groupBy('product_id')
-                    ->map(function ($rows, $productId) use ($returnedByProduct) {
+                    ->map(function ($rows, $productId) use ($returnedByProduct, $soldByProduct) {
                         $first = $rows->first();
 
                         return [
@@ -610,6 +625,7 @@ class InventoryTransactionController extends Controller
                             'name' => $first->product?->name ?? 'Product #'.$productId,
                             'item_id' => $first->product?->item_id,
                             'quantity' => (int) $rows->sum('quantity'),
+                            'sold_quantity' => (int) ($soldByProduct[$productId] ?? 0),
                             'returned_quantity' => (int) ($returnedByProduct[$productId] ?? 0),
                             'unit_price' => 0,
                         ];
@@ -628,6 +644,20 @@ class InventoryTransactionController extends Controller
 
             $pullouts = $eventQuery->orderByDesc('occurred_on')->orderByDesc('id')->get();
             $references = $pullouts->groupBy('reference');
+            $eventsByReference = EventPullout::query()
+                ->where('store_hub_id', $validated['hub_id'])
+                ->whereIn('reference', $references->keys())
+                ->get()
+                ->keyBy('reference');
+            $sold = InventoryTransaction::query()
+                ->whereIn('event_pullout_id', $eventsByReference->pluck('id'))
+                ->where('type', 'sold')
+                ->where('channel', 'event')
+                ->selectRaw('event_pullout_id, product_id, SUM(quantity) as sold_quantity')
+                ->groupBy('event_pullout_id', 'product_id')
+                ->get()
+                ->groupBy('event_pullout_id')
+                ->map(fn ($rows) => $rows->keyBy('product_id'));
             $returned = InventoryTransaction::query()
                 ->where('store_hub_id', $validated['hub_id'])
                 ->where('type', 'return')
@@ -641,11 +671,17 @@ class InventoryTransactionController extends Controller
 
             return response()->json([
                 'orders' => $references
-                    ->filter(function ($rows, $reference) use ($returned) {
+                    ->filter(function ($rows, $reference) use ($returned, $sold, $eventsByReference) {
+                        $event = $eventsByReference->get($reference);
+                        if ($event?->status === 'closed') {
+                            return false;
+                        }
                         $alreadyReturned = $returned->get($reference, collect());
+                        $alreadySold = $event ? $sold->get($event->id, collect()) : collect();
 
                         return $rows->groupBy('product_id')->contains(
                             fn ($productRows, $productId) => (int) $productRows->sum('quantity')
+                                - (int) ($alreadySold->get($productId)?->sold_quantity ?? 0)
                                 > (int) ($alreadyReturned->get($productId)?->returned_quantity ?? 0)
                         );
                     })
@@ -1812,6 +1848,16 @@ class InventoryTransactionController extends Controller
                     'pullout_qty' => $rows->sum(fn ($item) => (int) ($item['pullout_qty'] ?? 0)),
                 ]);
 
+            $event = EventPullout::create([
+                'reference' => $validated['reference'],
+                'store_hub_id' => $validated['store_hub_id'],
+                'source' => $validated['source'],
+                'occurred_on' => $validated['occurred_on'],
+                'notes' => $validated['notes'] ?? null,
+                'status' => 'open',
+                'created_by' => auth()->id(),
+            ]);
+
             foreach ($quantities as $stockKey => $amounts) {
                 [$productId, $stockCondition] = explode(':', (string) $stockKey, 2);
                 $quantity = $amounts['quantity'];
@@ -1829,11 +1875,19 @@ class InventoryTransactionController extends Controller
                 }
 
                 $product->decrement($stockColumn, $quantity);
+                $eventItem = $event->items()->create([
+                    'product_id' => $product->id,
+                    'stock_condition' => $stockCondition,
+                    'requested_quantity' => $amounts['pullout_qty'] > 0 ? $amounts['pullout_qty'] : null,
+                    'quantity' => $quantity,
+                ]);
                 InventoryTransaction::create([
                     'type' => 'sponsor_workshop',
                     'reference' => $validated['reference'],
                     'store_hub_id' => $product->store_hub_id,
                     'product_id' => $product->id,
+                    'event_pullout_id' => $event->id,
+                    'event_pullout_item_id' => $eventItem->id,
                     'source' => $validated['source'],
                     'condition' => $stockCondition,
                     'quantity' => $quantity,
@@ -2147,6 +2201,14 @@ class InventoryTransactionController extends Controller
 
         $batchId = (string) Str::uuid();
         DB::transaction(function () use ($validated, $quantities, $batchId) {
+            $event = EventPullout::query()
+                ->where('store_hub_id', $validated['store_hub_id'])
+                ->where('reference', $validated['event_reference'])
+                ->lockForUpdate()
+                ->first();
+            if ($event?->status === 'closed') {
+                throw ValidationException::withMessages(['event_reference' => 'Closed events cannot accept additional returns.']);
+            }
             $pullouts = InventoryTransaction::query()
                 ->where('store_hub_id', $validated['store_hub_id'])
                 ->where('type', 'sponsor_workshop')
@@ -2172,12 +2234,23 @@ class InventoryTransactionController extends Controller
                 ->selectRaw('product_id, SUM(quantity) as returned_quantity')
                 ->groupBy('product_id')
                 ->pluck('returned_quantity', 'product_id');
+            $alreadySold = $event
+                ? InventoryTransaction::query()
+                    ->where('event_pullout_id', $event->id)
+                    ->where('type', 'sold')
+                    ->where('channel', 'event')
+                    ->whereIn('product_id', $quantities->keys())
+                    ->selectRaw('product_id, SUM(quantity) as sold_quantity')
+                    ->groupBy('product_id')
+                    ->pluck('sold_quantity', 'product_id')
+                : collect();
 
             foreach ($quantities as $productId => $amounts) {
                 $productPullouts = $pullouts->get($productId);
                 $product = $products->get((int) $productId);
                 $quantity = $amounts['good'] + $amounts['damaged'];
                 $available = (int) ($productPullouts?->sum('quantity') ?? 0)
+                    - (int) ($alreadySold[$productId] ?? 0)
                     - (int) ($alreadyReturned[$productId] ?? 0);
                 if (! $product || ! $productPullouts || $quantity > $available) {
                     throw ValidationException::withMessages([
@@ -2201,6 +2274,7 @@ class InventoryTransactionController extends Controller
                         'reference' => $validated['event_reference'],
                         'store_hub_id' => $product->store_hub_id,
                         'product_id' => $product->id,
+                        'event_pullout_id' => $event?->id,
                         'channel' => 'event',
                         'source' => $productPullouts->first()->source,
                         'condition' => $condition,

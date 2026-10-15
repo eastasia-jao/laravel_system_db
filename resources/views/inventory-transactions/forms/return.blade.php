@@ -102,6 +102,8 @@
     const attachmentPreview = document.getElementById('returnAttachmentPreview');
     const notes = document.getElementById('returnNotes');
     const notesCount = document.getElementById('returnNotesCount');
+    const presetChannel = @json(request('channel'));
+    const presetReference = @json(request('event_reference'));
     notes?.addEventListener('input', () => { notesCount.textContent = notes.value.length; });
     const setOptions = (select, items, placeholder, label) => {
         select.replaceChildren(new Option(placeholder, ''));
@@ -174,6 +176,10 @@
                 container.innerHTML = data.orders?.length
                     ? `<div class="text-muted p-3">Select ${isNational ? 'a P.O. number' : isEvent ? 'an Event reference' : 'an order number'} to load its ${isEvent ? 'pulled-out' : 'ordered'} products.</div>`
                     : `<div class="alert alert-warning mb-0">No ${isNational ? 'returnable National Bookstore records' : isEvent ? 'returnable Event pullouts' : 'Fully Booked orders'} were found${isNational ? '.' : ' on the selected date.'}</div>`;
+                if (isEvent && presetReference && [...order.options].some(option => option.value === presetReference)) {
+                    order.value = presetReference;
+                    order.dispatchEvent(new Event('change'));
+                }
                 return;
             }
             setOptions(customer, data.customers || [], 'Select customer', value => value);
@@ -210,10 +216,10 @@
             const partialWholesaleReturn = channel.value === 'wholesale' && data.transaction?.payment_status === 'partial';
             const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada', 'national_bookstore', 'event'].includes(channel.value) && !partialWholesaleReturn;
             container.innerHTML = items.length ? items.map((item, index) => {
-                const remaining = Math.max(0, item.quantity - (item.returned_quantity || 0));
+                const remaining = Math.max(0, item.quantity - (item.sold_quantity || 0) - (item.returned_quantity || 0));
                 return `
                 <div class="return-item ${supportsAutoRefund ? '' : 'return-item-no-refund'}" data-unit-price="${Number(item.unit_price || 0)}" data-discount="${Number(item.discount_percentage || 0)}">
-                    <div><label class="form-label d-block">${item.item_id || ''}${item.replacement_id ? ' (Replacement)' : ''}</label><input class="form-control" value="${item.name}" readonly>${isNational
+                    <div><label class="form-label d-block">${item.item_id || ''}${item.replacement_id ? ' (Replacement)' : ''}</label><input class="form-control" value="${item.name}" readonly>${isEvent ? `<div class="form-text">Pulled ${item.quantity} · Sold ${item.sold_quantity || 0} · Already returned ${item.returned_quantity || 0} · Returnable ${remaining}</div>` : ''}${isNational
                         ? `<input type="hidden" name="items[${index}][national_product_id]" value="${item.national_product_id}"><input type="hidden" name="items[${index}][national_pullout_item_id]" value="${item.national_pullout_item_id}">`
                         : isEvent
                             ? `<input type="hidden" name="items[${index}][product_id]" value="${item.product_id}">`
@@ -249,7 +255,8 @@
         } catch { window.AppAlert?.show('Could not load the order items.', 'error'); }
     });
     returnDate.addEventListener('change', () => channel.dispatchEvent(new Event('change')));
-    if (channel.value === 'walk_in') channel.dispatchEvent(new Event('change'));
+    if (presetChannel && [...channel.options].some(option => option.value === presetChannel)) channel.value = presetChannel;
+    if (channel.value) channel.dispatchEvent(new Event('change'));
 })();
 </script>
 @endpush

@@ -161,6 +161,11 @@ class SalesTransaction extends Model
         return $this->belongsTo(StoreHub::class, 'store_hub_id');
     }
 
+    public function eventPullout(): BelongsTo
+    {
+        return $this->belongsTo(EventPullout::class);
+    }
+
     public function scopeForDateRange($query, $startDate, $endDate)
     {
         return $query->whereBetween('order_date', [$startDate, $endDate]);
