@@ -290,8 +290,11 @@
                         @elseif($isSoldOrder)
                             <strong>Sold order {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</strong>
                             <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} total sold</small>
+                        @elseif($isTransferGroup)
+                            <strong>Transfer Document No. {{ $transaction->reference ?: '—' }}</strong>
+                            <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} total transferred</small>
                         @elseif($isSponsorGroup)
-                            <strong>{{ $transaction->reference ?: '—' }}</strong>
+                            <strong>Transfer Document No. {{ $transaction->reference ?: '—' }}</strong>
                             <small class="d-block text-muted">{{ $group->count() }} item line(s) · {{ $group->sum('quantity') }} total pulled out{{ $transaction->source ? ' · '.$transaction->source : '' }}</small>
                         @elseif($isNationalPulloutGroup)
                             <strong>P.O. # {{ $nationalPullout?->po_number ?? $transaction->reference }}</strong>

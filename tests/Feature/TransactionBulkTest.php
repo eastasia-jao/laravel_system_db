@@ -606,7 +606,7 @@ class TransactionBulkTest extends TestCase
             'hub_id' => $hub->id,
             'type' => 'sponsor_workshop',
         ]))->assertOk()->getContent();
-        $this->assertSame(1, substr_count($logContent, '<strong>'.$transaction->reference.'</strong>'));
+        $this->assertSame(1, substr_count($logContent, '<strong>Transfer Document No. '.$transaction->reference.'</strong>'));
         $this->assertStringContainsString('Workshop Product', $logContent);
         $this->assertStringContainsString('Second Workshop Product', $logContent);
     }
