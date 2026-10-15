@@ -507,8 +507,8 @@ class ProductController extends Controller
                 $knownUnits[$unitTypeName] = true;
             }
 
-            $stockValue = is_numeric(trim((string) ($columnValue($row, 'stock') ?? '')))
-                ? (int) trim($columnValue($row, 'stock'))
+            $stockValue = $columns['stock'] >= 0
+                ? (int) (trim((string) ($columnValue($row, 'stock') ?? '')) ?: 0)
                 : (int) ($existingProduct?->stock ?? 0);
 
             $nameValue = iconv('UTF-8', 'UTF-8//IGNORE', trim((string) ($columnValue($row, 'name') ?? '')));
@@ -541,7 +541,7 @@ class ProductController extends Controller
                     $productData[$field] = $cleanPrice($columnValue($row, $field));
                 }
             }
-            if ($columns['stock'] >= 0 && trim((string) ($columnValue($row, 'stock') ?? '')) !== '') {
+            if ($columns['stock'] >= 0) {
                 $productData['stock'] = $stockValue;
             }
             $savedProduct->fill($productData)->save();

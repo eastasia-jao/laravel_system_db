@@ -69,6 +69,29 @@ class HubQueuedImportTest extends TestCase
         $this->assertEquals(90, $master->fresh()->stock);
     }
 
+    public function test_blank_stock_cell_is_imported_as_zero(): void
+    {
+        Queue::fake();
+        $hub = StoreHub::create(['name' => 'Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true]);
+        $staff = User::factory()->create(['role' => 'inventory_staff']);
+        $product = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'SKU-1', 'name' => 'Original', 'stock' => 15]);
+        $csv = "Item ID,Name,Stock\nSKU-1,Updated product,\n";
+
+        $this->actingAs($staff)
+            ->post(route('hub.products.import', $hub), [
+                'file' => UploadedFile::fake()->createWithContent('products.csv', $csv),
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('hub.dashboard', $hub));
+
+        $record = ProductFileRequest::sole();
+        (new ProcessProductFileRequest($record->id, $staff->id, '127.0.0.1'))->handle();
+
+        $this->assertSame(0, (int) $product->fresh()->stock);
+        $this->assertSame('Updated product', $product->fresh()->name);
+        $this->assertSame('completed', $record->fresh()->processing_status);
+    }
+
     public function test_failed_direct_import_rolls_back_product_and_catalog_changes(): void
     {
         Queue::fake();

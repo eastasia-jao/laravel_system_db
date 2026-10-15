@@ -98,9 +98,10 @@ class ProductFileRequestController extends Controller
                 if (in_array('barcode', $normalizedHeader, true)) {
                     CsvIdentifier::read($row[array_search('barcode', $normalizedHeader, true)] ?? '', "Row {$line} Barcode");
                 }
+                $stock = $stockColumn === false ? '' : trim((string) ($row[$stockColumn] ?? ''));
                 if (count($row) !== count($normalizedHeader) || ! $id || isset($seen[$id])
-                    || ($stockColumn !== false && ! preg_match('/^\d+$/', trim($row[$stockColumn] ?? '')))) {
-                    throw ValidationException::withMessages(['file' => 'Each row must match the CSV header, contain a unique Item ID, and use a nonnegative whole number for Stock when Stock is included.']);
+                    || ($stockColumn !== false && $stock !== '' && ! preg_match('/^\d+$/', $stock))) {
+                    throw ValidationException::withMessages(['file' => 'Each row must match the CSV header, contain a unique Item ID, and use a nonnegative whole number or a blank value for Stock when Stock is included.']);
                 }
                 $seen[$id] = true;
                 $count++;
