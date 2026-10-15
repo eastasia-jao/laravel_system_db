@@ -28,12 +28,19 @@ export function readIdentifier(value) {
     return text;
 }
 export function findReviewProductRow(rows, message) {
-    const productName = message.match(/Not enough (?:(?:good|damaged) )?stock for (.+?)(?:\.|$)/i)?.[1]?.trim()
+    const stockError = message.match(/Not enough (?:(good|damaged) )?stock for (.+?)(?:\.|$)/i);
+    const stockCondition = stockError?.[1]?.toLocaleLowerCase();
+    const productName = stockError?.[2]?.trim()
         || message.match(/The product (.+?) is not listed in the selected target store/i)?.[1]?.trim();
     if (!productName) return null;
     const normalizedName = productName.toLocaleLowerCase();
-    return [...rows].find(row => row.querySelector('.product-search')?.value
-        .toLocaleLowerCase().includes(normalizedName)) || null;
+    const matchingRows = [...rows].filter(row => row.querySelector('.product-search')?.value
+        .toLocaleLowerCase().includes(normalizedName));
+    if (stockCondition) {
+        return matchingRows.find(row => row.querySelector('[name$="[stock_condition]"]')?.value
+            .toLocaleLowerCase() === stockCondition) || null;
+    }
+    return matchingRows[0] || null;
 }
 export function exportFilename(type, hubCode, date = new Date(), transferDirection = 'ho_to_branch') {
     const label = type === 'stock_transfer'

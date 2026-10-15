@@ -43,3 +43,18 @@ test('reviewing a stock error locates the matching product item row', () => {
     assert.equal(findReviewProductRow([first, second], 'Not enough stock for Fredrix Stretched Canvas Roll Label 16x20.'), second);
     assert.equal(findReviewProductRow([first, second], 'Select a valid target store.'), null);
 });
+test('reviewing a condition-specific stock error highlights the matching condition row', () => {
+    const product = 'Fredrix Stretched Canvas Roll Label 12x12';
+    const good = {
+        querySelector: selector => selector === '.product-search'
+            ? { value: `${product} (Item ID: 1)` }
+            : { value: 'good' }
+    };
+    const damaged = {
+        querySelector: selector => selector === '.product-search'
+            ? { value: `${product} (Item ID: 1)` }
+            : { value: 'damaged' }
+    };
+    assert.equal(findReviewProductRow([good, damaged], `Not enough damaged stock for ${product}.`), damaged);
+    assert.equal(findReviewProductRow([good, damaged], `Not enough good stock for ${product}.`), good);
+});
