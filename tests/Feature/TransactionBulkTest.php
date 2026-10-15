@@ -99,6 +99,11 @@ class TransactionBulkTest extends TestCase
             'hub_id' => $branch->id,
             'type' => 'return',
         ]))->assertOk()
+            ->assertSee('Stock movement')
+            ->assertSee('Event operations')
+            ->assertSee('Inventory updates')
+            ->assertSee('HO ↔ Branch Transfer')
+            ->assertSee('Branch ↔ Branch Transfer')
             ->assertSee('Return record')
             ->assertSee('Recorded by')
             ->assertSee('Store Hub')

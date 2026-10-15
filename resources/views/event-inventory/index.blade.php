@@ -8,6 +8,9 @@
     .event-ledger-kpi .value { color: #0f172a; font-size: 1.2rem; font-weight: 800; }
     .event-ledger-table th { white-space: nowrap; color: #64748b; font-size: .72rem; text-transform: uppercase; }
     .event-ledger-table td { vertical-align: middle; }
+    .event-workspace-tabs { border: 1px solid #dbeafe; border-radius: .9rem; background: #f8fafc; padding: .35rem; }
+    .event-workspace-tabs .nav-link { border-radius: .7rem; color: #475569; font-weight: 700; }
+    .event-workspace-tabs .nav-link.active { background: #2563eb; color: #fff; box-shadow: 0 4px 12px rgba(37, 99, 235, .2); }
 </style>
 
 <div class="workspace-page event-inventory-page">
@@ -15,13 +18,19 @@
 
     <div class="d-flex flex-wrap gap-2 mb-3">
         <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId]) }}" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>New Event Pull-Out</a>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#recordEventSaleModal" @disabled($saleEvents->isEmpty())><i class="fa-solid fa-cart-plus me-1"></i>Record Event Sale</button>
         <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $hubId]) }}" class="btn btn-outline-primary"><i class="fa-solid fa-rotate-left me-1"></i>Return Items</a>
-        <a href="{{ route('event-inventory.transactions', ['hub_id' => $hubId]) }}" class="btn btn-outline-primary"><i class="fa-solid fa-clock-rotate-left me-1"></i>Event Transaction Logs</a>
-        <a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary"><i class="fa-solid fa-clipboard-list me-1"></i>General Transaction Logs</a>
     </div>
 
+    <nav class="nav nav-pills event-workspace-tabs mb-3" aria-label="Event Inventory sections">
+        <a class="nav-link flex-fill text-center {{ $section === 'overview' ? 'active' : '' }}" href="{{ route('event-inventory.index', ['hub_id' => $hubId, 'status' => $status, 'section' => 'overview']) }}"><i class="fa-solid fa-boxes-stacked me-1"></i>Inventory Overview</a>
+        <a class="nav-link flex-fill text-center {{ $section === 'transactions' ? 'active' : '' }}" href="{{ route('event-inventory.index', ['hub_id' => $hubId, 'section' => 'transactions']) }}"><i class="fa-solid fa-clock-rotate-left me-1"></i>Event Transaction Logs</a>
+    </nav>
+
+    @if($section === 'overview')
     <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
         <form class="row g-2 align-items-end">
+            <input type="hidden" name="section" value="overview">
             <div class="col-md-4">
                 <label class="small fw-bold text-muted">STORE HUB</label>
                 <select name="hub_id" class="form-select">
@@ -103,9 +112,8 @@
             @endif
 
             <div class="p-3 border-top d-flex flex-wrap gap-2">
-                <a class="btn btn-sm btn-outline-secondary" href="{{ route('event-inventory.transactions', ['hub_id' => $event->store_hub_id, 'event_id' => $event->id]) }}"><i class="fa-solid fa-clock-rotate-left me-1"></i>View Transactions</a>
+                <a class="btn btn-sm btn-outline-secondary" href="{{ route('event-inventory.index', ['hub_id' => $event->store_hub_id, 'section' => 'transactions', 'event_id' => $event->id]) }}"><i class="fa-solid fa-clock-rotate-left me-1"></i>View Event Log</a>
                 @if($event->status === 'open')
-                    <a class="btn btn-sm btn-primary" href="{{ route('event-inventory.sales.create', $event) }}"><i class="fa-solid fa-cart-plus me-1"></i>Record Event Sale</a>
                     <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.return.create', ['hub_id' => $event->store_hub_id, 'channel' => 'event', 'event_reference' => $event->reference]) }}"><i class="fa-solid fa-rotate-left me-1"></i>Return Remaining Items</a>
                     <form method="POST" action="{{ route('event-inventory.close', $event) }}" class="ms-lg-auto" onsubmit="return confirm('Close this event? Any remaining quantity will be recorded as missing and no further sales or returns will be allowed.');">
                         @csrf
@@ -125,5 +133,10 @@
     @endforelse
 
     <div class="mt-3">{{ $events->links() }}</div>
+    @else
+        @include('event-inventory._transactions')
+    @endif
 </div>
+
+@include('event-inventory._sale-modal')
 @endsection

@@ -9,6 +9,7 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\TransactionItem;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,11 +23,19 @@ class EventInventoryController extends Controller
         $validated = $request->validate([
             'hub_id' => ['nullable', 'integer', 'exists:store_hubs,id'],
             'status' => ['nullable', Rule::in(['open', 'closed', 'all'])],
+            'section' => ['nullable', Rule::in(['overview', 'transactions'])],
+            'event_id' => ['nullable', 'integer', 'exists:event_pullouts,id'],
+            'sale_event_id' => ['nullable', 'integer', 'exists:event_pullouts,id'],
+            'activity' => ['nullable', Rule::in(['all', 'pullout', 'sale', 'return', 'missing'])],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
         $hubs = StoreHub::where('status', 'active')->orderBy('name')->get();
         $hubId = (int) ($validated['hub_id'] ?? auth()->user()?->store_hub_id ?? $hubs->first()?->id);
         $status = $validated['status'] ?? 'open';
+        $section = $validated['section'] ?? 'overview';
+        $activity = $validated['activity'] ?? 'all';
 
         $events = EventPullout::query()
             ->with([
@@ -59,64 +68,34 @@ class EventInventoryController extends Controller
             $event->setAttribute('remaining_total', $rows->sum('remaining'));
         });
 
-        return view('event-inventory.index', compact('events', 'hubs', 'hubId', 'status'));
-    }
-
-    public function transactions(Request $request)
-    {
-        $validated = $request->validate([
-            'hub_id' => ['nullable', 'integer', 'exists:store_hubs,id'],
-            'event_id' => ['nullable', 'integer', 'exists:event_pullouts,id'],
-            'activity' => ['nullable', Rule::in(['all', 'pullout', 'sale', 'return', 'missing'])],
-            'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date', 'after_or_equal:from'],
-            'search' => ['nullable', 'string', 'max:100'],
-        ]);
-        $hubs = StoreHub::where('status', 'active')->orderBy('name')->get();
-        $hubId = (int) ($validated['hub_id'] ?? auth()->user()?->store_hub_id ?? $hubs->first()?->id);
-        $activity = $validated['activity'] ?? 'all';
-        $typeForActivity = [
-            'pullout' => 'sponsor_workshop',
-            'sale' => 'sold',
-            'return' => 'return',
-            'missing' => 'event_variance',
-        ];
-
         $eventOptions = EventPullout::query()
             ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
             ->latest('occurred_on')
             ->latest('id')
             ->get(['id', 'reference', 'source', 'occurred_on', 'status']);
-
-        $transactions = InventoryTransaction::query()
-            ->whereNotNull('event_pullout_id')
-            ->with(['eventPullout.storeHub', 'product', 'creator', 'salesTransaction', 'transactionItem'])
+        $saleEvents = EventPullout::query()
+            ->with(['storeHub', 'items.product', 'salesTransactions.items', 'inventoryTransactions'])
+            ->where('status', 'open')
             ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
-            ->when(filled($validated['event_id'] ?? null), fn ($query) => $query->where('event_pullout_id', $validated['event_id']))
-            ->when($activity !== 'all', fn ($query) => $query->where('type', $typeForActivity[$activity]))
-            ->when(filled($validated['from'] ?? null), fn ($query) => $query->whereDate('occurred_on', '>=', $validated['from']))
-            ->when(filled($validated['to'] ?? null), fn ($query) => $query->whereDate('occurred_on', '<=', $validated['to']))
-            ->when(filled($validated['search'] ?? null), function ($query) use ($validated) {
-                $search = trim($validated['search']);
-                $query->where(function ($inner) use ($search) {
-                    $inner->where('reference', 'like', "%{$search}%")
-                        ->orWhere('source', 'like', "%{$search}%")
-                        ->orWhereHas('product', fn ($product) => $product
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('item_id', 'like', "%{$search}%"))
-                        ->orWhereHas('eventPullout', fn ($event) => $event
-                            ->where('reference', 'like', "%{$search}%")
-                            ->orWhere('source', 'like', "%{$search}%"));
-                });
-            })
-            ->orderByDesc('occurred_on')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->paginate(25)
-            ->withQueryString();
+            ->latest('occurred_on')
+            ->latest('id')
+            ->get()
+            ->each(fn (EventPullout $event) => $event->setAttribute('sale_lines', $this->saleLines($event)));
+        $eventTransactionGroups = $section === 'transactions'
+            ? $this->eventTransactionGroups($validated, $hubId, $activity, $request)
+            : null;
 
-        return view('event-inventory.transactions', compact(
-            'transactions', 'eventOptions', 'hubs', 'hubId', 'activity'
+        return view('event-inventory.index', compact(
+            'events', 'eventOptions', 'saleEvents', 'eventTransactionGroups', 'hubs', 'hubId',
+            'status', 'section', 'activity'
+        ));
+    }
+
+    public function transactions(Request $request)
+    {
+        return redirect()->route('event-inventory.index', array_merge(
+            $request->query(),
+            ['section' => 'transactions']
         ));
     }
 
@@ -129,10 +108,10 @@ class EventInventoryController extends Controller
             ])->with('error', 'Closed events cannot accept additional sales.');
         }
 
-        $eventPullout->load(['storeHub', 'items.product', 'salesTransactions.items', 'inventoryTransactions']);
-        $saleLines = $this->saleLines($eventPullout);
-
-        return view('event-inventory.sales.create', compact('eventPullout', 'saleLines'));
+        return redirect()->route('event-inventory.index', [
+            'hub_id' => $eventPullout->store_hub_id,
+            'sale_event_id' => $eventPullout->id,
+        ]);
     }
 
     public function storeSale(Request $request, EventPullout $eventPullout)
@@ -399,6 +378,91 @@ class EventInventoryController extends Controller
                 'remaining' => max(0, $pulled - $sold - $returned - $missing),
             ];
         })->sortBy(fn ($row) => $row['product']?->item_id ?? '')->values();
+    }
+
+    private function eventTransactionGroups(array $validated, int $hubId, string $activity, Request $request): LengthAwarePaginator
+    {
+        $typeForActivity = [
+            'pullout' => 'sponsor_workshop',
+            'sale' => 'sold',
+            'return' => 'return',
+            'missing' => 'event_variance',
+        ];
+        $transactions = InventoryTransaction::query()
+            ->whereNotNull('event_pullout_id')
+            ->with(['eventPullout.storeHub', 'eventPulloutItem', 'product', 'creator', 'salesTransaction', 'transactionItem'])
+            ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
+            ->when(filled($validated['event_id'] ?? null), fn ($query) => $query->where('event_pullout_id', $validated['event_id']))
+            ->when($activity !== 'all', fn ($query) => $query->where('type', $typeForActivity[$activity]))
+            ->when(filled($validated['from'] ?? null), fn ($query) => $query->whereDate('occurred_on', '>=', $validated['from']))
+            ->when(filled($validated['to'] ?? null), fn ($query) => $query->whereDate('occurred_on', '<=', $validated['to']))
+            ->when(filled($validated['search'] ?? null), function ($query) use ($validated) {
+                $search = trim($validated['search']);
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('reference', 'like', "%{$search}%")
+                        ->orWhere('source', 'like', "%{$search}%")
+                        ->orWhereHas('product', fn ($product) => $product
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('item_id', 'like', "%{$search}%"))
+                        ->orWhereHas('eventPullout', fn ($event) => $event
+                            ->where('reference', 'like', "%{$search}%")
+                            ->orWhere('source', 'like', "%{$search}%"));
+                });
+            })
+            ->orderByDesc('occurred_on')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $groups = $transactions->groupBy(function (InventoryTransaction $transaction) {
+            $transactionKey = match ($transaction->type) {
+                'sold' => $transaction->sales_transaction_id ?: $transaction->reference,
+                'return' => $transaction->transfer_batch_id ?: $transaction->id,
+                default => $transaction->reference,
+            };
+
+            return implode('|', [$transaction->event_pullout_id, $transaction->type, $transactionKey]);
+        })->map(function (Collection $rows) {
+            $first = $rows->first();
+            $products = $rows->groupBy('product_id')->map(function (Collection $productRows) {
+                $product = $productRows->first()->product;
+
+                return [
+                    'product' => $product,
+                    'quantity' => (int) $productRows->sum('quantity'),
+                    'conditions' => $productRows->groupBy(fn ($row) => $row->condition ?: $row->eventPulloutItem?->stock_condition ?: 'good')
+                        ->map(fn (Collection $conditionRows) => (int) $conditionRows->sum('quantity')),
+                ];
+            })->values();
+
+            return [
+                'event' => $first->eventPullout,
+                'type' => $first->type,
+                'occurred_on' => $first->occurred_on,
+                'created_at' => $first->created_at,
+                'reference' => $first->salesTransaction?->order_number ?? $first->reference,
+                'sale' => $first->salesTransaction,
+                'creator' => $first->creator,
+                'products' => $products,
+                'quantity' => (int) $products->sum('quantity'),
+            ];
+        })->values();
+
+        $pageName = 'log_page';
+        $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+        $perPage = 15;
+
+        return new LengthAwarePaginator(
+            $groups->forPage($page, $perPage)->values(),
+            $groups->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'pageName' => $pageName,
+                'query' => $request->query(),
+            ]
+        );
     }
 
     private function saleLines(EventPullout $event): Collection

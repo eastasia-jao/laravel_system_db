@@ -92,11 +92,22 @@
     .transfer-activity-context { border-top: 1px dashed #cbd5e1; padding-top: 1rem; }
     .transaction-logs-page .page-hero { padding: 1rem 1.25rem; }
     .transaction-logs-page .page-hero-icon { width: 44px; height: 44px; flex-basis: 44px; border-radius: 12px; }
-    .transaction-log-actions .card { padding: .8rem 1rem !important; }
-    .transaction-log-actions .card > i { margin-bottom: .35rem !important; }
+    .inventory-action-panel { border: 1px solid #dbeafe; background: linear-gradient(135deg, #fff, #f8fbff); }
+    .inventory-action-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
+    .inventory-action-group { min-width: 0; border: 1px solid #e2e8f0; border-radius: .85rem; padding: .8rem; background: #fff; }
+    .inventory-action-group-title { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 .55rem .15rem; }
+    .inventory-action-links { display: grid; gap: .5rem; }
+    .inventory-action-link { display: flex; align-items: center; gap: .7rem; min-height: 58px; padding: .65rem .75rem; border: 1px solid transparent; border-radius: .7rem; color: #0f172a; text-decoration: none; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+    .inventory-action-link:hover { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; transform: translateY(-1px); }
+    .inventory-action-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: .65rem; color: #2563eb; background: #eff6ff; }
+    .inventory-action-copy { min-width: 0; line-height: 1.2; }
+    .inventory-action-copy strong { display: block; font-size: .88rem; }
+    .inventory-action-copy small { display: block; color: #64748b; margin-top: .2rem; }
     @media (max-width: 767.98px) {
         .transaction-logs-page .page-hero { padding: 1rem; }
+        .inventory-action-groups { grid-template-columns: 1fr; }
     }
+    @media (min-width: 768px) and (max-width: 1199.98px) { .inventory-action-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 
 <div class="workspace-page transaction-logs-page">
@@ -104,15 +115,21 @@
 
     @can('manage-inventory')
         @php
-            $inventoryActions = [
-                ['route' => 'inventory-transactions.transfer.create', 'icon' => 'fa-truck-ramp-box', 'title' => 'Stock Transfer', 'text' => 'HO ↔ Branch'],
-                ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-people-group', 'title' => 'Event / Fully Booked', 'text' => 'Events and orders', 'pending' => $fullyBookedPulloutCount],
-                ['route' => 'event-inventory.index', 'icon' => 'fa-tents', 'title' => 'Event Inventory', 'text' => 'Sales and closeout'],
-                ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock / Added from Request (Warehouse HO)', 'text' => 'Warehouse request'],
-                ['route' => 'inventory-transactions.return.create', 'icon' => 'fa-rotate-left', 'title' => 'Return Items', 'text' => 'Good or damaged'],
+            $inventoryActionGroups = [
+                ['label' => 'Stock movement', 'actions' => [
+                    ['route' => 'inventory-transactions.transfer.create', 'icon' => 'fa-truck-ramp-box', 'title' => 'HO ↔ Branch Transfer', 'text' => 'Move stock between Head Office and a branch'],
+                ]],
+                ['label' => 'Event operations', 'actions' => [
+                    ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-people-group', 'title' => 'Event / Fully Booked', 'text' => 'Create pull-outs and process orders', 'pending' => $fullyBookedPulloutCount],
+                    ['route' => 'event-inventory.index', 'icon' => 'fa-tents', 'title' => 'Event Inventory', 'text' => 'Track sales, returns, logs, and closeout'],
+                ]],
+                ['label' => 'Inventory updates', 'actions' => [
+                    ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock from Warehouse', 'text' => 'Record stock added from a request'],
+                    ['route' => 'inventory-transactions.return.create', 'icon' => 'fa-rotate-left', 'title' => 'Return Items', 'text' => 'Restore good or damaged stock'],
+                ]],
             ];
             if ($canUseNationalPullout) {
-                $inventoryActions[] = [
+                $inventoryActionGroups[2]['actions'][] = [
                     'route' => 'national-pullouts.create',
                     'icon' => 'fa-book-open',
                     'title' => 'National Bookstore Pullout',
@@ -121,23 +138,31 @@
                 ];
             }
             if (auth()->user()->can('manage-inventory') || auth()->user()->can('submit-branch-transfers')) {
-                array_splice($inventoryActions, 1, 0, [[
+                $inventoryActionGroups[0]['actions'][] = [
                     'route' => 'inventory-transactions.branch-transfer.create',
                     'icon' => 'fa-right-left',
-                    'title' => 'Stock Transfer',
-                    'text' => 'BRANCH to BRANCH',
-                ]]);
+                    'title' => 'Branch ↔ Branch Transfer',
+                    'text' => 'Move stock directly between branches',
+                ];
             }
         @endphp
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3 mb-3 transaction-log-actions">
-            @foreach($inventoryActions as $action)
-                <div class="col"><a href="{{ route($action['route'], ['hub_id' => $action['hub_id'] ?? $hubId]) }}" class="card border-0 shadow-sm rounded-4 p-3 text-decoration-none h-100 position-relative">
-                    <i class="fa-solid {{ $action['icon'] }} text-primary fs-4 mb-2"></i><strong class="text-dark">{{ $action['title'] }}</strong><small class="text-muted">{{ $action['text'] }}</small>
-                    @if(($action['pending'] ?? 0) > 0)
-                        <span class="badge rounded-pill text-bg-danger position-absolute top-0 end-0 m-3" aria-label="{{ $action['pending'] }} Fully Booked {{ $action['pending'] === 1 ? 'order' : 'orders' }} not yet processed">{{ $action['pending'] }}</span>
-                    @endif
-                </a></div>
-            @endforeach
+        <div class="card inventory-action-panel shadow-sm rounded-4 p-3 mb-3">
+            <div class="inventory-action-groups">
+                @foreach($inventoryActionGroups as $group)
+                    <section class="inventory-action-group">
+                        <h2 class="inventory-action-group-title">{{ $group['label'] }}</h2>
+                        <div class="inventory-action-links">
+                            @foreach($group['actions'] as $action)
+                                <a href="{{ route($action['route'], ['hub_id' => $action['hub_id'] ?? $hubId]) }}" class="inventory-action-link position-relative">
+                                    <span class="inventory-action-icon"><i class="fa-solid {{ $action['icon'] }}"></i></span>
+                                    <span class="inventory-action-copy"><strong>{{ $action['title'] }}</strong><small>{{ $action['text'] }}</small></span>
+                                    @if(($action['pending'] ?? 0) > 0)<span class="badge rounded-pill text-bg-danger ms-auto" aria-label="{{ $action['pending'] }} Fully Booked {{ $action['pending'] === 1 ? 'order' : 'orders' }} not yet processed">{{ $action['pending'] }}</span>@endif
+                                </a>
+                            @endforeach
+                        </div>
+                    </section>
+                @endforeach
+            </div>
         </div>
     @endcan
 

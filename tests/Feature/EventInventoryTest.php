@@ -42,15 +42,28 @@ class EventInventoryTest extends TestCase
             ->assertSee('Event Inventory')
             ->assertSee('October Art Fair')
             ->assertSee($event->reference)
-            ->assertSee('Record Event Sale');
+            ->assertSee('Record Event Sale')
+            ->assertSee('Payment and order summary')
+            ->assertDontSee('General Transaction Logs');
 
         $this->get(route('event-inventory.sales.create', $event))
-            ->assertOk()
-            ->assertSee('Record Event Sale')
-            ->assertSee('Order details')
-            ->assertSee('Order items')
-            ->assertSee('Payment and order summary')
-            ->assertSee('Additional Discount');
+            ->assertRedirect(route('event-inventory.index', [
+                'hub_id' => $hub->id,
+                'sale_event_id' => $event->id,
+            ]));
+
+        $logResponse = $this->get(route('event-inventory.index', [
+            'hub_id' => $hub->id,
+            'section' => 'transactions',
+            'event_id' => $event->id,
+        ]))->assertOk()
+            ->assertSee('Event Transaction Logs')
+            ->assertSee('Good: 5')
+            ->assertSee('Damaged: 2');
+        $this->assertSame(1, substr_count(
+            $logResponse->getContent(),
+            'data-event-log-product="'.$product->id.'"'
+        ));
     }
 
     public function test_event_sale_reduces_only_event_stock_and_return_limit_accounts_for_sold_items(): void
@@ -167,7 +180,7 @@ class EventInventoryTest extends TestCase
         ])->assertSessionHasErrors('event');
     }
 
-    public function test_event_transactions_have_a_separate_filterable_log(): void
+    public function test_event_inventory_contains_a_filterable_transaction_log(): void
     {
         [$admin, $hub, $product] = $this->eventFixture();
         $event = $this->createEvent($admin, $hub, $product, 5);
@@ -188,6 +201,16 @@ class EventInventoryTest extends TestCase
         $this->get(route('event-inventory.transactions', [
             'hub_id' => $hub->id,
             'event_id' => $event->id,
+        ]))->assertRedirect(route('event-inventory.index', [
+            'hub_id' => $hub->id,
+            'event_id' => $event->id,
+            'section' => 'transactions',
+        ]));
+
+        $this->get(route('event-inventory.index', [
+            'hub_id' => $hub->id,
+            'event_id' => $event->id,
+            'section' => 'transactions',
         ]))->assertOk()
             ->assertSee('Event Transaction Logs')
             ->assertSee('Stock entered Event inventory')
@@ -195,10 +218,11 @@ class EventInventoryTest extends TestCase
             ->assertSee($sale->order_number)
             ->assertSee('Log Customer');
 
-        $this->get(route('event-inventory.transactions', [
+        $this->get(route('event-inventory.index', [
             'hub_id' => $hub->id,
             'event_id' => $event->id,
             'activity' => 'sale',
+            'section' => 'transactions',
         ]))->assertOk()
             ->assertSee('Stock sold from Event inventory')
             ->assertDontSee('Stock entered Event inventory');
