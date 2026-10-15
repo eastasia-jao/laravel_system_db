@@ -35,7 +35,7 @@
     .log-type-badge.replacement { color: #1d4ed8; background: #dbeafe; }
     .log-type-badge.return { color: #92400e; background: #fef3c7; }
     .log-type-badge.sold { color: #166534; background: #dcfce7; }
-    .log-type-badge.transfer { color: #6b21a8; background: #f3e8ff; }
+    .log-type-badge.transfer { width: 14.5rem; justify-content: center; color: #6b21a8; background: #f3e8ff; }
     .log-type-badge.other { color: #475569; background: #e2e8f0; }
     .log-detail-title { max-width: 360px; }
     .log-detail-title strong { display: block; overflow: hidden; text-overflow: ellipsis; }

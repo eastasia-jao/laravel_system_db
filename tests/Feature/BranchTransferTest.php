@@ -402,6 +402,7 @@ class BranchTransferTest extends TestCase
 
             $this->get(route('inventory-transactions.index'))
                 ->assertOk()
+                ->assertSee('.log-type-badge.transfer { width: 14.5rem; justify-content: center;', false)
                 ->assertSee('BRANCH to BRANCH')
                 ->assertDontSee('class="badge mt-1 d-table text-bg-success">APPROVED</span>', false)
                 ->assertDontSee('Stock Transfer (Branch to Branch)');
