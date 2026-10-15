@@ -51,6 +51,17 @@ class InventoryItemsWorkbookTest extends TestCase
             'damaged_stock' => 2,
             'status' => 'active',
         ]);
+        foreach ([10, 2, 1] as $itemId) {
+            Product::create([
+                'name' => 'Sorted Product '.$itemId,
+                'item_id' => (string) $itemId,
+                'barcode' => 'SORT-'.$itemId,
+                'store_hub_id' => $headOffice->id,
+                'stock' => 1,
+                'damaged_stock' => 0,
+                'status' => 'active',
+            ]);
+        }
 
         $response = $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get(route('inventory-transactions.items-workbook', [
@@ -73,12 +84,13 @@ class InventoryItemsWorkbookTest extends TestCase
         $this->assertSame('2026-10-15', $workbook['occurred_on']);
         $this->assertSame($branch->name, $workbook['target']);
         $this->assertSame('Handle carefully', $workbook['notes']);
-        $this->assertSame('Canvas Roll', $workbook['items'][0]['name']);
-        $this->assertSame('000123', $workbook['items'][0]['item_id']);
-        $this->assertSame('000456', $workbook['items'][0]['barcode']);
-        $this->assertSame('10', $workbook['items'][0]['physical_stock']);
-        $this->assertSame('', $workbook['items'][0]['quantity']);
-        $this->assertStringContainsString('<dimension ref="A1:E3"/>', $worksheetXml);
+        $this->assertSame(['1', '2', '10', '000123'], array_column($workbook['items'], 'item_id'));
+        $canvas = collect($workbook['items'])->firstWhere('item_id', '000123');
+        $this->assertSame('Canvas Roll', $canvas['name']);
+        $this->assertSame('000456', $canvas['barcode']);
+        $this->assertSame('10', $canvas['physical_stock']);
+        $this->assertSame('', $canvas['quantity']);
+        $this->assertStringContainsString('<dimension ref="A1:E6"/>', $worksheetXml);
         $this->assertStringNotContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);
         $this->assertStringContainsString('<c r="D1" s="2"', $worksheetXml);
         $this->assertStringContainsString('<c r="E1" s="2"', $worksheetXml);
