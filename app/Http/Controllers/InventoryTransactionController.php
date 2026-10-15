@@ -1006,10 +1006,12 @@ class InventoryTransactionController extends Controller
                 return 'replacement-'.$transaction->productReplacement->id;
             }
             if (in_array($transaction->type, ['stock_transfer', 'branch_transfer'], true)) {
-                return $transaction->type.'-'.(
-                    $transaction->transfer_batch_id
-                    ?: ($transaction->reference ?: $transaction->source_hub_id.'-'.$transaction->target_hub_id.'-'.$transaction->occurred_on)
-                );
+                $legacyTransferGroup = $transaction->reference
+                    ? $transaction->reference.'-'.$transaction->source_hub_id.'-'.$transaction->target_hub_id
+                    : $transaction->source_hub_id.'-'.$transaction->target_hub_id.'-'.$transaction->occurred_on;
+                $transferGroup = $transaction->transfer_batch_id ?: $legacyTransferGroup;
+
+                return $transaction->type.'-'.$transferGroup;
             }
             if ($transaction->type === 'sponsor_workshop' && $transaction->channel === 'fully_booked' && $transaction->reference) {
                 return 'fully-booked-'.$transaction->reference;
@@ -1444,7 +1446,7 @@ class InventoryTransactionController extends Controller
             abort(403, 'Unauthorized action for this store hub.');
         }
 
-        $transferBatchId = $validated['type'] === 'branch_transfer' ? (string) Str::uuid() : null;
+        $transferBatchId = (string) Str::uuid();
         DB::transaction(function () use ($validated, $transferBatchId, $isImmediateBranchTransfer) {
             if ($validated['type'] === 'stock_transfer') {
                 $sourceIsHeadOffice = $validated['transfer_direction'] === 'ho_to_branch';

@@ -543,6 +543,7 @@ class BranchTransferTest extends TestCase
         $transfer = \App\Models\InventoryTransaction::where('type', 'stock_transfer')->firstOrFail();
         $this->assertSame($source->id, $transfer->source_hub_id);
         $this->assertSame($ho->id, $transfer->target_hub_id);
+        $this->assertNotNull($transfer->transfer_batch_id);
         $this->assertSame(7, $product->fresh()->stock);
         $this->assertSame(7, $headOfficeProduct->fresh()->stock);
         $this->get(route('inventory-transactions.product-worksheet', [
@@ -563,6 +564,85 @@ class BranchTransferTest extends TestCase
         $this->get(route('inventory-transactions.index', ['hub_id' => $source->id, 'type' => 'stock_transfer']))
             ->assertOk()
             ->assertSee('Stock Transfer (BRANCH to HO)');
+    }
+
+    public function test_stock_transfer_logs_keep_same_reference_routes_separate(): void
+    {
+        [$branchA, , $branchProduct, , $headOffice] = $this->fixtures();
+        $headOfficeProduct = Product::create([
+            'name' => $branchProduct->name,
+            'item_id' => $branchProduct->item_id,
+            'store_hub_id' => $headOffice->id,
+            'stock' => 5,
+            'status' => 'active',
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $reference = 'TRF-SHARED-REFERENCE';
+
+        foreach ([
+            [$branchA, $headOffice, $branchProduct],
+            [$headOffice, $branchA, $headOfficeProduct],
+        ] as [$source, $target, $product]) {
+            \App\Models\InventoryTransaction::create([
+                'type' => 'stock_transfer',
+                'reference' => $reference,
+                'store_hub_id' => $source->id,
+                'product_id' => $product->id,
+                'source_hub_id' => $source->id,
+                'target_hub_id' => $target->id,
+                'quantity' => 5,
+                'occurred_on' => '2026-10-15',
+                'created_by' => $admin->id,
+            ]);
+        }
+
+        $groups = $this->actingAs($admin)
+            ->get(route('inventory-transactions.index', ['type' => 'stock_transfer']))
+            ->assertOk()
+            ->viewData('transactions')
+            ->getCollection();
+
+        $this->assertCount(2, $groups);
+        $this->assertEqualsCanonicalizing([5, 5], $groups->map(fn ($group) => $group->sum('quantity'))->all());
+        $this->assertEqualsCanonicalizing([1, 1], $groups->map(fn ($group) => $group->count())->all());
+    }
+
+    public function test_stock_transfer_submissions_with_reused_reference_get_separate_log_groups(): void
+    {
+        [$branch, , $branchProduct, , $headOffice] = $this->fixtures();
+        Product::create([
+            'name' => $branchProduct->name,
+            'item_id' => $branchProduct->item_id,
+            'store_hub_id' => $headOffice->id,
+            'stock' => 0,
+            'status' => 'active',
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $payload = [
+            'type' => 'stock_transfer',
+            'transfer_direction' => 'branch_to_ho',
+            'store_hub_id' => $branch->id,
+            'target_hub_id' => $headOffice->id,
+            'occurred_on' => '2026-10-15',
+            'reference' => 'TRF-A-20261015-151100-ABCDEF',
+            'items' => [['product_id' => $branchProduct->id, 'quantity' => 1]],
+        ];
+
+        $this->actingAs($admin)
+            ->post(route('inventory-transactions.store'), $payload)
+            ->assertSessionHasNoErrors();
+        $this->post(route('inventory-transactions.store'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $groups = $this->get(route('inventory-transactions.index', ['type' => 'stock_transfer']))
+            ->assertOk()
+            ->viewData('transactions')
+            ->getCollection();
+        $batches = \App\Models\InventoryTransaction::where('type', 'stock_transfer')->pluck('transfer_batch_id');
+
+        $this->assertCount(2, $groups);
+        $this->assertCount(2, $batches->unique());
+        $this->assertEqualsCanonicalizing([1, 1], $groups->map(fn ($group) => $group->sum('quantity'))->all());
     }
 
     private function fixtures(): array
