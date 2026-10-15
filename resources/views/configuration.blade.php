@@ -94,7 +94,9 @@
                                         <th class="py-2.5">Hub Code</th>
                                         <th>Store Hub Name</th>
                                         <th class="text-center">Operational Status</th>
-                                        <th class="text-center" style="width: 120px;">Actions</th>
+                                        @if(auth()->user()->role === 'admin')
+                                            <th class="text-center" style="width: 120px;" data-store-hub-actions>Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -117,25 +119,25 @@
                                                     <span class="badge bg-warning-subtle text-warning px-2.5 py-1 rounded-pill" style="font-size: 11px; font-weight: 600;">Inactive</span>
                                                 @endif
                                             </td>
-                                            <td class="text-center">
+                                            @if(auth()->user()->role === 'admin')
+                                            <td class="text-center" data-store-hub-actions>
                                                 <div class="d-flex justify-content-center align-items-center gap-1">
-                                                    @if(auth()->user()->role === 'admin')
-                                                        <button class="btn btn-sm btn-light text-primary" data-bs-toggle="modal" data-bs-target="#editHubModal" onclick="populateEditModal(this)" data-id="{{ $hub->id }}" data-name="{{ $hub->name }}" data-code="{{ $hub->code }}" data-headoffice="{{ $hub->is_head_office }}">
-                                                            <i class="fa-solid fa-pen-to-square"></i>
+                                                    <button class="btn btn-sm btn-light text-primary" data-bs-toggle="modal" data-bs-target="#editHubModal" onclick="populateEditModal(this)" data-id="{{ $hub->id }}" data-name="{{ $hub->name }}" data-code="{{ $hub->code }}" data-headoffice="{{ $hub->is_head_office }}">
+                                                        <i class="fa-solid fa-pen-to-square"></i>
+                                                    </button>
+                                                    <form action="{{ route('storehub.toggle-status', $hub->id) }}?tab=hubs" method="POST" class="m-0">
+                                                        @csrf @method('PATCH')
+                                                        <button type="submit" class="btn btn-sm btn-light {{ $hub->status === 'active' ? 'text-danger' : 'text-success' }}" title="{{ $hub->status === 'active' ? 'Deactivate hub' : 'Reactivate hub' }}" aria-label="{{ $hub->status === 'active' ? 'Deactivate hub' : 'Reactivate hub' }}">
+                                                            <i class="fa-solid {{ $hub->status === 'active' ? 'fa-ban' : 'fa-circle-check' }}"></i>
                                                         </button>
-                                                        <form action="{{ route('storehub.toggle-status', $hub->id) }}?tab=hubs" method="POST" class="m-0">
-                                                            @csrf @method('PATCH')
-                                                            <button type="submit" class="btn btn-sm btn-light {{ $hub->status === 'active' ? 'text-danger' : 'text-success' }}" title="{{ $hub->status === 'active' ? 'Deactivate hub' : 'Reactivate hub' }}" aria-label="{{ $hub->status === 'active' ? 'Deactivate hub' : 'Reactivate hub' }}">
-                                                                <i class="fa-solid {{ $hub->status === 'active' ? 'fa-ban' : 'fa-circle-check' }}"></i>
-                                                            </button>
-                                                        </form>
-                                                    @endif
+                                                    </form>
                                                 </div>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="4" class="text-center text-muted py-4 small">No store hubs found.</td>
+                                            <td colspan="{{ auth()->user()->role === 'admin' ? 4 : 3 }}" class="text-center text-muted py-4 small">No store hubs found.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>

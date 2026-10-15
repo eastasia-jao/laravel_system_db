@@ -27,4 +27,21 @@ class StoreHubConfigurationTest extends TestCase
 
         $this->assertDatabaseHas('store_hubs', ['id' => $hub->id]);
     }
+
+    public function test_store_hub_actions_column_is_hidden_from_inventory_staff(): void
+    {
+        StoreHub::create(['name' => 'Visible Hub', 'code' => 'VISIBLE', 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff']);
+
+        $this->actingAs($admin)
+            ->get(route('configuration', ['tab' => 'hubs']))
+            ->assertOk()
+            ->assertSee('data-store-hub-actions', false);
+
+        $this->actingAs($inventoryStaff)
+            ->get(route('configuration', ['tab' => 'hubs']))
+            ->assertOk()
+            ->assertDontSee('data-store-hub-actions', false);
+    }
 }
