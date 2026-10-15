@@ -4,14 +4,14 @@
             <form id="productExportForm" action="{{ route('hub.products.export', $hub->id) }}" method="GET">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold text-success" id="exportProductModalLabel">
-                        <i class="fa-solid fa-file-export me-2"></i> Advanced Item & Filter CSV Export
+                        <i class="fa-solid fa-file-export me-2"></i> Export Product Items
                     </h5>
                 </div>
                 
                 <div class="modal-body">
                     <div id="exportStatus" class="alert alert-primary d-none align-items-center gap-2 py-2" role="status">
                         <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                        <span>Preparing your CSV file...</span>
+                        <span>Preparing your export file...</span>
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="export_all" value="1" id="exportAllProducts">
@@ -88,8 +88,11 @@
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" id="exportSubmitBtn" class="btn btn-success">
-                        <i class="fa-solid fa-download me-1"></i> Download CSV
+                    <button type="submit" id="exportCsvBtn" class="btn btn-outline-success" data-export-format="csv">
+                        <i class="fa-solid fa-file-csv me-1"></i> CSV for Re-import
+                    </button>
+                    <button type="submit" id="exportSubmitBtn" class="btn btn-success" data-export-format="xlsx">
+                        <i class="fa-solid fa-file-excel me-1"></i> Download Excel
                     </button>
                 </div>
             </form>
@@ -101,7 +104,7 @@
     <div id="exportSuccessToast" class="toast text-bg-success border-0 shadow-lg" role="status" aria-live="polite" aria-atomic="true">
         <div class="d-flex">
             <div class="toast-body fw-semibold">
-                <i class="fa-solid fa-circle-check me-2"></i>Export completed successfully. Your CSV file has been downloaded.
+                <i class="fa-solid fa-circle-check me-2"></i>Export completed successfully. Your file has been downloaded.
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
@@ -126,6 +129,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const resultsContainer = document.getElementById('searchResultsContainer');
     const exportForm = document.getElementById('productExportForm');
     const exportSubmitBtn = document.getElementById('exportSubmitBtn');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
     const exportStatus = document.getElementById('exportStatus');
     const hubId = "{{ $hub->id }}";
     const exportAll = document.getElementById('exportAllProducts');
@@ -275,13 +279,17 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        const submitButton = event.submitter || exportSubmitBtn;
+        const requestedFormat = submitButton.dataset.exportFormat || 'xlsx';
         exportSubmitBtn.disabled = true;
-        exportSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Exporting...';
+        exportCsvBtn.disabled = true;
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Exporting...';
         exportStatus.classList.remove('d-none');
         exportStatus.classList.add('d-flex');
 
         try {
             const params = new URLSearchParams(new FormData(exportForm));
+            params.set('format', requestedFormat);
             const response = await fetch(`${exportForm.action}?${params.toString()}`, {
                 method: 'GET',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -300,7 +308,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const blob = await response.blob();
             const disposition = response.headers.get('Content-Disposition') || '';
             const fileNameMatch = disposition.match(/filename="?([^";]+)"?/i);
-            const fileName = fileNameMatch ? fileNameMatch[1] : `exporting_products_${new Date().toISOString().replace(/[-:.]/g, '')}.csv`;
+            const fileName = fileNameMatch ? fileNameMatch[1] : `exporting_products_${new Date().toISOString().replace(/[-:.]/g, '')}.${requestedFormat}`;
             const downloadUrl = URL.createObjectURL(blob);
             const downloadLink = document.createElement('a');
             downloadLink.href = downloadUrl;
@@ -311,13 +319,16 @@ document.addEventListener('DOMContentLoaded', function () {
             URL.revokeObjectURL(downloadUrl);
 
             bootstrap.Modal.getInstance(document.getElementById('exportProductModal'))?.hide();
-            AppAlert.show('Your selected products have been exported. The CSV file is ready in your downloads.', 'success', { title: 'Your export is ready', buttonLabel: 'Done' });
+            const fileLabel = requestedFormat === 'xlsx' ? 'Excel file' : 'CSV file';
+            AppAlert.show(`Your selected products have been exported. The ${fileLabel} is ready in your downloads.`, 'success', { title: 'Your export is ready', buttonLabel: 'Done' });
         } catch (error) {
             document.getElementById('exportErrorMessage').textContent = error.message || 'The export could not be completed.';
             AppAlert.show(document.getElementById('exportErrorMessage').textContent, 'error');
         } finally {
             exportSubmitBtn.disabled = false;
-            exportSubmitBtn.innerHTML = '<i class="fa-solid fa-download me-1"></i> Download CSV';
+            exportCsvBtn.disabled = false;
+            exportSubmitBtn.innerHTML = '<i class="fa-solid fa-file-excel me-1"></i> Download Excel';
+            exportCsvBtn.innerHTML = '<i class="fa-solid fa-file-csv me-1"></i> CSV for Re-import';
             exportStatus.classList.add('d-none');
             exportStatus.classList.remove('d-flex');
         }

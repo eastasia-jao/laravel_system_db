@@ -18,6 +18,7 @@ use App\Notifications\InventoryWorkflowNotification;
 use App\Support\CsvIdentifier;
 use App\Support\KeywordSearch;
 use App\Support\ProductExportFilename;
+use App\Support\ProductExportWorkbook;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -652,7 +653,11 @@ class ProductController extends Controller
         $productIds = $request->input('product_ids', []);
         $query = Product::where('store_hub_id', $hubId);
 
-        $request->validate(['export_all' => 'sometimes|boolean']);
+        $request->validate([
+            'export_all' => 'sometimes|boolean',
+            'format' => 'sometimes|in:csv,xlsx',
+        ]);
+        $format = $request->input('format', 'csv');
         if (! $request->boolean('export_all')) {
             if (! empty($productIds)) {
                 $query->whereIn('id', $productIds);
@@ -669,13 +674,13 @@ class ProductController extends Controller
             CsvIdentifier::read($product->barcode, "Product {$product->item_id} Barcode");
             CsvIdentifier::read($product->item_id, "Product {$product->id} Item ID");
         }
-        $filename ??= ProductExportFilename::make($hub, 'csv');
+        $filename ??= ProductExportFilename::make($hub, $format);
 
         $activityLog = StaffActivityLog::create([
             'user_id' => auth()->id(),
             'store_hub_id' => $hubId,
             'action_type' => 'product_export',
-            'description' => 'Exported '.$productCount.' product item(s) to CSV.',
+            'description' => 'Exported '.$productCount.' product item(s) to '.($format === 'xlsx' ? 'Excel' : 'CSV').'.',
             'details' => [
                 'file_name' => $filename,
                 'item_count' => $productCount,
@@ -702,14 +707,6 @@ class ProductController extends Controller
             ])->all());
         });
 
-        $headers = [
-            'Content-type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=$filename",
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
-        ];
-
         $callback = function () use ($products, $isHeadOffice) {
             $file = fopen('php://output', 'w');
             fwrite($file, "\xEF\xBB\xBF");
@@ -732,7 +729,29 @@ class ProductController extends Controller
             fclose($file);
         };
 
-        return response()->stream($callback, 200, $headers);
+        if ($format === 'xlsx') {
+            ob_start();
+            try {
+                $callback();
+                $csv = (string) ob_get_contents();
+            } finally {
+                ob_end_clean();
+            }
+
+            return response(ProductExportWorkbook::fromCsv($csv), 200, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+                'Cache-Control' => 'private, no-store',
+            ]);
+        }
+
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename='.$filename,
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ]);
     }
 
     public function bulkDestroy(Request $request)

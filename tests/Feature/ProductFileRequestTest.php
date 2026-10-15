@@ -104,7 +104,7 @@ class ProductFileRequestTest extends TestCase
                 ->get(route('hub.dashboard', $hub))
                 ->assertOk()
                 ->assertSee('Import CSV')
-                ->assertSee('Export CSV')
+                ->assertSee('Export Products')
                 ->assertSee('id="importProductModal"', false)
                 ->assertSee('id="exportProductModal"', false);
         }
@@ -114,7 +114,7 @@ class ProductFileRequestTest extends TestCase
             ->get(route('hub.dashboard', $hub))
             ->assertOk()
             ->assertDontSee('Import CSV')
-            ->assertDontSee('Export CSV')
+            ->assertDontSee('Export Products')
             ->assertDontSee('id="importProductModal"', false)
             ->assertDontSee('id="exportProductModal"', false);
         $this->post(route('hub.products.import', $hub))->assertForbidden();

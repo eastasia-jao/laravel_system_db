@@ -137,10 +137,10 @@
             </button>
         </div>      
         
-        <!-- Export Products (CSV Modal Trigger) -->
+        <!-- Export Products Modal Trigger -->
         <div class="col">
             <button type="button" class="hub-action w-100 p-3" data-bs-toggle="modal" data-bs-target="#exportProductModal">
-                <span class="hub-action-icon"><i class="fa-solid fa-file-export"></i></span><span class="hub-action-label">Export CSV</span>
+                <span class="hub-action-icon"><i class="fa-solid fa-file-export"></i></span><span class="hub-action-label">Export Products</span>
             </button>
         </div>
         @endcan

@@ -7,6 +7,8 @@ use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Phar;
+use PharData;
 use Tests\TestCase;
 
 class ProductBarcodeCsvTest extends TestCase
@@ -43,6 +45,57 @@ class ProductBarcodeCsvTest extends TestCase
             ->assertSessionHasErrors('file');
         $this->assertDatabaseCount('products', 0);
         $this->assertDatabaseCount('staff_activity_logs', 0);
+    }
+
+    public function test_excel_export_keeps_item_id_and_barcode_as_exact_text(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $hub = StoreHub::create(['name' => 'Test Hub', 'code' => 'TEST', 'status' => 'active']);
+        $product = Product::create([
+            'name' => 'Brush',
+            'item_id' => '000012345678901234567890',
+            'barcode' => '00007661234567891234567890',
+            'store_hub_id' => $hub->id,
+            'stock' => 8,
+            'status' => 'active',
+        ]);
+
+        $response = $this->get(route('hub.products.export', [
+            'hub' => $hub->id,
+            'product_ids' => [$product->id],
+            'format' => 'xlsx',
+        ]))->assertOk()->assertHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        $this->assertMatchesRegularExpression(
+            '/filename="products_TEST_\d{8}_\d{6}_\d+\.xlsx"/',
+            $response->headers->get('Content-Disposition')
+        );
+
+        $temporaryBase = tempnam(sys_get_temp_dir(), 'product-export-');
+        $workbookPath = $temporaryBase.'.xlsx';
+        @unlink($temporaryBase);
+        file_put_contents($workbookPath, $response->getContent());
+
+        try {
+            $archive = new PharData($workbookPath, 0, null, Phar::ZIP);
+            $worksheet = $archive['xl/worksheets/sheet1.xml']->getContent();
+            $styles = $archive['xl/styles.xml']->getContent();
+            unset($archive);
+
+            $this->assertStringContainsString(
+                '<c r="B2" s="2" t="inlineStr"><is><t xml:space="preserve">000012345678901234567890</t></is></c>',
+                $worksheet
+            );
+            $this->assertStringContainsString(
+                '<c r="E2" s="2" t="inlineStr"><is><t xml:space="preserve">00007661234567891234567890</t></is></c>',
+                $worksheet
+            );
+            $this->assertStringContainsString('numFmtId="49"', $styles);
+        } finally {
+            @unlink($workbookPath);
+        }
     }
 
     public function test_inventory_worksheet_exports_barcode_and_item_id_as_excel_safe_csv_text(): void
