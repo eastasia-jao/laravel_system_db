@@ -1095,6 +1095,15 @@ class InventoryTransactionController extends Controller
         $transactionGroups = collect($transactionGroups->all())
             ->merge($fullyBookedGroups)
             ->merge($nationalPulloutGroups)
+            ->map(function ($group) {
+                return $group->sortBy(function (InventoryTransaction $transaction) {
+                    $itemId = $transaction->nationalPulloutItem?->item_id
+                        ?? $transaction->product?->item_id
+                        ?? $transaction->nationalProduct?->item_id;
+
+                    return $itemId === null ? '1:' : '0:'.$itemId;
+                }, SORT_NATURAL | SORT_FLAG_CASE)->values();
+            })
             ->sort(function ($leftGroup, $rightGroup) {
                 $sortValues = static function ($group): array {
                     $transaction = $group->first();

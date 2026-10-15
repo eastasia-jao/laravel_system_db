@@ -387,7 +387,7 @@
                                         <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-details-csv" data-order-number="{{ $fullyBookedOrder->order_number }}"><i class="fa-solid fa-file-csv me-1"></i>Export CSV</button>
                                     </div>
                                     <div class="list-group">
-                                        @foreach($fullyBookedOrder->items as $item)
+                                        @foreach($fullyBookedOrder->items->sortBy('item_id', SORT_NATURAL | SORT_FLAG_CASE) as $item)
                                             <div class="list-group-item d-flex justify-content-between gap-3 fully-booked-export-item"
                                                 data-item-id="{{ $item->item_id }}"
                                                 data-description="{{ $item->product?->description ?: $item->product_name }}"

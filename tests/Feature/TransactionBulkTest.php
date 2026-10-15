@@ -823,6 +823,40 @@ class TransactionBulkTest extends TestCase
         $this->assertStringContainsString('Legacy Product Two', $content);
     }
 
+    public function test_transaction_log_detail_items_are_sorted_naturally_by_item_id(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Sorted Detail Hub', 'code' => 'SORTED-DETAIL', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        foreach ([
+            ['name' => 'Item Ten', 'item_id' => '10'],
+            ['name' => 'Item Two', 'item_id' => '2'],
+        ] as $item) {
+            $product = Product::create([
+                ...$item,
+                'store_hub_id' => $hub->id,
+                'stock' => 5,
+                'status' => 'active',
+            ]);
+            InventoryTransaction::create([
+                'type' => 'restock',
+                'store_hub_id' => $hub->id,
+                'product_id' => $product->id,
+                'reference' => 'SORTED-DETAIL-RESTOCK',
+                'quantity' => 1,
+                'occurred_on' => '2026-10-15',
+                'created_by' => $admin->id,
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'restock']))
+            ->assertOk()
+            ->assertSeeInOrder(['Item ID: 2', 'Item ID: 10'], false);
+    }
+
     public function test_sold_order_details_use_compact_order_metadata_cards(): void
     {
         $hub = StoreHub::create([
