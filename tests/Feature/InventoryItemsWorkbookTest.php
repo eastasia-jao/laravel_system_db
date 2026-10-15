@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Support\EventPulloutWorkbook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Phar;
+use PharData;
 use Tests\TestCase;
 
 class InventoryItemsWorkbookTest extends TestCase
@@ -64,16 +66,20 @@ class InventoryItemsWorkbookTest extends TestCase
             ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
         $workbook = EventPulloutWorkbook::readInventoryItems($response->baseResponse->getFile()->getPathname());
+        $archive = new PharData($response->baseResponse->getFile()->getPathname(), 0, null, Phar::ZIP);
+        $worksheetXml = $archive['xl/worksheets/sheet1.xml']->getContent();
+        unset($archive);
         $this->assertSame('TRF-1001', $workbook['reference']);
         $this->assertSame('2026-10-15', $workbook['occurred_on']);
-        $this->assertSame($headOffice->name.' to '.$branch->name, $workbook['route']);
         $this->assertSame('Handle carefully', $workbook['notes']);
         $this->assertSame('000123', $workbook['items'][0]['item_id']);
         $this->assertSame('000456', $workbook['items'][0]['barcode']);
         $this->assertSame('10', $workbook['items'][0]['physical_stock']);
-        $this->assertSame('8', $workbook['items'][0]['good_stock']);
-        $this->assertSame('2', $workbook['items'][0]['damaged_stock']);
         $this->assertSame('', $workbook['items'][0]['quantity']);
+        $this->assertStringContainsString('<dimension ref="A1:E3"/>', $worksheetXml);
+        $this->assertStringContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);
+        $this->assertStringNotContainsString('Good Items', $worksheetXml);
+        $this->assertStringNotContainsString('Damaged Items', $worksheetXml);
     }
 
     public function test_exported_inventory_workbook_can_be_imported_with_quantity_and_metadata(): void

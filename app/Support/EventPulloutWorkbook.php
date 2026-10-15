@@ -19,8 +19,8 @@ class EventPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, quantity: int|string}>  $items
-     * @param  array{title?: string, reference?: string, occurred_on?: string, route?: string, notes?: string}  $document
+     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, quantity: int|string}>  $items
+     * @param  array{title?: string, reference?: string, occurred_on?: string, notes?: string}  $document
      */
     public static function createInventoryItems(array $items, array $document = []): string
     {
@@ -75,7 +75,7 @@ class EventPulloutWorkbook
     }
 
     /**
-     * @return array{reference: string, occurred_on: string, route: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, good_stock: string, damaged_stock: string, quantity: string}>}
+     * @return array{reference: string, occurred_on: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, quantity: string}>}
      */
     public static function readInventoryItems(string $path): array
     {
@@ -84,7 +84,6 @@ class EventPulloutWorkbook
         foreach ($rows[1] ?? [] as $value) {
             foreach ([
                 'reference' => '/^Reference Document No\.\:\s*(.*)$/i',
-                'route' => '/^Route\:\s*(.*)$/i',
                 'notes' => '/^Remarks\:\s*(.*)$/i',
             ] as $key => $pattern) {
                 if (preg_match($pattern, $value, $match)) {
@@ -92,7 +91,7 @@ class EventPulloutWorkbook
                 }
             }
         }
-        $metadata['occurred_on'] = preg_replace('/^Date:\s*/i', '', $rows[1][4] ?? '') ?? '';
+        $metadata['occurred_on'] = preg_replace('/^Date:\s*/i', '', $rows[1][3] ?? '') ?? '';
 
         $columns = [];
         foreach ($rows[2] ?? [] as $column => $heading) {
@@ -116,8 +115,6 @@ class EventPulloutWorkbook
                 'barcode' => $row[$columns['barcode']] ?? '',
                 'item_id' => $row[$columns['item id']] ?? '',
                 'physical_stock' => $row[$columns['physical stocks qty'] ?? 0] ?? '',
-                'good_stock' => $row[$columns['good items'] ?? 0] ?? '',
-                'damaged_stock' => $row[$columns['damaged items'] ?? 0] ?? '',
                 'quantity' => $row[$columns['quantity']] ?? '',
             ];
         }
@@ -125,7 +122,6 @@ class EventPulloutWorkbook
         return [
             'reference' => $metadata['reference'] ?? '',
             'occurred_on' => $metadata['occurred_on'],
-            'route' => $metadata['route'] ?? '',
             'notes' => $metadata['notes'] ?? '',
             'items' => $items,
         ];
@@ -344,8 +340,8 @@ class EventPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, good_stock: int, damaged_stock: int, quantity: int|string}>  $items
-     * @param  array{title?: string, reference?: string, occurred_on?: string, route?: string, notes?: string}  $document
+     * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, quantity: int|string}>  $items
+     * @param  array{title?: string, reference?: string, occurred_on?: string, notes?: string}  $document
      * @return array<string, string>
      */
     private static function inventoryWorkbookFiles(array $items, array $document): array
@@ -355,19 +351,16 @@ class EventPulloutWorkbook
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
-            .'<dimension ref="A1:H'.$lastRow.'"/>'
+            .'<dimension ref="A1:E'.$lastRow.'"/>'
             .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews>'
             .'<sheetFormatPr defaultRowHeight="15"/>'
-            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="20" customWidth="1"/><col min="4" max="7" width="18" customWidth="1"/><col min="8" max="8" width="2" customWidth="1"/></cols>'
-            .'<sheetData><row r="1" ht="30" customHeight="1">'
+            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="18" customWidth="1"/><col min="4" max="4" width="20" customWidth="1"/><col min="5" max="5" width="22" customWidth="1"/></cols>'
+            .'<sheetData><row r="1" ht="42" customHeight="1">'
             .self::inlineCell('A1', $document['title'] ?? 'INVENTORY ITEMS', 1)
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
-            .self::inlineCell('C1', '', 2)
-            .self::inlineCell('D1', 'Date: '.($document['occurred_on'] ?? ''), 2)
-            .self::inlineCell('E1', 'Route: '.($document['route'] ?? ''), 2)
-            .self::inlineCell('F1', '', 2)
-            .self::inlineCell('G1', 'Remarks: '.($document['notes'] ?? ''), 2)
-            .self::inlineCell('H1', '', 2)
+            .self::inlineCell('C1', 'Date: '.($document['occurred_on'] ?? ''), 2)
+            .self::inlineCell('D1', 'Remarks: '.($document['notes'] ?? ''), 2)
+            .self::inlineCell('E1', '', 2)
             .'</row><row r="2" ht="30" customHeight="1">';
 
         foreach ([
@@ -375,13 +368,11 @@ class EventPulloutWorkbook
             'Barcode',
             'Item ID',
             'Physical Stocks Qty',
-            'Good Items',
-            'Damaged Items',
             'Quantity',
         ] as $index => $heading) {
             $xml .= self::inlineCell(self::columnName($index + 1).'2', $heading, 3);
         }
-        $xml .= self::inlineCell('H2', '', 3).'</row>';
+        $xml .= '</row>';
 
         foreach ($items as $index => $item) {
             $rowNumber = $index + 3;
@@ -390,8 +381,6 @@ class EventPulloutWorkbook
                 $item['barcode'],
                 $item['item_id'],
                 $item['physical_stock'],
-                $item['good_stock'],
-                $item['damaged_stock'],
                 $item['quantity'],
             ];
             $xml .= '<row r="'.$rowNumber.'" ht="20.1" customHeight="1">';
@@ -405,7 +394,7 @@ class EventPulloutWorkbook
             $xml .= '</row>';
         }
 
-        $xml .= '</sheetData><mergeCells count="3"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/><mergeCell ref="G1:H1"/></mergeCells>'
+        $xml .= '</sheetData><mergeCells count="1"><mergeCell ref="D1:E1"/></mergeCells>'
             .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
             .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
             .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';

@@ -107,7 +107,7 @@ class InventoryTransactionController extends Controller
             ->get()
             ->map(fn (Product $product) => $this->inventoryWorkbookProduct($product, ''))
             ->all();
-        $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated, $hub));
+        $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated));
 
         return response()->download(
             $path,
@@ -227,7 +227,7 @@ class InventoryTransactionController extends Controller
         $items = collect($validated['items'])->map(function (array $item) use ($products) {
             return $this->inventoryWorkbookProduct($products->get((int) $item['product_id']), (int) $item['quantity']);
         })->all();
-        $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated, $hub));
+        $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated));
 
         return response()->download(
             $path,
@@ -268,29 +268,22 @@ class InventoryTransactionController extends Controller
             'barcode' => (string) ($product->barcode ?? ''),
             'item_id' => (string) $product->item_id,
             'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
-            'good_stock' => (int) $product->stock,
-            'damaged_stock' => (int) $product->damaged_stock,
             'quantity' => $quantity,
         ];
     }
 
-    private function inventoryWorkbookDocument(array $data, StoreHub $hub): array
+    private function inventoryWorkbookDocument(array $data): array
     {
-        $target = isset($data['target_hub_id']) ? StoreHub::find($data['target_hub_id']) : null;
         $title = match ($data['type']) {
             'branch_transfer' => 'BRANCH TO BRANCH',
             'restock' => 'WAREHOUSE TO HO RESTOCK',
             default => ($data['transfer_direction'] ?? 'ho_to_branch') === 'branch_to_ho' ? 'BRANCH TO HO' : 'HO TO BRANCH',
         };
-        $route = $data['type'] === 'restock'
-            ? 'Warehouse to '.$hub->name
-            : $hub->name.' to '.($target?->name ?? '');
 
         return [
             'title' => $title,
             'reference' => $data['reference'] ?? '',
             'occurred_on' => $data['occurred_on'] ?? now()->toDateString(),
-            'route' => trim($route),
             'notes' => $data['notes'] ?? '',
         ];
     }
