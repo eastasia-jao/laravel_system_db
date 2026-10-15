@@ -107,6 +107,9 @@ class ProductFileRequestTest extends TestCase
                 ->assertSee('Export Products')
                 ->assertSee('Why the import failed')
                 ->assertSee('failureMessage', false)
+                ->assertSee('Close import result')
+                ->assertSee('Review the results, then click &times; to close.', false)
+                ->assertDontSee('setTimeout(() => window.location.reload()', false)
                 ->assertSee('id="importProductModal"', false)
                 ->assertSee('id="exportProductModal"', false);
         }

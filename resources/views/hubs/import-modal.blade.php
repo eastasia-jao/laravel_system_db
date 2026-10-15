@@ -52,7 +52,6 @@
                 failureMessage: '',
                 elapsedTimer: null,
                 pollTimer: null,
-                successTimer: null,
                 steps: ['Uploading the CSV file', 'Checking the file format', 'Applying product updates', 'Recording the import activity'],
                 async startImport() {
                     if (this.importing) return;
@@ -98,8 +97,12 @@
                         clearInterval(this.elapsedTimer);
                         clearInterval(this.pollTimer);
                     }
-                    if (record.status === 'completed' && !this.successTimer) {
-                        this.successTimer = setTimeout(() => window.location.reload(), 3000);
+                },
+                closeResult() {
+                    clearInterval(this.elapsedTimer);
+                    clearInterval(this.pollTimer);
+                    if (this.importStatus === 'completed') {
+                        window.location.reload();
                     }
                 },
                 async refreshImportStatus() {
@@ -120,6 +123,9 @@
                             <div class="small text-muted mt-1" x-show="!importing">Upload a CSV file to import products directly into this branch.</div>
                             <div class="small text-muted mt-1">Branch imports keep existing shared product details. Head Office imports can update those details for all branches.</div>
                         </div>
+                        <button type="button" class="btn-close" aria-label="Close import result"
+                                x-show="importing && ['completed', 'failed'].includes(importStatus)"
+                                style="display: none;" data-bs-dismiss="modal" @click="closeResult()"></button>
                     </div>
 
                     <div class="modal-body px-4 pb-4">
@@ -165,7 +171,7 @@
                                     <span x-show="importStatus === 'uploading'">Uploading and validating the CSV file.</span>
                                     <span x-show="importStatus === 'queued'">Queued &mdash; waiting for the import worker.</span>
                                     <span x-show="importStatus === 'processing'">The file is being imported now.</span>
-                                    <span x-show="importStatus === 'completed'">Import completed successfully. Refreshing the dashboard&hellip;</span>
+                                    <span x-show="importStatus === 'completed'">Import completed successfully. Review the results, then click &times; to close.</span>
                                     <span class="float-end font-monospace" x-text="Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')"></span>
                                 </div>
                                 <div class="alert alert-danger small mt-3 mb-0" x-show="importStatus === 'failed'" style="display: none; white-space: pre-line;">
