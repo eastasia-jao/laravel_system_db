@@ -9,10 +9,22 @@
 
 <style>
     .product-list-table {
-        min-width: 1220px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .product-list-scroll {
+        max-height: 65vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
     }
 
     .product-list-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
         white-space: nowrap;
         letter-spacing: .04em;
         font-size: 10px !important;
@@ -137,7 +149,7 @@
                 @endcan
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive product-list-scroll" tabindex="0" role="region" aria-label="Products on this page">
                 <table class="table table-hover align-middle mb-0 product-list-table">
                     <thead class="table-light">
                         <tr class="small text-uppercase text-muted fw-bold" style="font-size: 11px;">

@@ -74,13 +74,17 @@ class InventoryScalingTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('class="mt-4 pt-3 border-top"', false)
-            ->assertSee('w-100 pagination-summary', false);
+            ->assertSee('w-100 pagination-summary', false)
+            ->assertSee('class="table-responsive product-list-scroll"', false)
+            ->assertSee('overflow-y: auto;', false)
+            ->assertSee('overflow-x: hidden;', false);
         $this->assertSame(
-            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
             $response->viewData('products')->getCollection()->pluck('item_id')->all()
         );
+        $this->assertSame(50, $response->viewData('products')->perPage());
         $paginationText = preg_replace('/\s+/', ' ', strip_tags($response->getContent()));
-        $this->assertSame(1, substr_count($paginationText, 'Showing 1 to 10 of 12 results'));
+        $this->assertSame(1, substr_count($paginationText, 'Showing 1 to 12 of 12 results'));
     }
 
     public function test_product_list_only_offers_active_store_hubs(): void

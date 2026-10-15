@@ -124,7 +124,7 @@ class ProductController extends Controller
             }
         }
 
-        $products = $query->orderByCatalog('item_id')->paginate(10)->appends($request->query());
+        $products = $query->orderByCatalog('item_id')->paginate(50)->appends($request->query());
         $products->getCollection()->each(function (Product $product) use ($displayChannel) {
             $allocated = $displayChannel === 'walk_in'
                 ? $product->unallocatedStock()

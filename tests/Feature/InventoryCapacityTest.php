@@ -34,7 +34,13 @@ class InventoryCapacityTest extends TestCase
         $this->assertDatabaseCount('catalog_products', 1000);
         $this->assertDatabaseCount('products', 100000);
         $this->actingAs(User::factory()->create(['role' => 'sales_associate', 'hub_id' => 42]));
-        $this->get(route('products.index'))->assertOk()->assertViewHas('products', fn ($page) => $page->count() === 10 && $page->total() === 1000 && $page->every(fn ($p) => $p->store_hub_id == 42));
+        $this->get(route('products.index'))
+            ->assertOk()
+            ->assertSee('class="table-responsive product-list-scroll"', false)
+            ->assertViewHas('products', fn ($page) => $page->perPage() === 50
+                && $page->count() === 50
+                && $page->total() === 1000
+                && $page->every(fn ($p) => $p->store_hub_id == 42));
         $this->get(route('hub.products.search.ajax', ['hubId' => 42, 'q' => 'Capacity']))->assertOk()->assertJsonCount(100);
         $this->get(route('hub.products.search.ajax', ['hubId' => 42, 'inventory_page' => 1]))->assertOk()->assertJsonCount(500);
         $this->get(route('hub.products.search.ajax', ['hubId' => 43, 'inventory_page' => 1]))->assertForbidden();
