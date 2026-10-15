@@ -528,7 +528,7 @@
                                     <div class="transfer-detail-hero">
                                         <div class="eyebrow"><i class="fa-solid fa-people-group me-1"></i>Event record</div>
                                         <h4 class="mb-1 mt-2">{{ $transaction->source ?: 'Event or recipient not specified' }}</h4>
-                                        <div class="transfer-detail-reference">Reference {{ $transaction->reference ?? '—' }}</div>
+                                        <div class="transfer-detail-reference">Transfer Document No. {{ $transaction->reference ?? '—' }}</div>
                                     </div>
                                 </div>
                                 <div class="col-12">
@@ -549,7 +549,7 @@
                                             <div>
                                                 <div class="eyebrow"><i class="fa-solid fa-truck-ramp-box me-1"></i>Inventory movement record</div>
                                                 <h4 class="mb-1 mt-2">{{ $transaction->type === 'branch_transfer' ? 'Branch-to-branch transfer' : 'Stock transfer' }}</h4>
-                                                <div class="transfer-detail-reference">Reference {{ $transaction->reference ?? '—' }}</div>
+                                                <div class="transfer-detail-reference">Transfer Document No. {{ $transaction->reference ?? '—' }}</div>
                                             </div>
                                             <span class="badge rounded-pill px-3 py-2 {{ $transaction->status === 'approved' ? 'text-bg-success' : ($transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') }}"><i class="fa-solid {{ $transaction->status === 'approved' ? 'fa-check' : ($transaction->status === 'rejected' ? 'fa-xmark' : 'fa-hourglass-half') }} me-1"></i>{{ strtoupper($transaction->status ?? 'approved') }}</span>
                                         </div>

@@ -675,10 +675,12 @@ class TransactionBulkTest extends TestCase
             'quantity' => 1,
             'pullout_qty' => 2,
         ]);
+        $eventReference = InventoryTransaction::where('type', 'sponsor_workshop')->value('reference');
         $this->get(route('inventory-transactions.index', [
             'hub_id' => $hub->id,
             'type' => 'sponsor_workshop',
         ]))->assertOk()
+            ->assertSee('Transfer Document No. '.$eventReference)
             ->assertSee('Pull-Out Qty (record only): 3')
             ->assertSee('Pull-Out Qty (record only): 2');
 

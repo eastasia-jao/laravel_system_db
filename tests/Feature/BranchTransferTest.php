@@ -403,6 +403,7 @@ class BranchTransferTest extends TestCase
             $this->get(route('inventory-transactions.index'))
                 ->assertOk()
                 ->assertSee('.log-type-badge.transfer { width: 14.5rem; justify-content: center;', false)
+                ->assertSee('Transfer Document No. '.\App\Models\InventoryTransaction::where('type', 'branch_transfer')->latest('id')->value('reference'))
                 ->assertSee('BRANCH to BRANCH')
                 ->assertDontSee('class="badge mt-1 d-table text-bg-success">APPROVED</span>', false)
                 ->assertDontSee('Stock Transfer (Branch to Branch)');
@@ -598,11 +599,11 @@ class BranchTransferTest extends TestCase
             ]);
         }
 
-        $groups = $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->get(route('inventory-transactions.index', ['type' => 'stock_transfer']))
             ->assertOk()
-            ->viewData('transactions')
-            ->getCollection();
+            ->assertSee('Transfer Document No. '.$reference);
+        $groups = $response->viewData('transactions')->getCollection();
 
         $this->assertCount(2, $groups);
         $this->assertEqualsCanonicalizing([5, 5], $groups->map(fn ($group) => $group->sum('quantity'))->all());
