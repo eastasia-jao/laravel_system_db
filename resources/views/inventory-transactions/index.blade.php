@@ -266,8 +266,8 @@
                         };
                     @endphp
                     <td><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
-                        @if($transaction->type === 'branch_transfer')
-                            <span class="badge mt-1 d-table {{ $transaction->status === 'approved' ? 'text-bg-success' : ($transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') }}">{{ strtoupper($transaction->status ?? 'approved') }}</span>
+                        @if($transaction->type === 'branch_transfer' && $transaction->status !== 'approved')
+                            <span class="badge mt-1 d-table {{ $transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning' }}">{{ strtoupper($transaction->status ?? 'pending') }}</span>
                         @elseif($isFullyBookedGroup && $fullyBookedOrder?->status === 'rejected')
                             <span class="badge mt-1 d-table text-bg-danger">REJECTED</span>
                         @endif
