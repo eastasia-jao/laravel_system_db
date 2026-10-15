@@ -20,7 +20,7 @@ class EventPulloutWorkbook
 
     /**
      * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, quantity: int|string}>  $items
-     * @param  array{title?: string, reference?: string, occurred_on?: string, notes?: string}  $document
+     * @param  array{title?: string, reference?: string, occurred_on?: string, target?: string, notes?: string}  $document
      */
     public static function createInventoryItems(array $items, array $document = []): string
     {
@@ -75,7 +75,7 @@ class EventPulloutWorkbook
     }
 
     /**
-     * @return array{reference: string, occurred_on: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, quantity: string}>}
+     * @return array{reference: string, occurred_on: string, target: string, notes: string, items: list<array{name: string, barcode: string, item_id: string, physical_stock: string, quantity: string}>}
      */
     public static function readInventoryItems(string $path): array
     {
@@ -84,7 +84,8 @@ class EventPulloutWorkbook
         foreach ($rows[1] ?? [] as $value) {
             foreach ([
                 'reference' => '/^Reference Document No\.\:\s*(.*)$/i',
-                'notes' => '/^Remarks\:\s*(.*)$/i',
+                'target' => '/^Target Branch\:\s*(.*?)(?:\R|$)/is',
+                'notes' => '/(?:^|\R)Remarks\:\s*(.*)$/is',
             ] as $key => $pattern) {
                 if (preg_match($pattern, $value, $match)) {
                     $metadata[$key] = trim($match[1]);
@@ -122,6 +123,7 @@ class EventPulloutWorkbook
         return [
             'reference' => $metadata['reference'] ?? '',
             'occurred_on' => $metadata['occurred_on'],
+            'target' => $metadata['target'] ?? '',
             'notes' => $metadata['notes'] ?? '',
             'items' => $items,
         ];
@@ -341,7 +343,7 @@ class EventPulloutWorkbook
 
     /**
      * @param  list<array{name: string, barcode: string, item_id: string, physical_stock: int, quantity: int|string}>  $items
-     * @param  array{title?: string, reference?: string, occurred_on?: string, notes?: string}  $document
+     * @param  array{title?: string, reference?: string, occurred_on?: string, target?: string, notes?: string}  $document
      * @return array<string, string>
      */
     private static function inventoryWorkbookFiles(array $items, array $document): array
@@ -359,7 +361,13 @@ class EventPulloutWorkbook
             .self::inlineCell('A1', $document['title'] ?? 'INVENTORY ITEMS', 1)
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
             .self::inlineCell('C1', 'Date: '.($document['occurred_on'] ?? ''), 2)
-            .self::inlineCell('D1', 'Remarks: '.($document['notes'] ?? ''), 2)
+            .self::inlineCell(
+                'D1',
+                ($document['target'] ?? '') !== ''
+                    ? 'Target Branch: '.$document['target']."\nRemarks: ".($document['notes'] ?? '')
+                    : 'Remarks: '.($document['notes'] ?? ''),
+                2
+            )
             .self::inlineCell('E1', '', 2)
             .'</row><row r="2" ht="30" customHeight="1">';
 

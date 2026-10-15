@@ -71,6 +71,7 @@ class InventoryItemsWorkbookTest extends TestCase
         unset($archive);
         $this->assertSame('TRF-1001', $workbook['reference']);
         $this->assertSame('2026-10-15', $workbook['occurred_on']);
+        $this->assertSame($branch->name, $workbook['target']);
         $this->assertSame('Handle carefully', $workbook['notes']);
         $this->assertSame('000123', $workbook['items'][0]['item_id']);
         $this->assertSame('000456', $workbook['items'][0]['barcode']);
@@ -78,8 +79,27 @@ class InventoryItemsWorkbookTest extends TestCase
         $this->assertSame('', $workbook['items'][0]['quantity']);
         $this->assertStringContainsString('<dimension ref="A1:E3"/>', $worksheetXml);
         $this->assertStringContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);
+        $this->assertStringContainsString('Target Branch: '.$branch->name, $worksheetXml);
         $this->assertStringNotContainsString('Good Items', $worksheetXml);
         $this->assertStringNotContainsString('Damaged Items', $worksheetXml);
+
+        $secondBranch = StoreHub::create([
+            'name' => 'Branch Two',
+            'code' => 'BR-2',
+            'status' => 'active',
+            'is_head_office' => false,
+        ]);
+        $branchTransfer = $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('inventory-transactions.items-workbook', [
+                'hub_id' => $branch->id,
+                'target_hub_id' => $secondBranch->id,
+                'type' => 'branch_transfer',
+                'reference' => 'B2B-1001',
+                'occurred_on' => '2026-10-15',
+            ]))
+            ->assertOk();
+        $branchWorkbook = EventPulloutWorkbook::readInventoryItems($branchTransfer->baseResponse->getFile()->getPathname());
+        $this->assertSame($secondBranch->name, $branchWorkbook['target']);
     }
 
     public function test_exported_inventory_workbook_can_be_imported_with_quantity_and_metadata(): void

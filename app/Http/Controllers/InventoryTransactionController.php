@@ -274,6 +274,9 @@ class InventoryTransactionController extends Controller
 
     private function inventoryWorkbookDocument(array $data): array
     {
+        $target = isset($data['target_hub_id'])
+            ? StoreHub::whereKey($data['target_hub_id'])->where('status', 'active')->first()
+            : null;
         $title = match ($data['type']) {
             'branch_transfer' => 'BRANCH TO BRANCH',
             'restock' => 'WAREHOUSE TO HO RESTOCK',
@@ -284,6 +287,7 @@ class InventoryTransactionController extends Controller
             'title' => $title,
             'reference' => $data['reference'] ?? '',
             'occurred_on' => $data['occurred_on'] ?? now()->toDateString(),
+            'target' => $data['type'] === 'restock' ? '' : ($target?->name ?? ''),
             'notes' => $data['notes'] ?? '',
         ];
     }
