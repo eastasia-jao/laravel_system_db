@@ -49,6 +49,7 @@
                 activeStep: 0,
                 importStatus: 'uploading',
                 importResult: null,
+                failureMessage: '',
                 elapsedTimer: null,
                 pollTimer: null,
                 successTimer: null,
@@ -60,6 +61,7 @@
                     this.activeStep = 0;
                     this.importStatus = 'uploading';
                     this.importResult = null;
+                    this.failureMessage = '';
                     this.elapsedTimer = setInterval(() => this.elapsed++, 1000);
                     const form = this.$root.querySelector('#storeHubImportForm');
                     try {
@@ -80,13 +82,17 @@
                         this.pollTimer = setInterval(() => this.refreshImportStatus(), 2000);
                     } catch (error) {
                         this.importStatus = 'failed';
-                        this.importResult = { error: error.message || 'The import could not be started.' };
+                        this.failureMessage = String(error?.message || 'The import could not be started.').trim() || 'The import could not be started.';
+                        this.importResult = { error: this.failureMessage };
                         clearInterval(this.elapsedTimer);
                     }
                 },
                 updateImportStatus(record) {
                     this.importStatus = record.status;
                     this.importResult = record;
+                    if (record.status === 'failed') {
+                        this.failureMessage = String(record.error || 'The import did not finish. Please try again.').trim();
+                    }
                     this.activeStep = { queued: 1, processing: 2, completed: 3, failed: 3 }[record.status] ?? 0;
                     if (['completed', 'failed'].includes(record.status)) {
                         clearInterval(this.elapsedTimer);
@@ -156,8 +162,15 @@
 
                                 <div class="alert alert-light border small text-muted mt-4 mb-0 py-2">
                                     <i class="fa-solid fa-circle-info me-1 text-primary"></i>
-                                    <span x-text="importStatus === 'queued' ? 'Queued — waiting for the import worker.' : (importStatus === 'processing' ? 'The file is being imported now.' : (importStatus === 'completed' ? 'Import completed successfully. Refreshing the dashboard…' : (importStatus === 'failed' ? (importResult?.error || 'The import did not finish. Please try again.') : 'Uploading and validating the CSV file.'))"></span>
+                                    <span x-show="importStatus === 'uploading'">Uploading and validating the CSV file.</span>
+                                    <span x-show="importStatus === 'queued'">Queued &mdash; waiting for the import worker.</span>
+                                    <span x-show="importStatus === 'processing'">The file is being imported now.</span>
+                                    <span x-show="importStatus === 'completed'">Import completed successfully. Refreshing the dashboard&hellip;</span>
                                     <span class="float-end font-monospace" x-text="Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')"></span>
+                                </div>
+                                <div class="alert alert-danger small mt-3 mb-0" x-show="importStatus === 'failed'" style="display: none; white-space: pre-line;">
+                                    <strong class="d-block mb-1">Why the import failed</strong>
+                                    <span x-text="failureMessage || 'The import did not finish. Please try again.'"></span>
                                 </div>
                                 <div class="row row-cols-3 g-2 text-center mt-3" x-show="importStatus === 'completed'" style="display: none;">
                                     <div class="col"><div class="border rounded p-2 small text-muted">Created<strong class="d-block fs-5 text-success" x-text="importResult?.created_count ?? 0"></strong></div></div>

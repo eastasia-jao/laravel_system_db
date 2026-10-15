@@ -105,6 +105,8 @@ class ProductFileRequestTest extends TestCase
                 ->assertOk()
                 ->assertSee('Import CSV')
                 ->assertSee('Export Products')
+                ->assertSee('Why the import failed')
+                ->assertSee('failureMessage', false)
                 ->assertSee('id="importProductModal"', false)
                 ->assertSee('id="exportProductModal"', false);
         }
