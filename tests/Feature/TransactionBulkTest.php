@@ -862,6 +862,7 @@ class TransactionBulkTest extends TestCase
             'type' => 'sold',
         ]))->assertOk()
             ->assertSee('Sold Order Details')
+            ->assertSee('modal-dialog-centered modal-dialog-scrollable', false)
             ->assertSee('Submitted by')
             ->assertSee('Sales Channel')
             ->assertDontSee('<strong>Transfer</strong>', false)
