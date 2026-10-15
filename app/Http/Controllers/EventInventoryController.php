@@ -62,17 +62,96 @@ class EventInventoryController extends Controller
         return view('event-inventory.index', compact('events', 'hubs', 'hubId', 'status'));
     }
 
+    public function transactions(Request $request)
+    {
+        $validated = $request->validate([
+            'hub_id' => ['nullable', 'integer', 'exists:store_hubs,id'],
+            'event_id' => ['nullable', 'integer', 'exists:event_pullouts,id'],
+            'activity' => ['nullable', Rule::in(['all', 'pullout', 'sale', 'return', 'missing'])],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+        $hubs = StoreHub::where('status', 'active')->orderBy('name')->get();
+        $hubId = (int) ($validated['hub_id'] ?? auth()->user()?->store_hub_id ?? $hubs->first()?->id);
+        $activity = $validated['activity'] ?? 'all';
+        $typeForActivity = [
+            'pullout' => 'sponsor_workshop',
+            'sale' => 'sold',
+            'return' => 'return',
+            'missing' => 'event_variance',
+        ];
+
+        $eventOptions = EventPullout::query()
+            ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
+            ->latest('occurred_on')
+            ->latest('id')
+            ->get(['id', 'reference', 'source', 'occurred_on', 'status']);
+
+        $transactions = InventoryTransaction::query()
+            ->whereNotNull('event_pullout_id')
+            ->with(['eventPullout.storeHub', 'product', 'creator', 'salesTransaction', 'transactionItem'])
+            ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
+            ->when(filled($validated['event_id'] ?? null), fn ($query) => $query->where('event_pullout_id', $validated['event_id']))
+            ->when($activity !== 'all', fn ($query) => $query->where('type', $typeForActivity[$activity]))
+            ->when(filled($validated['from'] ?? null), fn ($query) => $query->whereDate('occurred_on', '>=', $validated['from']))
+            ->when(filled($validated['to'] ?? null), fn ($query) => $query->whereDate('occurred_on', '<=', $validated['to']))
+            ->when(filled($validated['search'] ?? null), function ($query) use ($validated) {
+                $search = trim($validated['search']);
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('reference', 'like', "%{$search}%")
+                        ->orWhere('source', 'like', "%{$search}%")
+                        ->orWhereHas('product', fn ($product) => $product
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('item_id', 'like', "%{$search}%"))
+                        ->orWhereHas('eventPullout', fn ($event) => $event
+                            ->where('reference', 'like', "%{$search}%")
+                            ->orWhere('source', 'like', "%{$search}%"));
+                });
+            })
+            ->orderByDesc('occurred_on')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('event-inventory.transactions', compact(
+            'transactions', 'eventOptions', 'hubs', 'hubId', 'activity'
+        ));
+    }
+
+    public function createSale(EventPullout $eventPullout)
+    {
+        if ($eventPullout->status !== 'open') {
+            return redirect()->route('event-inventory.index', [
+                'hub_id' => $eventPullout->store_hub_id,
+                'status' => 'closed',
+            ])->with('error', 'Closed events cannot accept additional sales.');
+        }
+
+        $eventPullout->load(['storeHub', 'items.product', 'salesTransactions.items', 'inventoryTransactions']);
+        $saleLines = $this->saleLines($eventPullout);
+
+        return view('event-inventory.sales.create', compact('eventPullout', 'saleLines'));
+    }
+
     public function storeSale(Request $request, EventPullout $eventPullout)
     {
         $validated = $request->validate([
             'order_date' => ['required', 'date'],
             'customer_name' => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string', 'max:1000'],
             'mode_of_payment' => ['nullable', 'string', 'max:100'],
+            'payment_status' => ['nullable', Rule::in(['unpaid', 'partial', 'paid'])],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
+            'additional_discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
             'note' => ['nullable', 'string', 'max:2000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.event_pullout_item_id' => ['required', 'integer', 'distinct', 'exists:event_pullout_items,id'],
-            'items.*.quantity' => ['nullable', 'integer', 'min:0'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
         ]);
 
         $sale = DB::transaction(function () use ($eventPullout, $validated, $request) {
@@ -81,12 +160,7 @@ class EventInventoryController extends Controller
                 throw ValidationException::withMessages(['event' => 'Closed events cannot accept additional sales.']);
             }
 
-            $requestedItems = collect($validated['items'])
-                ->filter(fn ($item) => (int) ($item['quantity'] ?? 0) > 0)
-                ->keyBy('event_pullout_item_id');
-            if ($requestedItems->isEmpty()) {
-                throw ValidationException::withMessages(['items' => 'Enter a quantity for at least one Event item.']);
-            }
+            $requestedItems = collect($validated['items'])->keyBy('event_pullout_item_id');
             $eventItems = EventPulloutItem::query()
                 ->where('event_pullout_id', $event->id)
                 ->whereIn('id', $requestedItems->keys())
@@ -130,18 +204,41 @@ class EventInventoryController extends Controller
                 $line = $eventItems->get((int) $lineId);
                 $quantity = (int) $item['quantity'];
                 $lineAvailable = (int) $line->quantity - (int) ($soldByLine[$line->id] ?? 0);
-                $productAvailable = (int) ($pulledByProduct[$line->product_id] ?? 0)
-                    - (int) ($soldByProduct[$line->product_id] ?? 0)
-                    - (int) ($returnedByProduct[$line->product_id] ?? 0);
-                if ($quantity > min($lineAvailable, $productAvailable)) {
+                if ($quantity > $lineAvailable) {
                     throw ValidationException::withMessages([
                         'items' => "Not enough remaining {$line->stock_condition} Event stock for {$line->product->name}.",
                     ]);
                 }
             }
+            $requestedItems->groupBy(fn ($item, $lineId) => $eventItems->get((int) $lineId)->product_id, true)
+                ->each(function (Collection $items, $productId) use ($eventItems, $pulledByProduct, $soldByProduct, $returnedByProduct) {
+                    $requested = (int) $items->sum(fn ($item) => (int) $item['quantity']);
+                    $available = (int) ($pulledByProduct[$productId] ?? 0)
+                        - (int) ($soldByProduct[$productId] ?? 0)
+                        - (int) ($returnedByProduct[$productId] ?? 0);
+                    if ($requested > $available) {
+                        $lineId = $items->keys()->first();
+                        $productName = $eventItems->get((int) $lineId)?->product?->name ?? 'the selected product';
+                        throw ValidationException::withMessages([
+                            'items' => "Not enough total Event stock remains for {$productName}.",
+                        ]);
+                    }
+                });
 
             $orderNumber = 'EVENT-'.$event->id.'-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4));
-            $subTotal = $requestedItems->sum(fn ($item) => (int) $item['quantity'] * (float) $item['unit_price']);
+            $subTotal = $requestedItems->sum(function ($item) {
+                $gross = (int) $item['quantity'] * (float) $item['unit_price'];
+
+                return round($gross * (1 - ((float) ($item['discount_percentage'] ?? 0) / 100)), 2);
+            });
+            $additionalDiscountPercentage = (float) ($validated['additional_discount_percentage'] ?? 0);
+            $grandTotal = round($subTotal * (1 - ($additionalDiscountPercentage / 100)), 2);
+            $paymentStatus = $validated['payment_status'] ?? 'paid';
+            $amountPaid = match ($paymentStatus) {
+                'paid' => $grandTotal,
+                'unpaid' => 0,
+                default => min($grandTotal, (float) ($validated['amount_paid'] ?? 0)),
+            };
             $sale = SalesTransaction::create([
                 'user_id' => $request->user()->id,
                 'store_hub_id' => $event->store_hub_id,
@@ -150,14 +247,17 @@ class EventInventoryController extends Controller
                 'order_date' => $validated['order_date'],
                 'order_number' => $orderNumber,
                 'customer_name' => trim((string) ($validated['customer_name'] ?? '')) ?: $event->source.' customer',
+                'contact_number' => $validated['contact_number'] ?? null,
+                'address' => $validated['address'] ?? null,
                 'mode_of_payment' => $validated['mode_of_payment'] ?? null,
                 'note' => $validated['note'] ?? null,
                 'sub_total' => $subTotal,
-                'total_amount' => $subTotal,
-                'grand_total' => $subTotal,
+                'additional_discount_percentage' => $additionalDiscountPercentage,
+                'total_amount' => $grandTotal,
+                'grand_total' => $grandTotal,
                 'status' => 'confirmed',
-                'payment_status' => 'paid',
-                'amount_paid' => $subTotal,
+                'payment_status' => $paymentStatus,
+                'amount_paid' => $amountPaid,
                 'delivery_status' => 'delivered',
             ]);
 
@@ -165,14 +265,16 @@ class EventInventoryController extends Controller
                 $line = $eventItems->get((int) $lineId);
                 $quantity = (int) $item['quantity'];
                 $unitPrice = (float) $item['unit_price'];
+                $discountPercentage = (float) ($item['discount_percentage'] ?? 0);
+                $lineTotal = round(($quantity * $unitPrice) * (1 - ($discountPercentage / 100)), 2);
                 $transactionItem = TransactionItem::create([
                     'transaction_id' => $sale->id,
                     'product_id' => $line->product_id,
                     'quantity' => $quantity,
                     'stock_condition' => $line->stock_condition,
                     'unit_price' => $unitPrice,
-                    'discount_percentage' => 0,
-                    'line_total' => $quantity * $unitPrice,
+                    'discount_percentage' => $discountPercentage,
+                    'line_total' => $lineTotal,
                 ]);
                 InventoryTransaction::create([
                     'type' => 'sold',
@@ -297,5 +399,32 @@ class EventInventoryController extends Controller
                 'remaining' => max(0, $pulled - $sold - $returned - $missing),
             ];
         })->sortBy(fn ($row) => $row['product']?->item_id ?? '')->values();
+    }
+
+    private function saleLines(EventPullout $event): Collection
+    {
+        return $this->summaryRows($event)->flatMap(function ($row) {
+            return $row['lines']->map(function (EventPulloutItem $line) use ($row) {
+                $conditionSold = $line->stock_condition === 'damaged'
+                    ? $row['sold_damaged']
+                    : $row['sold_good'];
+                $conditionReturned = $line->stock_condition === 'damaged'
+                    ? $row['returned_damaged']
+                    : $row['returned_good'];
+                $available = max(0, min(
+                    $row['remaining'],
+                    (int) $line->quantity - $conditionSold - $conditionReturned
+                ));
+
+                return [
+                    'id' => $line->id,
+                    'product_id' => $line->product_id,
+                    'product' => $line->product,
+                    'condition' => $line->stock_condition,
+                    'available' => $available,
+                    'unit_price' => (float) ($line->product?->sales_price ?? 0),
+                ];
+            });
+        })->filter(fn ($line) => $line['available'] > 0)->values();
     }
 }

@@ -222,6 +222,8 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
     // Product creating/editing/deleting inventory (admin + inventory staff)
     Route::middleware(['can:manage-inventory'])->group(function () {
         Route::get('/event-inventory', [EventInventoryController::class, 'index'])->name('event-inventory.index');
+        Route::get('/event-inventory/transactions', [EventInventoryController::class, 'transactions'])->name('event-inventory.transactions');
+        Route::get('/event-inventory/{eventPullout}/sales/create', [EventInventoryController::class, 'createSale'])->name('event-inventory.sales.create');
         Route::post('/event-inventory/{eventPullout}/sales', [EventInventoryController::class, 'storeSale'])->name('event-inventory.sales.store');
         Route::patch('/event-inventory/{eventPullout}/close', [EventInventoryController::class, 'close'])->name('event-inventory.close');
         Route::get('/products/national', [NationalInventoryController::class, 'index'])->name('national-inventory.index');

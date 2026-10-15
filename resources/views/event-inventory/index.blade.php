@@ -8,11 +8,6 @@
     .event-ledger-kpi .value { color: #0f172a; font-size: 1.2rem; font-weight: 800; }
     .event-ledger-table th { white-space: nowrap; color: #64748b; font-size: .72rem; text-transform: uppercase; }
     .event-ledger-table td { vertical-align: middle; }
-    .event-sale-panel { border: 1px solid #bfdbfe; border-radius: .85rem; background: #eff6ff; }
-    .event-sale-items { max-height: 340px; overflow-y: auto; }
-    .event-sale-row { display: grid; grid-template-columns: minmax(240px, 1.7fr) minmax(120px, .55fr) minmax(125px, .65fr) minmax(140px, .7fr); gap: .75rem; align-items: end; padding: .75rem; border-bottom: 1px solid #dbeafe; }
-    .event-sale-row:last-child { border-bottom: 0; }
-    @media (max-width: 767.98px) { .event-sale-row { grid-template-columns: 1fr 1fr; } }
 </style>
 
 <div class="workspace-page event-inventory-page">
@@ -21,7 +16,8 @@
     <div class="d-flex flex-wrap gap-2 mb-3">
         <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId]) }}" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>New Event Pull-Out</a>
         <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $hubId]) }}" class="btn btn-outline-primary"><i class="fa-solid fa-rotate-left me-1"></i>Return Items</a>
-        <a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary"><i class="fa-solid fa-clipboard-list me-1"></i>Transaction Logs</a>
+        <a href="{{ route('event-inventory.transactions', ['hub_id' => $hubId]) }}" class="btn btn-outline-primary"><i class="fa-solid fa-clock-rotate-left me-1"></i>Event Transaction Logs</a>
+        <a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary"><i class="fa-solid fa-clipboard-list me-1"></i>General Transaction Logs</a>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
@@ -106,59 +102,18 @@
                 </div>
             @endif
 
-            @if($event->status === 'open')
-                <div class="p-3 border-top d-flex flex-wrap gap-2">
-                    <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#eventSale{{ $event->id }}" aria-expanded="false"><i class="fa-solid fa-cart-plus me-1"></i>Record Event Sale</button>
+            <div class="p-3 border-top d-flex flex-wrap gap-2">
+                <a class="btn btn-sm btn-outline-secondary" href="{{ route('event-inventory.transactions', ['hub_id' => $event->store_hub_id, 'event_id' => $event->id]) }}"><i class="fa-solid fa-clock-rotate-left me-1"></i>View Transactions</a>
+                @if($event->status === 'open')
+                    <a class="btn btn-sm btn-primary" href="{{ route('event-inventory.sales.create', $event) }}"><i class="fa-solid fa-cart-plus me-1"></i>Record Event Sale</a>
                     <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.return.create', ['hub_id' => $event->store_hub_id, 'channel' => 'event', 'event_reference' => $event->reference]) }}"><i class="fa-solid fa-rotate-left me-1"></i>Return Remaining Items</a>
                     <form method="POST" action="{{ route('event-inventory.close', $event) }}" class="ms-lg-auto" onsubmit="return confirm('Close this event? Any remaining quantity will be recorded as missing and no further sales or returns will be allowed.');">
                         @csrf
                         @method('PATCH')
                         <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-lock me-1"></i>Reconcile & Close</button>
                     </form>
-                </div>
-
-                <div class="collapse p-3 pt-0" id="eventSale{{ $event->id }}">
-                    <form method="POST" action="{{ route('event-inventory.sales.store', $event) }}" class="event-sale-panel p-3">
-                        @csrf
-                        <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
-                            <div><h5 class="mb-1">Record Event Sale</h5><div class="small text-muted">This reduces Event stock only. Head Office physical stock will not be deducted again.</div></div>
-                        </div>
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-3"><label class="form-label">Sale Date</label><input type="date" name="order_date" value="{{ now()->toDateString() }}" class="form-control" required></div>
-                            <div class="col-md-3"><label class="form-label">Customer</label><input name="customer_name" class="form-control" placeholder="Optional"></div>
-                            <div class="col-md-3"><label class="form-label">Payment Method</label><input name="mode_of_payment" class="form-control" placeholder="Cash, GCash, etc."></div>
-                            <div class="col-md-3"><label class="form-label">Notes</label><input name="note" class="form-control" maxlength="2000"></div>
-                        </div>
-                        <div class="event-sale-items bg-white rounded-3 border">
-                            @php
-                                $saleIndex = 0;
-                            @endphp
-                            @foreach($event->summary_rows as $row)
-                                @foreach($row['lines'] as $line)
-                                    @php
-                                        $conditionSold = $line->stock_condition === 'damaged' ? $row['sold_damaged'] : $row['sold_good'];
-                                        $conditionReturned = $line->stock_condition === 'damaged' ? $row['returned_damaged'] : $row['returned_good'];
-                                        $available = max(0, min($row['remaining'], $line->quantity - $conditionSold - $conditionReturned));
-                                    @endphp
-                                    @if($available > 0)
-                                        <div class="event-sale-row">
-                                            <div><strong>{{ $line->product?->name }}</strong><div class="small text-muted">{{ $line->product?->item_id }} &middot; {{ ucfirst($line->stock_condition) }} &middot; {{ $available }} available</div><input type="hidden" name="items[{{ $saleIndex }}][event_pullout_item_id]" value="{{ $line->id }}"></div>
-                                            <div><label class="form-label">Condition</label><input class="form-control" value="{{ ucfirst($line->stock_condition) }}" readonly></div>
-                                            <div><label class="form-label">Quantity</label><input type="number" name="items[{{ $saleIndex }}][quantity]" min="0" max="{{ $available }}" value="0" class="form-control"></div>
-                                            <div><label class="form-label">Unit Price</label><input type="number" name="items[{{ $saleIndex }}][unit_price]" min="0" step="0.01" value="{{ number_format((float) ($line->product?->sales_price ?? 0), 2, '.', '') }}" class="form-control" required></div>
-                                        </div>
-                                        @php
-                                            $saleIndex++;
-                                        @endphp
-                                    @endif
-                                @endforeach
-                            @endforeach
-                            @if($saleIndex === 0)<div class="alert alert-info m-3 mb-0">No Event stock remains available for sale.</div>@endif
-                        </div>
-                        <div class="d-flex justify-content-end mt-3"><button class="btn btn-primary" @disabled($saleIndex === 0)><i class="fa-solid fa-check me-1"></i>Save Event Sale</button></div>
-                    </form>
-                </div>
-            @endif
+                @endif
+            </div>
         </article>
     @empty
         <div class="card border-0 shadow-sm rounded-4 p-5 text-center">

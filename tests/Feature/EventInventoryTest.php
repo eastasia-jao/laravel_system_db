@@ -43,6 +43,14 @@ class EventInventoryTest extends TestCase
             ->assertSee('October Art Fair')
             ->assertSee($event->reference)
             ->assertSee('Record Event Sale');
+
+        $this->get(route('event-inventory.sales.create', $event))
+            ->assertOk()
+            ->assertSee('Record Event Sale')
+            ->assertSee('Order details')
+            ->assertSee('Order items')
+            ->assertSee('Payment and order summary')
+            ->assertSee('Additional Discount');
     }
 
     public function test_event_sale_reduces_only_event_stock_and_return_limit_accounts_for_sold_items(): void
@@ -55,17 +63,31 @@ class EventInventoryTest extends TestCase
         $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
             'customer_name' => 'Event Customer',
+            'contact_number' => '09171234567',
+            'address' => 'Event Hall, Manila',
             'mode_of_payment' => 'CASH',
+            'payment_status' => 'partial',
+            'amount_paid' => 100,
+            'additional_discount_percentage' => 5,
             'items' => [[
                 'event_pullout_item_id' => $line->id,
                 'quantity' => 2,
                 'unit_price' => 150,
+                'discount_percentage' => 10,
             ]],
         ])->assertSessionHasNoErrors();
 
         $sale = SalesTransaction::where('event_pullout_id', $event->id)->sole();
         $this->assertSame('event', $sale->channel_type);
         $this->assertSame(2, $sale->items()->sum('quantity'));
+        $this->assertSame('Event Customer', $sale->customer_name);
+        $this->assertSame('09171234567', $sale->contact_number);
+        $this->assertSame('partial', $sale->payment_status);
+        $this->assertSame('270.00', $sale->sub_total);
+        $this->assertSame('256.50', $sale->grand_total);
+        $this->assertSame('100.00', $sale->amount_paid);
+        $this->assertEquals(10.00, $sale->items()->sole()->discount_percentage);
+        $this->assertEquals(270.00, $sale->items()->sole()->line_total);
         $this->assertSame($stockAfterPullout, (int) $product->fresh()->stock);
         $this->assertDatabaseHas('inventory_transactions', [
             'event_pullout_id' => $event->id,
@@ -145,13 +167,56 @@ class EventInventoryTest extends TestCase
         ])->assertSessionHasErrors('event');
     }
 
+    public function test_event_transactions_have_a_separate_filterable_log(): void
+    {
+        [$admin, $hub, $product] = $this->eventFixture();
+        $event = $this->createEvent($admin, $hub, $product, 5);
+        $line = $event->items()->sole();
+
+        $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
+            'order_date' => '2026-10-15',
+            'customer_name' => 'Log Customer',
+            'mode_of_payment' => 'CASH',
+            'items' => [[
+                'event_pullout_item_id' => $line->id,
+                'quantity' => 2,
+                'unit_price' => 150,
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $sale = SalesTransaction::where('event_pullout_id', $event->id)->sole();
+        $this->get(route('event-inventory.transactions', [
+            'hub_id' => $hub->id,
+            'event_id' => $event->id,
+        ]))->assertOk()
+            ->assertSee('Event Transaction Logs')
+            ->assertSee('Stock entered Event inventory')
+            ->assertSee('Stock sold from Event inventory')
+            ->assertSee($sale->order_number)
+            ->assertSee('Log Customer');
+
+        $this->get(route('event-inventory.transactions', [
+            'hub_id' => $hub->id,
+            'event_id' => $event->id,
+            'activity' => 'sale',
+        ]))->assertOk()
+            ->assertSee('Stock sold from Event inventory')
+            ->assertDontSee('Stock entered Event inventory');
+    }
+
     public function test_event_inventory_routes_are_limited_to_inventory_management_roles(): void
     {
-        [, $hub] = $this->eventFixture();
+        [$admin, $hub, $product] = $this->eventFixture();
+        $event = $this->createEvent($admin, $hub, $product, 2);
         $salesAssociate = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $hub->id]);
 
         $this->actingAs($salesAssociate)
             ->get(route('event-inventory.index', ['hub_id' => $hub->id]))
+            ->assertForbidden();
+
+        $this->get(route('event-inventory.transactions', ['hub_id' => $hub->id]))
+            ->assertForbidden();
+        $this->get(route('event-inventory.sales.create', $event))
             ->assertForbidden();
     }
 

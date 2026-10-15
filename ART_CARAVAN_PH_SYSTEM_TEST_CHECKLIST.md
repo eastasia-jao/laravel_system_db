@@ -355,6 +355,9 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Event Return Items limits returnable quantity to `Actual Released - Event Sold - Previously Returned`.
 - [ ] Reconcile & Close records unresolved remaining quantities as missing, locks further Event sales/returns, and preserves the audit history.
 - [ ] Event Inventory routes are restricted to Admin and Inventory Staff in both the UI and direct requests.
+- [ ] Event Transaction Logs display Event Pull-Out, Event Sale, Return, and Missing entries separately from the general Transaction Logs page.
+- [ ] Event Transaction Logs can be filtered by Store Hub, Event, activity, date range, and reference/product search.
+- [ ] Record Event Sale uses the channel-sales-style form with customer details, multiple product rows, condition/availability, price, line discount, payment details, additional discount, totals, and remarks.
 - [ ] Large workbook import matches products in bounded batches and preserves identifiers.
 
 ## 23. National Inventory and National Pull-out
