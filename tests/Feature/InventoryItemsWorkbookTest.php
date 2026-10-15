@@ -73,6 +73,7 @@ class InventoryItemsWorkbookTest extends TestCase
         $this->assertSame('2026-10-15', $workbook['occurred_on']);
         $this->assertSame($branch->name, $workbook['target']);
         $this->assertSame('Handle carefully', $workbook['notes']);
+        $this->assertSame('Canvas Roll', $workbook['items'][0]['name']);
         $this->assertSame('000123', $workbook['items'][0]['item_id']);
         $this->assertSame('000456', $workbook['items'][0]['barcode']);
         $this->assertSame('10', $workbook['items'][0]['physical_stock']);
@@ -82,6 +83,8 @@ class InventoryItemsWorkbookTest extends TestCase
         $this->assertStringContainsString('<c r="D1" s="2"', $worksheetXml);
         $this->assertStringContainsString('<c r="E1" s="2"', $worksheetXml);
         $this->assertStringContainsString('Target Branch: '.$branch->name, $worksheetXml);
+        $this->assertStringContainsString('Product Name', $worksheetXml);
+        $this->assertStringNotContainsString('Name / Description', $worksheetXml);
         $this->assertStringNotContainsString('Good Items', $worksheetXml);
         $this->assertStringNotContainsString('Damaged Items', $worksheetXml);
 

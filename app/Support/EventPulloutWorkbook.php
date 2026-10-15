@@ -101,8 +101,9 @@ class EventPulloutWorkbook
                 $columns[$normalized] = $column;
             }
         }
-        $required = ['name description', 'barcode', 'item id', 'quantity'];
-        if (array_diff($required, array_keys($columns))) {
+        $nameColumn = $columns['product name'] ?? $columns['name description'] ?? null;
+        $required = ['barcode', 'item id', 'quantity'];
+        if ($nameColumn === null || array_diff($required, array_keys($columns))) {
             throw new RuntimeException('The Excel worksheet must contain the inventory item headers in row 2.');
         }
 
@@ -112,7 +113,7 @@ class EventPulloutWorkbook
                 continue;
             }
             $items[] = [
-                'name' => $row[$columns['name description']] ?? '',
+                'name' => $row[$nameColumn] ?? '',
                 'barcode' => $row[$columns['barcode']] ?? '',
                 'item_id' => $row[$columns['item id']] ?? '',
                 'physical_stock' => $row[$columns['physical stocks qty'] ?? 0] ?? '',
@@ -366,7 +367,7 @@ class EventPulloutWorkbook
             .'</row><row r="2" ht="30" customHeight="1">';
 
         foreach ([
-            'Name / Description',
+            'Product Name',
             'Barcode',
             'Item ID',
             'Physical Stocks Qty',

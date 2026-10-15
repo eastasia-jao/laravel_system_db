@@ -264,7 +264,7 @@ class InventoryTransactionController extends Controller
     private function inventoryWorkbookProduct(Product $product, int|string $quantity): array
     {
         return [
-            'name' => $product->description ?: $product->name,
+            'name' => $product->name,
             'barcode' => (string) ($product->barcode ?? ''),
             'item_id' => (string) $product->item_id,
             'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
