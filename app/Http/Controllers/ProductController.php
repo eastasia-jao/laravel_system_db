@@ -718,10 +718,7 @@ class ProductController extends Controller
         $callback = function () use ($products, $isHeadOffice) {
             $file = fopen('php://output', 'w');
             fwrite($file, "\xEF\xBB\xBF");
-            $headers = ['Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Retail Group', 'Retail Department', 'Cost Price', 'Retail Price'];
-            if (! $isHeadOffice) {
-                array_unshift($headers, 'ID');
-            }
+            $headers = ['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Retail Group', 'Retail Department', 'Cost Price', 'Retail Price'];
             if ($isHeadOffice) {
                 $headers = [...$headers, 'Wholesale Price', 'Shopee Price', 'Lazada Price'];
             }
@@ -730,11 +727,8 @@ class ProductController extends Controller
 
             foreach ($products as $prod) {
                 $row = [
-                    CsvIdentifier::write($prod->item_id, 'Item ID'), $prod->name, $prod->description, CsvIdentifier::write($prod->barcode, 'Barcode'), $prod->brand, $prod->retail_group, $prod->retail_department, $prod->cost_price, $prod->sales_price,
+                    $isHeadOffice ? '' : $prod->id, CsvIdentifier::write($prod->item_id, 'Item ID'), $prod->name, $prod->description, CsvIdentifier::write($prod->barcode, 'Barcode'), $prod->brand, $prod->retail_group, $prod->retail_department, $prod->cost_price, $prod->sales_price,
                 ];
-                if (! $isHeadOffice) {
-                    array_unshift($row, $prod->id);
-                }
                 if ($isHeadOffice) {
                     $row = [...$row, $prod->wholesale_price, $prod->shopee_price, $prod->lazada_price];
                 }

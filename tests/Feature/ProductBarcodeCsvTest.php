@@ -65,16 +65,18 @@ class ProductBarcodeCsvTest extends TestCase
             'product_ids' => [$product->id],
             'format' => 'csv',
         ]))->assertOk();
-        $csv = ltrim($csvResponse->streamedContent(), "\xEF\xBB\xBF");
+        $csvWithBom = $csvResponse->streamedContent();
+        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $csvWithBom);
         $csvLines = preg_split('/\r\n|\r|\n/', $csv);
         $csvHeaders = str_getcsv($csvLines[0]);
         $csvRow = str_getcsv($csvLines[1]);
-        $this->assertNotContains('ID', $csvHeaders);
-        $this->assertSame('Item ID', $csvHeaders[0]);
-        $this->assertSame('="000012345678901234567890"', $csvRow[0]);
-        $this->assertSame('="00007661234567891234567890"', $csvRow[3]);
+        $this->assertSame('ID', $csvHeaders[0]);
+        $this->assertSame('Item ID', $csvHeaders[1]);
+        $this->assertSame('', $csvRow[0]);
+        $this->assertSame('="000012345678901234567890"', $csvRow[1]);
+        $this->assertSame('="00007661234567891234567890"', $csvRow[4]);
         $this->post(route('hub.products.import', $hub), [
-            'file' => UploadedFile::fake()->createWithContent('head-office-roundtrip.csv', $csv),
+            'file' => UploadedFile::fake()->createWithContent('head-office-roundtrip.csv', $csvWithBom),
         ])->assertSessionHasNoErrors()->assertRedirect();
         $this->assertSame('000012345678901234567890', $product->fresh()->item_id);
         $this->assertSame('00007661234567891234567890', $product->fresh()->barcode);
@@ -103,14 +105,15 @@ class ProductBarcodeCsvTest extends TestCase
             $styles = $archive['xl/styles.xml']->getContent();
             unset($archive);
 
-            $this->assertStringContainsString('<c r="A1" s="1" t="inlineStr"><is><t xml:space="preserve">Item ID</t></is></c>', $worksheet);
-            $this->assertStringNotContainsString('xml:space="preserve">ID</t>', $worksheet);
+            $this->assertStringContainsString('<c r="A1" s="1" t="inlineStr"><is><t xml:space="preserve">ID</t></is></c>', $worksheet);
+            $this->assertStringContainsString('<c r="B1" s="1" t="inlineStr"><is><t xml:space="preserve">Item ID</t></is></c>', $worksheet);
+            $this->assertStringContainsString('<c r="A2" s="0" t="inlineStr"><is><t xml:space="preserve"></t></is></c>', $worksheet);
             $this->assertStringContainsString(
-                '<c r="A2" s="2" t="inlineStr"><is><t xml:space="preserve">000012345678901234567890</t></is></c>',
+                '<c r="B2" s="2" t="inlineStr"><is><t xml:space="preserve">000012345678901234567890</t></is></c>',
                 $worksheet
             );
             $this->assertStringContainsString(
-                '<c r="D2" s="2" t="inlineStr"><is><t xml:space="preserve">00007661234567891234567890</t></is></c>',
+                '<c r="E2" s="2" t="inlineStr"><is><t xml:space="preserve">00007661234567891234567890</t></is></c>',
                 $worksheet
             );
             $this->assertStringNotContainsString('<autoFilter', $worksheet);

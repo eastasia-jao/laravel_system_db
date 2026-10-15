@@ -68,8 +68,13 @@
                             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                             credentials: 'same-origin',
                         });
-                        const payload = await response.json();
-                        if (!response.ok) throw new Error(payload.message || 'The import could not be started.');
+                        const responseText = await response.text();
+                        let payload = {};
+                        try { payload = responseText ? JSON.parse(responseText) : {}; } catch (_) { }
+                        if (!response.ok) {
+                            const validationMessage = Object.values(payload.errors || {}).flat().join('\n');
+                            throw new Error(validationMessage || payload.message || responseText || 'The import could not be started.');
+                        }
                         this.fileName = payload.import.file_name || this.fileName;
                         this.updateImportStatus(payload.import);
                         this.pollTimer = setInterval(() => this.refreshImportStatus(), 2000);

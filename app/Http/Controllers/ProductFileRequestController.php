@@ -66,6 +66,7 @@ class ProductFileRequestController extends Controller
         if (! mb_check_encoding($csv, 'UTF-8')) {
             throw ValidationException::withMessages(['file' => 'Save the product file as CSV UTF-8 before submitting.']);
         }
+        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $csv) ?? $csv;
         $stream = fopen('php://temp', 'r+');
         try {
             fwrite($stream, $csv);

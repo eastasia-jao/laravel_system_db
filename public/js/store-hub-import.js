@@ -2,9 +2,14 @@ import { parseCsv, readIdentifier } from './transaction-bulk.js';
 
 export function validateHubIdentifiers(text) {
     const rows = parseCsv(text);
+    const headers = (rows.shift() || []).map(value => String(value ?? '').trim().toLowerCase());
+    const identifierColumns = [
+        [headers.indexOf('item id'), 'Item ID'],
+        [headers.indexOf('barcode'), 'Barcode'],
+    ].filter(([column]) => column >= 0);
     const errors = [];
-    rows.slice(1).forEach((row, index) => {
-        for (const [column, label] of [[1, 'Item ID'], [4, 'Barcode']]) {
+    rows.forEach((row, index) => {
+        for (const [column, label] of identifierColumns) {
             try { readIdentifier(row[column]); }
             catch (error) { errors.push(`Row ${index + 2} ${label}: ${error.message}`); }
         }
