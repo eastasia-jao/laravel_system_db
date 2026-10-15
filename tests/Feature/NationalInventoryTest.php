@@ -106,7 +106,8 @@ class NationalInventoryTest extends TestCase
             ->get(route('staff-logs.index'))
             ->assertOk()
             ->assertSee('National Product Import')
-            ->assertSee('National Product Export');
+            ->assertSee('National Product Export')
+            ->assertSee('log-activity-badge text-nowrap', false);
         $this->actingAs($admin)
             ->get(route('staff-logs.show', $importLog))
             ->assertOk()

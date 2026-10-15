@@ -32,7 +32,7 @@
     .staff-log-table .log-staff-name { font-weight: 700; overflow-wrap: anywhere; }
     .staff-log-table .log-hub-cell { color: #334155; font-weight: 600; overflow-wrap: anywhere; }
     .staff-log-table .log-summary-cell { color: #334155; line-height: 1.5; overflow-wrap: anywhere; }
-    .staff-log-table .log-activity-badge { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; border-radius: 7px; padding: .38rem .55rem; font-size: .73rem; font-weight: 700; white-space: normal; }
+    .staff-log-table .log-activity-badge { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; border-radius: 7px; padding: .38rem .55rem; font-size: .73rem; font-weight: 700; white-space: nowrap; }
     .staff-log-table .log-status-badge { display: inline-block; margin-top: .35rem; border-radius: 6px; padding: .25rem .45rem; font-size: .68rem; font-weight: 800; letter-spacing: .025em; }
     .staff-log-table .log-items-cell { text-align: center; }
     .staff-log-table .log-items-cell .btn { border-radius: 8px; font-size: .78rem; }
@@ -151,7 +151,7 @@
                             <col style="width: 145px">
                             <col style="width: 155px">
                             <col style="width: 165px">
-                            <col style="width: 185px">
+                            <col style="width: 220px">
                             <col>
                             <col style="width: 160px">
                         </colgroup>
@@ -185,7 +185,7 @@
                                 </td>
                                 <td class="log-hub-cell {{ $isSalesAssociate ? 'transfer-log-hub' : '' }}">{{ $log->storeHub?->name ?? 'N/A' }}</td>
                                 <td class="{{ $isSalesAssociate ? 'transfer-log-activity' : '' }}">
-                                    <span class="badge text-bg-{{ ($details['status'] ?? 'approved') === 'rejected' ? 'danger' : $config[1] }} log-activity-badge">
+                                    <span class="badge text-bg-{{ ($details['status'] ?? 'approved') === 'rejected' ? 'danger' : $config[1] }} log-activity-badge text-nowrap">
                                         <i class="fa-solid {{ $config[2] }} me-1"></i>{{ $config[0] }}
                                     </span>
                                     @if($isSalesAssociate && !empty($details['status']))
