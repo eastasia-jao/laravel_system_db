@@ -156,7 +156,7 @@ class ProductFileRequestTest extends TestCase
                 'file' => UploadedFile::fake()->createWithContent('products.csv', $this->csv()),
             ])
             ->assertRedirect(route('hub.dashboard', $hub))
-            ->assertSessionHas('success', 'Import queued and will be applied automatically in the background.');
+            ->assertSessionMissing('success');
 
         $record = ProductFileRequest::sole();
         $this->assertSame('import', $record->type);

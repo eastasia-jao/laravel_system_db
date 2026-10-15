@@ -345,10 +345,7 @@ class ProductController extends Controller
             ], 202);
         }
 
-        return redirect()->route('hub.dashboard', $hub->id)->with(
-            'success',
-            'Import queued and will be applied automatically in the background.'
-        );
+        return redirect()->route('hub.dashboard', $hub->id);
     }
 
     /**
