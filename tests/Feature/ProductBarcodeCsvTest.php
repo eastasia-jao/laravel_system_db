@@ -113,6 +113,7 @@ class ProductBarcodeCsvTest extends TestCase
                 '<c r="D2" s="2" t="inlineStr"><is><t xml:space="preserve">00007661234567891234567890</t></is></c>',
                 $worksheet
             );
+            $this->assertStringNotContainsString('<autoFilter', $worksheet);
             $this->assertStringContainsString('numFmtId="49"', $styles);
         } finally {
             @unlink($workbookPath);
