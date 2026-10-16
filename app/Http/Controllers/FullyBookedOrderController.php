@@ -167,6 +167,7 @@ class FullyBookedOrderController extends Controller
             $fullyBookedOrder->load('items.product');
             $items = $fullyBookedOrder->items->map(fn (FullyBookedOrderItem $item) => [
                 'name' => $item->product_name,
+                'item_id' => $item->item_id ?? '',
                 'quantity' => (int) $item->quantity,
                 'purpose' => 'Fully Booked Pullout',
                 'physical_stock' => (int) ($item->product?->stock ?? 0) + (int) $item->quantity,
@@ -195,6 +196,7 @@ class FullyBookedOrderController extends Controller
 
                 return [
                     'name' => $product->name ?: $product->description ?: 'Unknown product',
+                    'item_id' => $product->item_id ?? '',
                     'quantity' => isset($entry['quantity']) ? (int) $entry['quantity'] : '',
                     'purpose' => 'Fully Booked Pullout',
                     'physical_stock' => (int) $product->stock,

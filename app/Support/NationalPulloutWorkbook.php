@@ -104,7 +104,7 @@ class NationalPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
+     * @param  list<array{name: string, item_id?: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
      * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string}  $document
      */
     public static function create(array $items, array $document = []): string
@@ -228,7 +228,7 @@ class NationalPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
+     * @param  list<array{name: string, item_id?: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
      * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string}  $document
      * @return array<string, string>
      */
@@ -244,23 +244,23 @@ class NationalPulloutWorkbook
                 'Date: '.($document['occurred_on'] ?? ''),
                 'Remarks: '.($document['remarks'] ?? ''),
                 '',
-            ], 20, 3, [0 => 5]),
-            self::rowXml(2, ['', 'Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-out'], 30, 2),
+            ], 45, 3, [0 => 5]),
+            self::rowXml(2, ['Item ID', 'Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-out'], 35, 2),
         ];
 
         foreach ($items as $index => $item) {
             $row = $index + 3;
             $rows[] = self::rowXml($row, [
-                '',
+                $item['item_id'] ?? '',
                 $item['name'],
                 $item['quantity'],
                 $item['purpose'],
                 $item['physical_stock'],
                 $item['actual_pullout'],
-            ], 20, 1, [2 => 4, 4 => 4, 5 => 4]);
+            ], 25, 1, [2 => 4, 4 => 4, 5 => 4]);
         }
         for ($index = 0; $index < $blankRows; $index++) {
-            $rows[] = self::rowXml(count($items) + $index + 3, array_fill(0, 6, ''), 20, 1, [2 => 4, 4 => 4, 5 => 4]);
+            $rows[] = self::rowXml(count($items) + $index + 3, array_fill(0, 6, ''), 25, 1, [2 => 4, 4 => 4, 5 => 4]);
         }
 
         $sheetData = implode('', $rows);
@@ -296,7 +296,7 @@ class NationalPulloutWorkbook
                 .'<dimension ref="A1:F'.$lastRow.'"/>'
                 .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews>'
                 .'<sheetFormatPr defaultRowHeight="15"/>'
-                .'<cols><col min="1" max="1" width="8" customWidth="1"/>'
+                .'<cols><col min="1" max="1" width="18" customWidth="1"/>'
                 .'<col min="2" max="2" width="48" customWidth="1"/>'
                 .'<col min="3" max="3" width="9.5" customWidth="1"/>'
                 .'<col min="4" max="4" width="20" customWidth="1"/>'
@@ -305,7 +305,7 @@ class NationalPulloutWorkbook
                 .'<sheetData>'.$sheetData.'</sheetData>'
                 .'<mergeCells count="2"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/></mergeCells>'
                 .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
-                .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
+                .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'
                 .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/>'
                 .'</worksheet>',
         ];

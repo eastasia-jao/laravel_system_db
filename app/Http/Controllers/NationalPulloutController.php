@@ -141,6 +141,7 @@ class NationalPulloutController extends Controller
                 ->get()
                 ->map(fn (NationalProduct $product) => [
                     'name' => $product->name,
+                    'item_id' => $product->item_id,
                     'quantity' => '',
                     'purpose' => 'National Bookstore Pullout',
                     'physical_stock' => (int) $product->stock,
@@ -213,6 +214,7 @@ class NationalPulloutController extends Controller
 
             return [
                 'name' => $product->name,
+                'item_id' => $product->item_id,
                 'quantity' => $item['quantity'] ?? '',
                 'purpose' => 'National Bookstore Pullout',
                 'physical_stock' => (int) $product->stock,

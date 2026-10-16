@@ -296,6 +296,7 @@ class FullyBookedOrderTest extends TestCase
         $this->assertIsString($exportScript);
         $this->assertStringContainsString('exportFullyBookedExcel', $exportScript);
         $this->assertStringNotContainsString('exportFullyBookedCsv', $exportScript);
+        $this->assertStringContainsString('selectedProductIds(row)', $exportScript);
         $this->assertStringContainsString("allRows.length >= 5", $exportScript);
         $this->assertStringContainsString('method: \'GET\'', $exportScript);
         $this->assertStringContainsString('/js/fully-booked-pullout.js?v=', $this->get(route('inventory-transactions.sponsor.create', [
@@ -383,6 +384,12 @@ class FullyBookedOrderTest extends TestCase
             $sheet = $workbook['xl/worksheets/sheet1.xml']->getContent();
             $this->assertStringContainsString('FULLY BOOKED', $sheet);
             $this->assertStringContainsString('Order #: FB-EXPORT-001', $sheet);
+            $this->assertStringContainsString('Item ID', $sheet);
+            $this->assertStringContainsString('r="A2" s="2"', $sheet);
+            $this->assertStringContainsString('FB-EXPORT-1</t>', $sheet);
+            $this->assertStringContainsString('r="1" ht="45"', $sheet);
+            $this->assertStringContainsString('r="2" ht="35"', $sheet);
+            $this->assertStringContainsString('r="3" ht="25"', $sheet);
             $this->assertStringContainsString('Product Item Name', $sheet);
             $this->assertStringContainsString('Actual Pull-out', $sheet);
             $this->assertStringContainsString($product->name, $sheet);
@@ -390,6 +397,8 @@ class FullyBookedOrderTest extends TestCase
             $this->assertStringContainsString('<v>3</v>', $sheet);
             $this->assertStringContainsString('<v>10</v>', $sheet);
             $this->assertStringContainsString('Excel export test', $sheet);
+            $this->assertStringContainsString('orientation="portrait"', $sheet);
+            $this->assertStringContainsString('left="0.6" right="0.6" top="0.6" bottom="0.6"', $sheet);
         } finally {
             unset($workbook);
             unlink($path);

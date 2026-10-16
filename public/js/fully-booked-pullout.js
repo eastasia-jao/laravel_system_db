@@ -82,6 +82,12 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
         });
         rows.classList.toggle('is-scrollable', allRows.length >= 5);
     };
+    const selectedProductIds = exceptRow => new Set(
+        [...rows.querySelectorAll('.fully-booked-pullout-row')]
+            .filter(row => row !== exceptRow)
+            .map(row => row.querySelector('.product-id').value)
+            .filter(Boolean)
+    );
 
     const bindSearch = row => {
         const input = row.querySelector('.product-search');
@@ -152,15 +158,18 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
                     if (version !== requestVersion) return;
 
                     results.replaceChildren();
-                    if (!products.length) {
+                    const availableProducts = products.filter(product => !selectedProductIds(row).has(String(product.id)));
+                    if (!availableProducts.length) {
                         const empty = document.createElement('div');
                         empty.className = 'list-group-item small text-muted';
-                        empty.textContent = 'No matching products found.';
+                        empty.textContent = products.length
+                            ? 'Matching products are already selected in this order.'
+                            : 'No matching products found.';
                         results.append(empty);
                         return;
                     }
 
-                    products.forEach(product => {
+                    availableProducts.forEach(product => {
                         const option = document.createElement('button');
                         option.type = 'button';
                         option.className = 'list-group-item list-group-item-action text-start';
@@ -168,6 +177,11 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
                         option.textContent = window.transactionProductLabel(product);
                         option.addEventListener('mousedown', event => event.preventDefault());
                         option.addEventListener('click', () => {
+                            if (selectedProductIds(row).has(String(product.id))) {
+                                window.AppAlert?.show(`${product.name} is already selected in this order.`, 'warning');
+                                closeResults();
+                                return;
+                            }
                             input.value = window.transactionProductLabel(product);
                             hidden.value = product.id;
                             hidden.dataset.itemId = product.item_id || '';
