@@ -16,6 +16,13 @@ test('returns require explicit conditions and skip blank worksheet quantities', 
     assert.throws(() => importRows('Item ID,Quantity\n001,2', products, 'return'), /Condition/);
     assert.deepEqual(importRows('Item ID,Quantity,Condition\n001,,\n001,2,damaged', products, 'return'), [{ product_id: 1, quantity: 2, condition: 'damaged' }]);
 });
+test('event CSV imports require explicit good or damaged stock conditions', () => {
+    assert.throws(() => importRows('Item ID,Quantity\n001,2', products, 'sponsor_workshop'), /Stock condition must be good or damaged/);
+    assert.throws(() => importRows('Item ID,Quantity,Stock Condition\n001,2,broken', products, 'sponsor_workshop'), /Stock condition must be good or damaged/);
+    assert.deepEqual(importRows('Item ID,Quantity,Stock Condition\n001,2,damaged', products, 'sponsor_workshop'), [
+        { product_id: 1, quantity: 2, stock_condition: 'damaged', pullout_qty: 2 }
+    ]);
+});
 test('CSV handles commas, multiline descriptions, BOM and escaped quotes', () => {
     const rows = [['Name', 'Item ID'], ['A, "quoted"\nname', '001']];
     assert.deepEqual(parseCsv(csvText(rows)), rows);

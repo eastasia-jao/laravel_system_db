@@ -90,6 +90,9 @@
         </button>
         <input type="file" accept="{{ $inventoryWorkbook ? '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : ($eventWorkbook ? '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : '.csv,text/csv') }}" class="d-none" id="transactionCsv">
     </div>
+    @if($eventWorkbook)
+        <small class="text-muted d-block mt-2">For each row with an actual pull-out quantity, enter Stock Condition as Good or Damaged in Excel or CSV.</small>
+    @endif
     <div id="transactionImportLoading" class="transaction-import-overlay" role="status" aria-live="polite" hidden>
         <div class="transaction-import-card">
             <div class="transaction-import-spinner" aria-hidden="true"></div>

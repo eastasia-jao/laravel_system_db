@@ -421,8 +421,8 @@ class InventoryTransactionController extends Controller
 
                 continue;
             }
-            $condition = 'good';
             $worksheetCondition = strtolower(trim($row['stock_condition']));
+            $condition = '';
             if ($worksheetCondition !== '') {
                 if (! in_array($worksheetCondition, ['good', 'damaged'], true)) {
                     $errors[] = "Row {$line}: Stock Condition must be good or damaged.";
@@ -436,6 +436,11 @@ class InventoryTransactionController extends Controller
                     $condition = strtolower($match[1]);
                 }
                 $name = trim(substr($name, 0, -strlen($match[0])));
+            }
+            if ($condition === '') {
+                $errors[] = "Row {$line}: Stock Condition must be good or damaged.";
+
+                continue;
             }
             if (! preg_match('/^[1-9]\d*$/', $quantity) || filter_var($quantity, FILTER_VALIDATE_INT) === false) {
                 $errors[] = "Row {$line}: Physical Actual-Pullout must be a positive whole number.";

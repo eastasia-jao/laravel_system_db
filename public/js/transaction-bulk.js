@@ -77,12 +77,12 @@ export function importRows(text, products, type) {
         if (!/^[1-9]\d*$/.test(quantity) || !Number.isSafeInteger(Number(quantity))) return fail('Quantity must be a positive whole number.');
         const condition = clean(row[conditionColumn]).toLowerCase();
         if (type === 'return' && !['good', 'damaged'].includes(condition)) return fail('Condition must be good or damaged.');
-        if (type === 'sponsor_workshop' && condition && !['good', 'damaged'].includes(condition)) return fail('Stock condition must be good or damaged.');
+        if (type === 'sponsor_workshop' && !['good', 'damaged'].includes(condition)) return fail('Stock condition must be good or damaged.');
         items.push({
             product_id: matches[0].id,
             quantity: Number(quantity),
             ...(type === 'return' ? { condition } : {}),
-            ...(type === 'sponsor_workshop' ? { stock_condition: condition || 'good', pullout_qty: Number(quantity) } : {})
+            ...(type === 'sponsor_workshop' ? { stock_condition: condition, pullout_qty: Number(quantity) } : {})
         });
     });
     if (errors.length) throw new Error(`No items imported. Fix these errors and retry:\n${errors.join('\n')}`);

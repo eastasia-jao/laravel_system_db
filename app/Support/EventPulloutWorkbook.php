@@ -254,7 +254,7 @@ class EventPulloutWorkbook
             .'<dimension ref="A1:I'.$lastRow.'"/>'
             .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews>'
             .'<sheetFormatPr defaultRowHeight="15"/>'
-            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="8" width="20" customWidth="1"/><col min="9" max="9" width="0" hidden="1" customWidth="1"/></cols>'
+            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="8" width="20" customWidth="1"/><col min="9" max="9" width="18" customWidth="1"/></cols>'
             .'<sheetData>'
             .'<row r="1" ht="20.1" customHeight="1">'
             .self::inlineCell('A1', 'EVENT PULL-OUT', 1)
@@ -311,8 +311,11 @@ class EventPulloutWorkbook
             $xml .= '</row>';
         }
 
-        $xml .= '</sheetData><mergeCells count="3"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/><mergeCell ref="G1:H1"/></mergeCells>'
-            .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
+        $xml .= '</sheetData><mergeCells count="3"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/><mergeCell ref="G1:H1"/></mergeCells>';
+        if ($items !== []) {
+            $xml .= '<dataValidations count="1"><dataValidation type="list" allowBlank="0" showErrorMessage="1" errorTitle="Invalid stock condition" error="Choose Good or Damaged." sqref="I3:I'.$lastRow.'"><formula1>"Good,Damaged"</formula1></dataValidation></dataValidations>';
+        }
+        $xml .= '<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
             .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
             .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
 

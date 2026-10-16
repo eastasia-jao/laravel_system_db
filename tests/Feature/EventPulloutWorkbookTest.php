@@ -81,7 +81,11 @@ class EventPulloutWorkbookTest extends TestCase
         $this->assertStringContainsString('<c r="G2" s="3"', $worksheetXml);
         $this->assertStringContainsString('<c r="H2" s="3"', $worksheetXml);
         $this->assertStringContainsString('<c r="I2" s="3"', $worksheetXml);
-        $this->assertStringContainsString('min="9" max="9" width="0" hidden="1"', $worksheetXml);
+        $this->assertStringContainsString('min="9" max="9" width="18" customWidth="1"', $worksheetXml);
+        $this->assertStringNotContainsString('hidden="1"', $worksheetXml);
+        $this->assertStringContainsString('<dataValidation type="list" allowBlank="0"', $worksheetXml);
+        $this->assertStringContainsString('<formula1>"Good,Damaged"</formula1>', $worksheetXml);
+        $this->assertStringContainsString('sqref="I3:I3"', $worksheetXml);
         $this->assertSame('', $workbook['items'][0]['pullout_qty']);
         $this->assertSame('', $workbook['items'][0]['actual_pullout']);
         $this->assertSame('SW-EVENT-HO-20261001-120000-ABC123', $workbook['reference']);
@@ -105,6 +109,7 @@ class EventPulloutWorkbookTest extends TestCase
             ->assertSee('id="transactionImportLoading" class="transaction-import-overlay"', false)
             ->assertSee('Getting your items ready')
             ->assertSee('Download Excel Worksheet')
+            ->assertSee('enter Stock Condition as Good or Damaged')
             ->assertDontSee('Download CSV Worksheet');
     }
 
@@ -238,6 +243,56 @@ class EventPulloutWorkbookTest extends TestCase
                 ->assertJsonPath('metadata.occurred_on', '2026-10-01')
                 ->assertJsonPath('metadata.source', 'Book Fair')
                 ->assertJsonPath('metadata.notes', 'Imported notes');
+        } finally {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    public function test_event_workbook_import_rejects_rows_without_a_stock_condition(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office',
+            'code' => 'EVENT-HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        Product::create([
+            'name' => 'Event Product',
+            'item_id' => 'EVENT-123',
+            'store_hub_id' => $hub->id,
+            'stock' => 12,
+            'damaged_stock' => 3,
+            'status' => 'active',
+        ]);
+        $path = EventPulloutWorkbook::create([[
+            'name' => 'Event Product',
+            'barcode' => '',
+            'item_id' => 'EVENT-123',
+            'physical_stock' => 15,
+            'good_stock' => 12,
+            'damaged_stock' => 3,
+            'pullout_qty' => '',
+            'actual_pullout' => 1,
+            'stock_condition' => '',
+        ]]);
+
+        try {
+            $this->actingAs(User::factory()->create(['role' => 'admin']))
+                ->postJson(route('inventory-transactions.sponsor.worksheet.import'), [
+                    'hub_id' => $hub->id,
+                    'file' => new UploadedFile(
+                        $path,
+                        'event-pullout.xlsx',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        null,
+                        true
+                    ),
+                ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('file')
+                ->assertJsonFragment(['Row 3: Stock Condition must be good or damaged.']);
         } finally {
             if (file_exists($path)) {
                 unlink($path);
