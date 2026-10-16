@@ -35,9 +35,7 @@
     #wholesaleDetailsModal .modal-dialog { max-width: 1280px; }
     #wholesaleDetailsModal .modal-body { padding: .65rem; }
     .wholesale-detail-grid { display: flex; flex-direction: column; gap: .55rem; }
-    .wholesale-detail-overview { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, .9fr); gap: .55rem; align-items: start; }
-    .wholesale-detail-primary, .wholesale-detail-sidebar { display: flex; flex-direction: column; gap: .55rem; min-width: 0; }
-    .wholesale-detail-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; align-items: start; }
+    .wholesale-detail-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; align-items: stretch; }
     .wholesale-info-panel { overflow: hidden; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; }
     .wholesale-info-panel-title { margin: 0; padding: .55rem .7rem; border-bottom: 1px solid #dbe4f0; background: #eef5ff; color: #1e3a8a; font-size: .76rem; font-weight: 700; }
     .wholesale-info-panel-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -52,7 +50,7 @@
     .wholesale-status-panel .wholesale-detail-label { display: none; }
     .wholesale-detail-section { padding: .65rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
     .wholesale-detail-label { margin-bottom: .25rem; color: #64748b; font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-    .wholesale-detail-items details > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+    .wholesale-detail-items details > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
     .wholesale-detail-items .item-line { margin: 0; padding: .5rem; border: 1px solid #dbe4f0 !important; border-radius: 8px; background: #fff; }
     .wholesale-detail-payment details .border { display: grid; grid-template-columns: minmax(100px, .65fr) minmax(180px, 1fr); column-gap: .6rem; align-items: start; padding: .6rem !important; }
     .wholesale-detail-payment details .border > .fw-semibold { grid-column: 1; grid-row: 1; }
@@ -60,24 +58,38 @@
     .wholesale-detail-payment details .border > .payment-proof-empty { grid-column: 1; grid-row: 3; margin-top: 0 !important; }
     .wholesale-detail-payment details .border > .mt-3 { grid-column: 2; grid-row: 1 / span 2; margin-top: 0 !important; }
     .wholesale-detail-payment details .border > .mt-3 a { height: 120px !important; }
-    .wholesale-detail-status .status-update-form { display: flex; flex-direction: column; gap: .35rem; }
+    .wholesale-detail-status .wholesale-detail-section > div:last-child { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, .25fr); gap: .65rem; align-items: center; }
+    .wholesale-detail-status .status-update-form { display: grid; grid-template-columns: 1.1fr 1.1fr 1fr 1.5fr; gap: .35rem; align-items: start; }
     .wholesale-detail-status .status-update-form .input-group { margin-bottom: 0 !important; }
     .wholesale-detail-status .wholesale-refund-form { margin-top: .35rem !important; }
     .wholesale-detail-status .wholesale-refund-form small { font-size: .7rem; }
-    .wholesale-detail-status .status-update-form > .row { margin-top: .25rem !important; }
-    @media (max-width: 991.98px) { .wholesale-detail-overview { grid-template-columns: minmax(0, 1fr) minmax(300px, .85fr); } .wholesale-financial-panel .wholesale-info-panel-body { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    @media (max-width: 767.98px) {
-        .wholesale-detail-overview { grid-template-columns: 1fr; }
+    .wholesale-detail-status .status-update-form > .row { grid-column: 1 / 4; margin-top: 0 !important; }
+    .wholesale-detail-status .status-update-form > small { grid-column: 4; }
+    .wholesale-detail-status .status-update-form .payment-amount-error { grid-column: 1 / -1; }
+    @media (max-width: 991.98px) {
+        .wholesale-financial-panel .wholesale-info-panel-body { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .wholesale-detail-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .wholesale-status-panel { grid-column: 1 / -1; }
-        .wholesale-detail-items details > div { grid-template-columns: 1fr; }
-        .wholesale-detail-status .status-update-form { display: block; }
+        .wholesale-detail-groups > :last-child { grid-column: 1 / -1; }
+        .wholesale-detail-status .status-update-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .wholesale-detail-status .status-update-form > .row,
+        .wholesale-detail-status .status-update-form > small { grid-column: auto; }
+    }
+    @media (max-width: 767.98px) {
+        .wholesale-detail-groups { grid-template-columns: 1fr; }
+        .wholesale-detail-groups > :last-child { grid-column: auto; }
+        .wholesale-detail-items details > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .wholesale-detail-status .wholesale-detail-section > div:last-child { grid-template-columns: 1fr; }
+        .wholesale-detail-status .status-update-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .wholesale-detail-payment details .border { grid-template-columns: minmax(90px, .6fr) minmax(0, 1fr); }
     }
     @media (max-width: 575.98px) {
         .wholesale-info-panel-body, .wholesale-financial-panel .wholesale-info-panel-body,
         .wholesale-detail-groups { grid-template-columns: 1fr; }
-        .wholesale-status-panel { grid-column: auto; }
+        .wholesale-detail-items details > div,
+        .wholesale-detail-status .status-update-form { grid-template-columns: 1fr; }
+        .wholesale-detail-status .status-update-form > .row,
+        .wholesale-detail-status .status-update-form > small,
+        .wholesale-detail-status .status-update-form .payment-amount-error { grid-column: auto; }
     }
 </style>
 <div class="card wholesale-report-card">
@@ -613,7 +625,7 @@
                 const buildSection = (cell, index) => {
                     const section = document.createElement('section');
                     section.className = 'wholesale-detail-section';
-                    if (index === 0) section.classList.add('wholesale-detail-items');
+                        if (index === 0) section.classList.add('wholesale-detail-items');
                     if (index === 2) section.classList.add('wholesale-detail-payment');
                     if (index === 16) section.classList.add('wholesale-detail-status');
                     const label = document.createElement('div');
@@ -642,25 +654,18 @@
                 };
 
                 content.append(buildPanel('Financial Summary', 'fa-chart-line', [3, 4, 5, 6, 15], 'wholesale-financial-panel'));
-                const overview = document.createElement('div');
-                overview.className = 'wholesale-detail-overview';
-                const primary = document.createElement('div');
-                primary.className = 'wholesale-detail-primary';
-                primary.append(buildSection(cells[0], 0), buildSection(cells[2], 2));
-                const sidebar = document.createElement('div');
-                sidebar.className = 'wholesale-detail-sidebar';
+                content.append(buildSection(cells[0], 0));
                 const groups = document.createElement('div');
                 groups.className = 'wholesale-detail-groups';
                 groups.append(
                     buildPanel('Order Information', 'fa-file-invoice', [1, 7, 8, 9]),
-                    buildPanel('Fulfillment Details', 'fa-truck', [10, 11, 12, 13, 14])
+                    buildPanel('Fulfillment Details', 'fa-truck', [10, 11, 12, 13, 14]),
+                    buildPanel('Payment Details', 'fa-credit-card', [2])
                 );
-                sidebar.append(
+                content.append(
                     groups,
-                    buildPanel('Update Status', 'fa-sliders', [16], 'wholesale-status-panel')
+                    buildPanel('Update Status & Refund', 'fa-sliders', [16], 'wholesale-status-panel')
                 );
-                overview.append(primary, sidebar);
-                content.append(overview);
             });
 
             content.addEventListener('click', event => {
