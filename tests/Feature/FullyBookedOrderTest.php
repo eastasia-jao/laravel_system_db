@@ -1024,6 +1024,10 @@ class FullyBookedOrderTest extends TestCase
             ->assertJsonPath('transaction.fully_booked_attachment.mime_type', 'application/pdf');
         $this->get(route('inventory-transactions.index', ['type' => 'fully_booked']))
             ->assertOk()
+            ->assertSee('fully-booked-detail-summary', false)
+            ->assertSee('fully-booked-detail-meta', false)
+            ->assertSee('fully-booked-attachment-row', false)
+            ->assertSee('fully-booked-detail-items', false)
             ->assertSee('Items Pulled Out')
             ->assertSee('export-fully-booked-xlsx', false)
             ->assertSee('Export Excel')
@@ -1032,6 +1036,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('data-stock="9"', false)
             ->assertSee('Unaffected Product')
             ->assertSee('Please prioritize this order.')
+            ->assertDontSee('<iframe src="'.$previewUrl.'"', false)
+            ->assertDontSee('<img src="'.$previewUrl.'"', false)
             ->assertDontSee('PENDING PULL-OUT')
             ->assertDontSee('Pending inventory pull-out');
         $this->assertSame(1, $staff->notifications()->where('data->event', 'fully_booked_completed')->count());

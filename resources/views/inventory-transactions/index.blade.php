@@ -51,6 +51,37 @@
     .inventory-log-modal .modal-body > .row { background: transparent; }
     .inventory-log-modal .modal-body > .row > [class*="col-"] > strong { display: block; color: #64748b; font-size: .7rem; letter-spacing: .05em; text-transform: uppercase; }
     .inventory-log-modal .modal-body > .row > [class*="col-"] > strong + div { margin-top: .2rem; font-weight: 600; }
+    .fully-booked-detail { display: grid; gap: 1rem; }
+    .fully-booked-detail-summary { display: flex; align-items: center; gap: .9rem; padding: 1rem; border: 1px solid #dbeafe; border-radius: 14px; background: #fff; }
+    .fully-booked-detail-icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 12px; color: #2563eb; background: #eff6ff; }
+    .fully-booked-detail-eyebrow { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .fully-booked-detail-order { margin: .15rem 0 0; color: #1e3a8a; font-size: 1.15rem; font-weight: 800; }
+    .fully-booked-detail-status { margin-left: auto; }
+    .fully-booked-detail-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
+    .fully-booked-detail-meta-item { min-width: 0; padding: .85rem 1rem; }
+    .fully-booked-detail-meta-item:nth-child(odd) { border-right: 1px solid #eef2f7; }
+    .fully-booked-detail-meta-item:nth-child(n+3) { border-top: 1px solid #eef2f7; }
+    .fully-booked-detail-label { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .fully-booked-detail-value { margin-top: .2rem; color: #1e293b; font-weight: 700; overflow-wrap: anywhere; }
+    .fully-booked-detail-note { padding: .85rem 1rem; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 12px; background: #fff; }
+    .fully-booked-detail-note.danger { border-color: #fecaca; border-left-color: #dc3545; background: #fff7f7; }
+    .fully-booked-detail-note p { margin: .3rem 0 0; color: #334155; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .fully-booked-detail-section { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
+    .fully-booked-detail-section-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem 1rem; border-bottom: 1px solid #eef2f7; background: #f8fafc; }
+    .fully-booked-detail-section-title { color: #334155; font-size: .75rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .fully-booked-attachment-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1rem; }
+    .fully-booked-attachment-file { display: flex; align-items: center; gap: .65rem; min-width: 0; color: #334155; }
+    .fully-booked-attachment-file i { color: #64748b; }
+    .fully-booked-attachment-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fully-booked-detail-items { max-height: min(42vh, 360px); overflow-y: auto; overscroll-behavior: contain; }
+    .fully-booked-detail-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
+    .fully-booked-detail-item + .fully-booked-detail-item { border-top: 1px solid #eef2f7; }
+    .fully-booked-detail-item-name { color: #1e293b; font-weight: 700; }
+    .fully-booked-detail-item-id { margin-top: .15rem; color: #64748b; font-size: .78rem; }
+    .fully-booked-detail-qty { flex: 0 0 auto; border-radius: 999px; padding: .3rem .65rem; color: #1d4ed8; background: #eff6ff; font-size: .78rem; font-weight: 800; }
+    .fully-booked-detail-audit { padding: .7rem 1rem; border-top: 1px solid #eef2f7; color: #64748b; font-size: .78rem; }
+    .fully-booked-detail-empty { display: flex; align-items: flex-start; gap: .8rem; padding: 1rem; border: 1px solid #dbeafe; border-radius: 14px; background: #eff6ff; }
+    .fully-booked-detail-empty > i { margin-top: .15rem; color: #2563eb; }
     .sold-detail-hero { border: 1px solid #bbf7d0; border-radius: 16px; padding: 1.15rem; background: linear-gradient(135deg, #f0fdf4, #ffffff); }
     .sold-detail-hero .eyebrow { color: #15803d; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .sold-detail-hero h4 { color: #14532d; font-weight: 800; }
@@ -115,6 +146,15 @@
     @media (max-width: 767.98px) {
         .transaction-logs-page .page-hero { padding: 1rem; }
         .inventory-action-groups { grid-template-columns: 1fr; }
+        .fully-booked-attachment-row { align-items: flex-start; flex-direction: column; }
+        .fully-booked-detail-status { margin-left: 0; }
+        .fully-booked-detail-summary { align-items: flex-start; flex-wrap: wrap; }
+    }
+    @media (max-width: 575.98px) {
+        .fully-booked-detail-meta { grid-template-columns: 1fr; }
+        .fully-booked-detail-meta-item:nth-child(odd) { border-right: 0; }
+        .fully-booked-detail-meta-item + .fully-booked-detail-meta-item { border-top: 1px solid #eef2f7; }
+        .fully-booked-detail-section-header { align-items: flex-start; flex-direction: column; }
     }
     @media (min-width: 768px) and (max-width: 1199.98px) { .inventory-action-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
@@ -391,63 +431,118 @@
                                     </div>
                                 </div>
                             @elseif($isFullyBookedGroup)
-                                <div class="col-md-6"><strong class="small text-muted">Fully Booked Order Number</strong><div class="fw-semibold">{{ $fullyBookedOrder?->order_number ?? $transaction->reference }}</div></div>
-                                <div class="col-md-6"><strong class="small text-muted">Sales / Marketing Staff</strong><div class="fw-semibold">{{ $fullyBookedOrder?->salesStaff?->name ?? 'Deleted staff' }}</div></div>
-                                <div class="col-md-6"><strong class="small text-muted">Submitted By</strong><div class="fw-semibold">{{ $fullyBookedOrder?->submitter?->name ?? 'Deleted user' }}</div></div>
-                                <div class="col-md-6"><strong class="small text-muted">Store Hub</strong><div class="fw-semibold">{{ $fullyBookedOrder?->storeHub?->name ?? '—' }}</div></div>
-                                <div class="col-md-6"><strong class="small text-muted">Submitted</strong><div class="fw-semibold">{{ $fullyBookedOrder?->created_at?->format('M d, Y h:i A') }}</div></div>
-                                @if($fullyBookedOrder?->status === 'rejected')
-                                    <div class="col-md-6"><strong class="small text-muted">Rejected By</strong><div class="fw-semibold">{{ $fullyBookedOrder->reviewer?->name ?? 'Inventory staff' }}</div></div>
-                                    <div class="col-md-6"><strong class="small text-muted">Rejected At</strong><div class="fw-semibold">{{ $fullyBookedOrder->reviewed_at?->format('M d, Y h:i A') ?? '—' }}</div></div>
-                                    <div class="col-12"><strong class="small text-muted">Rejection Reason</strong><div class="fw-semibold text-danger" style="white-space:pre-wrap">{{ $fullyBookedOrder->rejection_reason ?: '—' }}</div></div>
-                                @endif
-                                @if($fullyBookedOrder?->remarks)
-                                    <div class="col-12"><strong class="small text-muted">Remarks</strong><div class="fw-semibold" style="white-space:pre-wrap">{{ $fullyBookedOrder->remarks }}</div></div>
-                                @endif
-                                <div class="col-md-6"><strong class="small text-muted">Attachment</strong><div class="d-flex gap-2">
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.fully-booked.attachment', $fullyBookedOrder) }}" target="_blank" rel="noopener">Preview</a>
-                                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $fullyBookedOrder, 'download' => 1]) }}">Download</a>
-                                </div></div>
                                 <div class="col-12">
-                                    @if(str_starts_with($fullyBookedOrder?->mime_type ?? '', 'image/'))
-                                        <img src="{{ route('inventory-transactions.fully-booked.attachment', $fullyBookedOrder) }}" alt="Attachment for Fully Booked order {{ $fullyBookedOrder->order_number }}" class="fully-booked-preview">
-                                    @else
-                                        <iframe src="{{ route('inventory-transactions.fully-booked.attachment', $fullyBookedOrder) }}" title="Attachment for Fully Booked order {{ $fullyBookedOrder->order_number }}" class="fully-booked-pdf"></iframe>
-                                    @endif
-                                    <div class="small text-muted mt-2">{{ $fullyBookedOrder?->original_filename }}</div>
-                                </div>
-                                @if($fullyBookedOrder?->pulled_out_at)
-                                    <div class="col-12">
-                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                                        <strong>Items Pulled Out</strong>
-                                        <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-xlsx"
-                                            data-order-number="{{ $fullyBookedOrder->order_number }}"
-                                            data-completed="true"
-                                            data-export-url="{{ route('inventory-transactions.fully-booked.export-worksheet', $fullyBookedOrder) }}">
-                                            <i class="fa-solid fa-file-excel me-1"></i>Export Excel
-                                        </button>
-                                    </div>
-                                    <div class="list-group">
-                                        @foreach($fullyBookedOrder->items->sortBy('item_id', SORT_NATURAL | SORT_FLAG_CASE) as $item)
-                                            <div class="list-group-item d-flex justify-content-between gap-3 fully-booked-export-item"
-                                                data-item-id="{{ $item->item_id }}"
-                                                data-description="{{ $item->product?->description ?: $item->product_name }}"
-                                                data-barcode="{{ $item->product?->barcode ?? '' }}"
-                                                data-stock="{{ $item->product?->stock ?? '' }}"
-                                                data-quantity="{{ $item->quantity }}">
-                                                <span>{{ $item->product_name }} <small class="text-muted">({{ $item->item_id ?? '—' }})</small></span>
-                                                <strong>Qty {{ $item->quantity }}</strong>
+                                    @php
+                                        $fullyBookedStatusLabel = $fullyBookedOrder?->status === 'rejected'
+                                            ? 'Rejected'
+                                            : ($fullyBookedOrder?->pulled_out_at ? 'Completed' : ($fullyBookedOrder?->status === 'reviewed' ? 'Reviewed' : 'Pending'));
+                                        $fullyBookedStatusClass = $fullyBookedOrder?->status === 'rejected'
+                                            ? 'text-bg-danger'
+                                            : ($fullyBookedOrder?->pulled_out_at ? 'text-bg-success' : 'text-bg-warning');
+                                    @endphp
+                                    <div class="fully-booked-detail">
+                                        <section class="fully-booked-detail-summary">
+                                            <span class="fully-booked-detail-icon"><i class="fa-solid fa-book-open"></i></span>
+                                            <div>
+                                                <div class="fully-booked-detail-eyebrow">Fully Booked order</div>
+                                                <h4 class="fully-booked-detail-order">{{ $fullyBookedOrder?->order_number ?? $transaction->reference }}</h4>
                                             </div>
-                                            @endforeach
-                                        </div>
-                                        <div class="small text-muted mt-2">Recorded by {{ $fullyBookedOrder->pullOutBy?->name ?? 'Inventory staff' }} · {{ $fullyBookedOrder->pulled_out_at->format('M d, Y h:i A') }}</div>
+                                            <span class="badge rounded-pill {{ $fullyBookedStatusClass }} fully-booked-detail-status">{{ $fullyBookedStatusLabel }}</span>
+                                        </section>
+
+                                        <section class="fully-booked-detail-meta" aria-label="Fully Booked order information">
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Sales / Marketing Staff</div>
+                                                <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->salesStaff?->name ?? 'Deleted staff' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Submitted By</div>
+                                                <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->submitter?->name ?? 'Deleted user' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Store Hub</div>
+                                                <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->storeHub?->name ?? '—' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Submitted</div>
+                                                <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->created_at?->format('M d, Y h:i A') ?? '—' }}</div>
+                                            </div>
+                                        </section>
+
+                                        @if($fullyBookedOrder?->status === 'rejected')
+                                            <section class="fully-booked-detail-note danger">
+                                                <div class="fully-booked-detail-label text-danger">Rejected by {{ $fullyBookedOrder->reviewer?->name ?? 'Inventory staff' }} · {{ $fullyBookedOrder->reviewed_at?->format('M d, Y h:i A') ?? 'Time unavailable' }}</div>
+                                                <p>{{ $fullyBookedOrder->rejection_reason ?: 'No rejection reason provided.' }}</p>
+                                            </section>
+                                        @endif
+
+                                        @if($fullyBookedOrder?->remarks)
+                                            <section class="fully-booked-detail-note">
+                                                <div class="fully-booked-detail-label">Remarks</div>
+                                                <p>{{ $fullyBookedOrder->remarks }}</p>
+                                            </section>
+                                        @endif
+
+                                        <section class="fully-booked-detail-section">
+                                            <div class="fully-booked-detail-section-header">
+                                                <span class="fully-booked-detail-section-title"><i class="fa-solid fa-paperclip me-2 text-primary"></i>Order attachment</span>
+                                            </div>
+                                            <div class="fully-booked-attachment-row">
+                                                <div class="fully-booked-attachment-file">
+                                                    <i class="fa-solid {{ str_starts_with($fullyBookedOrder?->mime_type ?? '', 'image/') ? 'fa-file-image' : 'fa-file-pdf' }}"></i>
+                                                    <span title="{{ $fullyBookedOrder?->original_filename }}">{{ $fullyBookedOrder?->original_filename ?? 'Attachment' }}</span>
+                                                </div>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.fully-booked.attachment', $fullyBookedOrder) }}" target="_blank" rel="noopener"><i class="fa-solid fa-eye me-1"></i>Preview</a>
+                                                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $fullyBookedOrder, 'download' => 1]) }}"><i class="fa-solid fa-download me-1"></i>Download</a>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        @if($fullyBookedOrder?->pulled_out_at)
+                                            <section class="fully-booked-detail-section">
+                                                <div class="fully-booked-detail-section-header">
+                                                    <div>
+                                                        <div class="fully-booked-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2 text-primary"></i>Items Pulled Out</div>
+                                                        <div class="small text-muted mt-1">{{ $fullyBookedOrder->items->count() }} item line(s) · {{ $fullyBookedOrder->items->sum('quantity') }} total quantity</div>
+                                                    </div>
+                                                    <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-xlsx"
+                                                        data-order-number="{{ $fullyBookedOrder->order_number }}"
+                                                        data-completed="true"
+                                                        data-export-url="{{ route('inventory-transactions.fully-booked.export-worksheet', $fullyBookedOrder) }}">
+                                                        <i class="fa-solid fa-file-excel me-1"></i>Export Excel
+                                                    </button>
+                                                </div>
+                                                <div class="fully-booked-detail-items">
+                                                    @foreach($fullyBookedOrder->items->sortBy('item_id', SORT_NATURAL | SORT_FLAG_CASE) as $item)
+                                                        <div class="fully-booked-detail-item fully-booked-export-item"
+                                                            data-item-id="{{ $item->item_id }}"
+                                                            data-description="{{ $item->product?->description ?: $item->product_name }}"
+                                                            data-barcode="{{ $item->product?->barcode ?? '' }}"
+                                                            data-stock="{{ $item->product?->stock ?? '' }}"
+                                                            data-quantity="{{ $item->quantity }}">
+                                                            <div>
+                                                                <div class="fully-booked-detail-item-name">{{ $item->product_name }}</div>
+                                                                <div class="fully-booked-detail-item-id">Item ID: {{ $item->item_id ?? '—' }}</div>
+                                                            </div>
+                                                            <span class="fully-booked-detail-qty">Qty {{ $item->quantity }}</span>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                                <div class="fully-booked-detail-audit"><i class="fa-solid fa-clock-rotate-left me-1"></i>Recorded by {{ $fullyBookedOrder->pullOutBy?->name ?? 'Inventory staff' }} · {{ $fullyBookedOrder->pulled_out_at->format('M d, Y h:i A') }}</div>
+                                            </section>
+                                        @elseif($fullyBookedOrder?->status !== 'rejected')
+                                            <section class="fully-booked-detail-empty">
+                                                <i class="fa-solid fa-clock"></i>
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-bold text-primary">Awaiting inventory pull-out</div>
+                                                    <p class="small text-muted mb-2">Review the attachment, then record the products and quantities from the Event / Fully Booked page.</p>
+                                                    <a class="btn btn-sm btn-primary" href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $fullyBookedOrder->store_hub_id, 'activity_type' => 'fully_booked']) }}">Open Event / Fully Booked</a>
+                                                </div>
+                                            </section>
+                                        @endif
                                     </div>
-                                @else
-                                    <div class="col-12">
-                                        <p class="small text-muted mb-0">Record the pull-out from the Event / Fully Booked form after reviewing the attachment.</p>
-                                        <a class="btn btn-sm btn-primary mt-2" href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $fullyBookedOrder->store_hub_id, 'activity_type' => 'fully_booked']) }}">Open Event / Fully Booked</a>
-                                    </div>
-                                @endif
+                                </div>
                             @elseif($isReplacementGroup)
                                 @php
                                     $replacement = $transaction->productReplacement;
