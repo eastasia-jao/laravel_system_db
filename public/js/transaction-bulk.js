@@ -115,7 +115,12 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     products.forEach(p => byId.set(String(p.id), p));
     window.transactionProducts = byId;
     const options = [...document.getElementById(prefix + 'ProductOptions').options];
-    const labels = new Map(products.map((p, i) => [String(p.id), options[i].value]));
+    const labels = new Map(products.map((product, index) => [
+        String(product.id),
+        options[index]?.value || (type === 'sponsor_workshop'
+            ? window.transactionProductLabel(product, true, 'good')
+            : '')
+    ]));
     const labelIds = new Map([...labels].map(([id, label]) => [label.toLowerCase(), id]));
     const productLabel = (product, condition) => type === 'sponsor_workshop'
         ? window.transactionProductLabel(product, true, condition)
