@@ -392,8 +392,7 @@
         dataList,
         productOptions,
         @json(route('hub.products.search.ajax', $hubId ?? 0)),
-        false,
-        product => `${product.name || product.description || 'Unnamed product'} (Item ID: ${product.item_id || product.id}${product.barcode ? ` · Barcode: ${product.barcode}` : ''})`
+        true
     );
     let itemIndex = 1;
 

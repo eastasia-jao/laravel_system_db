@@ -645,9 +645,10 @@ class TransactionBulkTest extends TestCase
         $eventForm->assertViewHas('sponsorProductOptions', fn ($options) =>
             $options->contains(fn ($option) => $option['good_stock_available'] === 5
                 && $option['damaged_stock_available'] === 2
-                && $option['label'] === 'Event Pullout Product (Item ID: EVENT-PULLOUT-1 · Barcode: 987654321)')
+                && $option['label'] === 'EVENT-PULLOUT-1 — Event Pullout Product · 987654321 (good: 5 · damaged: 2)')
         );
-        $eventForm->assertSee('Barcode: ${product.barcode}', false);
+        $eventForm->assertSee('setupTransactionSuggestions(', false)
+            ->assertSee('true', false);
         $formHtml = $eventForm->getContent();
         $this->assertLessThan(
             strpos($formHtml, 'name="items[0][quantity]"'),

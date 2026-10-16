@@ -219,7 +219,8 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
                     if (!response.ok) throw new Error('Could not load branch products. Please retry.');
                     const batch = await response.json();
                     for (const product of batch) {
-                        const id = String(product.id), label = labels.get(id) || window.transactionProductLabel(product);
+                        const id = String(product.id), label = labels.get(id)
+                            || window.transactionProductLabel(product, type === 'sponsor_workshop');
                         byId.set(id, product); labels.set(id, label); labelIds.set(label.toLowerCase(), id);
                         if (!known.has(id)) { products.push(product); known.add(id); }
                         if (!selectableIds.has(id)) { selectable.push({ ...product, label }); selectableIds.add(id); }
