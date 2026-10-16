@@ -14,8 +14,21 @@
     .event-log-modal .modal-header { background: linear-gradient(135deg, #eff6ff, #fff); border-bottom-color: #dbeafe; }
     .event-log-modal .modal-body { background: #f8fafc; }
     .event-log-hero { border: 1px solid #bfdbfe; border-radius: .9rem; background: linear-gradient(135deg, #eff6ff, #fff); }
+    .event-log-sale-hero { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .event-log-sale-customer-label { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .event-log-sale-customer { margin: .15rem 0 .25rem; color: #0f172a; font-size: 1.25rem; font-weight: 800; overflow-wrap: anywhere; }
+    .event-log-sale-total { min-width: 130px; padding-left: 1rem; border-left: 1px solid #bfdbfe; text-align: right; }
     .event-log-meta { height: 100%; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; padding: .8rem; }
     .event-log-meta .label { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .event-log-attachments { padding: 0; overflow: hidden; }
+    .event-log-attachments-title { padding: .8rem 1rem; border-bottom: 1px solid #e2e8f0; background: #fff; }
+    .event-log-attachment-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: .75rem; padding: .85rem; }
+    .event-log-attachment-group { min-width: 0; padding: .7rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
+    .event-log-attachment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: .5rem; }
+    .event-log-attachment-card { display: block; overflow: hidden; border: 1px solid #dbe3ee; border-radius: .55rem; background: #fff; }
+    .event-log-attachment { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #f1f5f9; }
+    .event-log-attachment[hidden] { display: none; }
+    .event-log-attachment-fallback:not([hidden]) { display: grid; min-height: 76px; place-items: center; padding: .5rem; color: #64748b; font-size: .75rem; text-align: center; }
     .event-log-products { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; overflow: hidden; }
     .event-log-products-header { padding: .75rem 1rem; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .event-log-products-list { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #94a3b8 #f1f5f9; }
@@ -25,7 +38,10 @@
     .event-log-product { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
     .event-log-product + .event-log-product { border-top: 1px solid #eef2f7; }
     .event-log-condition { font-size: .7rem; }
-    .event-log-attachment { width: 132px; height: 100px; border: 1px solid #dbe3ee; border-radius: .7rem; object-fit: cover; background: #f8fafc; }
+    @media (max-width: 575.98px) {
+        .event-log-sale-hero { align-items: flex-start; }
+        .event-log-sale-total { min-width: auto; padding-left: .75rem; }
+    }
 </style>
 
 <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
@@ -94,29 +110,50 @@
             <div class="modal-content event-log-modal">
                 <div class="modal-header"><div><div class="small text-primary fw-bold text-uppercase">Event transaction</div><h5 class="modal-title" id="{{ $modalId }}Label">{{ $label }} Details</h5></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
                 <div class="modal-body p-3 p-lg-4">
-                    <div class="event-log-hero p-3 mb-3">
-                        <div class="d-flex flex-wrap justify-content-between gap-3">
-                            <div><span class="badge {{ $badge }} mb-2">{{ $label }}</span><h4 class="mb-1">{{ $group['event']?->source ?? 'Event' }}</h4><div class="text-muted">{{ $group['reference'] }}</div></div>
-                            <div class="text-lg-end"><div class="small text-muted text-uppercase fw-bold">Total quantity</div><div class="fs-2 fw-bold {{ $eventEffect === '+' ? 'text-primary' : 'text-danger' }}">{{ $eventEffect }}{{ $group['quantity'] }}</div></div>
+                    @if($group['sale'])
+                        <div class="event-log-hero event-log-sale-hero p-3 mb-3">
+                            <div class="min-w-0">
+                                <div class="event-log-sale-customer-label">Customer</div>
+                                <h3 class="event-log-sale-customer">{{ $group['sale']->customer_name ?: 'Customer not specified' }}</h3>
+                                <div class="small text-muted text-break">{{ $group['reference'] }} <span aria-hidden="true">&middot;</span> {{ $group['event']?->source ?? 'Event' }}</div>
+                            </div>
+                            <div class="event-log-sale-total">
+                                <div class="small text-muted text-uppercase fw-bold">Sale Total</div>
+                                <div class="fs-4 fw-bold text-success">&#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div>
+                            </div>
                         </div>
-                    </div>
+                    @else
+                        <div class="event-log-hero p-3 mb-3">
+                            <div class="d-flex flex-wrap justify-content-between gap-3">
+                                <div><span class="badge {{ $badge }} mb-2">{{ $label }}</span><h4 class="mb-1">{{ $group['event']?->source ?? 'Event' }}</h4><div class="text-muted">{{ $group['reference'] }}</div></div>
+                                <div class="text-lg-end"><div class="small text-muted text-uppercase fw-bold">Total quantity</div><div class="fs-2 fw-bold {{ $eventEffect === '+' ? 'text-primary' : 'text-danger' }}">{{ $eventEffect }}{{ $group['quantity'] }}</div></div>
+                            </div>
+                        </div>
+                    @endif
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-4"><div class="event-log-meta"><div class="label">Date / Time</div><div class="fw-semibold mt-1">{{ $group['occurred_on']?->format('M d, Y') }}<div class="small text-muted">{{ $group['created_at']?->format('h:i A') }}</div></div></div></div>
                         <div class="col-md-4"><div class="event-log-meta"><div class="label">Event Reference</div><div class="fw-semibold mt-1 text-break">{{ $group['event']?->reference ?? $group['reference'] }}</div></div></div>
                         <div class="col-md-4"><div class="event-log-meta"><div class="label">Recorded By</div><div class="fw-semibold mt-1">{{ $group['creator']?->name ?? $group['creator']?->username ?? 'System' }}</div></div></div>
-                        @if($group['type'] !== 'sold')
-                            <div class="col-md-6"><div class="event-log-meta"><div class="label">Inventory Effect</div><div class="fw-semibold mt-1">{{ $headOfficeEffect }}</div><div class="small text-muted">Event balance {{ $eventEffect }}{{ $group['quantity'] }}</div></div></div>
+                        @if($group['sale'])
+                            @php
+                                $paymentLabels = ['CASH' => 'Cash', 'GCASH' => 'GCash', 'BDO' => 'BDO', 'BPI' => 'BPI', 'PAYMAYA' => 'PayMaya', 'OTHERS' => 'Others'];
+                                $paymentLabel = $group['sale']->mode_of_payment === 'OTHERS'
+                                    ? ($group['sale']->custom_mop ?: 'Others')
+                                    : ($paymentLabels[$group['sale']->mode_of_payment] ?? ($group['sale']->mode_of_payment ?: 'Not specified'));
+                            @endphp
+                            <div class="col-md-6"><div class="event-log-meta"><div class="label">Activity</div><div class="fw-semibold mt-1">{{ $effect }}</div>@if($group['notes'])<div class="small text-muted mt-1">{{ $group['notes'] }}</div>@endif</div></div>
+                            <div class="col-md-6"><div class="event-log-meta"><div class="label">Payment</div><div class="fw-semibold mt-1">{{ $paymentLabel }}</div><div class="small text-muted">{{ ucfirst($group['sale']->payment_status ?: 'paid') }}</div></div></div>
+                        @else
+                            @if($group['type'] !== 'sold')
+                                <div class="col-md-6"><div class="event-log-meta"><div class="label">Inventory Effect</div><div class="fw-semibold mt-1">{{ $headOfficeEffect }}</div><div class="small text-muted">Event balance {{ $eventEffect }}{{ $group['quantity'] }}</div></div></div>
+                            @endif
+                            <div class="col-md-6"><div class="event-log-meta"><div class="label">Activity</div><div class="fw-semibold mt-1">{{ $effect }}</div>@if($group['notes'])<div class="small text-muted mt-1">{{ $group['notes'] }}</div>@endif</div></div>
                         @endif
-                        <div class="col-md-6"><div class="event-log-meta"><div class="label">Activity</div><div class="fw-semibold mt-1">{{ $effect }}</div>@if($group['notes'])<div class="small text-muted mt-1">{{ $group['notes'] }}</div>@endif</div></div>
                     </div>
 
                     @if($group['sale'])
                         @php
-                            $paymentLabels = ['CASH' => 'Cash', 'GCASH' => 'GCash', 'BDO' => 'BDO', 'BPI' => 'BPI', 'PAYMAYA' => 'PayMaya', 'OTHERS' => 'Others'];
-                            $paymentLabel = $group['sale']->mode_of_payment === 'OTHERS'
-                                ? ($group['sale']->custom_mop ?: 'Others')
-                                : ($paymentLabels[$group['sale']->mode_of_payment] ?? ($group['sale']->mode_of_payment ?: 'Not specified'));
                             $storedAttachments = $group['sale']->event_attachments ?? [];
                             $categorizedAttachments = is_array($storedAttachments)
                                 && (array_key_exists('order_slip', $storedAttachments) || array_key_exists('item_images', $storedAttachments) || array_key_exists('proof_of_payment', $storedAttachments));
@@ -126,29 +163,9 @@
                                 'Proof of Payment' => array_filter([$storedAttachments['proof_of_payment'] ?? null]),
                             ] : ['Event Images' => array_filter(is_array($storedAttachments) ? $storedAttachments : [])];
                         @endphp
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4"><div class="event-log-meta"><div class="label">Customer</div><div class="fw-semibold mt-1">{{ $group['sale']->customer_name }}</div></div></div>
-                            <div class="col-md-4"><div class="event-log-meta"><div class="label">Payment</div><div class="fw-semibold mt-1">{{ $paymentLabel }}</div><div class="small text-muted">{{ ucfirst($group['sale']->payment_status ?: 'paid') }}</div></div></div>
-                            <div class="col-md-4"><div class="event-log-meta"><div class="label">Sale Total</div><div class="fw-bold text-success fs-5 mt-1">&#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div></div></div>
-                        </div>
-                        @if(collect($attachmentGroups)->flatten()->isNotEmpty())
-                            <div class="event-log-meta mb-3">
-                                <div class="label mb-2">Sale Image Attachments</div>
-                                @foreach($attachmentGroups as $attachmentLabel => $attachments)
-                                    @if(!empty($attachments))
-                                        <div class="small fw-semibold text-muted mt-2 mb-1">{{ $attachmentLabel }}</div>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            @foreach($attachments as $attachment)
-                                                <img src="{{ asset('storage/'.$attachment) }}" class="event-log-attachment" alt="{{ $attachmentLabel }} {{ $loop->iteration }}">
-                                            @endforeach
-                                        </div>
-                                    @endif
-                                @endforeach
-                            </div>
-                        @endif
                     @endif
 
-                    <div class="event-log-products">
+                    <div class="event-log-products mb-3">
                         <div class="event-log-products-header">Products &middot; Same products are consolidated</div>
                         <div class="event-log-products-list">
                         @foreach($group['products'] as $item)
@@ -159,6 +176,29 @@
                         @endforeach
                         </div>
                     </div>
+
+                    @if($group['sale'] && collect($attachmentGroups)->flatten()->isNotEmpty())
+                        <div class="event-log-meta event-log-attachments mb-3">
+                            <div class="event-log-attachments-title"><div class="label">Sale Image Attachments</div></div>
+                            <div class="event-log-attachment-groups">
+                                @foreach($attachmentGroups as $attachmentLabel => $attachments)
+                                    @if(!empty($attachments))
+                                        <div class="event-log-attachment-group">
+                                            <div class="small fw-semibold text-muted mb-2">{{ $attachmentLabel }}</div>
+                                            <div class="event-log-attachment-grid">
+                                                @foreach($attachments as $attachment)
+                                                    <a class="event-log-attachment-card" href="{{ asset('storage/'.$attachment) }}" target="_blank" rel="noopener" aria-label="Open {{ $attachmentLabel }} {{ $loop->iteration }}">
+                                                        <img src="{{ asset('storage/'.$attachment) }}" class="event-log-attachment" alt="{{ $attachmentLabel }} {{ $loop->iteration }}" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                                        <span class="event-log-attachment-fallback" hidden>Image unavailable</span>
+                                                    </a>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
             </div>
