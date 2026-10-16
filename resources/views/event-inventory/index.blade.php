@@ -123,7 +123,6 @@
             @endif
 
             <div class="p-3 border-top d-flex flex-wrap gap-2">
-                <a class="btn btn-sm btn-outline-secondary" href="{{ route('event-inventory.index', ['hub_id' => $event->store_hub_id, 'section' => 'transactions', 'event_id' => $event->id]) }}"><i class="fa-solid fa-clock-rotate-left me-1"></i>View Event Log</a>
                 @if($event->status === 'open')
                     <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.return.create', ['hub_id' => $event->store_hub_id, 'channel' => 'event', 'event_reference' => $event->reference]) }}"><i class="fa-solid fa-rotate-left me-1"></i>Return Remaining Items</a>
                     <form method="POST" action="{{ route('event-inventory.close', $event) }}" class="ms-lg-auto" onsubmit="return confirm('Close this event? Any remaining quantity will be recorded as missing and no further sales or returns will be allowed.');">
