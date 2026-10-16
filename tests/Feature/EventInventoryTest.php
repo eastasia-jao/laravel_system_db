@@ -402,6 +402,8 @@ class EventInventoryTest extends TestCase
             ->assertSee('Event Transaction Logs')
             ->assertSee('View details')
             ->assertSee('event-log-products-list')
+            ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
+            ->assertDontSee('class="btn-close"')
             ->assertSee('Stock entered Event inventory')
             ->assertSee('Stock sold from Event inventory')
             ->assertSee($sale->order_number)
@@ -422,6 +424,8 @@ class EventInventoryTest extends TestCase
             ->assertSee('<strong>Log Customer</strong>', false)
             ->assertDontSee('Inventory Effect')
             ->assertSee('event-log-products-list')
+            ->assertDontSee('<div class="small text-muted mt-1">Stock sold from Event inventory</div>', false)
+            ->assertDontSee('unique product')
             ->assertDontSee('Stock entered Event inventory');
     }
 

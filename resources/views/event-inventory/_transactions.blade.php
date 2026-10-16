@@ -70,17 +70,16 @@
                 @endphp
                 <tr>
                     <td class="text-nowrap"><strong>{{ $group['occurred_on']?->format('M d, Y') }}</strong><div class="small text-muted">{{ $group['created_at']?->format('h:i A') }}</div></td>
-                    <td><span class="badge {{ $badge }}">{{ $label }}</span><div class="small text-muted mt-1">{{ $effect }}</div></td>
-                    <td><strong>{{ $group['event']?->source ?? 'Event' }}</strong><div class="small text-muted">{{ $group['event']?->reference ?? $group['reference'] }}</div></td>
+                    <td><span class="badge {{ $badge }}">{{ $label }}</span></td>
+                    <td><strong>{{ $group['event']?->source ?? 'Event' }}</strong></td>
                     <td>
                         @if($group['sale'])
-                            <strong>{{ $group['sale']->customer_name }}</strong>
-                            <div class="small text-muted">{{ $group['reference'] }} &middot; &#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div>
+                            <strong>{{ $group['sale']->customer_name ?: 'Customer not specified' }}</strong>
                         @else
                             <strong>{{ $group['reference'] }}</strong>
                         @endif
                     </td>
-                    <td><strong>{{ $group['products']->count() }}</strong><div class="small text-muted">unique {{ $group['products']->count() === 1 ? 'product' : 'products' }}</div></td>
+                    <td><strong>{{ $group['products']->count() }}</strong></td>
                     <td class="fw-bold">{{ $group['quantity'] }}</td>
                     <td>{{ $group['creator']?->name ?? $group['creator']?->username ?? 'System' }}</td>
                     <td><button type="button" class="btn btn-sm btn-outline-primary event-log-view" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}"><i class="fa-solid fa-eye me-1"></i>View details</button></td>
@@ -105,10 +104,10 @@
         };
         $modalId = 'eventLogDetails'.(($eventTransactionGroups->currentPage() - 1) * $eventTransactionGroups->perPage() + $loop->iteration);
     @endphp
-    <div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
+    <div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content event-log-modal">
-                <div class="modal-header"><div><div class="small text-primary fw-bold text-uppercase">Event transaction</div><h5 class="modal-title" id="{{ $modalId }}Label">{{ $label }} Details</h5></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-header"><div><div class="small text-primary fw-bold text-uppercase">Event transaction</div><h5 class="modal-title" id="{{ $modalId }}Label">{{ $label }} Details</h5></div></div>
                 <div class="modal-body p-3 p-lg-4">
                     @if($group['sale'])
                         <div class="event-log-hero event-log-sale-hero p-3 mb-3">
