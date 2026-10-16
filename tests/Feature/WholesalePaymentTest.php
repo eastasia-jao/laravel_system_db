@@ -44,6 +44,7 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('This cannot be undone.', $html);
         $this->assertStringNotContainsString('window.confirm(refundForm.dataset.confirmMessage', $html);
         $this->assertStringContainsString('wholesale-detail-main', $html);
+        $this->assertStringContainsString('max-height: 340px; overflow: auto', $html);
         $this->assertStringContainsString('grid-template-columns: 1.6fr 1fr', $html);
         $this->assertStringContainsString('grid-template-columns: repeat(3, minmax(0, 1fr))', $html);
         $this->assertStringContainsString('main.append(leftColumn, rightColumn)', $html);
@@ -51,7 +52,9 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('wholesale-status-actions', $html);
         $this->assertStringContainsString("createPanel('Update Status', 'fa-sliders', 'wholesale-detail-status')", $html);
         $this->assertStringContainsString('Upload payment proof', $html);
-        $this->assertStringContainsString('Print Invoice', $html);
+        $this->assertStringNotContainsString('Print Invoice', $html);
+        $this->assertStringContainsString('wholesaleDetailsFooterActions', $html);
+        $this->assertStringContainsString("footerActions?.prepend(refundForm)", $html);
         $this->assertStringContainsString('wholesale-save-button', $html);
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'unpaid', 'amount_paid' => '10.00', 'delivery_status' => 'pending',

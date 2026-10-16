@@ -84,6 +84,8 @@
     .wholesale-item-name { color: #111827; font-size: .82rem; font-weight: 650; }
     .wholesale-item-status { display: block; margin-top: .2rem; color: var(--wholesale-muted); font-size: .7rem; }
     .wholesale-item-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .45rem .85rem; padding: .7rem .8rem; background: #f8fafc; font-size: .76rem; }
+    .wholesale-item-list { max-height: 340px; overflow: auto; overscroll-behavior: contain; }
+    .wholesale-items-table thead { position: sticky; top: 0; z-index: 1; }
     .wholesale-item-list.is-collapsed .wholesale-item-row:nth-child(n+6) { display: none; }
     .wholesale-show-all { margin: .55rem .7rem; padding: 0; border: 0; color: var(--wholesale-blue); background: none; font-size: .78rem; font-weight: 650; }
     .wholesale-payment-proof { min-width: 0; }
@@ -129,6 +131,8 @@
     .wholesale-detail-status .wholesale-refund-form { margin: 0 !important; }
     .wholesale-detail-status .wholesale-refund-form button { min-height: 34px; }
     .wholesale-detail-status .wholesale-refund-form small { font-size: .75rem; }
+    #wholesaleDetailsFooterActions .wholesale-refund-form { margin: 0; }
+    #wholesaleDetailsFooterActions .wholesale-refund-form button { min-height: 34px; white-space: nowrap; }
     .wholesale-order-update-meta { color: #64748b; font-size: .74rem; }
     .wholesale-toast { z-index: 1090; }
     @media (max-width: 991.98px) {
@@ -162,17 +166,6 @@
         .wholesale-detail-status .wholesale-refund-form { align-self: stretch; }
         .wholesale-item-footer { display: grid; grid-template-columns: 1fr 1fr; }
         .wholesale-order-update-meta { max-width: 58%; }
-    }
-    @media print {
-        body.wholesale-print-mode > * { display: none !important; }
-        body.wholesale-print-mode #wholesaleDetailsModal { position: static !important; display: block !important; width: 100%; height: auto; background: #fff; }
-        body.wholesale-print-mode #wholesaleDetailsModal .modal-dialog,
-        body.wholesale-print-mode #wholesaleDetailsModal .modal-content { width: 100%; max-width: none; max-height: none; margin: 0; overflow: visible; box-shadow: none; }
-        body.wholesale-print-mode #wholesaleDetailsModal .modal-header { position: static; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        body.wholesale-print-mode #wholesaleDetailsModal .modal-footer,
-        body.wholesale-print-mode .wholesale-detail-status,
-        body.wholesale-print-mode .wholesale-show-all { display: none !important; }
-        body.wholesale-print-mode .wholesale-detail-main { grid-template-columns: 1fr; }
     }
 </style>
 <div class="card wholesale-report-card">
@@ -566,10 +559,7 @@
             </div>
             <div class="modal-footer bg-white">
                 <div class="wholesale-order-update-meta" id="wholesaleDetailsUpdated"></div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="wholesalePrintInvoice">
-                        <i class="fa-solid fa-print me-1"></i>Print Invoice
-                    </button>
+                <div class="d-flex align-items-center gap-2" id="wholesaleDetailsFooterActions">
                     <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -900,6 +890,8 @@
                 const row = document.querySelector(`[data-wholesale-order-row="${button?.dataset.orderId}"]`);
                 if (!row) return;
 
+                const footerActions = document.getElementById('wholesaleDetailsFooterActions');
+                footerActions?.querySelectorAll('.wholesale-refund-form').forEach(form => form.remove());
                 content.replaceChildren();
                 const cells = [...row.cells];
                 const customer = row.dataset.customer || button.dataset.customer || 'Customer';
@@ -1222,16 +1214,10 @@
                     statusPanel.body.append(statusForm);
                 }
                 if (refundForm) {
-                    const dangerZone = document.createElement('div');
-                    dangerZone.className = 'wholesale-danger-zone';
-                    const dangerTitle = document.createElement('div');
-                    dangerTitle.className = 'wholesale-danger-title';
-                    dangerTitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i>Danger zone';
                     refundForm.classList.remove('mt-2');
                     refundForm.querySelector('button')?.classList.remove('w-100');
                     refundForm.querySelector('small')?.remove();
-                    dangerZone.append(dangerTitle, refundForm);
-                    statusPanel.body.append(dangerZone);
+                    footerActions?.prepend(refundForm);
                 }
                 if (proofDetails) {
                     proofDetails.open = true;
@@ -1442,27 +1428,6 @@
         document.querySelectorAll('.status-update-form').forEach(updatePaymentAmountState);
         document.querySelectorAll('.toast-container .toast').forEach(element => {
             if (window.bootstrap?.Toast) bootstrap.Toast.getOrCreateInstance(element).show();
-        });
-
-        document.getElementById('wholesalePrintInvoice')?.addEventListener('click', () => {
-            const modal = document.getElementById('wholesaleDetailsModal');
-            if (!modal) return;
-            const parent = modal.parentNode;
-            const next = modal.nextSibling;
-            const previousTitle = document.title;
-            const titleText = modal.querySelector('#wholesaleModalOrderNumber')?.textContent || 'Wholesale Order';
-            document.title = titleText;
-            document.body.append(modal);
-            document.body.classList.add('wholesale-print-mode');
-            const restore = () => {
-                document.body.classList.remove('wholesale-print-mode');
-                document.title = previousTitle;
-                if (parent) parent.insertBefore(modal, next);
-                window.removeEventListener('afterprint', restore);
-            };
-            window.addEventListener('afterprint', restore, { once: true });
-            window.print();
-            window.setTimeout(restore, 1200);
         });
 
         (() => {
