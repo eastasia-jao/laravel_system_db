@@ -49,6 +49,7 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('main.append(leftColumn, rightColumn)', $html);
         $this->assertStringContainsString('wholesale-payment-layout', $html);
         $this->assertStringContainsString('wholesale-status-actions', $html);
+        $this->assertStringContainsString("createPanel('Update Status', 'fa-sliders', 'wholesale-detail-status')", $html);
         $this->assertStringContainsString('Upload payment proof', $html);
         $this->assertStringContainsString('Print Invoice', $html);
         $this->assertStringContainsString('wholesale-save-button', $html);

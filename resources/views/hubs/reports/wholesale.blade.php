@@ -64,7 +64,7 @@
     .wholesale-balance-track span { display: block; height: 100%; border-radius: inherit; background: #16a34a; }
     .wholesale-detail-main { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; align-items: stretch; }
     .wholesale-detail-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-    .wholesale-detail-column > .wholesale-info-panel { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+    .wholesale-detail-column > .wholesale-info-panel { display: flex; flex: 1 1 auto; flex-direction: column; }
     .wholesale-detail-column > .wholesale-info-panel > .wholesale-info-panel-body { flex: 1 1 auto; }
     .wholesale-detail-kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem .8rem; }
     .wholesale-detail-kv { min-width: 0; padding-bottom: .35rem; border-bottom: 1px solid #f1f5f9; }
@@ -1171,7 +1171,7 @@
                 paymentLayout.append(paymentMethod, proofSlot);
                 payment.body.append(paymentLayout);
 
-                const statusPanel = createPanel('Update Status', 'fa-sliders');
+                const statusPanel = createPanel('Update Status', 'fa-sliders', 'wholesale-detail-status');
                 const statusSourceForm = cells[16].querySelector('.status-update-form');
                 const statusForm = statusSourceForm?.cloneNode(true);
                 let refundForm = cells[16].querySelector('.wholesale-refund-form')?.cloneNode(true);
