@@ -420,7 +420,12 @@
                                     <div class="col-12">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                                         <strong>Items Pulled Out</strong>
-                                        <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-details-csv" data-order-number="{{ $fullyBookedOrder->order_number }}"><i class="fa-solid fa-file-csv me-1"></i>Export CSV</button>
+                                        <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-xlsx"
+                                            data-order-number="{{ $fullyBookedOrder->order_number }}"
+                                            data-completed="true"
+                                            data-export-url="{{ route('inventory-transactions.fully-booked.export-worksheet', $fullyBookedOrder) }}">
+                                            <i class="fa-solid fa-file-excel me-1"></i>Export Excel
+                                        </button>
                                     </div>
                                     <div class="list-group">
                                         @foreach($fullyBookedOrder->items->sortBy('item_id', SORT_NATURAL | SORT_FLAG_CASE) as $item)

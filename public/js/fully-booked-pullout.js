@@ -1,35 +1,82 @@
 let fullyBookedSearchPanelIndex = 0;
 
-window.exportFullyBookedCsv = (items, filename) => {
-    if (!items.length) {
+const exportFullyBookedExcel = async (button, items = []) => {
+    const isCompletedOrder = button.dataset.completed === 'true';
+    if (!isCompletedOrder && !items.length) {
         window.AppAlert?.show('Select at least one product before exporting.', 'warning');
         return;
     }
 
-    const escapeCsv = (value, preserveText = false) => {
-        let text = String(value ?? '');
-        if (preserveText) {
-            text = `="${text.replace(/[\u0000-\u001f\u007f]/g, '').replaceAll('"', '""')}"`;
-        } else if (/^[\s]*[=+\-@]/.test(text)) {
-            text = `'${text}`;
+    const formData = new FormData();
+    const csrfToken = button.closest('form')?.querySelector('[name="_token"]')?.value
+        || document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!csrfToken) {
+        window.AppAlert?.show('The export request could not be verified. Refresh the page and try again.', 'error');
+        return;
+    }
+    formData.append('_token', csrfToken);
+    items.forEach((item, index) => {
+        formData.append(`items[${index}][product_id]`, item.productId);
+        if (item.quantity) formData.append(`items[${index}][quantity]`, item.quantity);
+    });
+
+    button.disabled = true;
+    try {
+        const response = await fetch(button.dataset.exportUrl, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+        });
+        if (!response.ok || !response.headers.get('Content-Type')?.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+            let message = 'The Excel worksheet could not be exported. Please try again.';
+            try {
+                const error = await response.json();
+                message = Object.values(error.errors || {}).flat()[0] || error.message || message;
+            } catch {
+                // Keep the explicit default message when the server response is not JSON.
+            }
+            throw new Error(message);
         }
-        return `"${text.replaceAll('"', '""')}"`;
-    };
-    const headers = ['Item Id', 'Description', 'Barcode', 'Physical Stock Remaining', 'Actual Pull Out', 'Actual Physical Pullout'];
-    const data = [
-        headers.map(value => escapeCsv(value)).join(','),
-        ...items.map(row => row.map((value, index) => escapeCsv(value, index === 2)).join(',')),
-    ].join('\r\n');
-    const blob = new Blob(['\uFEFF', data], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const filename = response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/i)?.[1]
+            || `${button.dataset.orderNumber || 'fully-booked-order'}-pullout.xlsx`;
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+        window.AppAlert?.show(error.message || 'The Excel worksheet could not be exported. Please try again.', 'error');
+        console.error('Fully Booked Excel export failed.', error);
+    } finally {
+        button.disabled = false;
+    }
 };
+
+document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
+    const rows = form.querySelector('.fully-booked-pullout-rows');
+    const exportButton = form.querySelector('.export-fully-booked-xlsx');
+    exportButton?.addEventListener('click', () => {
+        const items = Array.from(rows.querySelectorAll('.fully-booked-pullout-row'))
+            .map(row => ({
+                productId: row.querySelector('.product-id').value,
+                quantity: row.querySelector('input[type="number"]').value,
+            }))
+            .filter(item => item.productId);
+        exportFullyBookedExcel(exportButton, items);
+    });
+});
+
+document.querySelectorAll('.export-fully-booked-xlsx[data-completed="true"]').forEach(button => {
+    button.addEventListener('click', () => exportFullyBookedExcel(button));
+});
 
 document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
     const rows = form.querySelector('.fully-booked-pullout-rows');
@@ -174,23 +221,6 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
         updateRemoveButtons();
     });
 
-    form.querySelector('.export-fully-booked-csv').addEventListener('click', () => {
-        const selectedItems = Array.from(rows.querySelectorAll('.product-id'))
-            .filter(input => input.value)
-            .map(input => [
-                input.dataset.itemId || '',
-                input.dataset.description || '',
-                input.dataset.barcode || '',
-                input.dataset.stock || '',
-                '',
-                '',
-            ]);
-        window.exportFullyBookedCsv(
-            selectedItems,
-            `${form.dataset.orderNumber || 'fully-booked-order'}-pullout.csv`
-        );
-    });
-
     rows.addEventListener('click', event => {
         const button = event.target.closest('.remove-fully-booked-row');
         if (button && !button.disabled) {
@@ -199,21 +229,5 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
             row.remove();
             updateRemoveButtons();
         }
-    });
-});
-
-document.querySelectorAll('.export-fully-booked-details-csv').forEach(button => {
-    button.addEventListener('click', () => {
-        const modal = button.closest('.modal');
-        const items = Array.from(modal.querySelectorAll('.fully-booked-export-item'))
-            .map(item => [
-                item.dataset.itemId || '',
-                item.dataset.description || '',
-                item.dataset.barcode || '',
-                item.dataset.stock || '',
-                item.dataset.quantity || '',
-                '',
-            ]);
-        window.exportFullyBookedCsv(items, `${button.dataset.orderNumber}-pullout.csv`);
     });
 });

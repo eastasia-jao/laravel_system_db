@@ -328,7 +328,7 @@
                                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
                                     <div class="d-flex flex-wrap gap-2">
                                         <button type="button" class="btn btn-sm btn-outline-primary add-fully-booked-row"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
-                                        <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-csv"><i class="fa-solid fa-file-csv me-1"></i>Export CSV</button>
+                                        <button type="button" class="btn btn-sm btn-outline-success export-fully-booked-xlsx" data-export-url="{{ route('inventory-transactions.fully-booked.export-worksheet', $order) }}"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</button>
                                     </div>
                                     <div class="d-flex flex-wrap gap-2">
                                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectFullyBookedOrder{{ $order->id }}"><i class="fa-solid fa-circle-xmark me-1"></i>Reject Order</button>

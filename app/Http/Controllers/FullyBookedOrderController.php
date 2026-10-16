@@ -11,6 +11,7 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Support\NationalPulloutWorkbook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -155,6 +156,73 @@ class FullyBookedOrderController extends Controller
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'private, no-store',
         ]);
+    }
+
+    public function exportWorksheet(Request $request, FullyBookedOrder $fullyBookedOrder)
+    {
+        abort_unless($this->canViewOrder($request->user(), $fullyBookedOrder), 403);
+        abort_unless($fullyBookedOrder->store_hub_id, 422, 'This Fully Booked order has no assigned store hub.');
+
+        if ($fullyBookedOrder->pulled_out_at) {
+            $fullyBookedOrder->load('items.product');
+            $items = $fullyBookedOrder->items->map(fn (FullyBookedOrderItem $item) => [
+                'name' => $item->product_name,
+                'quantity' => (int) $item->quantity,
+                'purpose' => 'Fully Booked Pullout',
+                'physical_stock' => (int) ($item->product?->stock ?? 0) + (int) $item->quantity,
+                'actual_pullout' => (int) $item->quantity,
+            ])->all();
+        } else {
+            $validated = $request->validate([
+                'items' => ['required', 'array', 'min:1', 'max:200'],
+                'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:products,id'],
+                'items.*.quantity' => ['nullable', 'integer', 'min:1'],
+            ]);
+            $products = Product::query()
+                ->where('store_hub_id', $fullyBookedOrder->store_hub_id)
+                ->where('status', 'active')
+                ->whereIn('id', collect($validated['items'])->pluck('product_id'))
+                ->get()
+                ->keyBy('id');
+            if ($products->count() !== count($validated['items'])) {
+                throw ValidationException::withMessages([
+                    'items' => 'Choose active products from '.$fullyBookedOrder->storeHub?->name.'.',
+                ]);
+            }
+
+            $items = collect($validated['items'])->map(function (array $entry) use ($products) {
+                $product = $products->get((int) $entry['product_id']);
+
+                return [
+                    'name' => $product->name ?: $product->description ?: 'Unknown product',
+                    'quantity' => $entry['quantity'] ?? '',
+                    'purpose' => 'Fully Booked Pullout',
+                    'physical_stock' => (int) $product->stock,
+                    'actual_pullout' => '',
+                ];
+            })->all();
+        }
+
+        if ($items === []) {
+            throw ValidationException::withMessages([
+                'items' => 'This Fully Booked order has no items to export.',
+            ]);
+        }
+
+        $path = NationalPulloutWorkbook::create($items, [
+            'brand' => 'FULLY BOOKED',
+            'reference_label' => 'Order #:',
+            'po_number' => $fullyBookedOrder->order_number,
+            'occurred_on' => ($fullyBookedOrder->pulled_out_at ?? $fullyBookedOrder->created_at)?->format('Y-m-d') ?? '',
+            'remarks' => $fullyBookedOrder->remarks ?? '',
+        ]);
+        $filename = 'FULLY_BOOKED_'.Str::slug($fullyBookedOrder->order_number, '_').'_PULLOUT.xlsx';
+
+        return response()->download(
+            $path,
+            $filename,
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
     }
 
     public function pullOut(Request $request, FullyBookedOrder $fullyBookedOrder)

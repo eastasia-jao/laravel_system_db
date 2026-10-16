@@ -285,14 +285,16 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee(route('inventory-transactions.index', ['hub_id' => $hub->id]), false)
             ->assertSee('id="fullyBookedPageCancel"', false)
             ->assertSee('Complete Order & Update Stock', false)
-            ->assertSee('Export CSV')
+            ->assertSee('Export Excel')
+            ->assertSee(route('inventory-transactions.fully-booked.export-worksheet', $order), false)
             ->assertSee('name="items[0][product_id]"', false)
             ->assertSee('name="items[0][stock_condition]"', false)
             ->assertDontSee('id="fullyBookedAttachment"', false);
 
-        $csvScript = file_get_contents(public_path('js/fully-booked-pullout.js'));
-        $this->assertIsString($csvScript);
-        $this->assertStringContainsString("'Item Id', 'Description', 'Barcode', 'Physical Stock Remaining', 'Actual Pull Out', 'Actual Physical Pullout'", $csvScript);
+        $exportScript = file_get_contents(public_path('js/fully-booked-pullout.js'));
+        $this->assertIsString($exportScript);
+        $this->assertStringContainsString('exportFullyBookedExcel', $exportScript);
+        $this->assertStringNotContainsString('exportFullyBookedCsv', $exportScript);
     }
 
     public function test_fully_booked_product_search_returns_matching_active_store_products(): void
@@ -329,6 +331,107 @@ class FullyBookedOrderTest extends TestCase
             ->assertJsonPath('0.id', $matchingProduct->id)
             ->assertJsonPath('0.name', 'Cadmium Red')
             ->assertJsonPath('0.barcode', '123456789');
+    }
+
+    public function test_pending_fully_booked_export_uses_the_national_pullout_excel_template(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
+        $salesStaff = User::factory()->create(['role' => 'sales_marketing_staff', 'hub_id' => $hub->id]);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'FB-EXPORT-1',
+            'name' => 'Exported Fully Booked Product',
+            'stock' => 10,
+            'status' => 'active',
+        ]);
+        $order = FullyBookedOrder::create([
+            'order_number' => 'FB-EXPORT-001',
+            'store_hub_id' => $hub->id,
+            'sales_staff_id' => $salesStaff->id,
+            'submitted_by' => $salesStaff->id,
+            'attachment_path' => 'fully-booked-orders/order.pdf',
+            'original_filename' => 'order.pdf',
+            'mime_type' => 'application/pdf',
+            'remarks' => 'Excel export test',
+            'status' => 'pending',
+        ]);
+
+        $response = $this->actingAs($inventoryStaff)
+            ->post(route('inventory-transactions.fully-booked.export-worksheet', $order), [
+                'items' => [['product_id' => $product->id, 'quantity' => 3]],
+            ])
+            ->assertOk();
+
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->baseResponse->headers->get('Content-Type')
+        );
+        $path = $response->baseResponse->getFile()->getPathname();
+        try {
+            $workbook = new \PharData($path, 0, null, \Phar::ZIP);
+            $sheet = $workbook['xl/worksheets/sheet1.xml']->getContent();
+            $this->assertStringContainsString('FULLY BOOKED', $sheet);
+            $this->assertStringContainsString('Order #: FB-EXPORT-001', $sheet);
+            $this->assertStringContainsString('Product Item Name', $sheet);
+            $this->assertStringContainsString('Actual Pull-out', $sheet);
+            $this->assertStringContainsString($product->name, $sheet);
+            $this->assertStringContainsString('Fully Booked Pullout', $sheet);
+            $this->assertStringContainsString('<v>3</v>', $sheet);
+            $this->assertStringContainsString('<v>10</v>', $sheet);
+            $this->assertStringContainsString('Excel export test', $sheet);
+        } finally {
+            unset($workbook);
+            unlink($path);
+        }
+    }
+
+    public function test_completed_fully_booked_export_uses_saved_pullout_quantities(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
+        $salesStaff = User::factory()->create(['role' => 'sales_marketing_staff', 'hub_id' => $hub->id]);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'FB-COMPLETE-1',
+            'name' => 'Completed Fully Booked Product',
+            'stock' => 10,
+            'status' => 'active',
+        ]);
+        $order = FullyBookedOrder::create([
+            'order_number' => 'FB-COMPLETE-001',
+            'store_hub_id' => $hub->id,
+            'sales_staff_id' => $salesStaff->id,
+            'submitted_by' => $salesStaff->id,
+            'attachment_path' => 'fully-booked-orders/order.pdf',
+            'original_filename' => 'order.pdf',
+            'mime_type' => 'application/pdf',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($inventoryStaff)
+            ->post(route('inventory-transactions.fully-booked.pull-out', $order), [
+                'items' => [['product_id' => $product->id, 'quantity' => 4]],
+            ])->assertRedirect();
+
+        $response = $this->post(route('inventory-transactions.fully-booked.export-worksheet', $order))
+            ->assertOk();
+        $path = $response->baseResponse->getFile()->getPathname();
+        try {
+            $workbook = new \PharData($path, 0, null, \Phar::ZIP);
+            $sheet = $workbook['xl/worksheets/sheet1.xml']->getContent();
+            $this->assertStringContainsString($product->name, $sheet);
+            $this->assertStringContainsString('Fully Booked Pullout', $sheet);
+            $this->assertStringContainsString('<v>4</v>', $sheet);
+            $this->assertStringContainsString('<v>10</v>', $sheet);
+        } finally {
+            unset($workbook);
+            unlink($path);
+        }
     }
 
     public function test_fully_booked_pull_out_reduces_online_allocation_and_physical_stock(): void
@@ -883,7 +986,9 @@ class FullyBookedOrderTest extends TestCase
         $this->get(route('inventory-transactions.index', ['type' => 'fully_booked']))
             ->assertOk()
             ->assertSee('Items Pulled Out')
-            ->assertSee('export-fully-booked-details-csv', false)
+            ->assertSee('export-fully-booked-xlsx', false)
+            ->assertSee('Export Excel')
+            ->assertSee(route('inventory-transactions.fully-booked.export-worksheet', $order), false)
             ->assertSee('data-barcode="00123456789012345678"', false)
             ->assertSee('data-stock="9"', false)
             ->assertSee('Unaffected Product')

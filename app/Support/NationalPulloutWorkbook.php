@@ -105,7 +105,7 @@ class NationalPulloutWorkbook
 
     /**
      * @param  list<array{name: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
-     * @param  array{po_number?: string, occurred_on?: string, remarks?: string}  $document
+     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string}  $document
      */
     public static function create(array $items, array $document = []): string
     {
@@ -229,7 +229,7 @@ class NationalPulloutWorkbook
 
     /**
      * @param  list<array{name: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
-     * @param  array{po_number?: string, occurred_on?: string, remarks?: string}  $document
+     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string}  $document
      * @return array<string, string>
      */
     private static function workbookFiles(array $items, array $document): array
@@ -238,8 +238,8 @@ class NationalPulloutWorkbook
         $lastRow = count($items) + $blankRows + 2;
         $rows = [
             self::rowXml(1, [
-                'NBS',
-                'P.O. #: '.($document['po_number'] ?? ''),
+                $document['brand'] ?? 'NBS',
+                ($document['reference_label'] ?? 'P.O. #:').' '.($document['po_number'] ?? ''),
                 '',
                 'Date: '.($document['occurred_on'] ?? ''),
                 'Remarks: '.($document['remarks'] ?? ''),
