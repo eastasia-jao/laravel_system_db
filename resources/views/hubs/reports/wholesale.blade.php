@@ -35,7 +35,8 @@
     #wholesaleDetailsModal .modal-dialog { max-width: 1280px; }
     #wholesaleDetailsModal .modal-body { padding: .65rem; }
     .wholesale-detail-grid { display: flex; flex-direction: column; gap: .55rem; }
-    .wholesale-detail-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; align-items: stretch; }
+    .wholesale-detail-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; align-items: start; }
+    .wholesale-detail-groups > .wholesale-info-panel { align-self: start; }
     .wholesale-info-panel { overflow: hidden; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; }
     .wholesale-info-panel-title { margin: 0; padding: .55rem .7rem; border-bottom: 1px solid #dbe4f0; background: #eef5ff; color: #1e3a8a; font-size: .76rem; font-weight: 700; }
     .wholesale-info-panel-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -58,28 +59,30 @@
     .wholesale-detail-payment details .border > .payment-proof-empty { grid-column: 1; grid-row: 3; margin-top: 0 !important; }
     .wholesale-detail-payment details .border > .mt-3 { grid-column: 2; grid-row: 1 / span 2; margin-top: 0 !important; }
     .wholesale-detail-payment details .border > .mt-3 a { height: 120px !important; }
-    .wholesale-detail-status .wholesale-detail-section > div:last-child { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, .25fr); gap: .65rem; align-items: center; }
-    .wholesale-detail-status .status-update-form { display: grid; grid-template-columns: 1.1fr 1.1fr 1fr 1.5fr; gap: .35rem; align-items: start; }
-    .wholesale-detail-status .status-update-form .input-group { margin-bottom: 0 !important; }
-    .wholesale-detail-status .wholesale-refund-form { margin-top: .35rem !important; }
-    .wholesale-detail-status .wholesale-refund-form small { font-size: .7rem; }
-    .wholesale-detail-status .status-update-form > .row { grid-column: 1 / 4; margin-top: 0 !important; }
-    .wholesale-detail-status .status-update-form > small { grid-column: 4; }
-    .wholesale-detail-status .status-update-form .payment-amount-error { grid-column: 1 / -1; }
+    .wholesale-detail-status .wholesale-detail-section > div:last-child { display: block; }
+    .wholesale-detail-status .status-update-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; align-items: end; }
+    .wholesale-detail-status .wholesale-status-field { min-width: 0; }
+    .wholesale-detail-status .wholesale-status-field label { display: block; margin: 0 0 .3rem; color: #64748b; font-size: .68rem; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
+    .wholesale-detail-status .wholesale-status-field .input-group { margin: 0 !important; }
+    .wholesale-detail-status .wholesale-status-fields { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; align-items: end; }
+    .wholesale-detail-status .wholesale-status-fields > .row { grid-column: span 2; margin: 0 !important; }
+    .wholesale-detail-status .wholesale-status-fields > small { grid-column: span 2; align-self: center; margin: 0 !important; }
+    .wholesale-detail-status .wholesale-status-fields .payment-amount-error { grid-column: 1 / -1; }
+    .wholesale-detail-status .wholesale-refund-form { grid-column: 1 / -1; margin: 0 !important; padding-top: .65rem; border-top: 1px solid #e5e7eb; }
+    .wholesale-detail-status .wholesale-refund-form small { font-size: .75rem; }
     @media (max-width: 991.98px) {
         .wholesale-financial-panel .wholesale-info-panel-body { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .wholesale-detail-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .wholesale-detail-groups > :last-child { grid-column: 1 / -1; }
-        .wholesale-detail-status .status-update-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .wholesale-detail-status .status-update-form > .row,
-        .wholesale-detail-status .status-update-form > small { grid-column: auto; }
+        .wholesale-detail-status .wholesale-status-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .wholesale-detail-status .wholesale-status-fields > .row,
+        .wholesale-detail-status .wholesale-status-fields > small { grid-column: 1 / -1; }
     }
     @media (max-width: 767.98px) {
         .wholesale-detail-groups { grid-template-columns: 1fr; }
         .wholesale-detail-groups > :last-child { grid-column: auto; }
         .wholesale-detail-items details > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .wholesale-detail-status .wholesale-detail-section > div:last-child { grid-template-columns: 1fr; }
-        .wholesale-detail-status .status-update-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .wholesale-detail-status .wholesale-status-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .wholesale-detail-payment details .border { grid-template-columns: minmax(90px, .6fr) minmax(0, 1fr); }
     }
     @media (max-width: 575.98px) {
@@ -87,9 +90,10 @@
         .wholesale-detail-groups { grid-template-columns: 1fr; }
         .wholesale-detail-items details > div,
         .wholesale-detail-status .status-update-form { grid-template-columns: 1fr; }
-        .wholesale-detail-status .status-update-form > .row,
-        .wholesale-detail-status .status-update-form > small,
-        .wholesale-detail-status .status-update-form .payment-amount-error { grid-column: auto; }
+        .wholesale-detail-status .wholesale-status-fields { grid-template-columns: 1fr; }
+        .wholesale-detail-status .wholesale-status-fields > .row,
+        .wholesale-detail-status .wholesale-status-fields > small,
+        .wholesale-detail-status .wholesale-status-fields .payment-amount-error { grid-column: auto; }
     }
 </style>
 <div class="card wholesale-report-card">
@@ -311,49 +315,60 @@
                             <form action="{{ route('sales.status.update', $transaction->id) }}" method="POST" class="status-update-form">
                                 @csrf
                                 @method('PATCH')
-                                <div class="input-group input-group-sm mb-1">
-                                    <select name="payment_status" class="form-select" aria-label="Payment status" @disabled($paymentLocked)>
-                                        <option value="unpaid" @selected($paymentStatus === 'unpaid')>Unpaid</option>
-                                        <option value="partial" @selected($paymentStatus === 'partial')>Partial</option>
-                                        <option value="paid" @selected($paymentStatus === 'paid')>Paid</option>
-                                    </select>
-                                    @if($paymentLocked)
-                                        <input type="hidden" name="payment_status" value="paid">
-                                    @endif
-                                    <select name="delivery_status" class="form-select" aria-label="Delivery status">
-                                        @foreach(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'] as $status)
-                                            <option value="{{ $status }}" @selected($deliveryStatus === $status)>{{ ucfirst($status) }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">₱</span>
-                                    <input type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $productPaymentTotal }}" step="0.01" value="{{ number_format($collected, 2, '.', '') }}" placeholder="Amount paid" data-order-total="{{ $productPaymentTotal }}" @disabled($paymentLocked)>
-                                    @if($paymentLocked)
-                                        <input type="hidden" name="amount_paid" value="{{ number_format($collected, 2, '.', '') }}">
-                                    @endif
-                                    <button type="submit" class="btn btn-primary">Save</button>
-                                </div>
-                                <div class="input-group input-group-sm mt-2">
-                                    <input type="text" name="invoice_number" class="form-control" value="{{ $transaction->invoice_number }}" placeholder="Add Invoice #">
-                                </div>
-                                <div class="row g-1 mt-2">
-                                    <div class="col-6">
-                                        <label class="form-label small mb-1">Withholding Tax Amount</label>
-                                        <input type="number" name="withholding_tax_amount" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingAmount === null ? '' : number_format($withholdingAmount, 2, '.', '') }}" placeholder="Reference amount">
+                                <div class="wholesale-status-fields">
+                                    <div class="wholesale-status-field">
+                                        <label>Payment Status</label>
+                                        <select name="payment_status" class="form-select form-select-sm" aria-label="Payment status" @disabled($paymentLocked)>
+                                            <option value="unpaid" @selected($paymentStatus === 'unpaid')>Unpaid</option>
+                                            <option value="partial" @selected($paymentStatus === 'partial')>Partial</option>
+                                            <option value="paid" @selected($paymentStatus === 'paid')>Paid</option>
+                                        </select>
+                                        @if($paymentLocked)
+                                            <input type="hidden" name="payment_status" value="paid">
+                                        @endif
                                     </div>
-                                    <div class="col-6">
-                                        <label class="form-label small mb-1">Withholding Tax</label>
-                                        <input type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Reference amount">
+                                    <div class="wholesale-status-field">
+                                        <label>Delivery Status</label>
+                                        <select name="delivery_status" class="form-select form-select-sm" aria-label="Delivery status">
+                                            @foreach(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'] as $status)
+                                                <option value="{{ $status }}" @selected($deliveryStatus === $status)>{{ ucfirst($status) }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
+                                    <div class="wholesale-status-field">
+                                        <label>Amount Collected</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">₱</span>
+                                            <input type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $productPaymentTotal }}" step="0.01" value="{{ number_format($collected, 2, '.', '') }}" placeholder="Amount paid" data-order-total="{{ $productPaymentTotal }}" @disabled($paymentLocked)>
+                                            @if($paymentLocked)
+                                                <input type="hidden" name="amount_paid" value="{{ number_format($collected, 2, '.', '') }}">
+                                            @endif
+                                            <button type="submit" class="btn btn-primary">Save</button>
+                                        </div>
+                                    </div>
+                                    <div class="wholesale-status-field">
+                                        <label>Invoice Number</label>
+                                        <input type="text" name="invoice_number" class="form-control form-control-sm" value="{{ $transaction->invoice_number }}" placeholder="Add invoice number">
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Withholding Tax Amount</label>
+                                            <input type="number" name="withholding_tax_amount" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingAmount === null ? '' : number_format($withholdingAmount, 2, '.', '') }}" placeholder="Amount">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Withholding Tax</label>
+                                            <input type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Tax">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Withholding tax affects the displayed Order Value and monthly subtotal, not Collected.</small>
+                                    <small class="text-muted payment-balance-help">{{ $paymentLocked ? 'Payment is fully paid and locked. Delivery status remains editable.' : 'For Partial, enter an amount below ₱'.number_format($productPaymentTotal, 2).'.' }}</small>
+                                    <small class="text-danger d-none payment-amount-error">An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.</small>
                                 </div>
-                                <small class="text-muted d-block mt-1">Withholding Tax changes the displayed Order Value and monthly subtotal only; it does not change customer payment or Collected.</small>
-                                <small class="text-muted payment-balance-help">{{ $paymentLocked ? 'Payment is fully paid and locked. Delivery status remains editable.' : 'For Partial, enter an amount below ₱'.number_format($productPaymentTotal, 2).'.' }}</small>
-                                <small class="text-danger d-none payment-amount-error">An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.</small>
                             </form>
                             @can('manage-sales-status')
                                 <form action="{{ route('hub.report.wholesale.refund', [$hub->id, $transaction->id]) }}" method="POST" class="wholesale-refund-form mt-2"
-                                    data-confirm-message="Refund ₱{{ number_format($collected, 2) }} and permanently lock order #{{ $transaction->order_number }}? Collected and order value will become ₱0.00.">
+                                    data-order-number="{{ $transaction->order_number }}"
+                                    data-refund-amount="{{ number_format($collected, 2, '.', '') }}">
                                     @csrf
                                     @if($refundEligible)
                                         <button type="submit" class="btn btn-outline-danger btn-sm w-100">
@@ -434,6 +449,37 @@
     </div>
 </div>
 @can('manage-sales-status')
+<div class="modal fade" id="wholesaleRefundConfirmModal" tabindex="-1" aria-labelledby="wholesaleRefundConfirmTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fs-6" id="wholesaleRefundConfirmTitle">
+                    <i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Confirm wholesale refund
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-flex gap-2 align-items-start mb-3" role="alert">
+                    <i class="fa-solid fa-circle-exclamation mt-1"></i>
+                    <div>This will refund the amount collected and permanently lock the order.</div>
+                </div>
+                <dl class="row small mb-0">
+                    <dt class="col-6 text-muted">Order</dt>
+                    <dd class="col-6 text-end fw-semibold" id="wholesaleRefundOrder"></dd>
+                    <dt class="col-6 text-muted mb-0">Refund amount</dt>
+                    <dd class="col-6 text-end fw-bold text-danger mb-0" id="wholesaleRefundAmount"></dd>
+                </dl>
+                <div class="small text-muted mt-3">Order Value and Collected will both be set to ₱0.00. This cannot be undone.</div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="wholesaleRefundConfirmButton">
+                    <i class="fa-solid fa-lock me-1"></i>Refund &amp; Lock
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="modal fade" id="wholesaleReplacementModal" tabindex="-1" aria-labelledby="wholesaleReplacementLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <form method="POST" enctype="multipart/form-data" class="modal-content" id="wholesaleReplacementForm">
@@ -733,17 +779,46 @@
                 updatePaymentAmountState(event.target.form);
             }
         });
+        let pendingRefundForm = null;
+        const refundConfirmModalElement = document.getElementById('wholesaleRefundConfirmModal');
+        const refundConfirmModal = refundConfirmModalElement && window.bootstrap
+            ? bootstrap.Modal.getOrCreateInstance(refundConfirmModalElement)
+            : null;
+        const refundConfirmButton = document.getElementById('wholesaleRefundConfirmButton');
+
         document.addEventListener('submit', event => {
             const refundForm = event.target.closest('.wholesale-refund-form');
-            if (refundForm && !window.confirm(refundForm.dataset.confirmMessage || 'Refund and lock this wholesale order?')) {
-                event.preventDefault();
-                return;
+            if (refundForm) {
+                if (refundForm.dataset.confirmed === 'true') {
+                    delete refundForm.dataset.confirmed;
+                } else {
+                    event.preventDefault();
+                    pendingRefundForm = refundForm;
+                    document.getElementById('wholesaleRefundOrder').textContent = `#${refundForm.dataset.orderNumber}`;
+                    document.getElementById('wholesaleRefundAmount').textContent =
+                        `₱${Number(refundForm.dataset.refundAmount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    refundConfirmModal?.show();
+                    return;
+                }
             }
 
             if (event.target.matches('.status-update-form') && !updatePaymentAmountState(event.target)) {
                 event.preventDefault();
                 event.target.querySelector('.amount-paid-input')?.reportValidity();
             }
+        });
+        refundConfirmButton?.addEventListener('click', () => {
+            if (!pendingRefundForm) return;
+
+            const form = pendingRefundForm;
+            pendingRefundForm = null;
+            form.dataset.confirmed = 'true';
+            refundConfirmButton.disabled = true;
+            form.requestSubmit();
+        });
+        refundConfirmModalElement?.addEventListener('hidden.bs.modal', () => {
+            pendingRefundForm = null;
+            if (refundConfirmButton) refundConfirmButton.disabled = false;
         });
         document.querySelectorAll('.status-update-form').forEach(updatePaymentAmountState);
 

@@ -38,6 +38,9 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('data-wholesale-replacement-shipping-type', $html);
         $this->assertStringContainsString('Preview / Save PNG', $html);
         $this->assertStringNotContainsString('Print / Save PDF', $html);
+        $this->assertStringContainsString('id="wholesaleRefundConfirmModal"', $html);
+        $this->assertStringContainsString('This cannot be undone.', $html);
+        $this->assertStringNotContainsString('window.confirm(refundForm.dataset.confirmMessage', $html);
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'unpaid', 'amount_paid' => '10.00', 'delivery_status' => 'pending',
         ])->assertRedirect($report)->assertSessionHasErrors([
