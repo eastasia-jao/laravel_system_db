@@ -371,6 +371,46 @@ class TransactionBulkTest extends TestCase
             ->assertDontSee('Refund total');
     }
 
+    public function test_return_order_details_consolidate_conditions_and_scroll_when_many_items(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $hub = StoreHub::create(['name' => 'Return Details Hub', 'code' => 'RETURN-DETAILS', 'status' => 'active', 'is_head_office' => true]);
+        $product = Product::create([
+            'name' => 'Scroll Return Product',
+            'item_id' => 'SCROLL-RETURN-1',
+            'store_hub_id' => $hub->id,
+            'stock' => 0,
+            'status' => 'active',
+        ]);
+        $batchId = (string) \Illuminate\Support\Str::uuid();
+        foreach (['good' => 3, 'damaged' => 2] as $condition => $quantity) {
+            InventoryTransaction::create([
+                'type' => 'return',
+                'reference' => 'EVENT-RETURN-SCROLL',
+                'store_hub_id' => $hub->id,
+                'product_id' => $product->id,
+                'channel' => 'event',
+                'condition' => $condition,
+                'quantity' => $quantity,
+                'occurred_on' => '2026-10-16',
+                'created_by' => $admin->id,
+                'transfer_batch_id' => $batchId,
+            ]);
+        }
+
+        $response = $this->actingAs($admin)->get(route('inventory-transactions.index', [
+            'hub_id' => $hub->id,
+            'type' => 'return',
+        ]))->assertOk()
+            ->assertSee('return-detail-items')
+            ->assertSee('max-height: min(46vh, 420px)')
+            ->assertSee('Good: 3')
+            ->assertSee('Damaged: 2')
+            ->assertSee('Total Qty');
+
+        $this->assertSame(1, substr_count($response->getContent(), '<strong>Scroll Return Product</strong>'));
+    }
+
     public function test_tiktok_returns_do_not_create_automatic_refunds(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

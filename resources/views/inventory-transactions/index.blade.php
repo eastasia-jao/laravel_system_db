@@ -13,10 +13,14 @@
     .return-detail-kpi.good .value { color: #198754; }
     .return-detail-kpi.damaged .value { color: #dc3545; }
     .return-detail-kpi.refund .value { color: #b02a37; }
-    .return-detail-items { border: 1px solid #e5e7eb; border-radius: .75rem; overflow: hidden; }
+    .return-detail-items { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #94a3b8 #f1f5f9; border: 1px solid #e5e7eb; border-radius: .75rem; }
+    .return-detail-items::-webkit-scrollbar { width: 8px; }
+    .return-detail-items::-webkit-scrollbar-track { background: #f1f5f9; }
+    .return-detail-items::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
     .return-detail-item { padding: .85rem 1rem; background: #fff; }
     .return-detail-item + .return-detail-item { border-top: 1px solid #e5e7eb; }
     .return-detail-meta { color: #6c757d; font-size: .82rem; }
+    .return-detail-condition { font-size: .72rem; }
     .replacement-detail-hero { border: 1px solid #bfdbfe; border-radius: 14px; padding: 1rem; background: linear-gradient(135deg, #eff6ff, #f8fafc); }
     .replacement-detail-hero .item-card { height: 100%; border: 1px solid #dbeafe; border-radius: 10px; padding: .85rem; background: #fff; }
     .replacement-detail-hero .item-card .label, .replacement-detail-section .label { color: #64748b; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
@@ -490,13 +494,51 @@
                                         </div>
                                     </div>
                                 @endif
+                                @php
+                                    $returnProductGroups = $group->groupBy(function ($entry) {
+                                        if ($entry->product_id) {
+                                            return 'product-'.$entry->product_id;
+                                        }
+                                        if ($entry->national_product_id) {
+                                            return 'national-'.$entry->national_product_id;
+                                        }
+
+                                        return 'transaction-'.$entry->id;
+                                    })->map(function ($entries) {
+                                        $conditions = $entries->groupBy(fn ($entry) => strtolower((string) ($entry->condition ?: 'other')))
+                                            ->map(fn ($conditionEntries) => (int) $conditionEntries->sum('quantity'));
+
+                                        return [
+                                            'entry' => $entries->first(),
+                                            'conditions' => $conditions,
+                                            'quantity' => (int) $entries->sum('quantity'),
+                                            'refund_amount' => (float) $entries->sum('refund_amount'),
+                                        ];
+                                    });
+                                @endphp
                                 <div class="col-12"><strong class="d-block mb-2">Returned items</strong><div class="return-detail-items">
-                                    @foreach($group as $entry)
+                                    @foreach($returnProductGroups as $returnItem)
+                                        @php($entry = $returnItem['entry'])
                                         <div class="return-detail-item d-flex justify-content-between align-items-center gap-3">
-                                            <div><strong>{{ $entry->product?->name ?? $entry->nationalProduct?->name ?? 'Unknown product' }}</strong><div class="return-detail-meta">Item ID: {{ $entry->product?->item_id ?? $entry->nationalProduct?->item_id ?? '—' }}</div></div>
+                                            <div>
+                                                <strong>{{ $entry->product?->name ?? $entry->nationalProduct?->name ?? 'Unknown product' }}</strong>
+                                                <div class="return-detail-meta">Item ID: {{ $entry->product?->item_id ?? $entry->nationalProduct?->item_id ?? '—' }}</div>
+                                                <div class="d-flex flex-wrap gap-1 mt-2">
+                                                    @foreach($returnItem['conditions'] as $condition => $quantity)
+                                                        @if($condition !== 'other')
+                                                            <span class="badge {{ $condition === 'good' ? 'text-bg-success' : ($condition === 'damaged' ? 'text-bg-danger' : 'text-bg-secondary') }} return-detail-condition">{{ ucfirst($condition) }}: {{ $quantity }}</span>
+                                                        @else
+                                                            <span class="badge text-bg-secondary return-detail-condition">Other: {{ $quantity }}</span>
+                                                        @endif
+                                                    @endforeach
+                                                </div>
+                                            </div>
                                             <div class="text-end">
-                                                <span class="badge {{ $entry->condition === 'good' ? 'text-bg-success' : ($entry->condition === 'damaged' ? 'text-bg-danger' : 'text-bg-secondary') }}">{{ strtoupper($entry->condition ?? 'refund only') }}</span>
-                                                <div class="small mt-1">Qty <strong>{{ $entry->quantity }}</strong>@if((float) $entry->refund_amount > 0) · Refund <strong>₱{{ number_format($entry->refund_amount, 2) }}</strong>@endif</div>
+                                                <div class="small text-muted">Total Qty</div>
+                                                <strong>{{ $returnItem['quantity'] }}</strong>
+                                                @if($returnItem['refund_amount'] > 0)
+                                                    <div class="small mt-1">Refund <strong>₱{{ number_format($returnItem['refund_amount'], 2) }}</strong></div>
+                                                @endif
                                             </div>
                                         </div>
                                     @endforeach
