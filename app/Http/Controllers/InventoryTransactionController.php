@@ -320,17 +320,23 @@ class InventoryTransactionController extends Controller
             ->where('status', 'active')
             ->orderByCatalog('item_id')
             ->get()
-            ->flatMap(fn (Product $product) => collect(['good', 'damaged'])->map(fn (string $condition) => [
-                'name' => $product->description ?: $product->name,
-                'barcode' => (string) ($product->barcode ?? ''),
-                'item_id' => (string) $product->item_id,
-                'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
-                'good_stock' => (int) $product->stock,
-                'damaged_stock' => (int) $product->damaged_stock,
-                'pullout_qty' => '',
-                'actual_pullout' => '',
-                'stock_condition' => $condition,
-            ]))
+            ->flatMap(function (Product $product) {
+                $conditions = (int) $product->damaged_stock > 0
+                    ? ['good', 'damaged']
+                    : ['good'];
+
+                return collect($conditions)->map(fn (string $condition) => [
+                    'name' => $product->description ?: $product->name,
+                    'barcode' => (string) ($product->barcode ?? ''),
+                    'item_id' => (string) $product->item_id,
+                    'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
+                    'good_stock' => (int) $product->stock,
+                    'damaged_stock' => (int) $product->damaged_stock,
+                    'pullout_qty' => '',
+                    'actual_pullout' => '',
+                    'stock_condition' => $condition,
+                ]);
+            })
             ->values()
             ->all();
         $path = EventPulloutWorkbook::create($items, [

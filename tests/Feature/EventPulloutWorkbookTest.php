@@ -150,11 +150,8 @@ class EventPulloutWorkbookTest extends TestCase
             ->assertOk();
 
         $workbook = EventPulloutWorkbook::read($response->baseResponse->getFile()->getPathname());
-        $this->assertSame(['1', '1', '2', '2', '10', '10'], array_column($workbook['items'], 'item_id'));
-        $this->assertSame(
-            ['good', 'damaged', 'good', 'damaged', 'good', 'damaged'],
-            array_column($workbook['items'], 'stock_condition')
-        );
+        $this->assertSame(['1', '2', '10'], array_column($workbook['items'], 'item_id'));
+        $this->assertSame(['good', 'good', 'good'], array_column($workbook['items'], 'stock_condition'));
     }
 
     public function test_selected_event_export_marks_good_and_damaged_rows_for_reimport(): void
