@@ -133,7 +133,7 @@ class EventInventoryController extends Controller
             'mode_of_payment' => ['required', Rule::in(['CASH', 'GCASH', 'BDO', 'BPI', 'PAYMAYA', 'OTHERS'])],
             'custom_mop' => ['nullable', 'required_if:mode_of_payment,OTHERS', 'string', 'max:100'],
             'additional_discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
-            'note' => ['nullable', 'string', 'max:2000'],
+            'note' => ['nullable', 'string', 'max:150'],
             'order_slip_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'item_images' => ['nullable', 'array', 'max:5'],
             'item_images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],

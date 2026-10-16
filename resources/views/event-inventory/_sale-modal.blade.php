@@ -24,6 +24,10 @@
     .event-sale-modal .modal-footer { position: relative; z-index: 3; background: #fff; box-shadow: 0 -8px 20px rgba(15, 23, 42, .06); }
     .event-sale-section { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; }
     .event-sale-section-title { color: #64748b; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .event-sale-items-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; align-items: end; }
+    .event-sale-items-grid > [class*="col-"] { width: auto; max-width: none; padding: 0; }
+    .event-sale-items-grid > :first-child { grid-column: 1 / -1; }
+    .event-sale-items-header { display: none; }
     .event-sale-item-row { border-bottom: 1px solid #e2e8f0; padding: .85rem 0; }
     .event-sale-item-row:last-child { border-bottom: 0; }
     .event-sale-summary { border: 1px solid #bfdbfe; border-radius: .8rem; background: #eff6ff; }
@@ -39,6 +43,7 @@
     .event-sale-preview-name { overflow: hidden; color: #64748b; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
     .event-sale-attachment-card { height: 100%; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; padding: .85rem; }
     .event-sale-attachment-card .form-text { min-height: 2.5rem; }
+    .event-sale-remarks { resize: none; }
     .event-sale-image-viewer { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .86); }
     .event-sale-image-viewer[hidden] { display: none; }
     .event-sale-image-stage { position: relative; display: flex; align-items: center; justify-content: center; width: min(980px, 100%); height: min(82vh, 760px); }
@@ -49,6 +54,14 @@
     .event-sale-viewer-previous { left: .25rem; }
     .event-sale-viewer-next { right: .25rem; }
     .event-sale-viewer-caption { position: absolute; right: 4rem; bottom: 0; left: 4rem; color: #fff; text-align: center; }
+    @media (min-width: 1200px) {
+        .event-sale-items-grid { grid-template-columns: minmax(190px, 1fr) 116px 78px 70px 130px 78px 92px 72px; }
+        .event-sale-items-grid > :first-child { grid-column: auto; }
+        .event-sale-items-header { display: grid; }
+    }
+    @media (min-width: 992px) and (max-width: 1199.98px) {
+        .event-sale-items-grid .d-lg-none { display: block !important; }
+    }
 </style>
 
 <div class="modal fade event-sale-modal" id="recordEventSaleModal" tabindex="-1" aria-labelledby="recordEventSaleModalLabel" aria-hidden="true" data-bs-backdrop="static">
@@ -84,7 +97,7 @@
                             <div><div class="event-sale-section-title mb-1">Order items</div><div class="small text-muted">Choose Good or Damaged for each row, then search by product name or Item ID.</div></div>
                             <button type="button" class="btn btn-sm btn-outline-primary" id="addPopupEventItem"><i class="fa-solid fa-plus me-1"></i>Add item</button>
                         </div>
-                        <div class="row g-2 small fw-bold text-muted d-none d-lg-flex px-1"><div class="col-lg-4">Search Product Item</div><div class="col-lg-1">Condition</div><div class="col-lg-1">Available</div><div class="col-lg-1">Qty</div><div class="col-lg-2">Regular Price</div><div class="col-lg-1">Disc %</div><div class="col-lg-1">Total</div><div class="col-lg-1">Action</div></div>
+                        <div class="event-sale-items-grid event-sale-items-header small fw-bold text-muted px-1"><div>Search Product Item</div><div>Condition</div><div>Available</div><div>Qty</div><div>Regular Price</div><div>Disc %</div><div>Total</div><div>Action</div></div>
                         <div id="popupEventItemRows"><div class="text-center text-muted py-4">Select an event to load its available products.</div></div>
                     </section>
 
@@ -94,12 +107,12 @@
                             <div class="col-lg-7"><div class="row g-3">
                                 <div class="col-12" id="popupEventMopWrap"><label class="form-label fw-semibold" for="popupEventMop">Mode of Payment</label><select name="mode_of_payment" id="popupEventMop" class="form-select" required><option value="">-- Select MOP --</option>@foreach(['CASH' => 'Cash', 'GCASH' => 'GCash', 'BDO' => 'BDO', 'BPI' => 'BPI', 'PAYMAYA' => 'PayMaya', 'OTHERS' => 'Others'] as $value => $label)<option value="{{ $value }}" @selected(old('mode_of_payment') === $value)>{{ $label }}</option>@endforeach</select></div>
                                 <div class="col-12 col-md-6" id="popupCustomMopWrap" hidden><label class="form-label fw-semibold" for="popupCustomMop">Specify Payment Method</label><input name="custom_mop" id="popupCustomMop" value="{{ old('custom_mop') }}" class="form-control" maxlength="100" placeholder="Enter payment method"></div>
-                                <div class="col-12"><label class="form-label fw-semibold" for="popupSaleNote">Remarks</label><textarea name="note" id="popupSaleNote" class="form-control" rows="3" maxlength="2000">{{ old('note') }}</textarea></div>
+                                <div class="col-12"><label class="form-label fw-semibold" for="popupSaleNote">Remarks</label><textarea name="note" id="popupSaleNote" class="form-control event-sale-remarks" rows="3" maxlength="150">{{ old('note') }}</textarea><div class="form-text">Maximum 150 characters.</div></div>
                             </div></div>
                             <div class="col-lg-5"><div class="event-sale-summary p-3 h-100"><div class="d-flex justify-content-between mb-3"><span>Items subtotal</span><strong id="popupEventSubtotal">&#8369;0.00</strong></div><div class="row g-2 align-items-center mb-3"><div class="col"><label class="form-label mb-0">Additional Discount</label></div><div class="col-5"><div class="input-group"><input type="number" name="additional_discount_percentage" id="popupAdditionalDiscount" min="0" max="100" step="0.01" value="{{ old('additional_discount_percentage', 0) }}" class="form-control text-end"><span class="input-group-text">%</span></div></div></div><div class="border-top pt-3 d-flex justify-content-between align-items-end"><strong>Grand Total</strong><strong class="fs-4 text-success" id="popupEventGrandTotal">&#8369;0.00</strong></div></div></div>
-                            <div class="col-lg-3"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupOrderSlipImage">Order Slip Image</label><input type="file" name="order_slip_image" id="popupOrderSlipImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupOrderSlipPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
-                            <div class="col-lg-6"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupItemImages">Item Images</label><input type="file" name="item_images[]" id="popupItemImages" class="form-control" accept="image/jpeg,image/png,image/webp" multiple><div class="form-text">Upload up to 5 images; maximum 2 MB each. Click a preview and use the arrows to browse.</div><div id="popupItemImagePreviews" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
-                            <div class="col-lg-3"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupProofOfPaymentImage">Proof of Payment</label><input type="file" name="proof_of_payment_image" id="popupProofOfPaymentImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupProofOfPaymentPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
+                            <div class="col-lg-4"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupOrderSlipImage">Order Slip Image</label><input type="file" name="order_slip_image" id="popupOrderSlipImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupOrderSlipPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
+                            <div class="col-lg-4"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupItemImages">Item Images</label><input type="file" name="item_images[]" id="popupItemImages" class="form-control" accept="image/jpeg,image/png,image/webp" multiple><div class="form-text">Upload up to 5 images; maximum 2 MB each. Click a preview and use the arrows to browse.</div><div id="popupItemImagePreviews" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
+                            <div class="col-lg-4"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupProofOfPaymentImage">Proof of Payment</label><input type="file" name="proof_of_payment_image" id="popupProofOfPaymentImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupProofOfPaymentPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
                         </div>
                     </section>
                 </div>
@@ -217,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function addRow(values = {}) {
         const index = nextIndex++;
         const row = document.createElement('div');
-        row.className = 'row g-2 align-items-end event-sale-item-row';
+        row.className = 'event-sale-items-grid event-sale-item-row';
         row.innerHTML = `<div class="col-lg-4"><label class="form-label fw-semibold d-lg-none">Search Product Item</label><div class="position-relative"><input type="search" class="form-control popup-event-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" name="items[${index}][event_pullout_item_id]" class="popup-event-line"><div class="event-product-results" hidden></div></div></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Condition</label><select name="items[${index}][stock_condition]" class="form-select popup-event-condition-select" required><option value="good">Good</option><option value="damaged">Damaged</option></select></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Available</label><input class="form-control bg-light popup-event-available" value="—" readonly></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Qty</label><input type="number" name="items[${index}][quantity]" class="form-control popup-event-qty" min="1" value="${values.quantity ?? 1}" required></div><div class="col-6 col-lg-2"><label class="form-label fw-semibold d-lg-none">Regular Price</label><input type="number" name="items[${index}][unit_price]" class="form-control popup-event-price" min="0" step="0.01" value="${values.unit_price ?? 0}" required></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Disc %</label><input type="number" name="items[${index}][discount_percentage]" class="form-control popup-event-discount" min="0" max="100" step="0.01" value="${values.discount_percentage ?? 0}"></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Total</label><input class="form-control bg-light popup-event-line-total" value="${money(0)}" readonly></div><div class="col-6 col-lg-1"><button type="button" class="btn btn-outline-danger w-100 popup-remove-event-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div>`;
         rows.appendChild(row);
         const search = row.querySelector('.popup-event-product-search');

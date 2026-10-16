@@ -366,6 +366,8 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Event Sale separates Order Slip Image, up to five Item Images, and Proof of Payment; every JPG/PNG/WebP file is limited to 2 MB and saved under the correct category.
 - [ ] Clicking an attachment preview opens an in-page image viewer; multiple Item Images support previous/next buttons and keyboard arrow navigation without opening another tab.
 - [ ] Event payment methods are limited to Cash, GCash, BDO, BPI, PayMaya, and Others; selecting Others requires and saves a specified payment method.
+- [ ] Event Sale Remarks are fixed-size, cannot be manually resized, and reject input longer than 150 characters in both the browser and server.
+- [ ] Order Slip, Item Images, and Proof of Payment cards use equal-width responsive columns, and Order Item fields remain readable without truncating the condition selector.
 - [ ] Large workbook import matches products in bounded batches and preserves identifiers.
 
 ## 23. National Inventory and National Pull-out

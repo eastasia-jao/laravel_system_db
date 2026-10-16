@@ -53,6 +53,8 @@ class EventInventoryTest extends TestCase
             ->assertSee('PayMaya')
             ->assertSee('Specify Payment Method')
             ->assertSee('eventSaleImageViewer')
+            ->assertSee('maxlength="150"', false)
+            ->assertSee('event-sale-remarks')
             ->assertDontSee('Bank Transfer')
             ->assertDontSee('Credit/Debit Card')
             ->assertDontSee('Payment Status')
@@ -386,6 +388,10 @@ class EventInventoryTest extends TestCase
         $this->post(route('event-inventory.sales.store', $event), array_replace($basePayload, [
             'mode_of_payment' => 'OTHERS',
         ]))->assertSessionHasErrors('custom_mop');
+
+        $this->post(route('event-inventory.sales.store', $event), array_replace($basePayload, [
+            'note' => str_repeat('R', 151),
+        ]))->assertSessionHasErrors('note');
 
         $this->assertDatabaseCount('sales_transactions', 0);
     }
