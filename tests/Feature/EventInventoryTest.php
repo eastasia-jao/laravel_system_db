@@ -58,6 +58,8 @@ class EventInventoryTest extends TestCase
             'event_id' => $event->id,
         ]))->assertOk()
             ->assertSee('Event Transaction Logs')
+            ->assertSee('View details')
+            ->assertSee('Same products are consolidated')
             ->assertSee('Good: 5')
             ->assertSee('Damaged: 2');
         $this->assertSame(1, substr_count(
@@ -213,6 +215,7 @@ class EventInventoryTest extends TestCase
             'section' => 'transactions',
         ]))->assertOk()
             ->assertSee('Event Transaction Logs')
+            ->assertSee('View details')
             ->assertSee('Stock entered Event inventory')
             ->assertSee('Stock sold from Event inventory')
             ->assertSee($sale->order_number)

@@ -9,7 +9,17 @@
 <style>
     .event-log-table th { color: #64748b; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
     .event-log-table td { vertical-align: middle; }
-    .event-log-product + .event-log-product { border-top: 1px dashed #cbd5e1; margin-top: .55rem; padding-top: .55rem; }
+    .event-log-table td { padding: .75rem .65rem; }
+    .event-log-view { border-radius: 999px; white-space: nowrap; }
+    .event-log-modal .modal-header { background: linear-gradient(135deg, #eff6ff, #fff); border-bottom-color: #dbeafe; }
+    .event-log-modal .modal-body { background: #f8fafc; }
+    .event-log-hero { border: 1px solid #bfdbfe; border-radius: .9rem; background: linear-gradient(135deg, #eff6ff, #fff); }
+    .event-log-meta { height: 100%; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; padding: .8rem; }
+    .event-log-meta .label { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .event-log-products { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; overflow: hidden; }
+    .event-log-products-header { padding: .75rem 1rem; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .event-log-product { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
+    .event-log-product + .event-log-product { border-top: 1px solid #eef2f7; }
     .event-log-condition { font-size: .7rem; }
 </style>
 
@@ -30,39 +40,22 @@
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
     <div class="table-responsive">
         <table class="table table-hover mb-0 event-log-table">
-            <thead class="table-light"><tr><th>Date / Time</th><th>Event</th><th>Activity</th><th>Products</th><th>Total Qty</th><th>Reference / Customer</th><th>Inventory Effect</th><th>Recorded By</th></tr></thead>
+            <thead class="table-light"><tr><th>Date / Time</th><th>Activity</th><th>Event</th><th>Reference / Customer</th><th>Products</th><th>Total Qty</th><th>Recorded By</th><th>Actions</th></tr></thead>
             <tbody>
             @forelse($eventTransactionGroups as $group)
                 @php
                     [$label, $badge, $effect] = $eventActivityLabels[$group['type']] ?? [ucwords(str_replace('_', ' ', $group['type'])), 'text-bg-secondary', 'Event inventory activity'];
-                    $eventEffect = $group['type'] === 'sponsor_workshop' ? '+' : '-';
-                    $headOfficeEffect = match($group['type']) {
-                        'sponsor_workshop' => 'Physical stock deducted',
-                        'return' => 'Physical stock restored',
-                        default => 'No second stock deduction',
-                    };
+                    $modalId = 'eventLogDetails'.(($eventTransactionGroups->currentPage() - 1) * $eventTransactionGroups->perPage() + $loop->iteration);
                 @endphp
                 <tr>
                     <td class="text-nowrap"><strong>{{ $group['occurred_on']?->format('M d, Y') }}</strong><div class="small text-muted">{{ $group['created_at']?->format('h:i A') }}</div></td>
-                    <td><strong>{{ $group['event']?->source ?? 'Event' }}</strong><div class="small text-muted">{{ $group['event']?->reference ?? $group['reference'] }}</div></td>
                     <td><span class="badge {{ $badge }}">{{ $label }}</span><div class="small text-muted mt-1">{{ $effect }}</div></td>
-                    <td>
-                        @foreach($group['products'] as $item)
-                            <div class="event-log-product" data-event-log-product="{{ $item['product']?->id }}">
-                                <strong>{{ $item['product']?->name ?? 'Unknown product' }}</strong>
-                                <div class="small text-muted mb-1">{{ $item['product']?->item_id ?? 'N/A' }}</div>
-                                <div class="d-flex flex-wrap gap-1">
-                                    @foreach($item['conditions'] as $condition => $quantity)
-                                        <span class="badge text-bg-light border event-log-condition">{{ ucfirst($condition) }}: {{ $quantity }}</span>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endforeach
-                    </td>
-                    <td><strong class="{{ $eventEffect === '+' ? 'text-primary' : 'text-danger' }}">{{ $eventEffect }}{{ $group['quantity'] }}</strong></td>
+                    <td><strong>{{ $group['event']?->source ?? 'Event' }}</strong><div class="small text-muted">{{ $group['event']?->reference ?? $group['reference'] }}</div></td>
                     <td><strong>{{ $group['reference'] }}</strong>@if($group['sale'])<div class="small text-muted">{{ $group['sale']->customer_name }} &middot; &#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div>@endif</td>
-                    <td><div>{{ $headOfficeEffect }}</div><div class="small text-muted">Event balance {{ $eventEffect }}{{ $group['quantity'] }}</div></td>
+                    <td><strong>{{ $group['products']->count() }}</strong><div class="small text-muted">unique {{ $group['products']->count() === 1 ? 'product' : 'products' }}</div></td>
+                    <td class="fw-bold">{{ $group['quantity'] }}</td>
                     <td>{{ $group['creator']?->name ?? $group['creator']?->username ?? 'System' }}</td>
+                    <td><button type="button" class="btn btn-sm btn-outline-primary event-log-view" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}"><i class="fa-solid fa-eye me-1"></i>View details</button></td>
                 </tr>
             @empty
                 <tr><td colspan="8" class="text-center py-5"><i class="fa-solid fa-clock-rotate-left fs-2 text-muted mb-2"></i><div class="fw-semibold">No Event transactions found</div><div class="small text-muted">Adjust the filters or create an Event Pull-Out.</div></td></tr>
@@ -72,3 +65,58 @@
     </div>
     @if($eventTransactionGroups->hasPages())<div class="p-3 border-top">{{ $eventTransactionGroups->links() }}</div>@endif
 </div>
+
+@foreach($eventTransactionGroups as $group)
+    @php
+        [$label, $badge, $effect] = $eventActivityLabels[$group['type']] ?? [ucwords(str_replace('_', ' ', $group['type'])), 'text-bg-secondary', 'Event inventory activity'];
+        $eventEffect = $group['type'] === 'sponsor_workshop' ? '+' : '-';
+        $headOfficeEffect = match($group['type']) {
+            'sponsor_workshop' => 'Physical stock deducted when items were pulled out.',
+            'return' => 'Physical stock restored according to the returned condition.',
+            default => 'No second Head Office stock deduction was made.',
+        };
+        $modalId = 'eventLogDetails'.(($eventTransactionGroups->currentPage() - 1) * $eventTransactionGroups->perPage() + $loop->iteration);
+    @endphp
+    <div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content event-log-modal">
+                <div class="modal-header"><div><div class="small text-primary fw-bold text-uppercase">Event transaction</div><h5 class="modal-title" id="{{ $modalId }}Label">{{ $label }} Details</h5></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body p-3 p-lg-4">
+                    <div class="event-log-hero p-3 mb-3">
+                        <div class="d-flex flex-wrap justify-content-between gap-3">
+                            <div><span class="badge {{ $badge }} mb-2">{{ $label }}</span><h4 class="mb-1">{{ $group['event']?->source ?? 'Event' }}</h4><div class="text-muted">{{ $group['reference'] }}</div></div>
+                            <div class="text-lg-end"><div class="small text-muted text-uppercase fw-bold">Total quantity</div><div class="fs-2 fw-bold {{ $eventEffect === '+' ? 'text-primary' : 'text-danger' }}">{{ $eventEffect }}{{ $group['quantity'] }}</div></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4"><div class="event-log-meta"><div class="label">Date / Time</div><div class="fw-semibold mt-1">{{ $group['occurred_on']?->format('M d, Y') }}<div class="small text-muted">{{ $group['created_at']?->format('h:i A') }}</div></div></div></div>
+                        <div class="col-md-4"><div class="event-log-meta"><div class="label">Event Reference</div><div class="fw-semibold mt-1 text-break">{{ $group['event']?->reference ?? $group['reference'] }}</div></div></div>
+                        <div class="col-md-4"><div class="event-log-meta"><div class="label">Recorded By</div><div class="fw-semibold mt-1">{{ $group['creator']?->name ?? $group['creator']?->username ?? 'System' }}</div></div></div>
+                        <div class="col-md-6"><div class="event-log-meta"><div class="label">Inventory Effect</div><div class="fw-semibold mt-1">{{ $headOfficeEffect }}</div><div class="small text-muted">Event balance {{ $eventEffect }}{{ $group['quantity'] }}</div></div></div>
+                        <div class="col-md-6"><div class="event-log-meta"><div class="label">Activity</div><div class="fw-semibold mt-1">{{ $effect }}</div>@if($group['notes'])<div class="small text-muted mt-1">{{ $group['notes'] }}</div>@endif</div></div>
+                    </div>
+
+                    @if($group['sale'])
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4"><div class="event-log-meta"><div class="label">Customer</div><div class="fw-semibold mt-1">{{ $group['sale']->customer_name }}</div></div></div>
+                            <div class="col-md-4"><div class="event-log-meta"><div class="label">Payment</div><div class="fw-semibold mt-1">{{ $group['sale']->mode_of_payment ?: 'Not specified' }}</div><div class="small text-muted">{{ ucfirst($group['sale']->payment_status ?: 'paid') }}</div></div></div>
+                            <div class="col-md-4"><div class="event-log-meta"><div class="label">Sale Total</div><div class="fw-bold text-success fs-5 mt-1">&#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div></div></div>
+                        </div>
+                    @endif
+
+                    <div class="event-log-products">
+                        <div class="event-log-products-header">Products &middot; Same products are consolidated</div>
+                        @foreach($group['products'] as $item)
+                            <div class="event-log-product" data-event-log-product="{{ $item['product']?->id }}">
+                                <div><strong>{{ $item['product']?->name ?? 'Unknown product' }}</strong><div class="small text-muted">{{ $item['product']?->item_id ?? 'N/A' }}</div><div class="d-flex flex-wrap gap-1 mt-2">@foreach($item['conditions'] as $condition => $quantity)<span class="badge text-bg-light border event-log-condition">{{ ucfirst($condition) }}: {{ $quantity }}</span>@endforeach</div></div>
+                                <div class="text-end"><div class="small text-muted">Total Qty</div><div class="fs-5 fw-bold">{{ $item['quantity'] }}</div></div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+            </div>
+        </div>
+    </div>
+@endforeach

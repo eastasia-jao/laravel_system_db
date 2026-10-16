@@ -443,6 +443,7 @@ class EventInventoryController extends Controller
                 'reference' => $first->salesTransaction?->order_number ?? $first->reference,
                 'sale' => $first->salesTransaction,
                 'creator' => $first->creator,
+                'notes' => $first->notes,
                 'products' => $products,
                 'quantity' => (int) $products->sum('quantity'),
             ];
