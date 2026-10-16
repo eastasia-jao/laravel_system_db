@@ -18,6 +18,7 @@
     .event-log-meta .label { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .event-log-products { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; overflow: hidden; }
     .event-log-products-header { padding: .75rem 1rem; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .event-log-products-list { max-height: min(46vh, 420px); overflow-y: auto; scrollbar-gutter: stable; }
     .event-log-product { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
     .event-log-product + .event-log-product { border-top: 1px solid #eef2f7; }
     .event-log-condition { font-size: .7rem; }
@@ -137,12 +138,14 @@
 
                     <div class="event-log-products">
                         <div class="event-log-products-header">Products &middot; Same products are consolidated</div>
+                        <div class="event-log-products-list">
                         @foreach($group['products'] as $item)
                             <div class="event-log-product" data-event-log-product="{{ $item['product']?->id }}">
                                 <div><strong>{{ $item['product']?->name ?? 'Unknown product' }}</strong><div class="small text-muted">{{ $item['product']?->item_id ?? 'N/A' }}</div><div class="d-flex flex-wrap gap-1 mt-2">@foreach($item['conditions'] as $condition => $quantity)<span class="badge text-bg-light border event-log-condition">{{ ucfirst($condition) }}: {{ $quantity }}</span>@endforeach</div></div>
                                 <div class="text-end"><div class="small text-muted">Total Qty</div><div class="fs-5 fw-bold">{{ $item['quantity'] }}</div></div>
                             </div>
                         @endforeach
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>

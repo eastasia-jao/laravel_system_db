@@ -14,7 +14,9 @@
 @endphp
 <style>
     .transaction-form-card { border:1px solid #e2e8f0 !important; }
-    #returnItems { max-height: 430px; overflow-y: auto; overflow-x: hidden; padding: .5rem; border: 1px solid #dee2e6; border-radius: .375rem; }
+    #returnItems { max-height: min(48vh, 430px); overflow-y: auto; overflow-x: hidden; padding: .5rem; border: 1px solid #dee2e6; border-radius: .375rem; scrollbar-gutter: stable; }
+    .return-item-search { max-width: 540px; }
+    .return-item[hidden] { display: none; }
     .return-item { display: grid; grid-template-columns: minmax(260px, 1.75fr) minmax(175px, 1fr) minmax(145px, .9fr) minmax(175px, 1fr); gap: .6rem; align-items: start; padding: .65rem .75rem; margin: 0 0 .5rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
     .return-item.return-item-no-refund { grid-template-columns: minmax(260px, 1.75fr) minmax(175px, 1fr) minmax(145px, .9fr); }
     .return-item:last-child { margin-bottom: 0; }
@@ -36,6 +38,13 @@
 </style>
 <div class="workspace-page inventory-entry-page">
     <x-page-header class="mb-3" eyebrow="Inventory adjustment" title="Return Items" description="Record returned products and classify each item as good or damaged." icon="fa-rotate-left" />
+
+    @if($errors->any())
+        <div class="alert alert-danger" role="alert">
+            <strong>Return items were not saved.</strong>
+            <ul class="mb-0 mt-1">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+        </div>
+    @endif
 
     <form method="POST" action="{{ route('inventory-transactions.return.store') }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf
@@ -75,6 +84,10 @@
         <div class="d-flex justify-content-between align-items-center mt-4 mb-2">
             <h5 class="fw-bold mb-0">Returned Items</h5>
         </div>
+        <div id="returnItemSearchWrap" class="return-item-search mb-2" hidden>
+            <label class="form-label fw-semibold" for="returnItemSearch">Search Product Items</label>
+            <div class="input-group"><span class="input-group-text"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span><input type="search" id="returnItemSearch" class="form-control" placeholder="Search product name or Item ID" autocomplete="off"></div>
+        </div>
         <div class="return-entry-layout">
             <div id="returnItems"><div class="text-muted p-3">Select a return source and reference to load its products.</div></div>
             <div class="return-notes-panel"><label class="form-label" for="returnNotes">Notes</label><textarea id="returnNotes" name="notes" class="form-control" rows="6" maxlength="120" placeholder="Add notes about the returned items"></textarea><div class="form-text text-end"><span id="returnNotesCount">0</span>/120</div></div>
@@ -102,8 +115,21 @@
     const attachmentPreview = document.getElementById('returnAttachmentPreview');
     const notes = document.getElementById('returnNotes');
     const notesCount = document.getElementById('returnNotesCount');
+    const itemSearchWrap = document.getElementById('returnItemSearchWrap');
+    const itemSearch = document.getElementById('returnItemSearch');
     const presetChannel = @json(request('channel'));
     const presetReference = @json(request('event_reference'));
+    const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' })[character]);
+    const resetItemSearch = () => {
+        itemSearch.value = '';
+        itemSearchWrap.hidden = true;
+    };
+    itemSearch.addEventListener('input', () => {
+        const term = itemSearch.value.trim().toLowerCase();
+        container.querySelectorAll('.return-item').forEach(row => {
+            row.hidden = term !== '' && !row.dataset.returnSearch.includes(term);
+        });
+    });
     notes?.addEventListener('input', () => { notesCount.textContent = notes.value.length; });
     const setOptions = (select, items, placeholder, label) => {
         select.replaceChildren(new Option(placeholder, ''));
@@ -165,7 +191,7 @@
         return response.json();
     };
     channel.addEventListener('change', async () => {
-        customer.disabled = true; resetOrder('Loading references...'); container.innerHTML = '<div class="text-muted p-3">Loading return sources...</div>';
+        customer.disabled = true; resetOrder('Loading references...'); resetItemSearch(); container.innerHTML = '<div class="text-muted p-3">Loading return sources...</div>';
         try {
             updateCustomerState();
             const data = await load({});
@@ -191,6 +217,7 @@
     });
     customer.addEventListener('change', async () => {
         document.getElementById('returnSource').value = customer.value;
+        resetItemSearch();
         order.disabled = true; transactionId.value = ''; container.innerHTML = '<div class="text-muted p-3">Loading orders...</div>';
         try {
             const data = await load({ customer: customer.value });
@@ -206,6 +233,7 @@
         eventReference.value = isEvent ? order.value : '';
         attachmentPreview.replaceChildren();
         attachmentPreview.hidden = true;
+        resetItemSearch();
         container.innerHTML = '<div class="text-muted p-3">Loading ordered products...</div>';
         try {
             const data = await load(isEvent ? { event_reference: order.value } : { transaction_id: order.value });
@@ -217,18 +245,22 @@
             const supportsAutoRefund = !['fully_booked', 'tiktok', 'shopee', 'lazada', 'national_bookstore', 'event'].includes(channel.value) && !partialWholesaleReturn;
             container.innerHTML = items.length ? items.map((item, index) => {
                 const remaining = Math.max(0, item.quantity - (item.sold_quantity || 0) - (item.returned_quantity || 0));
+                const goodRemaining = isEvent ? Number(item.remaining_good_quantity || 0) : remaining;
+                const damagedRemaining = isEvent ? Number(item.remaining_damaged_quantity || 0) : remaining;
+                const searchValue = `${item.item_id || ''} ${item.name || ''}`.toLowerCase();
                 return `
-                <div class="return-item ${supportsAutoRefund ? '' : 'return-item-no-refund'}" data-unit-price="${Number(item.unit_price || 0)}" data-discount="${Number(item.discount_percentage || 0)}">
-                    <div><label class="form-label d-block">${item.item_id || ''}${item.replacement_id ? ' (Replacement)' : ''}</label><input class="form-control" value="${item.name}" readonly>${isEvent ? `<div class="form-text">Pulled ${item.quantity} · Sold ${item.sold_quantity || 0} · Already returned ${item.returned_quantity || 0} · Returnable ${remaining}</div>` : ''}${isNational
+                <div class="return-item ${supportsAutoRefund ? '' : 'return-item-no-refund'}" data-return-search="${escapeHtml(searchValue)}" data-unit-price="${Number(item.unit_price || 0)}" data-discount="${Number(item.discount_percentage || 0)}">
+                    <div><label class="form-label d-block">${escapeHtml(item.item_id || '')}${item.replacement_id ? ' (Replacement)' : ''}</label><input class="form-control" value="${escapeHtml(item.name)}" readonly>${isEvent ? `<div class="form-text">Good available ${goodRemaining} · Damaged available ${damagedRemaining} · Total returnable ${remaining}</div>` : ''}${isNational
                         ? `<input type="hidden" name="items[${index}][national_product_id]" value="${item.national_product_id}"><input type="hidden" name="items[${index}][national_pullout_item_id]" value="${item.national_pullout_item_id}">`
                         : isEvent
                             ? `<input type="hidden" name="items[${index}][product_id]" value="${item.product_id}">`
                         : `<input type="hidden" name="items[${index}][product_id]" value="${item.product_id}"><input type="hidden" name="items[${index}][transaction_item_id]" value="${item.id || ''}"><input type="hidden" name="items[${index}][replacement_id]" value="${item.replacement_id || ''}">`}</div>
-                    <div><label class="form-label">Good Qty</label><input type="number" name="items[${index}][good_quantity]" min="0" max="${remaining}" value="0" class="form-control" ${remaining ? '' : 'disabled'}></div>
-                    <div><label class="form-label">Damaged Qty</label><input type="number" name="items[${index}][damaged_quantity]" min="0" max="${remaining}" value="0" class="form-control" ${remaining ? '' : 'disabled'}></div>
+                    <div><label class="form-label">Good Qty</label><input type="number" name="items[${index}][good_quantity]" min="0" max="${goodRemaining}" value="0" class="form-control" ${goodRemaining ? '' : 'disabled'}></div>
+                    <div><label class="form-label">Damaged Qty</label><input type="number" name="items[${index}][damaged_quantity]" min="0" max="${damagedRemaining}" value="0" class="form-control" ${damagedRemaining ? '' : 'disabled'}></div>
                     ${supportsAutoRefund ? '<div class="return-refund-control"><label class="form-label">Auto refund</label><input type="number" name="items[' + index + '][refund_amount]" min="0" step="0.01" value="0" class="form-control refund-amount" readonly><div class="form-text refund-help">Calculated from returned quantity</div></div>' : ''}
                 </div>`;
             }).join('') : '<div class="alert alert-warning">This order has no products.</div>';
+            itemSearchWrap.hidden = !items.length;
             if (partialWholesaleReturn && items.length) {
                 container.insertAdjacentHTML('afterbegin', '<div class="alert alert-info small mb-3">This is a partially paid wholesale order. The item can be returned to stock, but no automatic cash refund is recorded. Its existing partial payment remains on the order.</div>');
             }

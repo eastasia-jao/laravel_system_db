@@ -604,29 +604,50 @@ class InventoryTransactionController extends Controller
                         ->where('event_pullout_id', $event->id)
                         ->where('type', 'sold')
                         ->where('channel', 'event')
-                        ->selectRaw('product_id, SUM(quantity) as sold_quantity')
+                        ->selectRaw('product_id, condition, SUM(quantity) as quantity')
+                        ->groupBy('product_id', 'condition')
+                        ->get()
                         ->groupBy('product_id')
-                        ->pluck('sold_quantity', 'product_id')
                     : collect();
                 $returnedByProduct = InventoryTransaction::query()
                     ->where('store_hub_id', $validated['hub_id'])
                     ->where('type', 'return')
                     ->where('channel', 'event')
                     ->where('reference', $reference)
-                    ->selectRaw('product_id, SUM(quantity) as returned_quantity')
-                    ->groupBy('product_id')
-                    ->pluck('returned_quantity', 'product_id');
+                    ->selectRaw('product_id, condition, SUM(quantity) as quantity')
+                    ->groupBy('product_id', 'condition')
+                    ->get()
+                    ->groupBy('product_id');
                 $items = $pullouts->groupBy('product_id')
                     ->map(function ($rows, $productId) use ($returnedByProduct, $soldByProduct) {
                         $first = $rows->first();
+                        $soldRows = $soldByProduct->get($productId, collect());
+                        $returnedRows = $returnedByProduct->get($productId, collect());
+                        $conditionQuantity = fn ($conditionRows, string $condition) => (int) $conditionRows
+                            ->filter(fn ($row) => strtolower((string) ($row->condition ?: 'good')) === $condition)
+                            ->sum('quantity');
+                        $pulledGood = $conditionQuantity($rows, 'good');
+                        $pulledDamaged = $conditionQuantity($rows, 'damaged');
+                        $soldGood = $conditionQuantity($soldRows, 'good');
+                        $soldDamaged = $conditionQuantity($soldRows, 'damaged');
+                        $returnedGood = $conditionQuantity($returnedRows, 'good');
+                        $returnedDamaged = $conditionQuantity($returnedRows, 'damaged');
 
                         return [
                             'product_id' => $productId,
                             'name' => $first->product?->name ?? 'Product #'.$productId,
                             'item_id' => $first->product?->item_id,
-                            'quantity' => (int) $rows->sum('quantity'),
-                            'sold_quantity' => (int) ($soldByProduct[$productId] ?? 0),
-                            'returned_quantity' => (int) ($returnedByProduct[$productId] ?? 0),
+                            'quantity' => $pulledGood + $pulledDamaged,
+                            'sold_quantity' => $soldGood + $soldDamaged,
+                            'returned_quantity' => $returnedGood + $returnedDamaged,
+                            'pulled_good_quantity' => $pulledGood,
+                            'pulled_damaged_quantity' => $pulledDamaged,
+                            'sold_good_quantity' => $soldGood,
+                            'sold_damaged_quantity' => $soldDamaged,
+                            'returned_good_quantity' => $returnedGood,
+                            'returned_damaged_quantity' => $returnedDamaged,
+                            'remaining_good_quantity' => max(0, $pulledGood - $soldGood - $returnedGood),
+                            'remaining_damaged_quantity' => max(0, $pulledDamaged - $soldDamaged - $returnedDamaged),
                             'unit_price' => 0,
                         ];
                     })
@@ -2231,31 +2252,48 @@ class InventoryTransactionController extends Controller
                 ->where('channel', 'event')
                 ->where('reference', $validated['event_reference'])
                 ->whereIn('product_id', $quantities->keys())
-                ->selectRaw('product_id, SUM(quantity) as returned_quantity')
-                ->groupBy('product_id')
-                ->pluck('returned_quantity', 'product_id');
+                ->selectRaw('product_id, condition, SUM(quantity) as quantity')
+                ->groupBy('product_id', 'condition')
+                ->get()
+                ->groupBy('product_id');
             $alreadySold = $event
                 ? InventoryTransaction::query()
                     ->where('event_pullout_id', $event->id)
                     ->where('type', 'sold')
                     ->where('channel', 'event')
                     ->whereIn('product_id', $quantities->keys())
-                    ->selectRaw('product_id, SUM(quantity) as sold_quantity')
+                    ->selectRaw('product_id, condition, SUM(quantity) as quantity')
+                    ->groupBy('product_id', 'condition')
+                    ->get()
                     ->groupBy('product_id')
-                    ->pluck('sold_quantity', 'product_id')
                 : collect();
 
             foreach ($quantities as $productId => $amounts) {
                 $productPullouts = $pullouts->get($productId);
                 $product = $products->get((int) $productId);
-                $quantity = $amounts['good'] + $amounts['damaged'];
-                $available = (int) ($productPullouts?->sum('quantity') ?? 0)
-                    - (int) ($alreadySold[$productId] ?? 0)
-                    - (int) ($alreadyReturned[$productId] ?? 0);
-                if (! $product || ! $productPullouts || $quantity > $available) {
+                if (! $product || ! $productPullouts) {
                     throw ValidationException::withMessages([
                         'items' => 'Each returned product must belong to the selected Event and cannot exceed its remaining pullout quantity.',
                     ]);
+                }
+
+                $soldRows = $alreadySold->get($productId, collect());
+                $returnedRows = $alreadyReturned->get($productId, collect());
+                $conditionQuantity = fn ($conditionRows, string $condition) => (int) $conditionRows
+                    ->filter(fn ($row) => strtolower((string) ($row->condition ?: 'good')) === $condition)
+                    ->sum('quantity');
+                foreach (['good' => 'Good', 'damaged' => 'Damaged'] as $condition => $conditionLabel) {
+                    $available = max(
+                        0,
+                        $conditionQuantity($productPullouts, $condition)
+                            - $conditionQuantity($soldRows, $condition)
+                            - $conditionQuantity($returnedRows, $condition)
+                    );
+                    if ($amounts[$condition] > $available) {
+                        throw ValidationException::withMessages([
+                            'items' => "{$conditionLabel} return quantity for {$product->name} exceeds the remaining {$conditionLabel} Event stock. Only {$available} {$conditionLabel} item(s) can be returned.",
+                        ]);
+                    }
                 }
 
                 if ($amounts['good'] > 0) {

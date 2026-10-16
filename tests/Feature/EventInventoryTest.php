@@ -45,6 +45,8 @@ class EventInventoryTest extends TestCase
             ->assertSee('October Art Fair')
             ->assertSee($event->reference)
             ->assertSee('Record Event Sale')
+            ->assertSee('event-ledger-items')
+            ->assertSee('event-ledger-product-search-input')
             ->assertSee('Choose Good or Damaged for each row')
             ->assertSee('Search product name or Item ID')
             ->assertSee('Order Slip Image')
@@ -80,6 +82,7 @@ class EventInventoryTest extends TestCase
             ->assertSee('Event Transaction Logs')
             ->assertSee('View details')
             ->assertSee('Same products are consolidated')
+            ->assertSee('event-log-products-list')
             ->assertSee('Good: 5')
             ->assertSee('Damaged: 2');
         $this->assertSame(1, substr_count(
@@ -196,6 +199,63 @@ class EventInventoryTest extends TestCase
         $this->assertSame($stockAfterPullout + 3, (int) $product->fresh()->stock);
     }
 
+    public function test_event_return_rejects_returning_damaged_pullout_stock_as_good(): void
+    {
+        [$admin, $hub, $product] = $this->eventFixture();
+
+        $this->actingAs($admin)->post(route('inventory-transactions.store'), [
+            'type' => 'sponsor_workshop',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-15',
+            'source' => 'Damaged Stock Event',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 2,
+                'pullout_qty' => 2,
+                'stock_condition' => 'damaged',
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $event = EventPullout::sole();
+        $stockAfterPullout = (int) $product->fresh()->stock;
+        $damagedStockAfterPullout = (int) $product->fresh()->damaged_stock;
+        $returnPayload = [
+            'type' => 'return',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-15',
+            'channel' => 'event',
+            'event_reference' => $event->reference,
+            'items' => [[
+                'product_id' => $product->id,
+                'good_quantity' => 1,
+                'damaged_quantity' => 0,
+            ]],
+        ];
+
+        $returnFormUrl = route('inventory-transactions.return.create', [
+            'hub_id' => $hub->id,
+            'channel' => 'event',
+            'event_reference' => $event->reference,
+        ]);
+        $this->from($returnFormUrl)
+            ->post(route('inventory-transactions.return.store'), $returnPayload)
+            ->assertRedirect($returnFormUrl)
+            ->assertSessionHasErrors([
+                'items' => 'Good return quantity for Event Artwork exceeds the remaining Good Event stock. Only 0 Good item(s) can be returned.',
+            ]);
+        $this->get($returnFormUrl)->assertSee('Return items were not saved.')
+            ->assertSee('Only 0 Good item(s) can be returned.');
+        $this->assertSame($stockAfterPullout, (int) $product->fresh()->stock);
+        $this->assertSame($damagedStockAfterPullout, (int) $product->fresh()->damaged_stock);
+
+        $returnPayload['items'][0]['good_quantity'] = 0;
+        $returnPayload['items'][0]['damaged_quantity'] = 1;
+        $this->post(route('inventory-transactions.return.store'), $returnPayload)
+            ->assertSessionHasNoErrors();
+        $this->assertSame($stockAfterPullout, (int) $product->fresh()->stock);
+        $this->assertSame($damagedStockAfterPullout + 1, (int) $product->fresh()->damaged_stock);
+    }
+
     public function test_event_closeout_records_remaining_stock_as_missing_and_locks_the_event(): void
     {
         [$admin, $hub, $product] = $this->eventFixture();
@@ -294,6 +354,13 @@ class EventInventoryTest extends TestCase
             'condition' => 'damaged',
             'quantity' => 1,
         ]);
+        $this->getJson(route('inventory-transactions.return.sales', [
+            'hub_id' => $hub->id,
+            'channel' => 'event',
+            'event_reference' => $event->reference,
+        ]))->assertOk()
+            ->assertJsonPath('transaction.items.0.remaining_good_quantity', 2)
+            ->assertJsonPath('transaction.items.0.remaining_damaged_quantity', 1);
         $this->assertSame($goodStockAfterPullout, (int) $product->fresh()->stock);
         $this->assertSame($damagedStockAfterPullout, (int) $product->fresh()->damaged_stock);
     }
@@ -334,6 +401,7 @@ class EventInventoryTest extends TestCase
         ]))->assertOk()
             ->assertSee('Event Transaction Logs')
             ->assertSee('View details')
+            ->assertSee('event-log-products-list')
             ->assertSee('Stock entered Event inventory')
             ->assertSee('Stock sold from Event inventory')
             ->assertSee($sale->order_number)

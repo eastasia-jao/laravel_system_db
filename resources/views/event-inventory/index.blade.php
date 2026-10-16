@@ -6,8 +6,11 @@
     .event-ledger-kpi { min-width: 105px; padding: .7rem .85rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; }
     .event-ledger-kpi .label { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .event-ledger-kpi .value { color: #0f172a; font-size: 1.2rem; font-weight: 800; }
-    .event-ledger-table th { white-space: nowrap; color: #64748b; font-size: .72rem; text-transform: uppercase; }
+    .event-ledger-table th { position: sticky; top: 0; z-index: 1; background: #f8f9fa; white-space: nowrap; color: #64748b; font-size: .72rem; text-transform: uppercase; }
     .event-ledger-table td { vertical-align: middle; }
+    .event-ledger-product-search { max-width: 420px; }
+    .event-ledger-items { max-height: min(48vh, 430px); overflow: auto; scrollbar-gutter: stable; }
+    .event-ledger-items tr[hidden] { display: none; }
     .event-workspace-tabs { border: 1px solid #dbeafe; border-radius: .9rem; background: #f8fafc; padding: .35rem; }
     .event-workspace-tabs .nav-link { border-radius: .7rem; color: #475569; font-weight: 700; }
     .event-workspace-tabs .nav-link.active { background: #2563eb; color: #fff; box-shadow: 0 4px 12px rgba(37, 99, 235, .2); }
@@ -82,12 +85,19 @@
                 @if($event->notes)<div class="small mt-3"><strong>Remarks:</strong> {{ $event->notes }}</div>@endif
             </div>
 
-            <div class="table-responsive">
+            <div class="px-3 pt-3">
+                <label class="form-label small fw-bold text-muted mb-1" for="eventProductSearch{{ $event->id }}">SEARCH PRODUCT ITEMS</label>
+                <div class="input-group event-ledger-product-search">
+                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+                    <input type="search" id="eventProductSearch{{ $event->id }}" class="form-control event-ledger-product-search-input" placeholder="Search product name or Item ID" autocomplete="off">
+                </div>
+            </div>
+            <div class="table-responsive event-ledger-items">
                 <table class="table table-hover mb-0 event-ledger-table">
                     <thead class="table-light"><tr><th>Product</th><th>Pull-Out</th><th>Sold</th><th>Returned</th><th>Remaining</th><th>Missing</th></tr></thead>
                     <tbody>
                     @foreach($event->summary_rows as $row)
-                        <tr>
+                        <tr data-event-product-row data-product-search="{{ strtolower(($row['product']?->name ?? 'Unknown product').' '.($row['product']?->item_id ?? 'N/A')) }}">
                             <td><strong>{{ $row['product']?->name ?? 'Unknown product' }}</strong><div class="small text-muted">{{ $row['product']?->item_id ?? 'N/A' }}</div></td>
                             <td><strong>{{ $row['pulled_total'] }}</strong><div class="small text-muted">Good {{ $row['pulled_good'] }} &middot; Damaged {{ $row['pulled_damaged'] }}</div></td>
                             <td><strong>{{ $row['sold_total'] }}</strong><div class="small text-muted">Good {{ $row['sold_good'] }} &middot; Damaged {{ $row['sold_damaged'] }}</div></td>
@@ -99,6 +109,7 @@
                     </tbody>
                 </table>
             </div>
+            <div class="event-ledger-no-match small text-muted px-3 py-2" hidden>No products match this search.</div>
 
             @if($event->salesTransactions->isNotEmpty())
                 <div class="p-3 border-top bg-light">
@@ -140,3 +151,23 @@
 
 @include('event-inventory._sale-modal')
 @endsection
+
+@push('scripts')
+<script>
+document.querySelectorAll('.event-ledger-product-search-input').forEach(input => {
+    input.addEventListener('input', () => {
+        const term = input.value.trim().toLowerCase();
+        const card = input.closest('.event-ledger-card');
+        let visibleCount = 0;
+
+        card.querySelectorAll('[data-event-product-row]').forEach(row => {
+            const matches = term === '' || row.dataset.productSearch.includes(term);
+            row.hidden = !matches;
+            if (matches) visibleCount++;
+        });
+
+        card.querySelector('.event-ledger-no-match').hidden = visibleCount > 0;
+    });
+});
+</script>
+@endpush
