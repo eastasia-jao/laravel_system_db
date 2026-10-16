@@ -29,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
             $user = auth()->user();
             $sidebarHubs = StoreHub::where('status', 'active')->orderBy('name')->get();
             $pendingVerificationCountsByHub = collect();
+            $pendingTransactionCountsByHub = collect();
             if (in_array($user?->role, ['admin', 'inventory_staff'], true)) {
                 $pendingVerificationCountsByHub = PendingSale::query()
                     ->where('status', 'pending')
@@ -55,17 +56,13 @@ class AppServiceProvider extends ServiceProvider
                     ->selectRaw('store_hub_id, COUNT(*) as total')
                     ->groupBy('store_hub_id')
                     ->pluck('total', 'store_hub_id')
-                    ->each(function ($count, $hubId) use ($pendingVerificationCountsByHub) {
-                        $pendingVerificationCountsByHub->put(
-                            $hubId,
-                            (int) $pendingVerificationCountsByHub->get($hubId, 0) + (int) $count
-                        );
-                    });
+                    ->each(fn ($count, $hubId) => $pendingTransactionCountsByHub->put($hubId, (int) $count));
             }
 
             $view->with([
                 'sidebarHubs' => $sidebarHubs,
                 'sidebarPendingVerificationCountsByHub' => $pendingVerificationCountsByHub,
+                'sidebarPendingTransactionCountsByHub' => $pendingTransactionCountsByHub,
             ]);
         });
 

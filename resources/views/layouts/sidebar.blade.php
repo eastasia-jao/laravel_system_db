@@ -9,8 +9,10 @@
            ?: auth()->user()->store_hub_id;
        $sidebarContextHub = $sidebarHubs->firstWhere('id', (int) $sidebarContextHubId);
        $sidebarPendingVerificationCount = (int) $sidebarPendingVerificationCountsByHub->get((int) $sidebarContextHubId, 0);
+       $sidebarPendingTransactionCount = (int) $sidebarPendingTransactionCountsByHub->get((int) $sidebarContextHubId, 0);
        if (! $sidebarContextHubId && in_array(auth()->user()?->role, ['admin', 'inventory_staff'], true)) {
            $sidebarPendingVerificationCount = (int) $sidebarPendingVerificationCountsByHub->sum();
+           $sidebarPendingTransactionCount = (int) $sidebarPendingTransactionCountsByHub->sum();
        }
        $hasPendingHubVerification = $sidebarPendingVerificationCountsByHub->isNotEmpty()
            && $sidebarPendingVerificationCountsByHub->sum() > 0;
@@ -151,6 +153,9 @@
         <li>
             <a href="{{ route('inventory-transactions.index', $sidebarContextHubId ? ['hub_id' => $sidebarContextHubId] : []) }}" class="nav-link {{ request()->routeIs('inventory-transactions.index') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-clipboard-list"></i> Transaction Logs
+                @if($sidebarPendingTransactionCount > 0)
+                    <span class="badge rounded-pill bg-danger ms-auto" aria-label="{{ $sidebarPendingTransactionCount }} unprocessed Fully Booked order(s) in Transaction Logs" title="Unprocessed Fully Booked orders">{{ $sidebarPendingTransactionCount }}</span>
+                @endif
             </a>
         </li>
         @endcan

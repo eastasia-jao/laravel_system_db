@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\FullyBookedOrder;
 use App\Models\InventoryTransaction;
+use App\Models\PendingSale;
 use App\Models\Product;
 use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
@@ -131,7 +132,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertViewHas('fullyBookedPulloutCount', 2);
     }
 
-    public function test_fully_booked_badges_show_in_sidebar_and_branch_hub_dashboard(): void
+    public function test_fully_booked_badge_shows_on_transaction_logs_not_inventory_verification(): void
     {
         $headOffice = StoreHub::create([
             'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
@@ -166,21 +167,37 @@ class FullyBookedOrderTest extends TestCase
             ->get(route('inventory-transactions.index', ['hub_id' => $branch->id]))
             ->assertOk()
             ->assertSee('Transaction Logs')
-            ->assertSee('aria-label="1 inventory item(s) awaiting verification"', false)
-            ->assertSee('aria-label="Pending inventory verification"', false)
+            ->assertSee('aria-label="2 unprocessed Fully Booked order(s) in Transaction Logs"', false)
+            ->assertDontSee('aria-label="Pending inventory verification"', false)
             ->assertSee('BRANCH STORE')
             ->getContent();
         preg_match('~<a href="[^"]*inventory-transactions[^"]*"[^>]*>(.*?)</a>~s', $transactionLogsResponse, $transactionLogsLink);
         $this->assertNotEmpty($transactionLogsLink);
-        $this->assertStringNotContainsString('bg-danger', $transactionLogsLink[1]);
-        $this->assertStringContainsString('aria-label="2 inventory item(s) awaiting verification"', $transactionLogsResponse);
+        $this->assertStringContainsString('bg-danger', $transactionLogsLink[1]);
+        $this->assertStringNotContainsString('inventory item(s) awaiting verification', $transactionLogsResponse);
 
         $this->get(route('hub.dashboard', $branch->id))
             ->assertOk()
             ->assertSee('Verify Sales')
-            ->assertSee('2 inventory item(s) awaiting verification, including unprocessed Fully Booked orders')
-            ->assertSee('BRANCH STORE')
-            ->assertSee('aria-label="2 inventory item(s) awaiting verification"', false);
+            ->assertSee('aria-label="2 unprocessed Fully Booked order(s) in Transaction Logs"', false)
+            ->assertDontSee('inventory item(s) awaiting verification')
+            ->assertSee('BRANCH STORE');
+
+        PendingSale::create([
+            'store_hub_id' => $branch->id,
+            'sales_channel' => 'online',
+            'invoice_number' => 'VERIFY-BADGE-001',
+            'customer_name' => 'Verification Customer',
+            'placed_order_date' => '2026-10-16',
+            'items' => [],
+            'status' => 'pending',
+            'submitted_by' => $admin->id,
+        ]);
+
+        $this->get(route('hub.dashboard', $branch->id))
+            ->assertOk()
+            ->assertSee('aria-label="1 inventory item(s) awaiting verification"', false)
+            ->assertSee('aria-label="2 unprocessed Fully Booked order(s) in Transaction Logs"', false);
     }
 
     public function test_sales_staff_fully_booked_order_tracking_is_paginated_six_per_page(): void

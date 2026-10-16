@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\PendingSale;
-use App\Models\FullyBookedOrder;
 use App\Models\Product;
 use App\Models\ProductFileRequest;
 use App\Models\ProductReplacement;
@@ -38,13 +37,7 @@ class DashboardController extends Controller
         // Sale forms search the selected branch on demand instead of embedding its entire catalog.
         $products = collect();
         $pendingSalesCount = PendingSale::where('store_hub_id', $id)->where('status', 'pending')->count()
-            + ProductReplacement::where('status', 'pending')->whereHas('transaction', fn ($query) => $query->where('store_hub_id', $id))->count()
-            + (in_array($user?->role, ['admin', 'inventory_staff'], true)
-                ? FullyBookedOrder::where('store_hub_id', $id)
-                    ->whereIn('status', ['pending', 'reviewed'])
-                    ->whereNull('pulled_out_at')
-                    ->count()
-                : 0);
+            + ProductReplacement::where('status', 'pending')->whereHas('transaction', fn ($query) => $query->where('store_hub_id', $id))->count();
         $latestImport = ProductFileRequest::query()
             ->where('store_hub_id', $id)
             ->where('type', 'import')
