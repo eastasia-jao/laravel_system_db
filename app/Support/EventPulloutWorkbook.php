@@ -245,7 +245,7 @@ class EventPulloutWorkbook
      * @param  array{reference?: string, occurred_on?: string, source?: string, notes?: string}  $document
      * @return array<string, string>
      */
-    private static function workbookFiles(array $items, array $document): array
+    private static function workbookFiles(array $items, array $document, int $fontSize = 11): array
     {
         $lastRow = count($items) + 2;
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -254,9 +254,9 @@ class EventPulloutWorkbook
             .'<dimension ref="A1:I'.$lastRow.'"/>'
             .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews>'
             .'<sheetFormatPr defaultRowHeight="15"/>'
-            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="8" width="20" customWidth="1"/><col min="9" max="9" width="18" customWidth="1"/></cols>'
+            .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="2" width="14" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="8" width="12" customWidth="1"/><col min="9" max="9" width="15" customWidth="1"/></cols>'
             .'<sheetData>'
-            .'<row r="1" ht="42" customHeight="1">'
+            .'<row r="1" ht="45" customHeight="1">'
             .self::inlineCell('A1', 'EVENT PULL-OUT', 1)
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
             .self::inlineCell('C1', '', 2)
@@ -296,7 +296,7 @@ class EventPulloutWorkbook
                 $item['actual_pullout'],
                 $item['stock_condition'] ?? '',
             ];
-            $xml .= '<row r="'.$rowNumber.'" ht="20.1" customHeight="1">';
+            $xml .= '<row r="'.$rowNumber.'" ht="25" customHeight="1">';
             foreach ($values as $columnIndex => $value) {
                 $cell = self::columnName($columnIndex + 1).$rowNumber;
                 if ($columnIndex === 8) {
@@ -316,9 +316,9 @@ class EventPulloutWorkbook
         if ($items !== []) {
             $xml .= '<dataValidations count="1"><dataValidation type="list" allowBlank="0" showErrorMessage="1" errorTitle="Invalid stock condition" error="Choose Good or Damaged." sqref="I3:I'.$lastRow.'"><formula1>"Good,Damaged"</formula1></dataValidation></dataValidations>';
         }
-        $xml .= '<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
-            .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0" header="0" footer="0"/>'
-            .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
+        $xml .= '<printOptions gridLines="0" horizontalCentered="1" verticalCentered="0"/>'
+            .'<pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0" footer="0"/>'
+            .'<pageSetup paperSize="1" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
 
         return [
             '[Content_Types].xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -341,7 +341,7 @@ class EventPulloutWorkbook
                 .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
                 .'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
                 .'</Relationships>',
-            'xl/styles.xml' => self::stylesXml(),
+            'xl/styles.xml' => self::stylesXml($fontSize),
             'xl/worksheets/sheet1.xml' => $xml,
         ];
     }
@@ -353,7 +353,7 @@ class EventPulloutWorkbook
      */
     private static function inventoryWorkbookFiles(array $items, array $document): array
     {
-        $files = self::workbookFiles([], []);
+        $files = self::workbookFiles([], [], 10);
         $lastRow = count($items) + 2;
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
@@ -414,11 +414,11 @@ class EventPulloutWorkbook
         return $files;
     }
 
-    private static function stylesXml(): string
+    private static function stylesXml(int $fontSize = 10): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            .'<fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts>'
+            .'<fonts count="3"><font><sz val="'.$fontSize.'"/><name val="Arial"/></font><font><b/><sz val="'.$fontSize.'"/><name val="Arial"/></font><font><b/><sz val="'.$fontSize.'"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts>'
             .'<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD92D20"/><bgColor indexed="64"/></patternFill></fill></fills>'
             .'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF64748B"/></left><right style="thin"><color rgb="FF64748B"/></right><top style="thin"><color rgb="FF64748B"/></top><bottom style="thin"><color rgb="FF64748B"/></bottom><diagonal/></border></borders>'
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
