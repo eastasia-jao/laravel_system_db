@@ -50,6 +50,10 @@
         <div class="d-flex flex-wrap gap-2 mb-4">
             <label class="btn btn-outline-primary" id="importPulloutWorksheet" for="pulloutWorksheetFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV / Excel)</label>
             <button type="button" class="btn btn-outline-secondary" id="downloadPulloutWorksheet"><i class="fa-solid fa-file-excel me-1"></i>Download Excel Worksheet</button>
+            <label class="form-check form-check-inline mb-0 ms-1">
+                <input class="form-check-input" type="checkbox" id="includePulloutWorksheetProducts" checked>
+                <span class="form-check-label small">Include all product items</span>
+            </label>
             <button type="button" class="btn btn-outline-success" id="exportPulloutItems"><i class="fa-solid fa-file-excel me-1"></i>Export Items (Excel)</button>
             <input type="file" class="visually-hidden" id="pulloutWorksheetFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" tabindex="-1" aria-label="Choose a pullout items CSV or Excel file">
         </div>
@@ -220,6 +224,7 @@
             po_number: document.getElementById('pulloutPoNumber').value.trim(),
             occurred_on: document.getElementById('pulloutDate').value,
             remarks: document.getElementById('pulloutRemarks').value.trim(),
+            include_products: document.getElementById('includePulloutWorksheetProducts').checked ? '1' : '0',
         });
         window.location.assign(`{{ route('national-pullouts.excel-worksheet') }}?${parameters.toString()}`);
     });

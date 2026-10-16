@@ -102,12 +102,14 @@ class InventoryTransactionController extends Controller
     {
         $validated = $request->validate($this->inventoryWorkbookRules());
         $hub = $this->authorizeInventoryWorkbookHub((int) $validated['hub_id']);
-        $items = Product::where('store_hub_id', $hub->id)
-            ->where('status', 'active')
-            ->orderByCatalog('item_id')
-            ->get()
-            ->map(fn (Product $product) => $this->inventoryWorkbookProduct($product, ''))
-            ->all();
+        $items = $request->boolean('include_products', true)
+            ? Product::where('store_hub_id', $hub->id)
+                ->where('status', 'active')
+                ->orderByCatalog('item_id')
+                ->get()
+                ->map(fn (Product $product) => $this->inventoryWorkbookProduct($product, ''))
+                ->all()
+            : [];
         $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated));
 
         return response()->download(
@@ -248,6 +250,7 @@ class InventoryTransactionController extends Controller
             'reference' => ['nullable', 'string', 'max:100'],
             'occurred_on' => ['nullable', 'date_format:Y-m-d'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'include_products' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -314,31 +317,34 @@ class InventoryTransactionController extends Controller
             'occurred_on' => ['nullable', 'date_format:Y-m-d'],
             'source' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'include_products' => ['sometimes', 'boolean'],
         ]);
         $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
-        $items = Product::where('store_hub_id', $hub->id)
-            ->where('status', 'active')
-            ->orderByCatalog('item_id')
-            ->get()
-            ->flatMap(function (Product $product) {
-                $conditions = (int) $product->damaged_stock > 0
-                    ? ['good', 'damaged']
-                    : ['good'];
+        $items = $request->boolean('include_products', true)
+            ? Product::where('store_hub_id', $hub->id)
+                ->where('status', 'active')
+                ->orderByCatalog('item_id')
+                ->get()
+                ->flatMap(function (Product $product) {
+                    $conditions = (int) $product->damaged_stock > 0
+                        ? ['good', 'damaged']
+                        : ['good'];
 
-                return collect($conditions)->map(fn (string $condition) => [
-                    'name' => $product->description ?: $product->name,
-                    'barcode' => (string) ($product->barcode ?? ''),
-                    'item_id' => (string) $product->item_id,
-                    'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
-                    'good_stock' => (int) $product->stock,
-                    'damaged_stock' => (int) $product->damaged_stock,
-                    'pullout_qty' => '',
-                    'actual_pullout' => '',
-                    'stock_condition' => $condition,
-                ]);
-            })
-            ->values()
-            ->all();
+                    return collect($conditions)->map(fn (string $condition) => [
+                        'name' => $product->description ?: $product->name,
+                        'barcode' => (string) ($product->barcode ?? ''),
+                        'item_id' => (string) $product->item_id,
+                        'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
+                        'good_stock' => (int) $product->stock,
+                        'damaged_stock' => (int) $product->damaged_stock,
+                        'pullout_qty' => '',
+                        'actual_pullout' => '',
+                        'stock_condition' => $condition,
+                    ]);
+                })
+                ->values()
+                ->all()
+            : [];
         $path = EventPulloutWorkbook::create($items, [
             'reference' => $validated['reference'] ?? '',
             'occurred_on' => $validated['occurred_on'] ?? now()->toDateString(),

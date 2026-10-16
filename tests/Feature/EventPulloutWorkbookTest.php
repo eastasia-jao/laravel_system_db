@@ -129,6 +129,20 @@ class EventPulloutWorkbookTest extends TestCase
             ->assertSee('Download Excel Worksheet')
             ->assertSee('enter Stock Condition as Good or Damaged')
             ->assertDontSee('Download CSV Worksheet');
+
+        $headerOnlyResponse = $this->actingAs($admin)
+            ->get(route('inventory-transactions.sponsor.worksheet', [
+                'hub_id' => $hub->id,
+                'include_products' => 0,
+            ]))
+            ->assertOk();
+        $headerOnlyPath = $headerOnlyResponse->baseResponse->getFile()->getPathname();
+        $this->assertSame([], EventPulloutWorkbook::read($headerOnlyPath)['items']);
+        $headerOnlyArchive = new PharData($headerOnlyPath, 0, null, Phar::ZIP);
+        $headerOnlyXml = $headerOnlyArchive['xl/worksheets/sheet1.xml']->getContent();
+        unset($headerOnlyArchive);
+        $this->assertStringContainsString('<dimension ref="A1:I2"/>', $headerOnlyXml);
+        $this->assertStringContainsString('Name / Description', $headerOnlyXml);
     }
 
     public function test_event_worksheet_sorts_products_naturally_by_item_id(): void

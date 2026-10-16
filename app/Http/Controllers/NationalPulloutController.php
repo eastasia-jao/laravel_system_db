@@ -130,18 +130,23 @@ class NationalPulloutController extends Controller
     public function excelWorksheet(Request $request)
     {
         $this->headOffice($request);
-        $products = NationalProduct::query()
-            ->where('status', 'active')
-            ->orderByRaw('LENGTH(item_id)')
-            ->orderBy('item_id')
-            ->get();
-        $items = $products->map(fn (NationalProduct $product) => [
-            'name' => $product->name,
-            'quantity' => '',
-            'purpose' => 'National Bookstore Pullout',
-            'physical_stock' => (int) $product->stock,
-            'actual_pullout' => '',
-        ])->all();
+        $request->validate([
+            'include_products' => ['sometimes', 'boolean'],
+        ]);
+        $items = $request->boolean('include_products', true)
+            ? NationalProduct::query()
+                ->where('status', 'active')
+                ->orderByRaw('LENGTH(item_id)')
+                ->orderBy('item_id')
+                ->get()
+                ->map(fn (NationalProduct $product) => [
+                    'name' => $product->name,
+                    'quantity' => '',
+                    'purpose' => 'National Bookstore Pullout',
+                    'physical_stock' => (int) $product->stock,
+                    'actual_pullout' => '',
+                ])->all()
+            : [];
         $path = NationalPulloutWorkbook::create($items, [
             'po_number' => trim((string) $request->input('po_number')),
             'occurred_on' => (string) $request->input('occurred_on'),

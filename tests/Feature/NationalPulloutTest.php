@@ -30,6 +30,7 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('Import Items (CSV / Excel)')
                 ->assertSee('Download Excel Worksheet')
                 ->assertSee('id="downloadPulloutWorksheet"', false)
+                ->assertSee('id="includePulloutWorksheetProducts" checked', false)
                 ->assertSee('Export Items (Excel)')
                 ->assertSee('P.O. Number')
                 ->assertSee('Items to Pull Out')
@@ -139,6 +140,18 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString('<c r="C3" s="4"/>', $sheet);
             $this->assertStringContainsString('<c r="F3" s="4"/>', $sheet);
             $this->assertStringContainsString('wrapText="1"', $styles);
+
+            $headerOnly = $this->actingAs($admin)->get(route('national-pullouts.excel-worksheet', [
+                'hub_id' => $headOffice->id,
+                'include_products' => 0,
+            ]))->assertOk();
+            $headerOnlyPath = $headerOnly->baseResponse->getFile()->getPathname();
+            $headerOnlyWorkbook = new \PharData($headerOnlyPath, 0, null, \Phar::ZIP);
+            $headerOnlySheet = $headerOnlyWorkbook['xl/worksheets/sheet1.xml']->getContent();
+            $this->assertStringContainsString('dimension ref="A1:F2"', $headerOnlySheet);
+            $this->assertStringNotContainsString($product->name, $headerOnlySheet);
+            unset($headerOnlyWorkbook);
+            unlink($headerOnlyPath);
         } finally {
             unset($workbook);
             unlink($path);

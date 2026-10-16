@@ -207,6 +207,8 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
         Object.entries(workbookMetadata()).forEach(([key, value]) => {
             if (value) url.searchParams.set(key, value);
         });
+        const includeProducts = panel.querySelector('[data-include-worksheet-products]');
+        url.searchParams.set('include_products', includeProducts?.checked ? '1' : '0');
         window.location.href = url.toString();
     });
     let catalogLoaded = !endpoint, loading;

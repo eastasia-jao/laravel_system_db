@@ -32,6 +32,7 @@ class InventoryItemsWorkbookTest extends TestCase
                 ->assertOk()
                 ->assertSee('Import Items (Excel)')
                 ->assertSee('Download Excel Worksheet')
+                ->assertSee('data-include-worksheet-products checked', false)
                 ->assertSee('Export Items (Excel)')
                 ->assertSee('.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', false)
                 ->assertDontSee('Download CSV Worksheet');
@@ -99,6 +100,23 @@ class InventoryItemsWorkbookTest extends TestCase
         $this->assertStringNotContainsString('Name / Description', $worksheetXml);
         $this->assertStringNotContainsString('Good Items', $worksheetXml);
         $this->assertStringNotContainsString('Damaged Items', $worksheetXml);
+
+        $headerOnly = $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('inventory-transactions.items-workbook', [
+                'hub_id' => $headOffice->id,
+                'type' => 'stock_transfer',
+                'include_products' => 0,
+            ]))
+            ->assertOk();
+        $headerOnlyPath = $headerOnly->baseResponse->getFile()->getPathname();
+        $headerOnlyWorkbook = EventPulloutWorkbook::readInventoryItems($headerOnlyPath);
+        $this->assertSame([], $headerOnlyWorkbook['items']);
+        $headerOnlyArchive = new PharData($headerOnlyPath, 0, null, Phar::ZIP);
+        $this->assertStringContainsString(
+            '<dimension ref="A1:E2"/>',
+            $headerOnlyArchive['xl/worksheets/sheet1.xml']->getContent()
+        );
+        unset($headerOnlyArchive);
 
         $secondBranch = StoreHub::create([
             'name' => 'Branch Two',

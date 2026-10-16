@@ -81,6 +81,10 @@
             <a class="btn btn-outline-secondary btn-sm"
                 href="{{ $workbookDownloadUrl }}?hub_id={{ $hubId }}&type={{ $type }}"
                 data-bulk-worksheet-url="{{ $workbookDownloadUrl }}">Download Excel Worksheet</a>
+            <label class="form-check form-check-inline mb-0 ms-1">
+                <input class="form-check-input" type="checkbox" data-include-worksheet-products checked>
+                <span class="form-check-label small">Include all product items</span>
+            </label>
         @else
             <a class="btn btn-outline-secondary btn-sm" href="{{ route('inventory-transactions.product-worksheet', ['hub_id' => $hubId, 'type' => $type]) }}">Download CSV Worksheet</a>
         @endif
