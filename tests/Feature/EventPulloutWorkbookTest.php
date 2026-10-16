@@ -141,7 +141,9 @@ class EventPulloutWorkbookTest extends TestCase
         $headerOnlyArchive = new PharData($headerOnlyPath, 0, null, Phar::ZIP);
         $headerOnlyXml = $headerOnlyArchive['xl/worksheets/sheet1.xml']->getContent();
         unset($headerOnlyArchive);
-        $this->assertStringContainsString('<dimension ref="A1:I2"/>', $headerOnlyXml);
+        $this->assertStringContainsString('<dimension ref="A1:I12"/>', $headerOnlyXml);
+        $this->assertStringContainsString('<row r="3" ht="25" customHeight="1">', $headerOnlyXml);
+        $this->assertStringContainsString('<c r="A3" s="4"/>', $headerOnlyXml);
         $this->assertStringContainsString('Name / Description', $headerOnlyXml);
     }
 

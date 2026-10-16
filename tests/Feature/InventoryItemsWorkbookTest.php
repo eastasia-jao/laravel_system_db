@@ -113,9 +113,10 @@ class InventoryItemsWorkbookTest extends TestCase
         $this->assertSame([], $headerOnlyWorkbook['items']);
         $headerOnlyArchive = new PharData($headerOnlyPath, 0, null, Phar::ZIP);
         $this->assertStringContainsString(
-            '<dimension ref="A1:E2"/>',
+            '<dimension ref="A1:E12"/>',
             $headerOnlyArchive['xl/worksheets/sheet1.xml']->getContent()
         );
+        $this->assertStringContainsString('<row r="3" ht="20.1" customHeight="1">', $headerOnlyArchive['xl/worksheets/sheet1.xml']->getContent());
         unset($headerOnlyArchive);
 
         $secondBranch = StoreHub::create([

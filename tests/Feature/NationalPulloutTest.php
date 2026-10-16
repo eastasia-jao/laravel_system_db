@@ -30,7 +30,8 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('Import Items (CSV / Excel)')
                 ->assertSee('Download Excel Worksheet')
                 ->assertSee('id="downloadPulloutWorksheet"', false)
-                ->assertSee('id="includePulloutWorksheetProducts" checked', false)
+                ->assertSee('id="includePulloutWorksheetProducts" aria-label="Include all product items in the worksheet" checked', false)
+                ->assertSee('Include all products in the downloaded template.')
                 ->assertSee('Export Items (Excel)')
                 ->assertSee('P.O. Number')
                 ->assertSee('Items to Pull Out')
@@ -148,7 +149,9 @@ class NationalPulloutTest extends TestCase
             $headerOnlyPath = $headerOnly->baseResponse->getFile()->getPathname();
             $headerOnlyWorkbook = new \PharData($headerOnlyPath, 0, null, \Phar::ZIP);
             $headerOnlySheet = $headerOnlyWorkbook['xl/worksheets/sheet1.xml']->getContent();
-            $this->assertStringContainsString('dimension ref="A1:F2"', $headerOnlySheet);
+            $this->assertStringContainsString('dimension ref="A1:F12"', $headerOnlySheet);
+            $this->assertStringContainsString('<row r="3" ht="20" customHeight="1">', $headerOnlySheet);
+            $this->assertStringContainsString('<c r="B3" s="1"/>', $headerOnlySheet);
             $this->assertStringNotContainsString($product->name, $headerOnlySheet);
             unset($headerOnlyWorkbook);
             unlink($headerOnlyPath);

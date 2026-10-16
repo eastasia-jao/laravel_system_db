@@ -112,12 +112,22 @@ class EventPulloutWorkbook
             if ($rowNumber <= 2) {
                 continue;
             }
+            $values = [
+                $row[$nameColumn] ?? '',
+                $row[$columns['barcode']] ?? '',
+                $row[$columns['item id']] ?? '',
+                $row[$columns['physical stocks qty'] ?? 0] ?? '',
+                $row[$columns['quantity']] ?? '',
+            ];
+            if (count(array_filter($values, fn ($value) => trim($value) !== '')) === 0) {
+                continue;
+            }
             $items[] = [
-                'name' => $row[$nameColumn] ?? '',
-                'barcode' => $row[$columns['barcode']] ?? '',
-                'item_id' => $row[$columns['item id']] ?? '',
-                'physical_stock' => $row[$columns['physical stocks qty'] ?? 0] ?? '',
-                'quantity' => $row[$columns['quantity']] ?? '',
+                'name' => $values[0],
+                'barcode' => $values[1],
+                'item_id' => $values[2],
+                'physical_stock' => $values[3],
+                'quantity' => $values[4],
             ];
         }
 
@@ -175,16 +185,30 @@ class EventPulloutWorkbook
             if ($rowNumber <= 2) {
                 continue;
             }
+            $values = [
+                $row[$columns['name description']] ?? '',
+                $row[$columns['barcode']] ?? '',
+                $row[$columns['item id']] ?? '',
+                $row[$columns['physical stocks qty']] ?? '',
+                $row[$columns['good items']] ?? '',
+                $row[$columns['damaged items']] ?? '',
+                $pulloutColumn === null ? '' : ($row[$pulloutColumn] ?? ''),
+                $row[$columns['physical actual pullout']] ?? '',
+                $row[$columns['stock condition'] ?? 0] ?? '',
+            ];
+            if (count(array_filter($values, fn ($value) => trim($value) !== '')) === 0) {
+                continue;
+            }
             $items[] = [
-                'name' => $row[$columns['name description']] ?? '',
-                'barcode' => $row[$columns['barcode']] ?? '',
-                'item_id' => $row[$columns['item id']] ?? '',
-                'physical_stock' => $row[$columns['physical stocks qty']] ?? '',
-                'good_stock' => $row[$columns['good items']] ?? '',
-                'damaged_stock' => $row[$columns['damaged items']] ?? '',
-                'pullout_qty' => $pulloutColumn === null ? '' : ($row[$pulloutColumn] ?? ''),
-                'actual_pullout' => $row[$columns['physical actual pullout']] ?? '',
-                'stock_condition' => $row[$columns['stock condition'] ?? 0] ?? '',
+                'name' => $values[0],
+                'barcode' => $values[1],
+                'item_id' => $values[2],
+                'physical_stock' => $values[3],
+                'good_stock' => $values[4],
+                'damaged_stock' => $values[5],
+                'pullout_qty' => $values[6],
+                'actual_pullout' => $values[7],
+                'stock_condition' => $values[8],
             ];
         }
 
@@ -247,7 +271,8 @@ class EventPulloutWorkbook
      */
     private static function workbookFiles(array $items, array $document, int $fontSize = 11): array
     {
-        $lastRow = count($items) + 2;
+        $blankRows = $items === [] ? 10 : 0;
+        $lastRow = count($items) + $blankRows + 2;
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
@@ -312,8 +337,18 @@ class EventPulloutWorkbook
             $xml .= '</row>';
         }
 
+        for ($index = 0; $index < $blankRows; $index++) {
+            $rowNumber = count($items) + $index + 3;
+            $xml .= '<row r="'.$rowNumber.'" ht="25" customHeight="1">';
+            for ($column = 1; $column <= 9; $column++) {
+                $style = $column === 9 ? 4 : ($column >= 3 ? 5 : 4);
+                $xml .= '<c r="'.self::columnName($column).$rowNumber.'" s="'.$style.'"/>';
+            }
+            $xml .= '</row>';
+        }
+
         $xml .= '</sheetData><mergeCells count="3"><mergeCell ref="B1:D1"/><mergeCell ref="F1:G1"/><mergeCell ref="H1:I1"/></mergeCells>';
-        if ($items !== []) {
+        if ($lastRow > 2) {
             $xml .= '<dataValidations count="1"><dataValidation type="list" allowBlank="0" showErrorMessage="1" errorTitle="Invalid stock condition" error="Choose Good or Damaged." sqref="I3:I'.$lastRow.'"><formula1>"Good,Damaged"</formula1></dataValidation></dataValidations>';
         }
         $xml .= '<printOptions gridLines="0" horizontalCentered="1" verticalCentered="0"/>'
@@ -354,7 +389,8 @@ class EventPulloutWorkbook
     private static function inventoryWorkbookFiles(array $items, array $document): array
     {
         $files = self::workbookFiles([], [], 10);
-        $lastRow = count($items) + 2;
+        $blankRows = $items === [] ? 10 : 0;
+        $lastRow = count($items) + $blankRows + 2;
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
@@ -397,6 +433,16 @@ class EventPulloutWorkbook
                 $xml .= is_int($value)
                     ? '<c r="'.$cell.'" s="'.$style.'"><v>'.$value.'</v></c>'
                     : self::inlineCell($cell, (string) $value, $style);
+            }
+            $xml .= '</row>';
+        }
+
+        for ($index = 0; $index < $blankRows; $index++) {
+            $rowNumber = count($items) + $index + 3;
+            $xml .= '<row r="'.$rowNumber.'" ht="20.1" customHeight="1">';
+            for ($column = 1; $column <= 5; $column++) {
+                $style = $column >= 3 ? 5 : 4;
+                $xml .= '<c r="'.self::columnName($column).$rowNumber.'" s="'.$style.'"/>';
             }
             $xml .= '</row>';
         }

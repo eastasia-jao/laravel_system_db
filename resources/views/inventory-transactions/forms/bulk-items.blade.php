@@ -70,6 +70,18 @@
         .transaction-import-spinner,
         .transaction-import-progress-indeterminate .progress-bar { animation-duration: 2.5s; }
     }
+    .worksheet-products-option {
+        display: flex;
+        width: min(460px, 100%);
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-top: .65rem;
+        padding: .65rem .85rem;
+        border: 1px solid #e2e8f0;
+        border-radius: .65rem;
+        background: #f8fafc;
+    }
 </style>
 <div id="transactionBulk" class="mb-3">
     <div class="d-flex flex-wrap align-items-center gap-2">
@@ -81,10 +93,6 @@
             <a class="btn btn-outline-secondary btn-sm"
                 href="{{ $workbookDownloadUrl }}?hub_id={{ $hubId }}&type={{ $type }}"
                 data-bulk-worksheet-url="{{ $workbookDownloadUrl }}">Download Excel Worksheet</a>
-            <label class="form-check form-check-inline mb-0 ms-1">
-                <input class="form-check-input" type="checkbox" data-include-worksheet-products checked>
-                <span class="form-check-label small">Include all product items</span>
-            </label>
         @else
             <a class="btn btn-outline-secondary btn-sm" href="{{ route('inventory-transactions.product-worksheet', ['hub_id' => $hubId, 'type' => $type]) }}">Download CSV Worksheet</a>
         @endif
@@ -94,6 +102,17 @@
         </button>
         <input type="file" accept="{{ $inventoryWorkbook ? '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : ($eventWorkbook ? '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : '.csv,text/csv') }}" class="d-none" id="transactionCsv">
     </div>
+    @if($serverWorkbook)
+        <div class="worksheet-products-option">
+            <div>
+                <div class="small fw-semibold">Worksheet product list</div>
+                <div class="small text-muted">Include all products in the downloaded template.</div>
+            </div>
+            <label class="form-check form-switch mb-0 flex-shrink-0">
+                <input class="form-check-input" type="checkbox" role="switch" data-include-worksheet-products checked aria-label="Include all product items in the worksheet">
+            </label>
+        </div>
+    @endif
     @if($eventWorkbook)
         <small class="text-muted d-block mt-2">For each row with an actual pull-out quantity, enter Stock Condition as Good or Damaged in Excel or CSV.</small>
     @endif

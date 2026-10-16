@@ -234,7 +234,8 @@ class NationalPulloutWorkbook
      */
     private static function workbookFiles(array $items, array $document): array
     {
-        $lastRow = count($items) + 2;
+        $blankRows = $items === [] ? 10 : 0;
+        $lastRow = count($items) + $blankRows + 2;
         $rows = [
             self::rowXml(1, [
                 'NBS',
@@ -257,6 +258,9 @@ class NationalPulloutWorkbook
                 $item['physical_stock'],
                 $item['actual_pullout'],
             ], 20, 1, [2 => 4, 4 => 4, 5 => 4]);
+        }
+        for ($index = 0; $index < $blankRows; $index++) {
+            $rows[] = self::rowXml(count($items) + $index + 3, array_fill(0, 6, ''), 20, 1, [2 => 4, 4 => 4, 5 => 4]);
         }
 
         $sheetData = implode('', $rows);

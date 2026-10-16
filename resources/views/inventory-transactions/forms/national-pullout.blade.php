@@ -4,6 +4,7 @@
 <style>
     .national-pullout-page { max-width: 1500px; }
     .national-pullout-card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; }
+    .national-pullout-worksheet-option { display: flex; width: min(460px, 100%); align-items: center; justify-content: space-between; gap: 1rem; margin-top: -.75rem; margin-bottom: 1.25rem; padding: .65rem .85rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
     .national-pullout-page .page-hero { margin-bottom: 1rem; }
     .national-pullout-items { min-width: 520px; }
     .national-pullout-items-scroll { max-height: 430px; overflow: auto; }
@@ -50,12 +51,17 @@
         <div class="d-flex flex-wrap gap-2 mb-4">
             <label class="btn btn-outline-primary" id="importPulloutWorksheet" for="pulloutWorksheetFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV / Excel)</label>
             <button type="button" class="btn btn-outline-secondary" id="downloadPulloutWorksheet"><i class="fa-solid fa-file-excel me-1"></i>Download Excel Worksheet</button>
-            <label class="form-check form-check-inline mb-0 ms-1">
-                <input class="form-check-input" type="checkbox" id="includePulloutWorksheetProducts" checked>
-                <span class="form-check-label small">Include all product items</span>
-            </label>
             <button type="button" class="btn btn-outline-success" id="exportPulloutItems"><i class="fa-solid fa-file-excel me-1"></i>Export Items (Excel)</button>
             <input type="file" class="visually-hidden" id="pulloutWorksheetFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" tabindex="-1" aria-label="Choose a pullout items CSV or Excel file">
+        </div>
+        <div class="national-pullout-worksheet-option">
+            <div>
+                <div class="small fw-semibold">Worksheet product list</div>
+                <div class="small text-muted">Include all products in the downloaded template.</div>
+            </div>
+            <label class="form-check form-switch mb-0 flex-shrink-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="includePulloutWorksheetProducts" aria-label="Include all product items in the worksheet" checked>
+            </label>
         </div>
         <div id="pulloutCsvMessage" class="small mb-3" role="alert" hidden></div>
         <div id="pulloutImportLoading" class="national-pullout-import-overlay" role="status" aria-live="polite" hidden>
