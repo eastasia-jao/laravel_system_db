@@ -15,6 +15,7 @@ class SalesTransaction extends Model
     protected $casts = [
         'quotation_proofs' => 'array',
         'walkin_payment_proofs' => 'array',
+        'event_attachments' => 'array',
         'order_date' => 'date',
         'delivery_date' => 'date',
         'date_of_arrangement' => 'date',

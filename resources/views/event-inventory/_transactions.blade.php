@@ -21,6 +21,7 @@
     .event-log-product { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
     .event-log-product + .event-log-product { border-top: 1px solid #eef2f7; }
     .event-log-condition { font-size: .7rem; }
+    .event-log-attachment { width: 132px; height: 100px; border: 1px solid #dbe3ee; border-radius: .7rem; object-fit: cover; background: #f8fafc; }
 </style>
 
 <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
@@ -103,6 +104,16 @@
                             <div class="col-md-4"><div class="event-log-meta"><div class="label">Payment</div><div class="fw-semibold mt-1">{{ $group['sale']->mode_of_payment ?: 'Not specified' }}</div><div class="small text-muted">{{ ucfirst($group['sale']->payment_status ?: 'paid') }}</div></div></div>
                             <div class="col-md-4"><div class="event-log-meta"><div class="label">Sale Total</div><div class="fw-bold text-success fs-5 mt-1">&#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div></div></div>
                         </div>
+                        @if(!empty($group['sale']->event_attachments))
+                            <div class="event-log-meta mb-3">
+                                <div class="label mb-2">Sale Image Attachments</div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach($group['sale']->event_attachments as $attachment)
+                                        <img src="{{ asset('storage/'.$attachment) }}" class="event-log-attachment" alt="Event sale attachment {{ $loop->iteration }}">
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     @endif
 
                     <div class="event-log-products">

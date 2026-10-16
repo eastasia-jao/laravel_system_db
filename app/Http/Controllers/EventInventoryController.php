@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -80,7 +81,10 @@ class EventInventoryController extends Controller
             ->latest('occurred_on')
             ->latest('id')
             ->get()
-            ->each(fn (EventPullout $event) => $event->setAttribute('sale_lines', $this->saleLines($event)));
+            ->each(function (EventPullout $event) {
+                $event->setAttribute('sale_lines', $this->saleLines($event));
+                $event->setAttribute('sale_order_number', $this->newEventSaleOrderNumber($event));
+            });
         $eventTransactionGroups = $section === 'transactions'
             ? $this->eventTransactionGroups($validated, $hubId, $activity, $request)
             : null;
@@ -116,16 +120,22 @@ class EventInventoryController extends Controller
 
     public function storeSale(Request $request, EventPullout $eventPullout)
     {
+        $request->merge([
+            'contact_number' => $this->normalizePhilippineMobileNumber($request->input('contact_number')),
+        ]);
+
         $validated = $request->validate([
             'order_date' => ['required', 'date'],
+            'order_number' => ['required', 'string', 'max:100'],
+            'stock_condition' => ['required', Rule::in(['good', 'damaged'])],
             'customer_name' => ['nullable', 'string', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'max:50'],
+            'contact_number' => ['nullable', 'regex:/^\+639\d{9}$/'],
             'address' => ['nullable', 'string', 'max:1000'],
             'mode_of_payment' => ['nullable', 'string', 'max:100'],
-            'payment_status' => ['nullable', Rule::in(['unpaid', 'partial', 'paid'])],
-            'amount_paid' => ['nullable', 'numeric', 'min:0'],
             'additional_discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
             'note' => ['nullable', 'string', 'max:2000'],
+            'event_attachments' => ['nullable', 'array', 'max:3'],
+            'event_attachments.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.event_pullout_item_id' => ['required', 'integer', 'distinct', 'exists:event_pullout_items,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
@@ -133,149 +143,173 @@ class EventInventoryController extends Controller
             'items.*.discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
         ]);
 
-        $sale = DB::transaction(function () use ($eventPullout, $validated, $request) {
-            $event = EventPullout::query()->lockForUpdate()->findOrFail($eventPullout->id);
-            if ($event->status !== 'open') {
-                throw ValidationException::withMessages(['event' => 'Closed events cannot accept additional sales.']);
+        $attachmentPaths = [];
+        try {
+            foreach ($request->file('event_attachments', []) as $attachment) {
+                $attachmentPaths[] = $attachment->store('event_sale_attachments', 'public');
             }
 
-            $requestedItems = collect($validated['items'])->keyBy('event_pullout_item_id');
-            $eventItems = EventPulloutItem::query()
-                ->where('event_pullout_id', $event->id)
-                ->whereIn('id', $requestedItems->keys())
-                ->with('product')
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-            if ($eventItems->count() !== $requestedItems->count()) {
-                throw ValidationException::withMessages(['items' => 'One or more products do not belong to this event.']);
-            }
-
-            $soldByLine = InventoryTransaction::query()
-                ->where('event_pullout_id', $event->id)
-                ->where('type', 'sold')
-                ->where('channel', 'event')
-                ->whereIn('event_pullout_item_id', $eventItems->keys())
-                ->selectRaw('event_pullout_item_id, SUM(quantity) as quantity')
-                ->groupBy('event_pullout_item_id')
-                ->pluck('quantity', 'event_pullout_item_id');
-            $returnedByProduct = InventoryTransaction::query()
-                ->where('event_pullout_id', $event->id)
-                ->where('type', 'return')
-                ->where('channel', 'event')
-                ->selectRaw('product_id, SUM(quantity) as quantity')
-                ->groupBy('product_id')
-                ->pluck('quantity', 'product_id');
-            $soldByProduct = InventoryTransaction::query()
-                ->where('event_pullout_id', $event->id)
-                ->where('type', 'sold')
-                ->where('channel', 'event')
-                ->selectRaw('product_id, SUM(quantity) as quantity')
-                ->groupBy('product_id')
-                ->pluck('quantity', 'product_id');
-            $pulledByProduct = EventPulloutItem::query()
-                ->where('event_pullout_id', $event->id)
-                ->selectRaw('product_id, SUM(quantity) as quantity')
-                ->groupBy('product_id')
-                ->pluck('quantity', 'product_id');
-
-            foreach ($requestedItems as $lineId => $item) {
-                $line = $eventItems->get((int) $lineId);
-                $quantity = (int) $item['quantity'];
-                $lineAvailable = (int) $line->quantity - (int) ($soldByLine[$line->id] ?? 0);
-                if ($quantity > $lineAvailable) {
-                    throw ValidationException::withMessages([
-                        'items' => "Not enough remaining {$line->stock_condition} Event stock for {$line->product->name}.",
-                    ]);
+            $sale = DB::transaction(function () use ($eventPullout, $validated, $request, $attachmentPaths) {
+                $event = EventPullout::query()->lockForUpdate()->findOrFail($eventPullout->id);
+                if ($event->status !== 'open') {
+                    throw ValidationException::withMessages(['event' => 'Closed events cannot accept additional sales.']);
                 }
-            }
-            $requestedItems->groupBy(fn ($item, $lineId) => $eventItems->get((int) $lineId)->product_id, true)
-                ->each(function (Collection $items, $productId) use ($eventItems, $pulledByProduct, $soldByProduct, $returnedByProduct) {
-                    $requested = (int) $items->sum(fn ($item) => (int) $item['quantity']);
-                    $available = (int) ($pulledByProduct[$productId] ?? 0)
-                        - (int) ($soldByProduct[$productId] ?? 0)
-                        - (int) ($returnedByProduct[$productId] ?? 0);
-                    if ($requested > $available) {
-                        $lineId = $items->keys()->first();
-                        $productName = $eventItems->get((int) $lineId)?->product?->name ?? 'the selected product';
+
+                $requestedItems = collect($validated['items'])->keyBy('event_pullout_item_id');
+                $eventItems = EventPulloutItem::query()
+                    ->where('event_pullout_id', $event->id)
+                    ->whereIn('id', $requestedItems->keys())
+                    ->with('product')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+                if ($eventItems->count() !== $requestedItems->count()) {
+                    throw ValidationException::withMessages(['items' => 'One or more products do not belong to this event.']);
+                }
+
+                $soldByLine = InventoryTransaction::query()
+                    ->where('event_pullout_id', $event->id)
+                    ->where('type', 'sold')
+                    ->where('channel', 'event')
+                    ->whereIn('event_pullout_item_id', $eventItems->keys())
+                    ->selectRaw('event_pullout_item_id, SUM(quantity) as quantity')
+                    ->groupBy('event_pullout_item_id')
+                    ->pluck('quantity', 'event_pullout_item_id');
+                $returnedByProduct = InventoryTransaction::query()
+                    ->where('event_pullout_id', $event->id)
+                    ->where('type', 'return')
+                    ->where('channel', 'event')
+                    ->selectRaw('product_id, SUM(quantity) as quantity')
+                    ->groupBy('product_id')
+                    ->pluck('quantity', 'product_id');
+                $soldByProduct = InventoryTransaction::query()
+                    ->where('event_pullout_id', $event->id)
+                    ->where('type', 'sold')
+                    ->where('channel', 'event')
+                    ->selectRaw('product_id, SUM(quantity) as quantity')
+                    ->groupBy('product_id')
+                    ->pluck('quantity', 'product_id');
+                $pulledByProduct = EventPulloutItem::query()
+                    ->where('event_pullout_id', $event->id)
+                    ->selectRaw('product_id, SUM(quantity) as quantity')
+                    ->groupBy('product_id')
+                    ->pluck('quantity', 'product_id');
+
+                foreach ($requestedItems as $lineId => $item) {
+                    $line = $eventItems->get((int) $lineId);
+                    $quantity = (int) $item['quantity'];
+                    if ($line->stock_condition !== $validated['stock_condition']) {
                         throw ValidationException::withMessages([
-                            'items' => "Not enough total Event stock remains for {$productName}.",
+                            'items' => 'Every selected product must match the chosen stock condition.',
                         ]);
                     }
+                    $lineAvailable = (int) $line->quantity - (int) ($soldByLine[$line->id] ?? 0);
+                    if ($quantity > $lineAvailable) {
+                        throw ValidationException::withMessages([
+                            'items' => "Not enough remaining {$line->stock_condition} Event stock for {$line->product->name}.",
+                        ]);
+                    }
+                }
+                $requestedItems->groupBy(fn ($item, $lineId) => $eventItems->get((int) $lineId)->product_id, true)
+                    ->each(function (Collection $items, $productId) use ($eventItems, $pulledByProduct, $soldByProduct, $returnedByProduct) {
+                        $requested = (int) $items->sum(fn ($item) => (int) $item['quantity']);
+                        $available = (int) ($pulledByProduct[$productId] ?? 0)
+                            - (int) ($soldByProduct[$productId] ?? 0)
+                            - (int) ($returnedByProduct[$productId] ?? 0);
+                        if ($requested > $available) {
+                            $lineId = $items->keys()->first();
+                            $productName = $eventItems->get((int) $lineId)?->product?->name ?? 'the selected product';
+                            throw ValidationException::withMessages([
+                                'items' => "Not enough total Event stock remains for {$productName}.",
+                            ]);
+                        }
+                    });
+
+                $submittedOrderNumber = trim($validated['order_number']);
+                $validOrderNumber = preg_match(
+                    '/^EVENT-'.preg_quote((string) $event->id, '/').'-\d{14}-[A-Z0-9]{4}$/',
+                    $submittedOrderNumber
+                ) === 1;
+                if (! $validOrderNumber || SalesTransaction::where('order_number', $submittedOrderNumber)->exists()) {
+                    throw ValidationException::withMessages([
+                        'order_number' => 'The generated Event order number is invalid or already used. Reopen the form and try again.',
+                    ]);
+                }
+                $orderNumber = $submittedOrderNumber;
+                $subTotal = $requestedItems->sum(function ($item) {
+                    $gross = (int) $item['quantity'] * (float) $item['unit_price'];
+
+                    return round($gross * (1 - ((float) ($item['discount_percentage'] ?? 0) / 100)), 2);
                 });
-
-            $orderNumber = 'EVENT-'.$event->id.'-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4));
-            $subTotal = $requestedItems->sum(function ($item) {
-                $gross = (int) $item['quantity'] * (float) $item['unit_price'];
-
-                return round($gross * (1 - ((float) ($item['discount_percentage'] ?? 0) / 100)), 2);
-            });
-            $additionalDiscountPercentage = (float) ($validated['additional_discount_percentage'] ?? 0);
-            $grandTotal = round($subTotal * (1 - ($additionalDiscountPercentage / 100)), 2);
-            $paymentStatus = $validated['payment_status'] ?? 'paid';
-            $amountPaid = match ($paymentStatus) {
-                'paid' => $grandTotal,
-                'unpaid' => 0,
-                default => min($grandTotal, (float) ($validated['amount_paid'] ?? 0)),
-            };
-            $sale = SalesTransaction::create([
-                'user_id' => $request->user()->id,
-                'store_hub_id' => $event->store_hub_id,
-                'event_pullout_id' => $event->id,
-                'channel_type' => 'event',
-                'order_date' => $validated['order_date'],
-                'order_number' => $orderNumber,
-                'customer_name' => trim((string) ($validated['customer_name'] ?? '')) ?: $event->source.' customer',
-                'contact_number' => $validated['contact_number'] ?? null,
-                'address' => $validated['address'] ?? null,
-                'mode_of_payment' => $validated['mode_of_payment'] ?? null,
-                'note' => $validated['note'] ?? null,
-                'sub_total' => $subTotal,
-                'additional_discount_percentage' => $additionalDiscountPercentage,
-                'total_amount' => $grandTotal,
-                'grand_total' => $grandTotal,
-                'status' => 'confirmed',
-                'payment_status' => $paymentStatus,
-                'amount_paid' => $amountPaid,
-                'delivery_status' => 'delivered',
-            ]);
-
-            foreach ($requestedItems as $lineId => $item) {
-                $line = $eventItems->get((int) $lineId);
-                $quantity = (int) $item['quantity'];
-                $unitPrice = (float) $item['unit_price'];
-                $discountPercentage = (float) ($item['discount_percentage'] ?? 0);
-                $lineTotal = round(($quantity * $unitPrice) * (1 - ($discountPercentage / 100)), 2);
-                $transactionItem = TransactionItem::create([
-                    'transaction_id' => $sale->id,
-                    'product_id' => $line->product_id,
-                    'quantity' => $quantity,
-                    'stock_condition' => $line->stock_condition,
-                    'unit_price' => $unitPrice,
-                    'discount_percentage' => $discountPercentage,
-                    'line_total' => $lineTotal,
-                ]);
-                InventoryTransaction::create([
-                    'type' => 'sold',
-                    'reference' => $sale->order_number,
-                    'sales_transaction_id' => $sale->id,
-                    'transaction_item_id' => $transactionItem->id,
-                    'event_pullout_id' => $event->id,
-                    'event_pullout_item_id' => $line->id,
+                $additionalDiscountPercentage = (float) ($validated['additional_discount_percentage'] ?? 0);
+                $grandTotal = round($subTotal * (1 - ($additionalDiscountPercentage / 100)), 2);
+                $sale = SalesTransaction::create([
+                    'user_id' => $request->user()->id,
                     'store_hub_id' => $event->store_hub_id,
-                    'product_id' => $line->product_id,
-                    'channel' => 'event',
-                    'source' => $event->source,
-                    'condition' => $line->stock_condition,
-                    'quantity' => $quantity,
-                    'occurred_on' => $validated['order_date'],
-                    'notes' => $validated['note'] ?? null,
-                    'created_by' => $request->user()->id,
+                    'event_pullout_id' => $event->id,
+                    'channel_type' => 'event',
+                    'order_date' => $validated['order_date'],
+                    'order_number' => $orderNumber,
+                    'customer_name' => $this->titleCaseCustomerName($validated['customer_name'] ?? null)
+                        ?: $event->source.' Customer',
+                    'contact_number' => $validated['contact_number'] ?? null,
+                    'address' => $validated['address'] ?? null,
+                    'mode_of_payment' => $validated['mode_of_payment'] ?? null,
+                    'note' => $validated['note'] ?? null,
+                    'sub_total' => $subTotal,
+                    'additional_discount_percentage' => $additionalDiscountPercentage,
+                    'total_amount' => $grandTotal,
+                    'grand_total' => $grandTotal,
+                    'status' => 'confirmed',
+                    'payment_status' => 'paid',
+                    'amount_paid' => $grandTotal,
+                    'delivery_status' => 'delivered',
+                    'event_attachments' => $attachmentPaths,
                 ]);
+
+                foreach ($requestedItems as $lineId => $item) {
+                    $line = $eventItems->get((int) $lineId);
+                    $quantity = (int) $item['quantity'];
+                    $unitPrice = (float) $item['unit_price'];
+                    $discountPercentage = (float) ($item['discount_percentage'] ?? 0);
+                    $lineTotal = round(($quantity * $unitPrice) * (1 - ($discountPercentage / 100)), 2);
+                    $transactionItem = TransactionItem::create([
+                        'transaction_id' => $sale->id,
+                        'product_id' => $line->product_id,
+                        'quantity' => $quantity,
+                        'stock_condition' => $line->stock_condition,
+                        'unit_price' => $unitPrice,
+                        'discount_percentage' => $discountPercentage,
+                        'line_total' => $lineTotal,
+                    ]);
+                    InventoryTransaction::create([
+                        'type' => 'sold',
+                        'reference' => $sale->order_number,
+                        'sales_transaction_id' => $sale->id,
+                        'transaction_item_id' => $transactionItem->id,
+                        'event_pullout_id' => $event->id,
+                        'event_pullout_item_id' => $line->id,
+                        'store_hub_id' => $event->store_hub_id,
+                        'product_id' => $line->product_id,
+                        'channel' => 'event',
+                        'source' => $event->source,
+                        'condition' => $line->stock_condition,
+                        'quantity' => $quantity,
+                        'occurred_on' => $validated['order_date'],
+                        'notes' => $validated['note'] ?? null,
+                        'created_by' => $request->user()->id,
+                    ]);
+                }
+
+                return $sale;
+            });
+        } catch (\Throwable $exception) {
+            foreach ($attachmentPaths as $attachmentPath) {
+                Storage::disk('public')->delete($attachmentPath);
             }
 
-            return $sale;
-        });
+            throw $exception;
+        }
 
         return redirect()->route('event-inventory.index', [
             'hub_id' => $eventPullout->store_hub_id,
@@ -491,5 +525,42 @@ class EventInventoryController extends Controller
                 ];
             });
         })->filter(fn ($line) => $line['available'] > 0)->values();
+    }
+
+    private function newEventSaleOrderNumber(EventPullout $event): string
+    {
+        do {
+            $orderNumber = 'EVENT-'.$event->id.'-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4));
+        } while (SalesTransaction::where('order_number', $orderNumber)->exists());
+
+        return $orderNumber;
+    }
+
+    private function normalizePhilippineMobileNumber(mixed $value): ?string
+    {
+        $rawValue = trim((string) $value);
+        if ($rawValue === '') {
+            return null;
+        }
+        $digits = preg_replace('/\D+/', '', $rawValue);
+        if ($digits === '') {
+            return $rawValue;
+        }
+
+        if (str_starts_with($digits, '63')) {
+            $digits = substr($digits, 2);
+        }
+        if (str_starts_with($digits, '0')) {
+            $digits = substr($digits, 1);
+        }
+
+        return '+63'.$digits;
+    }
+
+    private function titleCaseCustomerName(mixed $value): ?string
+    {
+        $name = preg_replace('/\s+/u', ' ', trim((string) $value));
+
+        return $name === '' ? null : mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
     }
 }

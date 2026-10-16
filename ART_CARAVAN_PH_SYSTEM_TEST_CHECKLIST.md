@@ -358,8 +358,10 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Event Transaction Logs are available as an internal Event Inventory tab and display Event Pull-Out, Event Sale, Return, and Missing activity.
 - [ ] Event Transaction Logs can be filtered by Store Hub, Event, activity, date range, and reference/product search.
 - [ ] Event Transaction Logs combine repeated product IDs into one product line with Good/Damaged quantity breakdowns.
-- [ ] Event Transaction Logs use compact summary rows and show the consolidated products, inventory effect, payment information, and audit metadata through View Details.
-- [ ] Record Event Sale opens as a channel-sales-style popup with customer details, multiple product rows, condition/availability, price, line discount, payment details, additional discount, totals, and remarks.
+- [ ] Event Transaction Logs use compact summary rows and show the consolidated products, inventory effect, sale image attachments, and audit metadata through View Details.
+- [ ] Record Event Sale opens as a channel-sales-style popup with a visible generated order number, customer details, Good/Damaged product filtering, searchable product rows, availability, price, line discount, additional discount, totals, and remarks; Payment Status and Amount Paid are not shown.
+- [ ] Customer names are saved in title case, and Event Sale contact numbers accept only valid Philippine mobile numbers stored as `+639XXXXXXXXX`.
+- [ ] Event Sale accepts up to three JPG/PNG/WebP attachments at no more than 2 MB each and previews them inside the popup before saving.
 - [ ] Large workbook import matches products in bounded batches and preserves identifiers.
 
 ## 23. National Inventory and National Pull-out

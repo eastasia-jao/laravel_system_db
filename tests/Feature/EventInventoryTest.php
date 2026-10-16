@@ -8,6 +8,8 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class EventInventoryTest extends TestCase
@@ -37,14 +39,22 @@ class EventInventoryTest extends TestCase
         $this->assertSame(5, (int) $product->fresh()->stock);
         $this->assertSame(2, (int) $product->fresh()->damaged_stock);
 
-        $this->get(route('event-inventory.index', ['hub_id' => $hub->id]))
+        $inventoryResponse = $this->get(route('event-inventory.index', ['hub_id' => $hub->id]))
             ->assertOk()
             ->assertSee('Event Inventory')
             ->assertSee('October Art Fair')
             ->assertSee($event->reference)
             ->assertSee('Record Event Sale')
-            ->assertSee('Payment and order summary')
+            ->assertSee('Product Condition')
+            ->assertSee('Search product name or Item ID')
+            ->assertSee('Up to 3 images; maximum 2 MB per image.')
+            ->assertDontSee('Payment Status')
+            ->assertDontSee('Amount Paid')
             ->assertDontSee('General Transaction Logs');
+        $this->assertMatchesRegularExpression(
+            '/EVENT-'.$event->id.'-\d{14}-[A-Z0-9]{4}/',
+            $inventoryResponse->getContent()
+        );
 
         $this->get(route('event-inventory.sales.create', $event))
             ->assertRedirect(route('event-inventory.index', [
@@ -70,20 +80,29 @@ class EventInventoryTest extends TestCase
 
     public function test_event_sale_reduces_only_event_stock_and_return_limit_accounts_for_sold_items(): void
     {
+        Storage::fake('public');
         [$admin, $hub, $product] = $this->eventFixture();
         $event = $this->createEvent($admin, $hub, $product, 5);
         $line = $event->items()->sole();
         $stockAfterPullout = (int) $product->fresh()->stock;
+        $orderNumber = 'EVENT-'.$event->id.'-20261015120000-AB12';
 
         $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
-            'customer_name' => 'Event Customer',
+            'order_number' => $orderNumber,
+            'stock_condition' => 'good',
+            'customer_name' => 'event customer',
             'contact_number' => '09171234567',
             'address' => 'Event Hall, Manila',
             'mode_of_payment' => 'CASH',
             'payment_status' => 'partial',
-            'amount_paid' => 100,
+            'amount_paid' => 1,
             'additional_discount_percentage' => 5,
+            'event_attachments' => [
+                $this->fakePng('event-1.png'),
+                $this->fakePng('event-2.png'),
+                $this->fakePng('event-3.png'),
+            ],
             'items' => [[
                 'event_pullout_item_id' => $line->id,
                 'quantity' => 2,
@@ -94,13 +113,18 @@ class EventInventoryTest extends TestCase
 
         $sale = SalesTransaction::where('event_pullout_id', $event->id)->sole();
         $this->assertSame('event', $sale->channel_type);
+        $this->assertSame($orderNumber, $sale->order_number);
         $this->assertSame(2, $sale->items()->sum('quantity'));
         $this->assertSame('Event Customer', $sale->customer_name);
-        $this->assertSame('09171234567', $sale->contact_number);
-        $this->assertSame('partial', $sale->payment_status);
+        $this->assertSame('+639171234567', $sale->contact_number);
+        $this->assertSame('paid', $sale->payment_status);
         $this->assertSame('270.00', $sale->sub_total);
         $this->assertSame('256.50', $sale->grand_total);
-        $this->assertSame('100.00', $sale->amount_paid);
+        $this->assertSame('256.50', $sale->amount_paid);
+        $this->assertCount(3, $sale->event_attachments);
+        foreach ($sale->event_attachments as $attachment) {
+            Storage::disk('public')->assertExists($attachment);
+        }
         $this->assertEquals(10.00, $sale->items()->sole()->discount_percentage);
         $this->assertEquals(270.00, $sale->items()->sole()->line_total);
         $this->assertSame($stockAfterPullout, (int) $product->fresh()->stock);
@@ -152,6 +176,8 @@ class EventInventoryTest extends TestCase
 
         $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
+            'order_number' => 'EVENT-'.$event->id.'-20261015130000-CD34',
+            'stock_condition' => 'good',
             'items' => [[
                 'event_pullout_item_id' => $line->id,
                 'quantity' => 2,
@@ -174,6 +200,8 @@ class EventInventoryTest extends TestCase
 
         $this->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
+            'order_number' => 'EVENT-'.$event->id.'-20261015140000-EF56',
+            'stock_condition' => 'good',
             'items' => [[
                 'event_pullout_item_id' => $line->id,
                 'quantity' => 1,
@@ -190,6 +218,8 @@ class EventInventoryTest extends TestCase
 
         $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
+            'order_number' => 'EVENT-'.$event->id.'-20261015150000-GH78',
+            'stock_condition' => 'good',
             'customer_name' => 'Log Customer',
             'mode_of_payment' => 'CASH',
             'items' => [[
@@ -229,6 +259,43 @@ class EventInventoryTest extends TestCase
         ]))->assertOk()
             ->assertSee('Stock sold from Event inventory')
             ->assertDontSee('Stock entered Event inventory');
+    }
+
+    public function test_event_sale_rejects_more_than_three_images_and_a_mismatched_stock_condition(): void
+    {
+        Storage::fake('public');
+        [$admin, $hub, $product] = $this->eventFixture();
+        $event = $this->createEvent($admin, $hub, $product, 5);
+        $line = $event->items()->sole();
+        $basePayload = [
+            'order_date' => '2026-10-15',
+            'order_number' => 'EVENT-'.$event->id.'-20261015160000-IJ90',
+            'stock_condition' => 'good',
+            'items' => [[
+                'event_pullout_item_id' => $line->id,
+                'quantity' => 1,
+                'unit_price' => 150,
+            ]],
+        ];
+
+        $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), $basePayload + [
+            'event_attachments' => [
+                $this->fakePng('one.png'),
+                $this->fakePng('two.png'),
+                $this->fakePng('three.png'),
+                $this->fakePng('four.png'),
+            ],
+        ])->assertSessionHasErrors('event_attachments');
+
+        $this->post(route('event-inventory.sales.store', $event), array_replace($basePayload, [
+            'stock_condition' => 'damaged',
+        ]))->assertSessionHasErrors('items');
+
+        $this->post(route('event-inventory.sales.store', $event), array_replace($basePayload, [
+            'contact_number' => '12345',
+        ]))->assertSessionHasErrors('contact_number');
+
+        $this->assertDatabaseCount('sales_transactions', 0);
     }
 
     public function test_event_inventory_routes_are_limited_to_inventory_management_roles(): void
@@ -285,5 +352,13 @@ class EventInventoryTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         return EventPullout::with('items')->sole();
+    }
+
+    private function fakePng(string $name): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent(
+            $name,
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zhf8AAAAASUVORK5CYII=')
+        );
     }
 }
