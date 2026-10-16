@@ -10,6 +10,7 @@ use App\Models\InventoryTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -19,6 +20,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_report_submits_partial_payment_status_and_amount(): void
     {
+        Storage::fake('public');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
         $sale = SalesTransaction::create([
@@ -41,6 +43,10 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('id="wholesaleRefundConfirmModal"', $html);
         $this->assertStringContainsString('This cannot be undone.', $html);
         $this->assertStringNotContainsString('window.confirm(refundForm.dataset.confirmMessage', $html);
+        $this->assertStringContainsString('wholesale-detail-main', $html);
+        $this->assertStringContainsString('Upload payment proof', $html);
+        $this->assertStringContainsString('Print Invoice', $html);
+        $this->assertStringContainsString('wholesale-save-button', $html);
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'unpaid', 'amount_paid' => '10.00', 'delivery_status' => 'pending',
         ])->assertRedirect($report)->assertSessionHasErrors([
@@ -51,11 +57,16 @@ class WholesalePaymentTest extends TestCase
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'partial', 'amount_paid' => '47.20', 'delivery_status' => 'pending',
             'withholding_tax_amount' => '5.47', 'wholesale_withholding_tax' => '12.34',
+            'payment_proof' => UploadedFile::fake()->create('receipt.pdf', 100, 'application/pdf'),
         ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionHas('success');
         $this->assertSame('partial', $sale->fresh()->payment_status);
         $this->assertSame('47.20', $sale->fresh()->amount_paid);
         $this->assertSame('5.47', $sale->fresh()->withholding_tax_amount);
         $this->assertSame('12.34', $sale->fresh()->wholesale_withholding_tax);
+        $this->assertNotNull($sale->fresh()->proof_of_payment);
+        $this->assertStringEndsWith('.pdf', $sale->fresh()->proof_of_payment);
+        Storage::disk('public')->assertExists($sale->fresh()->proof_of_payment);
+        $this->assertSame($user->id, $sale->fresh()->last_updated_by);
         $this->get($report)->assertOk()->assertSee('PARTIAL')->assertViewHas('totalSales', 47.20);
 
         $this->from($report)->patch(route('sales.status.update', $sale->id), [

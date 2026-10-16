@@ -983,6 +983,7 @@ class SalesController extends Controller
             'withholding_tax_amount' => ['nullable', 'numeric', 'min:0'],
             'wholesale_withholding_tax' => ['nullable', 'numeric', 'min:0'],
             'invoice_number' => ['nullable', 'string', 'max:100'],
+            'payment_proof' => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp,pdf', 'max:2048'],
         ]);
 
         if ($channel === 'online') {
@@ -1030,7 +1031,7 @@ class SalesController extends Controller
             ]);
         }
 
-        $sale->update([
+        $statusUpdate = [
             'payment_status' => $validated['payment_status'],
             'amount_paid' => $amountPaid,
             'delivery_status' => $channel === 'wholesale'
@@ -1040,7 +1041,14 @@ class SalesController extends Controller
                 ? (($validated['invoice_number'] ?? null) ?: $sale->invoice_number)
                 : $sale->invoice_number,
             ...$wholesaleWithholding,
-        ]);
+        ];
+        if ($channel === 'wholesale') {
+            $statusUpdate['last_updated_by'] = auth()->id();
+            if ($request->hasFile('payment_proof')) {
+                $statusUpdate['proof_of_payment'] = $request->file('payment_proof')->store('proofs_of_payment', 'public');
+            }
+        }
+        $sale->update($statusUpdate);
 
         $successMessage = $channel === 'wholesale'
             ? ($validated['payment_status'] === 'paid'

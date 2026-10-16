@@ -225,6 +225,8 @@ class SalesReportController extends Controller
                 'inventoryReturns',
                 'paymentRecords.recorder',
                 'refundedBy',
+                'user',
+                'lastUpdatedBy',
             ]);
 
         if ($channel !== 'all') {
@@ -1173,6 +1175,7 @@ class SalesReportController extends Controller
                 'wholesale_refund_amount' => $collected,
                 'refunded_at' => now(),
                 'refunded_by' => auth()->id(),
+                'last_updated_by' => auth()->id(),
                 'status' => 'refunded',
                 'payment_status' => 'refunded',
                 'amount_paid' => 0,
@@ -1380,6 +1383,7 @@ class SalesReportController extends Controller
                 'proof_amount' => $channel === 'online' && $exchangePayment > 0 && $sale->proof_amount !== null
                     ? round((float) $sale->proof_amount + $exchangePayment, 2)
                     : $sale->proof_amount,
+                'last_updated_by' => auth()->id(),
                 'amount_paid' => $amountPaid,
                 'withholding_tax_amount' => round($withholding, 2),
                 'payment_status' => $paymentStatus,

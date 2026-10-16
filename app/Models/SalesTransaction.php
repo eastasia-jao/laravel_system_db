@@ -171,6 +171,11 @@ class SalesTransaction extends Model
         return $this->belongsTo(User::class, 'refunded_by');
     }
 
+    public function lastUpdatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'last_updated_by');
+    }
+
     public function storeHub(): BelongsTo
     {
         return $this->belongsTo(StoreHub::class, 'store_hub_id');

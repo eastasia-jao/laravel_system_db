@@ -32,68 +32,126 @@
     .wholesale-customer-summary .customer-copy { min-width: 0; }
     .wholesale-customer-summary .wholesale-view-details { flex: 0 0 auto; white-space: nowrap; }
     .wholesale-table-status { display: inline-flex; align-items: center; min-width: 76px; justify-content: center; padding: .32rem .55rem; border-radius: 999px; font-size: .68rem; font-weight: 700; letter-spacing: .02em; }
-    #wholesaleDetailsModal .modal-dialog { max-width: 1280px; }
-    #wholesaleDetailsModal .modal-body { padding: .65rem; }
-    .wholesale-detail-grid { display: flex; flex-direction: column; gap: .55rem; }
-    .wholesale-detail-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; align-items: start; }
-    .wholesale-detail-groups > .wholesale-info-panel { align-self: start; }
-    .wholesale-info-panel { overflow: hidden; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; }
-    .wholesale-info-panel-title { margin: 0; padding: .55rem .7rem; border-bottom: 1px solid #dbe4f0; background: #eef5ff; color: #1e3a8a; font-size: .76rem; font-weight: 700; }
-    .wholesale-info-panel-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .wholesale-info-panel .wholesale-detail-section { min-height: 0; padding: .55rem .7rem; border: 0; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; border-radius: 0; background: #fff; }
-    .wholesale-financial-panel .wholesale-info-panel-body { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-    .wholesale-financial-panel .wholesale-detail-section { min-height: auto; padding: .45rem .6rem; }
-    .wholesale-financial-panel .wholesale-detail-section:nth-child(1) { border-left: 4px solid #2563eb; }
-    .wholesale-financial-panel .wholesale-detail-section:nth-child(2) { border-left: 4px solid #059669; }
-    .wholesale-financial-panel .wholesale-detail-section:nth-child(3) { border-left: 4px solid #d97706; }
-    .wholesale-status-panel .wholesale-info-panel-body { display: block; }
-    .wholesale-status-panel .wholesale-detail-section { border-right: 0; border-bottom: 0; }
-    .wholesale-status-panel .wholesale-detail-label { display: none; }
-    .wholesale-detail-section { padding: .65rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
-    .wholesale-detail-label { margin-bottom: .25rem; color: #64748b; font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-    .wholesale-detail-items details > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
-    .wholesale-detail-items .item-line { margin: 0; padding: .5rem; border: 1px solid #dbe4f0 !important; border-radius: 8px; background: #fff; }
-    .wholesale-detail-payment details .border { display: grid; grid-template-columns: minmax(100px, .65fr) minmax(180px, 1fr); column-gap: .6rem; align-items: start; padding: .6rem !important; }
-    .wholesale-detail-payment details .border > .fw-semibold { grid-column: 1; grid-row: 1; }
-    .wholesale-detail-payment details .border > .small { grid-column: 1; grid-row: 2; }
-    .wholesale-detail-payment details .border > .payment-proof-empty { grid-column: 1; grid-row: 3; margin-top: 0 !important; }
-    .wholesale-detail-payment details .border > .mt-3 { grid-column: 2; grid-row: 1 / span 2; margin-top: 0 !important; }
-    .wholesale-detail-payment details .border > .mt-3 a { height: 120px !important; }
+    #wholesaleDetailsModal { --wholesale-blue: #2563eb; --wholesale-ink: #1f2937; --wholesale-muted: #64748b; --wholesale-border: #e2e8f0; }
+    #wholesaleDetailsModal .modal-dialog { width: min(1320px, calc(100vw - 2rem)); max-width: 1320px; }
+    #wholesaleDetailsModal .modal-content { max-height: calc(100vh - 2rem); border-radius: 12px; overflow: hidden; }
+    #wholesaleDetailsModal .modal-header, #wholesaleDetailsModal .modal-footer { position: sticky; z-index: 5; background: #fff; }
+    #wholesaleDetailsModal .modal-header { top: 0; min-height: 76px; padding: .85rem 1.1rem; color: #fff; background: var(--wholesale-blue); border: 0; }
+    #wholesaleDetailsModal .modal-footer { bottom: 0; justify-content: space-between; padding: .65rem 1rem; border-top: 1px solid var(--wholesale-border); }
+    #wholesaleDetailsModal .modal-body { overflow-y: auto; padding: 1rem; background: #f5f7fa; }
+    #wholesaleDetailsModal :focus-visible { outline: 3px solid rgba(37, 99, 235, .45); outline-offset: 2px; }
+    .wholesale-modal-title { font-size: 1rem; font-weight: 700; line-height: 1.25; }
+    .wholesale-modal-subtitle { margin-top: .2rem; font-size: .82rem; color: rgba(255,255,255,.84); }
+    .wholesale-modal-header-main { min-width: 0; }
+    .wholesale-modal-header-statuses { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem; margin-left: auto; padding: 0 .75rem; }
+    .wholesale-modal-chip { display: inline-flex; align-items: center; gap: .3rem; padding: .28rem .55rem; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(255,255,255,.15); font-size: .7rem; font-weight: 700; white-space: nowrap; }
+    .wholesale-modal-chip.is-success { color: #dcfce7; background: rgba(22,101,52,.25); }
+    .wholesale-modal-chip.is-pending { color: #fef3c7; background: rgba(146,64,14,.28); }
+    .wholesale-modal-chip.is-danger { color: #fee2e2; background: rgba(153,27,27,.3); }
+    .wholesale-detail-grid { display: flex; flex-direction: column; gap: .8rem; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--wholesale-ink); }
+    .wholesale-info-panel { min-width: 0; overflow: hidden; border: 1px solid var(--wholesale-border); border-radius: 10px; background: #fff; box-shadow: 0 2px 7px rgba(15,23,42,.035); }
+    .wholesale-info-panel-title { display: flex; align-items: center; gap: .45rem; margin: 0; padding: .65rem .8rem; border-bottom: 1px solid var(--wholesale-border); color: #334155; background: #fff; font-size: .88rem; font-weight: 650; }
+    .wholesale-info-panel-body { padding: .75rem; }
+    .wholesale-financial-panel .wholesale-info-panel-body { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; padding: .7rem; }
+    .wholesale-kpi { min-width: 0; padding: .65rem .75rem; border: 1px solid var(--wholesale-border); border-radius: 8px; background: #fff; }
+    .wholesale-kpi-label, .wholesale-detail-label { display: block; margin-bottom: .3rem; color: var(--wholesale-muted); font-size: .68rem; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; }
+    .wholesale-kpi-value { color: #111827; font-size: 1.15rem; font-weight: 750; line-height: 1.2; text-align: right; font-variant-numeric: tabular-nums; }
+    .wholesale-kpi-subtitle { margin-top: .2rem; color: var(--wholesale-muted); font-size: .72rem; }
+    .wholesale-balance-line { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: 0 .8rem .7rem; color: var(--wholesale-muted); font-size: .78rem; }
+    .wholesale-balance-line .is-paid { color: #15803d; font-weight: 700; }
+    .wholesale-balance-line .is-due { color: #b45309; font-weight: 700; }
+    .wholesale-balance-track { height: 4px; margin: 0 .8rem .75rem; overflow: hidden; border-radius: 999px; background: #e5e7eb; }
+    .wholesale-balance-track span { display: block; height: 100%; border-radius: inherit; background: #16a34a; }
+    .wholesale-detail-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); gap: .8rem; align-items: start; }
+    .wholesale-detail-side { display: grid; gap: .7rem; min-width: 0; }
+    .wholesale-detail-kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem .8rem; }
+    .wholesale-detail-kv { min-width: 0; padding-bottom: .5rem; border-bottom: 1px solid #f1f5f9; }
+    .wholesale-detail-kv:last-child, .wholesale-detail-kv:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+    .wholesale-detail-value { overflow-wrap: anywhere; color: #1f2937; font-size: .86rem; font-weight: 550; }
+    .wholesale-items-table { width: 100%; margin: 0; border-collapse: separate; border-spacing: 0; }
+    .wholesale-items-table th { padding: .55rem .6rem; border-bottom: 1px solid var(--wholesale-border); color: var(--wholesale-muted); background: #f8fafc; font-size: .66rem; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+    .wholesale-items-table td { padding: .55rem .6rem; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: .78rem; vertical-align: middle; }
+    .wholesale-items-table td.text-end, .wholesale-items-table th.text-end { text-align: right; font-variant-numeric: tabular-nums; }
+    .wholesale-item-name { color: #111827; font-size: .82rem; font-weight: 650; }
+    .wholesale-item-status { display: block; margin-top: .2rem; color: var(--wholesale-muted); font-size: .7rem; }
+    .wholesale-item-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .45rem .85rem; padding: .7rem .8rem; background: #f8fafc; font-size: .76rem; }
+    .wholesale-item-list.is-collapsed .wholesale-item-row:nth-child(n+6) { display: none; }
+    .wholesale-show-all { margin: .55rem .7rem; padding: 0; border: 0; color: var(--wholesale-blue); background: none; font-size: .78rem; font-weight: 650; }
+    .wholesale-payment-proof { min-width: 0; }
+    .wholesale-detail-payment .payment-proof-empty { display: none; }
+    .wholesale-proof-upload { margin-top: .7rem; }
+    .wholesale-proof-dropzone { display: flex; min-height: 82px; align-items: center; justify-content: center; gap: .75rem; padding: 1rem; border: 1.5px dashed #94a3b8; border-radius: 9px; color: #475569; background: #f8fafc; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+    .wholesale-proof-dropzone:hover, .wholesale-proof-dropzone.is-dragging { border-color: var(--wholesale-blue); background: #eff6ff; }
+    .wholesale-proof-dropzone > i { color: var(--wholesale-blue); font-size: 1.25rem; }
+    .wholesale-proof-dropzone strong, .wholesale-proof-dropzone small { display: block; }
+    .wholesale-proof-dropzone small { margin-top: .15rem; color: var(--wholesale-muted); font-size: .72rem; }
+    .wholesale-proof-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+    .wholesale-detail-status .wholesale-info-panel-body { padding: .8rem; }
+    .wholesale-detail-status .wholesale-detail-section { padding: 0; border: 0; background: transparent; }
+    .wholesale-detail-status .wholesale-detail-label { display: none; }
     .wholesale-detail-status .wholesale-detail-section > div:last-child { display: block; }
-    .wholesale-detail-status .status-update-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; align-items: end; }
+    .wholesale-detail-status .status-update-form { display: grid; gap: .75rem; margin: 0; }
+    .wholesale-detail-status .wholesale-status-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
     .wholesale-detail-status .wholesale-status-field { min-width: 0; }
-    .wholesale-detail-status .wholesale-status-field label { display: block; margin: 0 0 .3rem; color: #64748b; font-size: .68rem; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
-    .wholesale-detail-status .wholesale-status-field .input-group { margin: 0 !important; }
-    .wholesale-detail-status .wholesale-status-fields { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; align-items: end; }
-    .wholesale-detail-status .wholesale-status-fields > .row { grid-column: span 2; margin: 0 !important; }
-    .wholesale-detail-status .wholesale-status-fields > small { grid-column: span 2; align-self: center; margin: 0 !important; }
-    .wholesale-detail-status .wholesale-status-fields .payment-amount-error { grid-column: 1 / -1; }
-    .wholesale-detail-status .wholesale-refund-form { grid-column: 1 / -1; margin: 0 !important; padding-top: .65rem; border-top: 1px solid #e5e7eb; }
+    .wholesale-detail-status .wholesale-status-field label { display: block; margin: 0 0 .35rem; color: var(--wholesale-muted); font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .wholesale-detail-status .wholesale-status-field .form-control,
+    .wholesale-detail-status .wholesale-status-field .form-select { min-height: 38px; }
+    .wholesale-detail-status .wholesale-status-fields > .row { grid-column: 1 / -1; display: contents; margin: 0; }
+    .wholesale-detail-status .wholesale-status-fields > .row > div { min-width: 0; }
+    .wholesale-detail-status .wholesale-status-note,
+    .wholesale-detail-status .wholesale-status-help { color: var(--wholesale-muted); font-size: .76rem; }
+    .wholesale-detail-status .wholesale-save-button { justify-self: end; min-width: 150px; }
+    .wholesale-detail-status .wholesale-save-button:disabled { opacity: .55; cursor: not-allowed; }
+    .wholesale-detail-status .wholesale-danger-zone { margin-top: .85rem; padding: .8rem; border: 1px solid #fecaca; border-radius: 9px; background: #fffafa; }
+    .wholesale-danger-title { margin-bottom: .45rem; color: #b91c1c; font-size: .75rem; font-weight: 750; text-transform: uppercase; }
+    .wholesale-detail-status .wholesale-refund-form { margin: 0 !important; }
+    .wholesale-detail-status .wholesale-refund-form button { min-height: 38px; }
     .wholesale-detail-status .wholesale-refund-form small { font-size: .75rem; }
+    .wholesale-order-update-meta { color: #64748b; font-size: .74rem; }
+    .wholesale-toast { z-index: 1090; }
     @media (max-width: 991.98px) {
-        .wholesale-financial-panel .wholesale-info-panel-body { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .wholesale-detail-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .wholesale-detail-groups > :last-child { grid-column: 1 / -1; }
-        .wholesale-detail-status .wholesale-status-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .wholesale-detail-status .wholesale-status-fields > .row,
-        .wholesale-detail-status .wholesale-status-fields > small { grid-column: 1 / -1; }
+        .wholesale-detail-main { grid-template-columns: 1fr; }
+        .wholesale-detail-side { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+        .wholesale-detail-side > :last-child { grid-column: 1 / -1; }
     }
     @media (max-width: 767.98px) {
-        .wholesale-detail-groups { grid-template-columns: 1fr; }
-        .wholesale-detail-groups > :last-child { grid-column: auto; }
-        .wholesale-detail-items details > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        #wholesaleDetailsModal .modal-dialog { width: calc(100vw - 1rem); margin: .5rem auto; }
+        #wholesaleDetailsModal .modal-content { max-height: calc(100vh - 1rem); }
+        #wholesaleDetailsModal .modal-body { padding: .65rem; }
+        .wholesale-modal-header-statuses { display: flex; flex-basis: 100%; order: 3; justify-content: flex-start; margin: 0; padding: .15rem 0 0; }
+        .wholesale-modal-chip { padding: .2rem .45rem; font-size: .65rem; }
+        .wholesale-financial-panel .wholesale-info-panel-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .wholesale-detail-side { grid-template-columns: 1fr; }
+        .wholesale-detail-side > :last-child { grid-column: auto; }
+        .wholesale-items-table thead { display: none; }
+        .wholesale-items-table, .wholesale-items-table tbody, .wholesale-items-table tr, .wholesale-items-table td { display: block; width: 100%; }
+        .wholesale-items-table tr { padding: .55rem .7rem; border-bottom: 1px solid var(--wholesale-border); }
+        .wholesale-items-table td { display: flex; justify-content: space-between; gap: .75rem; padding: .18rem 0; border: 0; text-align: right; }
+        .wholesale-items-table td::before { content: attr(data-label); color: var(--wholesale-muted); font-size: .67rem; font-weight: 700; text-align: left; text-transform: uppercase; }
+        .wholesale-items-table td:first-child { display: block; text-align: left; }
+        .wholesale-items-table td:first-child::before { content: none; }
         .wholesale-detail-status .wholesale-status-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .wholesale-detail-payment details .border { grid-template-columns: minmax(90px, .6fr) minmax(0, 1fr); }
+        .wholesale-detail-status .wholesale-status-fields > .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
     }
     @media (max-width: 575.98px) {
-        .wholesale-info-panel-body, .wholesale-financial-panel .wholesale-info-panel-body,
-        .wholesale-detail-groups { grid-template-columns: 1fr; }
-        .wholesale-detail-items details > div,
-        .wholesale-detail-status .status-update-form { grid-template-columns: 1fr; }
-        .wholesale-detail-status .wholesale-status-fields { grid-template-columns: 1fr; }
-        .wholesale-detail-status .wholesale-status-fields > .row,
-        .wholesale-detail-status .wholesale-status-fields > small,
-        .wholesale-detail-status .wholesale-status-fields .payment-amount-error { grid-column: auto; }
+        .wholesale-financial-panel .wholesale-info-panel-body,
+        .wholesale-detail-kv-grid,
+        .wholesale-detail-status .wholesale-status-fields,
+        .wholesale-detail-status .wholesale-status-fields > .row { grid-template-columns: 1fr; }
+        .wholesale-detail-status .wholesale-save-button { width: 100%; }
+        .wholesale-item-footer { display: grid; grid-template-columns: 1fr 1fr; }
+        .wholesale-order-update-meta { max-width: 58%; }
+    }
+    @media print {
+        body.wholesale-print-mode > * { display: none !important; }
+        body.wholesale-print-mode #wholesaleDetailsModal { position: static !important; display: block !important; width: 100%; height: auto; background: #fff; }
+        body.wholesale-print-mode #wholesaleDetailsModal .modal-dialog,
+        body.wholesale-print-mode #wholesaleDetailsModal .modal-content { width: 100%; max-width: none; max-height: none; margin: 0; overflow: visible; box-shadow: none; }
+        body.wholesale-print-mode #wholesaleDetailsModal .modal-header { position: static; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        body.wholesale-print-mode #wholesaleDetailsModal .modal-footer,
+        body.wholesale-print-mode .wholesale-detail-status,
+        body.wholesale-print-mode .wholesale-show-all { display: none !important; }
+        body.wholesale-print-mode .wholesale-detail-main { grid-template-columns: 1fr; }
     }
 </style>
 <div class="card wholesale-report-card">
@@ -157,7 +215,22 @@
                         $refundEligible = ! $isRefunded && in_array($transaction->status, ['confirmed', 'completed'], true)
                             && $refundItemsComplete && ! $refundHasActiveReplacement;
                     @endphp
-                    <tr data-wholesale-order-row="{{ $transaction->id }}">
+                    <tr data-wholesale-order-row="{{ $transaction->id }}"
+                        data-order-number="{{ $transaction->order_number }}"
+                        data-customer="{{ $transaction->customer_name }}"
+                        data-customer-new="{{ in_array((int) $transaction->id, $newCustomerSaleIds, true) ? 'true' : 'false' }}"
+                        data-payment-status="{{ $paymentStatus }}"
+                        data-order-status="{{ $transaction->status ?? 'confirmed' }}"
+                        data-delivery-status="{{ $deliveryStatus }}"
+                        data-order-value="{{ $total }}"
+                        data-collected="{{ $collected }}"
+                        data-balance="{{ max(0, $productPaymentTotal - $collected) }}"
+                        data-shipping-fee="{{ $shippingFee }}"
+                        data-withholding-amount="{{ $withholdingAmount ?? '' }}"
+                        data-withholding-tax="{{ $withholdingTax ?? '' }}"
+                        data-subtotal="{{ (float) ($transaction->sub_total ?: $transaction->items->sum('line_total')) }}"
+                        data-updated-at="{{ optional($transaction->updated_at)->timezone('Asia/Manila')->format('M d, Y h:i A') }}"
+                        data-updated-by="{{ $transaction->lastUpdatedBy?->name ?? $transaction->user?->name ?? '—' }}">
                         <td class="wholesale-items">
                             <div class="d-flex align-items-center justify-content-between gap-2 wholesale-customer-summary">
                                 <div class="customer-copy text-truncate">
@@ -176,18 +249,25 @@
                                 <summary class="small text-primary" style="cursor: pointer;">View ordered items</summary>
                                 <div class="small mt-2">
                                     @foreach($transaction->items as $item)
-                                        <div class="item-line">
-                                            @php
-                                                $itemName = $item->product?->name ?? 'Product #'.$item->product_id;
-                                                $returnRecord = $wholesaleReturns->get($transaction->order_number.'|'.$item->product_id)?->first();
-                                                $replacementStatus = $item->replacements
-                                                    ->sortByDesc('created_at')
-                                                    ->first()?->status;
-                                                $replacementReturn = $item->replacements
-                                                    ->flatMap(fn ($replacement) => $replacement->inventoryReturns)
-                                                    ->sortByDesc('occurred_on')
-                                                    ->first();
-                                            @endphp
+                                        @php
+                                            $itemName = $item->product?->name ?? 'Product #'.$item->product_id;
+                                            $returnRecord = $wholesaleReturns->get($transaction->order_number.'|'.$item->product_id)?->first();
+                                            $replacementStatus = $item->replacements
+                                                ->sortByDesc('created_at')
+                                                ->first()?->status;
+                                            $replacementReturn = $item->replacements
+                                                ->flatMap(fn ($replacement) => $replacement->inventoryReturns)
+                                                ->sortByDesc('occurred_on')
+                                                ->first();
+                                        @endphp
+                                        <div class="item-line"
+                                            data-item-name="{{ $itemName }}"
+                                            data-item-quantity="{{ (int) $item->quantity }}"
+                                            data-item-unit-price="{{ (float) $item->unit_price }}"
+                                            data-item-discount="{{ (float) ($item->discount_percentage ?? 0) }}"
+                                            data-item-line-total="{{ (float) $item->line_total }}"
+                                            data-item-good-returned="{{ (int) $item->inventoryReturns->where('condition', 'good')->sum('quantity') }}"
+                                            data-item-damaged-returned="{{ (int) $item->inventoryReturns->where('condition', 'damaged')->sum('quantity') }}">
                                             <div class="fw-semibold">
                                                 {{ $itemName }}
                                                 @if($item->inventoryReturns->isNotEmpty())
@@ -312,13 +392,13 @@
                                     </div>
                                 </div>
                             @else
-                            <form action="{{ route('sales.status.update', $transaction->id) }}" method="POST" class="status-update-form">
+                            <form action="{{ route('sales.status.update', $transaction->id) }}" method="POST" enctype="multipart/form-data" class="status-update-form" id="wholesale-status-form-{{ $transaction->id }}">
                                 @csrf
                                 @method('PATCH')
                                 <div class="wholesale-status-fields">
                                     <div class="wholesale-status-field">
-                                        <label>Payment Status</label>
-                                        <select name="payment_status" class="form-select form-select-sm" aria-label="Payment status" @disabled($paymentLocked)>
+                                        <label for="wholesale-payment-status-{{ $transaction->id }}">Payment Status @if($paymentLocked)<i class="fa-solid fa-lock ms-1 text-muted" title="Payment is already fully paid and locked." aria-label="Locked"></i>@endif</label>
+                                        <select id="wholesale-payment-status-{{ $transaction->id }}" name="payment_status" class="form-select form-select-sm" aria-label="Payment status" title="{{ $paymentLocked ? 'Payment status is locked because this order is fully paid.' : '' }}" @disabled($paymentLocked)>
                                             <option value="unpaid" @selected($paymentStatus === 'unpaid')>Unpaid</option>
                                             <option value="partial" @selected($paymentStatus === 'partial')>Partial</option>
                                             <option value="paid" @selected($paymentStatus === 'paid')>Paid</option>
@@ -328,44 +408,63 @@
                                         @endif
                                     </div>
                                     <div class="wholesale-status-field">
-                                        <label>Delivery Status</label>
-                                        <select name="delivery_status" class="form-select form-select-sm" aria-label="Delivery status">
+                                        <label for="wholesale-delivery-status-{{ $transaction->id }}">Delivery Status</label>
+                                        <select id="wholesale-delivery-status-{{ $transaction->id }}" name="delivery_status" class="form-select form-select-sm" aria-label="Delivery status">
                                             @foreach(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'] as $status)
                                                 <option value="{{ $status }}" @selected($deliveryStatus === $status)>{{ ucfirst($status) }}</option>
                                             @endforeach
                                         </select>
                                     </div>
                                     <div class="wholesale-status-field">
-                                        <label>Amount Collected</label>
+                                        <label for="wholesale-amount-paid-{{ $transaction->id }}">Amount Collected @if($paymentLocked)<i class="fa-solid fa-lock ms-1 text-muted" title="Amount is locked because this order is fully paid." aria-label="Locked"></i>@endif</label>
                                         <div class="input-group input-group-sm">
                                             <span class="input-group-text">₱</span>
-                                            <input type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $productPaymentTotal }}" step="0.01" value="{{ number_format($collected, 2, '.', '') }}" placeholder="Amount paid" data-order-total="{{ $productPaymentTotal }}" @disabled($paymentLocked)>
+                                            <input id="wholesale-amount-paid-{{ $transaction->id }}" type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $productPaymentTotal }}" step="0.01" value="{{ number_format($collected, 2, '.', '') }}" placeholder="Amount paid" data-order-total="{{ $productPaymentTotal }}" title="{{ $paymentLocked ? 'Amount is locked because this order is fully paid.' : '' }}" @disabled($paymentLocked)>
                                             @if($paymentLocked)
                                                 <input type="hidden" name="amount_paid" value="{{ number_format($collected, 2, '.', '') }}">
                                             @endif
-                                            <button type="submit" class="btn btn-primary">Save</button>
                                         </div>
                                     </div>
                                     <div class="wholesale-status-field">
-                                        <label>Invoice Number</label>
-                                        <input type="text" name="invoice_number" class="form-control form-control-sm" value="{{ $transaction->invoice_number }}" placeholder="Add invoice number">
+                                        <label for="wholesale-invoice-number-{{ $transaction->id }}">Invoice Number</label>
+                                        <input id="wholesale-invoice-number-{{ $transaction->id }}" type="text" name="invoice_number" class="form-control form-control-sm" value="{{ $transaction->invoice_number }}" placeholder="Add invoice number">
                                     </div>
-                                    <div class="row g-2">
-                                        <div class="col-6">
-                                            <label class="form-label small mb-1">Withholding Tax Amount</label>
-                                            <input type="number" name="withholding_tax_amount" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingAmount === null ? '' : number_format($withholdingAmount, 2, '.', '') }}" placeholder="Amount">
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="form-label small mb-1">Withholding Tax</label>
-                                            <input type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Tax">
-                                        </div>
+                                    <div class="wholesale-status-field">
+                                        <label for="wholesale-withholding-amount-{{ $transaction->id }}">Withholding Tax Amount</label>
+                                        <input id="wholesale-withholding-amount-{{ $transaction->id }}" type="number" name="withholding_tax_amount" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingAmount === null ? '' : number_format($withholdingAmount, 2, '.', '') }}" placeholder="Amount">
                                     </div>
-                                    <small class="text-muted">Withholding tax affects the displayed Order Value and monthly subtotal, not Collected.</small>
-                                    <small class="text-muted payment-balance-help">{{ $paymentLocked ? 'Payment is fully paid and locked. Delivery status remains editable.' : 'For Partial, enter an amount below ₱'.number_format($productPaymentTotal, 2).'.' }}</small>
-                                    <small class="text-danger d-none payment-amount-error">An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.</small>
+                                    <div class="wholesale-status-field">
+                                        <label for="wholesale-wholesale-tax-{{ $transaction->id }}">Withholding Tax</label>
+                                        <input id="wholesale-wholesale-tax-{{ $transaction->id }}" type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Tax">
+                                    </div>
+                                    <div class="wholesale-status-note">
+                                        <i class="fa-solid fa-circle-info me-1" data-bs-toggle="tooltip" title="This affects displayed Order Value and monthly subtotals only; it does not change customer payment or Collected."></i>
+                                        Withholding tax changes the displayed Order Value and monthly subtotal, not Collected.
+                                    </div>
+                                    <div class="wholesale-status-help">
+                                        @if($paymentLocked)
+                                            <div class="alert alert-info py-2 px-3 mb-0"><i class="fa-solid fa-lock me-1"></i>Payment is fully paid and locked. Delivery status remains editable.</div>
+                                        @else
+                                            <small class="text-muted payment-balance-help">{{ $paymentStatus === 'partial' ? 'For Partial, enter an amount below ₱'.number_format($productPaymentTotal, 2).'.' : 'Enter the amount collected. Set payment status to Paid to collect the full order value.' }}</small>
+                                        @endif
+                                        <small class="text-danger d-none payment-amount-error">An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.</small>
+                                    </div>
                                 </div>
+                                <div class="wholesale-proof-upload d-none" data-upload-form="{{ 'wholesale-status-form-'.$transaction->id }}">
+                                    <label class="wholesale-proof-dropzone" for="wholesale-payment-proof-{{ $transaction->id }}">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                                        <span><strong>Upload payment proof</strong><small>Drag &amp; drop or browse · JPG, PNG, WEBP or PDF (max 2 MB)</small></span>
+                                    </label>
+                                    <input id="wholesale-payment-proof-{{ $transaction->id }}" class="wholesale-proof-input" type="file" name="payment_proof" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                                    <div class="wholesale-proof-filename small text-muted mt-1" aria-live="polite"></div>
+                                </div>
+                                <button type="submit" class="btn btn-primary wholesale-save-button" disabled>
+                                    <i class="fa-solid fa-check me-1"></i>Save changes
+                                </button>
                             </form>
                             @can('manage-sales-status')
+                                <div class="wholesale-danger-zone">
+                                    <div class="wholesale-danger-title"><i class="fa-solid fa-triangle-exclamation me-1"></i>Danger zone</div>
                                 <form action="{{ route('hub.report.wholesale.refund', [$hub->id, $transaction->id]) }}" method="POST" class="wholesale-refund-form mt-2"
                                     data-order-number="{{ $transaction->order_number }}"
                                     data-refund-amount="{{ number_format($collected, 2, '.', '') }}">
@@ -385,6 +484,7 @@
                                     @endif
                                 </form>
                             @endcan
+                            </div>
                             @endif
                         </td>
                     </tr>
@@ -433,20 +533,39 @@
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <div>
-                    <h5 class="modal-title" id="wholesaleDetailsLabel"><i class="fa-solid fa-receipt me-2"></i>Wholesale Order Details</h5>
-                    <div class="small opacity-75" id="wholesaleDetailsSubtitle"></div>
+                <div class="wholesale-modal-header-main">
+                    <h5 class="modal-title wholesale-modal-title" id="wholesaleDetailsLabel"><i class="fa-solid fa-receipt me-2"></i><span id="wholesaleModalOrderNumber">Wholesale Order Details</span></h5>
+                    <div class="wholesale-modal-subtitle" id="wholesaleDetailsSubtitle"></div>
                 </div>
+                <div class="wholesale-modal-header-statuses" id="wholesaleDetailsStatusChips" aria-label="Order status"></div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body bg-light">
                 <div class="wholesale-detail-grid" id="wholesaleDetailsContent"></div>
             </div>
             <div class="modal-footer bg-white">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <div class="wholesale-order-update-meta" id="wholesaleDetailsUpdated"></div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="wholesalePrintInvoice">
+                        <i class="fa-solid fa-print me-1"></i>Print Invoice
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
+</div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3 wholesale-toast">
+    @if(session('success'))
+        <div class="toast align-items-center text-bg-success border-0" role="status" aria-live="polite" aria-atomic="true" data-bs-delay="5000">
+            <div class="d-flex"><div class="toast-body"><i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="8000">
+            <div class="d-flex"><div class="toast-body"><i class="fa-solid fa-circle-exclamation me-2"></i>{{ $errors->first() }}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>
+        </div>
+    @endif
 </div>
 @can('manage-sales-status')
 <div class="modal fade" id="wholesaleRefundConfirmModal" tabindex="-1" aria-labelledby="wholesaleRefundConfirmTitle" aria-hidden="true">
@@ -656,62 +775,369 @@
             const modalElement = document.getElementById('wholesaleDetailsModal');
             const content = document.getElementById('wholesaleDetailsContent');
             const subtitle = document.getElementById('wholesaleDetailsSubtitle');
+            const title = document.getElementById('wholesaleModalOrderNumber');
+            const statusChips = document.getElementById('wholesaleDetailsStatusChips');
+            const updated = document.getElementById('wholesaleDetailsUpdated');
             if (!modalElement || !content) return;
 
-            const labels = ['Company / Customer', 'Purchase Date', 'Mode of Payment', 'Order Value', 'Collected', 'Shipping Fee', 'Withholding Tax Amount', 'Invoice Number', 'Payment Status', 'Order Status', 'Delivery Status', 'Delivery / Pickup Date', 'Shipping Type', 'Courier', 'Check Date', 'Withholding Tax', 'Update Status'];
+            const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const cleanValue = value => (value || '').replace(/\s+/g, ' ').trim();
+            const createPanel = (titleText, icon, className = '') => {
+                const panel = document.createElement('section');
+                panel.className = `wholesale-info-panel ${className}`;
+                const heading = document.createElement('h6');
+                heading.className = 'wholesale-info-panel-title';
+                const headingIcon = document.createElement('i');
+                headingIcon.className = `fa-solid ${icon}`;
+                const headingText = document.createElement('span');
+                headingText.textContent = titleText;
+                heading.append(headingIcon, headingText);
+                const body = document.createElement('div');
+                body.className = 'wholesale-info-panel-body';
+                panel.append(heading, body);
+                return { panel, body };
+            };
+            const chipClass = (status, type) => {
+                const value = (status || '').toLowerCase();
+                if (value === 'refunded' || value === 'cancelled' || value === 'rejected') return 'is-danger';
+                if (type === 'payment' && value === 'paid') return 'is-success';
+                if (type === 'delivery' && value === 'delivered') return 'is-success';
+                if (value === 'pending' || value === 'unpaid' || value === 'partial' || value === 'preparing') return 'is-pending';
+                return '';
+            };
+            const addStatusChip = (label, type) => {
+                const chip = document.createElement('span');
+                chip.className = `wholesale-modal-chip ${chipClass(label, type)}`;
+                const icon = document.createElement('i');
+                icon.className = `fa-solid ${label.toLowerCase() === 'paid' || label.toLowerCase() === 'delivered' ? 'fa-circle-check' : label.toLowerCase() === 'refunded' ? 'fa-circle-xmark' : 'fa-circle-info'}`;
+                const text = document.createElement('span');
+                text.textContent = label;
+                chip.append(icon, text);
+                statusChips.append(chip);
+            };
+            const makeKpi = (label, value, subtitleText = '', accent = '') => {
+                const card = document.createElement('div');
+                card.className = 'wholesale-kpi';
+                if (accent) card.style.borderTop = `3px solid ${accent}`;
+                const heading = document.createElement('div');
+                heading.className = 'wholesale-kpi-label';
+                heading.textContent = label;
+                const amount = document.createElement('div');
+                amount.className = 'wholesale-kpi-value';
+                amount.textContent = value;
+                card.append(heading, amount);
+                if (subtitleText) {
+                    const detail = document.createElement('div');
+                    detail.className = 'wholesale-kpi-subtitle';
+                    detail.textContent = subtitleText;
+                    card.append(detail);
+                }
+                return card;
+            };
+            const panelValue = (cell, index) => {
+                const value = document.createElement('div');
+                value.className = 'wholesale-detail-value';
+                if (index === 2) {
+                    const source = cell.cloneNode(true);
+                    const details = source.querySelector('details');
+                    const method = cleanValue([...source.childNodes]
+                        .filter(node => node.nodeType === Node.TEXT_NODE)
+                        .map(node => node.textContent).join(' ')) || 'Not specified';
+                    const methodLine = document.createElement('div');
+                    methodLine.textContent = method;
+                    methodLine.className = 'fw-semibold mb-2';
+                    value.append(methodLine);
+                    if (details) {
+                        details.open = true;
+                        value.append(details);
+                    }
+                    return value;
+                }
+                value.append(...[...cell.childNodes].map(node => node.cloneNode(true)));
+                value.querySelector('.wholesale-view-details')?.remove();
+                value.querySelectorAll('details').forEach(details => details.open = true);
+                return value;
+            };
+            const addKeyValue = (body, labelText, valueNode, valueText) => {
+                const text = cleanValue(valueText);
+                if (!valueNode && (!text || ['—', '-', 'N/A'].includes(text.toUpperCase()))) return null;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'wholesale-detail-kv';
+                const label = document.createElement('span');
+                label.className = 'wholesale-detail-label';
+                label.textContent = labelText;
+                const value = valueNode || document.createElement('div');
+                value.classList.add('wholesale-detail-value');
+                if (!valueNode) value.textContent = text;
+                wrapper.append(label, value);
+                body.append(wrapper);
+                return wrapper;
+            };
 
             modalElement.addEventListener('show.bs.modal', event => {
                 const button = event.relatedTarget;
                 const row = document.querySelector(`[data-wholesale-order-row="${button?.dataset.orderId}"]`);
                 if (!row) return;
 
-                subtitle.textContent = `${button.dataset.customer} · Order #${button.dataset.orderNumber}`;
                 content.replaceChildren();
-
-                const buildSection = (cell, index) => {
-                    const section = document.createElement('section');
-                    section.className = 'wholesale-detail-section';
-                        if (index === 0) section.classList.add('wholesale-detail-items');
-                    if (index === 2) section.classList.add('wholesale-detail-payment');
-                    if (index === 16) section.classList.add('wholesale-detail-status');
-                    const label = document.createElement('div');
-                    label.className = 'wholesale-detail-label';
-                    label.textContent = labels[index];
-                    const value = document.createElement('div');
-                    value.append(...[...cell.childNodes].map(node => node.cloneNode(true)));
-                    value.querySelector('.wholesale-view-details')?.remove();
-                    value.querySelectorAll('details').forEach(details => details.open = true);
-                    section.append(label, value);
-                    return section;
-                };
-
                 const cells = [...row.cells];
-                const buildPanel = (title, icon, indexes, extraClass = '') => {
-                    const panel = document.createElement('section');
-                    panel.className = `wholesale-info-panel ${extraClass}`;
-                    const heading = document.createElement('h6');
-                    heading.className = 'wholesale-info-panel-title';
-                    heading.innerHTML = `<i class="fa-solid ${icon} me-2"></i>${title}`;
-                    const body = document.createElement('div');
-                    body.className = 'wholesale-info-panel-body';
-                    indexes.forEach(index => body.append(buildSection(cells[index], index)));
-                    panel.append(heading, body);
-                    return panel;
-                };
+                const customer = row.dataset.customer || button.dataset.customer || 'Customer';
+                const orderNumber = row.dataset.orderNumber || button.dataset.orderNumber || '';
+                const paymentStatus = row.dataset.paymentStatus || 'unpaid';
+                const orderStatus = row.dataset.orderStatus || 'confirmed';
+                const deliveryStatus = row.dataset.deliveryStatus || 'pending';
+                const amountCollected = Number(row.dataset.collected || 0);
+                const orderValue = Number(row.dataset.orderValue || 0);
+                const balance = Number(row.dataset.balance || 0);
+                const shippingFee = Number(row.dataset.shippingFee || 0);
+                title.textContent = `Wholesale Order #${orderNumber}`;
+                subtitle.replaceChildren();
+                subtitle.append(document.createTextNode(customer));
+                if (row.dataset.customerNew === 'true') {
+                    const newTag = document.createElement('span');
+                    newTag.className = 'badge rounded-pill text-bg-light text-primary ms-2';
+                    newTag.textContent = 'NEW';
+                    subtitle.append(newTag);
+                }
+                statusChips.replaceChildren();
+                addStatusChip(paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1), 'payment');
+                addStatusChip(orderStatus.charAt(0).toUpperCase() + orderStatus.slice(1), 'order');
+                addStatusChip(deliveryStatus.charAt(0).toUpperCase() + deliveryStatus.slice(1), 'delivery');
+                updated.textContent = `Last updated by ${row.dataset.updatedBy || '—'} · ${row.dataset.updatedAt || 'Date unavailable'}`;
 
-                content.append(buildPanel('Financial Summary', 'fa-chart-line', [3, 4, 5, 6, 15], 'wholesale-financial-panel'));
-                content.append(buildSection(cells[0], 0));
-                const groups = document.createElement('div');
-                groups.className = 'wholesale-detail-groups';
-                groups.append(
-                    buildPanel('Order Information', 'fa-file-invoice', [1, 7, 8, 9]),
-                    buildPanel('Fulfillment Details', 'fa-truck', [10, 11, 12, 13, 14]),
-                    buildPanel('Payment Details', 'fa-credit-card', [2])
+                const financial = createPanel('Financial Summary', 'fa-chart-line', 'wholesale-financial-panel');
+                const withholdingAmount = Number(row.dataset.withholdingAmount || 0);
+                const withholdingTax = Number(row.dataset.withholdingTax || 0);
+                const noWithholding = withholdingAmount <= 0 && withholdingTax <= 0;
+                financial.body.append(
+                    makeKpi('Order Value', money(orderValue), '', '#2563eb'),
+                    makeKpi('Collected', money(amountCollected), '', '#16a34a'),
+                    makeKpi('Shipping Fee', shippingFee > 0 ? money(shippingFee) : 'Free shipping', '', '#d97706'),
+                    makeKpi(
+                        'Withholding Tax',
+                        noWithholding ? 'No withholding tax' : money(withholdingAmount || withholdingTax),
+                        noWithholding ? '' : `Tax reference ${money(withholdingTax)}`,
+                        '#64748b'
+                    )
                 );
-                content.append(
-                    groups,
-                    buildPanel('Update Status & Refund', 'fa-sliders', [16], 'wholesale-status-panel')
-                );
+                const balanceLine = document.createElement('div');
+                balanceLine.className = 'wholesale-balance-line';
+                const balanceText = document.createElement('span');
+                const paidInFull = paymentStatus.toLowerCase() === 'paid' || balance <= 0;
+                balanceText.className = paidInFull ? 'is-paid' : 'is-due';
+                balanceText.innerHTML = paidInFull
+                    ? '<i class="fa-solid fa-circle-check me-1"></i>Fully paid'
+                    : `<i class="fa-solid fa-clock me-1"></i>Balance due ${money(balance)}`;
+                const collectedText = document.createElement('span');
+                collectedText.textContent = `${money(amountCollected)} collected`;
+                balanceLine.append(balanceText, collectedText);
+                const track = document.createElement('div');
+                track.className = 'wholesale-balance-track';
+                const progress = document.createElement('span');
+                progress.style.width = `${paidInFull ? 100 : Math.min(100, orderValue > 0 ? (amountCollected / orderValue) * 100 : 0)}%`;
+                track.append(progress);
+                financial.panel.append(balanceLine, track);
+                content.append(financial.panel);
+
+                const main = document.createElement('div');
+                main.className = 'wholesale-detail-main';
+                const items = createPanel('Ordered Items', 'fa-boxes-stacked', 'wholesale-ordered-items');
+                const sourceItems = row.querySelectorAll('.item-line[data-item-name]');
+                const table = document.createElement('table');
+                table.className = 'wholesale-items-table';
+                const tableHead = document.createElement('thead');
+                tableHead.innerHTML = '<tr><th>Item</th><th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Discount</th><th class="text-end">Line Total</th><th>Status / Action</th></tr>';
+                const tableBody = document.createElement('tbody');
+                const list = document.createElement('div');
+                list.className = 'wholesale-item-list is-collapsed';
+                let subtotal = 0;
+                sourceItems.forEach(sourceItem => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'wholesale-item-row';
+                    const nameCell = document.createElement('td');
+                    const itemName = document.createElement('div');
+                    itemName.className = 'wholesale-item-name';
+                    itemName.textContent = sourceItem.dataset.itemName || 'Inventory item';
+                    nameCell.append(itemName);
+                    const sourceBadge = sourceItem.querySelector('.fw-semibold .badge');
+                    const itemStatus = document.createElement('span');
+                    itemStatus.className = 'wholesale-item-status';
+                    const good = Number(sourceItem.dataset.itemGoodReturned || 0);
+                    const damaged = Number(sourceItem.dataset.itemDamagedReturned || 0);
+                    const statusText = sourceBadge?.textContent.trim() || (good + damaged > 0 ? 'RETURNED' : 'Active');
+                    const statusBadge = document.createElement('span');
+                    statusBadge.className = `badge ${statusText.toLowerCase().includes('pending') ? 'text-bg-warning' : statusText.toLowerCase().includes('rejected') ? 'text-bg-danger' : statusText.toLowerCase().includes('return') ? 'text-bg-info' : 'text-bg-light'}`;
+                    statusBadge.textContent = statusText;
+                    itemStatus.append(statusBadge);
+                    if (good + damaged > 0) {
+                        const conditionLine = document.createElement('span');
+                        conditionLine.className = 'd-block mt-1';
+                        const goodLabel = document.createElement('span');
+                        goodLabel.className = 'text-success';
+                        goodLabel.textContent = `Good ${good}`;
+                        const damagedLabel = document.createElement('span');
+                        damagedLabel.className = 'text-danger ms-2';
+                        damagedLabel.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i>Damaged ${damaged}`;
+                        conditionLine.append(goodLabel, damagedLabel);
+                        itemStatus.append(conditionLine);
+                    }
+                    nameCell.append(itemStatus);
+                    const replacementDetails = [...sourceItem.children].filter(child => child.classList.contains('mt-1'));
+                    replacementDetails.forEach(detail => {
+                        const clone = detail.cloneNode(true);
+                        clone.classList.add('small', 'mt-1');
+                        nameCell.append(clone);
+                    });
+                    const qty = Number(sourceItem.dataset.itemQuantity || 0);
+                    const unitPrice = Number(sourceItem.dataset.itemUnitPrice || 0);
+                    const discount = Number(sourceItem.dataset.itemDiscount || 0);
+                    const lineTotal = Number(sourceItem.dataset.itemLineTotal || 0);
+                    subtotal += lineTotal;
+                    const addCell = (text, label, right = false) => {
+                        const td = document.createElement('td');
+                        td.dataset.label = label;
+                        if (right) td.className = 'text-end';
+                        td.textContent = text;
+                        tr.append(td);
+                    };
+                    tr.append(nameCell);
+                    addCell(String(qty), 'Qty', true);
+                    addCell(money(unitPrice), 'Unit Price', true);
+                    addCell(`${discount.toFixed(2)}%`, 'Discount', true);
+                    addCell(money(lineTotal), 'Line Total', true);
+                    const actionCell = document.createElement('td');
+                    actionCell.dataset.label = 'Status / Action';
+                    const replace = sourceItem.querySelector('.wholesale-replace-button');
+                    if (replace) {
+                        const replaceClone = replace.cloneNode(true);
+                        replaceClone.classList.add('btn-sm');
+                        actionCell.append(replaceClone);
+                    } else {
+                        const statusBadge = sourceItem.querySelector('.fw-semibold .badge');
+                        if (statusBadge) actionCell.append(statusBadge.cloneNode(true));
+                        else actionCell.textContent = '—';
+                    }
+                    tr.append(actionCell);
+                    tableBody.append(tr);
+                });
+                table.append(tableHead, tableBody);
+                list.append(table);
+                items.body.append(list);
+                const itemCount = sourceItems.length;
+                if (itemCount > 5) {
+                    const showAll = document.createElement('button');
+                    showAll.type = 'button';
+                    showAll.className = 'wholesale-show-all';
+                    showAll.textContent = `Show all ${itemCount} items`;
+                    showAll.addEventListener('click', () => {
+                        const expanded = list.classList.toggle('is-collapsed') === false;
+                        showAll.textContent = expanded ? 'Show fewer items' : `Show all ${itemCount} items`;
+                    });
+                    items.body.append(showAll);
+                } else {
+                    list.classList.remove('is-collapsed');
+                }
+                const itemFooter = document.createElement('div');
+                itemFooter.className = 'wholesale-item-footer';
+                itemFooter.innerHTML = `<span><strong>${itemCount}</strong> product item(s)</span><span>Subtotal <strong>${money(Number(row.dataset.subtotal || subtotal))}</strong></span><span>Shipping <strong>${shippingFee > 0 ? money(shippingFee) : 'Free'}</strong></span><span>Grand total <strong>${money(orderValue)}</strong></span>`;
+                items.panel.append(itemFooter);
+                main.append(items.panel);
+
+                const side = document.createElement('div');
+                side.className = 'wholesale-detail-side';
+                const orderInfo = createPanel('Order Information', 'fa-file-invoice');
+                [
+                    ['Purchase Date', 1],
+                    ['Invoice Number', 7],
+                    ['Payment Status', 8],
+                    ['Order Status', 9],
+                ].forEach(([label, index]) => {
+                    const text = cleanValue(cells[index]?.textContent);
+                    if (index === 7 && (!text || text === '—')) {
+                        const link = document.createElement('button');
+                        link.type = 'button';
+                        link.className = 'btn btn-link btn-sm p-0';
+                        link.textContent = 'Add invoice number';
+                        link.addEventListener('click', () => {
+                            const input = content.querySelector('.status-update-form [name="invoice_number"]');
+                            input?.focus();
+                        });
+                        addKeyValue(orderInfo.body, label, link, '');
+                    } else {
+                        addKeyValue(orderInfo.body, label, null, text);
+                    }
+                });
+                const fulfillment = createPanel('Fulfillment', 'fa-truck-fast');
+                [
+                    ['Delivery Status', 10],
+                    ['Delivery Date', 11],
+                    ['Shipping Type', 12],
+                    ['Courier', 13],
+                    ['Check Date', 14],
+                ].forEach(([label, index]) => addKeyValue(fulfillment.body, label, null, cells[index]?.textContent));
+
+                const payment = createPanel('Payment', 'fa-credit-card');
+                const paymentValue = panelValue(cells[2], 2);
+                const proofDetails = paymentValue.querySelector('details');
+                const paymentInfo = document.createElement('div');
+                paymentInfo.className = 'wholesale-detail-kv wholesale-payment-proof';
+                const paymentLabel = document.createElement('span');
+                paymentLabel.className = 'wholesale-detail-label';
+                paymentLabel.textContent = 'Mode of Payment & Proof';
+                paymentInfo.append(paymentLabel, paymentValue);
+                payment.body.append(paymentInfo);
+
+                const statusPanel = createPanel('Update Status', 'fa-sliders');
+                const statusSourceForm = cells[16].querySelector('.status-update-form');
+                const statusForm = statusSourceForm?.cloneNode(true);
+                let refundForm = cells[16].querySelector('.wholesale-refund-form')?.cloneNode(true);
+                let uploadPanel = null;
+                if (statusForm) {
+                    statusForm.id = 'wholesaleStatusModalForm';
+                    statusForm.querySelectorAll('[id]').forEach(element => {
+                        const oldId = element.id;
+                        element.id = `${oldId}-modal`;
+                        statusForm.querySelectorAll(`label[for="${oldId}"]`).forEach(label => label.htmlFor = element.id);
+                    });
+                    const upload = statusForm.querySelector('.wholesale-proof-upload');
+                    if (upload) {
+                        uploadPanel = upload;
+                        upload.classList.remove('d-none');
+                        upload.querySelector('input[type="file"]')?.setAttribute('form', statusForm.id);
+                    }
+                    const saveButton = statusForm.querySelector('.wholesale-save-button');
+                    if (saveButton) {
+                        saveButton.disabled = true;
+                    }
+                    statusPanel.body.append(statusForm);
+                }
+                if (refundForm) {
+                    const dangerZone = document.createElement('div');
+                    dangerZone.className = 'wholesale-danger-zone';
+                    const dangerTitle = document.createElement('div');
+                    dangerTitle.className = 'wholesale-danger-title';
+                    dangerTitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i>Danger zone';
+                    dangerZone.append(dangerTitle, refundForm);
+                    statusPanel.body.append(dangerZone);
+                }
+                if (proofDetails) {
+                    proofDetails.open = true;
+                    proofDetails.classList.add('d-block');
+                }
+                if (uploadPanel && paymentValue.querySelector('.payment-proof-empty')) {
+                    paymentValue.querySelector('.payment-proof-empty').remove();
+                    uploadPanel.querySelector('.wholesale-proof-input')?.setAttribute('form', statusForm.id);
+                    paymentValue.append(uploadPanel);
+                }
+                side.append(orderInfo.panel, fulfillment.panel, payment.panel);
+                main.append(side);
+                content.append(main, statusPanel.panel);
+
+                content.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(element => {
+                    if (window.bootstrap?.Tooltip) bootstrap.Tooltip.getOrCreateInstance(element);
+                });
+                setupStatusDirtyState(statusForm);
+                setupProofDropzone(uploadPanel);
             });
 
             content.addEventListener('click', event => {
@@ -754,6 +1180,61 @@
             return !invalidUnpaidAmount;
         };
 
+        const statusFormValues = (form) => [...form.elements]
+            .filter(element => element.name && !['_token', '_method'].includes(element.name))
+            .map(element => {
+                if (element.type === 'file') {
+                    return `${element.name}:${[...element.files].map(file => `${file.name}:${file.size}`).join(',')}`;
+                }
+                if (element.type === 'checkbox' || element.type === 'radio') {
+                    return `${element.name}:${element.checked ? element.value : ''}`;
+                }
+
+                return `${element.name}:${element.value}`;
+            })
+            .join('|');
+        const updateStatusDirtyState = (form) => {
+            if (!form || form.id !== 'wholesaleStatusModalForm') return;
+            const button = form.querySelector('.wholesale-save-button');
+            if (!button) return;
+            const changed = form.dataset.initialValues !== statusFormValues(form);
+            button.disabled = !changed;
+            button.title = changed ? 'Save the changes made to this order.' : 'No changes to save.';
+        };
+        const setupStatusDirtyState = (form) => {
+            if (!form) return;
+            form.dataset.initialValues = statusFormValues(form);
+            updateStatusDirtyState(form);
+        };
+        const setupProofDropzone = (wrapper) => {
+            if (!wrapper) return;
+            const input = wrapper.querySelector('.wholesale-proof-input');
+            const zone = wrapper.querySelector('.wholesale-proof-dropzone');
+            const filename = wrapper.querySelector('.wholesale-proof-filename');
+            if (!input || !zone) return;
+            const updateFilename = () => {
+                filename.textContent = input.files.length ? `Selected: ${input.files[0].name}` : '';
+                updateStatusDirtyState(input.form);
+            };
+            input.addEventListener('change', updateFilename);
+            ['dragenter', 'dragover'].forEach(type => zone.addEventListener(type, event => {
+                event.preventDefault();
+                zone.classList.add('is-dragging');
+            }));
+            ['dragleave', 'drop'].forEach(type => zone.addEventListener(type, event => {
+                event.preventDefault();
+                zone.classList.remove('is-dragging');
+            }));
+            zone.addEventListener('drop', event => {
+                const file = event.dataTransfer?.files?.[0];
+                if (!file) return;
+                const transfer = new DataTransfer();
+                transfer.items.add(file);
+                input.files = transfer.files;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        };
+
         document.addEventListener('change', event => {
             if (event.target.matches('.status-update-form [name="payment_status"]')) {
                 const form = event.target.form;
@@ -773,10 +1254,16 @@
                 }
                 updatePaymentAmountState(form);
             }
+            if (event.target.closest('.status-update-form')) {
+                updateStatusDirtyState(event.target.form);
+            }
         });
         document.addEventListener('input', event => {
             if (event.target.matches('.status-update-form .amount-paid-input')) {
                 updatePaymentAmountState(event.target.form);
+            }
+            if (event.target.closest('.status-update-form')) {
+                updateStatusDirtyState(event.target.form);
             }
         });
         let pendingRefundForm = null;
@@ -802,9 +1289,15 @@
                 }
             }
 
-            if (event.target.matches('.status-update-form') && !updatePaymentAmountState(event.target)) {
-                event.preventDefault();
-                event.target.querySelector('.amount-paid-input')?.reportValidity();
+            if (event.target.matches('.status-update-form')) {
+                if (!updatePaymentAmountState(event.target)) {
+                    event.preventDefault();
+                    event.target.querySelector('.amount-paid-input')?.reportValidity();
+                    return;
+                }
+                if (event.target.id === 'wholesaleStatusModalForm' && event.target.querySelector('.wholesale-save-button')?.disabled) {
+                    event.preventDefault();
+                }
             }
         });
         refundConfirmButton?.addEventListener('click', () => {
@@ -821,6 +1314,30 @@
             if (refundConfirmButton) refundConfirmButton.disabled = false;
         });
         document.querySelectorAll('.status-update-form').forEach(updatePaymentAmountState);
+        document.querySelectorAll('.toast-container .toast').forEach(element => {
+            if (window.bootstrap?.Toast) bootstrap.Toast.getOrCreateInstance(element).show();
+        });
+
+        document.getElementById('wholesalePrintInvoice')?.addEventListener('click', () => {
+            const modal = document.getElementById('wholesaleDetailsModal');
+            if (!modal) return;
+            const parent = modal.parentNode;
+            const next = modal.nextSibling;
+            const previousTitle = document.title;
+            const titleText = modal.querySelector('#wholesaleModalOrderNumber')?.textContent || 'Wholesale Order';
+            document.title = titleText;
+            document.body.append(modal);
+            document.body.classList.add('wholesale-print-mode');
+            const restore = () => {
+                document.body.classList.remove('wholesale-print-mode');
+                document.title = previousTitle;
+                if (parent) parent.insertBefore(modal, next);
+                window.removeEventListener('afterprint', restore);
+            };
+            window.addEventListener('afterprint', restore, { once: true });
+            window.print();
+            window.setTimeout(restore, 1200);
+        });
 
         (() => {
             const modal = document.getElementById('wholesaleReplacementModal');
