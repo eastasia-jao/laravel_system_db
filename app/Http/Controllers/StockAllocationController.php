@@ -64,6 +64,10 @@ class StockAllocationController extends Controller
                     ->whereDate('sales_transactions.order_date', '>=', $soldFrom)
                     ->whereDate('sales_transactions.order_date', '<=', $soldTo)
                     ->where(function ($query) {
+                        $query->whereNull('sales_transactions.channel_type')
+                            ->orWhere('sales_transactions.channel_type', '<>', 'event');
+                    })
+                    ->where(function ($query) {
                         $query->whereNull('sales_transactions.status')
                             ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
                     })
@@ -75,7 +79,8 @@ class StockAllocationController extends Controller
         $soldByProduct = app(StockAllocationSales::class)->soldByProduct(
             $products->getCollection()->pluck('id'),
             $soldFrom,
-            $soldTo
+            $soldTo,
+            includeEventSales: false
         );
 
         $products->getCollection()->transform(function (Product $product) use ($soldByProduct) {
@@ -189,5 +194,4 @@ class StockAllocationController extends Controller
         return redirect()->route('stock-allocation.index', array_filter($allocationQuery, fn ($value) => $value !== null && $value !== ''))
             ->with('success', 'Stock allocations updated successfully.');
     }
-
 }

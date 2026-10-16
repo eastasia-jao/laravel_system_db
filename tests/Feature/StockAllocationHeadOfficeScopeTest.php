@@ -133,6 +133,7 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-DATES', 'status' => 'active', 'is_head_office' => true]);
         $soldProduct = Product::create(['store_hub_id' => $headOffice->id, 'item_id' => 'SOLD-ITEM', 'name' => 'Sold During Range', 'stock' => 10, 'status' => 'active']);
         $outsideRangeProduct = Product::create(['store_hub_id' => $headOffice->id, 'item_id' => 'OLD-ITEM', 'name' => 'Sold Outside Range', 'stock' => 10, 'status' => 'active']);
+        $eventOnlyProduct = Product::create(['store_hub_id' => $headOffice->id, 'item_id' => 'EVENT-ITEM', 'name' => 'Event Sold During Range', 'stock' => 10, 'status' => 'active']);
         Product::create(['store_hub_id' => $headOffice->id, 'item_id' => 'NONE-ITEM', 'name' => 'Never Sold', 'stock' => 10, 'status' => 'active']);
         $admin = User::factory()->create(['role' => 'admin']);
 
@@ -150,6 +151,13 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         ]);
         $outsideRangeSale->items()->create(['product_id' => $outsideRangeProduct->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100]);
 
+        $eventSale = SalesTransaction::create([
+            'user_id' => $admin->id, 'store_hub_id' => $headOffice->id, 'channel_type' => 'event',
+            'customer_name' => 'Event Customer', 'order_number' => 'EVENT-RANGE-001', 'order_date' => '2026-10-02',
+            'grand_total' => 200, 'status' => 'completed',
+        ]);
+        $eventSale->items()->create(['product_id' => $eventOnlyProduct->id, 'quantity' => 2, 'unit_price' => 100, 'line_total' => 200]);
+
         $response = $this->actingAs($admin)->get(route('stock-allocation.index', [
             'hub_id' => $headOffice->id,
             'sold_from' => '2026-10-02',
@@ -159,6 +167,7 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         $response->assertOk()
             ->assertSee('Sold During Range')
             ->assertDontSee('Sold Outside Range')
+            ->assertDontSee('Event Sold During Range')
             ->assertDontSee('Never Sold')
             ->assertSee('2026-10-02 to 2026-10-02');
         $this->assertSame([$soldProduct->id], $response->viewData('products')->getCollection()->pluck('id')->all());

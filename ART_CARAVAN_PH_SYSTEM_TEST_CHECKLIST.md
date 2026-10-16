@@ -202,6 +202,7 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Total allocated never exceeds Good stock; Damaged stock does not increase capacity.
 - [ ] Reducing an allocation cannot create a negative channel balance or invalidate already committed stock.
 - [ ] Current allocation is displayed as the live remaining balance; historical Sold quantities are informational and are not subtracted a second time.
+- [ ] Event sales are excluded from Stock Allocation Sold counts and sold-date filtering because their stock was already deducted during Event pull-out.
 - [ ] Walk-In availability equals unallocated Good stock and cannot consume units reserved for another channel.
 - [ ] Sales deduct only the originating channel's live allocation (or Walk-In unallocated capacity).
 - [ ] Good returns restore the correct originating balance according to the channel return rules; Damaged returns do not restore sellable allocation.

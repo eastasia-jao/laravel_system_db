@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Product;
 use App\Models\PendingSale;
+use App\Models\Product;
 use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
@@ -15,7 +15,7 @@ class WalkInSoldAllocationDisplayTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_walk_in_sold_items_are_not_grouped_with_online_sales(): void
+    public function test_walk_in_sold_items_are_separate_and_event_sales_are_excluded_from_stock_allocation(): void
     {
         $hub = StoreHub::create([
             'name' => 'Head Office',
@@ -33,7 +33,7 @@ class WalkInSoldAllocationDisplayTest extends TestCase
             'status' => 'active',
         ]);
 
-        foreach (['online' => 2, 'walk_in' => 3] as $channel => $quantity) {
+        foreach (['online' => 2, 'walk_in' => 3, 'event' => 4] as $channel => $quantity) {
             $sale = SalesTransaction::create([
                 'user_id' => $admin->id,
                 'store_hub_id' => $hub->id,
@@ -61,6 +61,7 @@ class WalkInSoldAllocationDisplayTest extends TestCase
 
         $this->assertSame(2, $listedProduct->sold_values->get('online'));
         $this->assertSame(3, $listedProduct->sold_values->get('walk_in'));
+        $this->assertFalse($listedProduct->sold_values->has('event'));
     }
 
     public function test_walk_in_sale_cannot_consume_stock_reserved_for_allocated_channels(): void

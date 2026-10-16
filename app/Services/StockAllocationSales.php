@@ -7,8 +7,12 @@ use Illuminate\Support\Facades\DB;
 
 class StockAllocationSales
 {
-    public function soldByProduct(iterable $productIds, ?string $soldFrom = null, ?string $soldTo = null): Collection
-    {
+    public function soldByProduct(
+        iterable $productIds,
+        ?string $soldFrom = null,
+        ?string $soldTo = null,
+        bool $includeEventSales = true
+    ): Collection {
         $productIds = collect($productIds)->values();
         if ($productIds->isEmpty()) {
             return collect();
@@ -20,6 +24,10 @@ class StockAllocationSales
             ->when($soldFrom && $soldTo, fn ($query) => $query
                 ->whereDate('sales_transactions.order_date', '>=', $soldFrom)
                 ->whereDate('sales_transactions.order_date', '<=', $soldTo))
+            ->when(! $includeEventSales, fn ($query) => $query->where(function ($nested) {
+                $nested->whereNull('sales_transactions.channel_type')
+                    ->orWhere('sales_transactions.channel_type', '<>', 'event');
+            }))
             ->where(function ($query) {
                 $query->whereNull('sales_transactions.status')
                     ->orWhereNotIn('sales_transactions.status', ['cancelled', 'rejected']);
@@ -42,6 +50,10 @@ class StockAllocationSales
             ->when($soldFrom && $soldTo, fn ($query) => $query
                 ->whereDate('occurred_on', '>=', $soldFrom)
                 ->whereDate('occurred_on', '<=', $soldTo))
+            ->when(! $includeEventSales, fn ($query) => $query->where(function ($nested) {
+                $nested->whereNull('channel')
+                    ->orWhere('channel', '<>', 'event');
+            }))
             ->whereIn('type', ['return', 'replacement_return', 'replacement_out'])
             ->whereNotNull('channel')
             ->select('product_id', 'channel', 'type')
