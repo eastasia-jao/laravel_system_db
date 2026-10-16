@@ -44,6 +44,11 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('This cannot be undone.', $html);
         $this->assertStringNotContainsString('window.confirm(refundForm.dataset.confirmMessage', $html);
         $this->assertStringContainsString('wholesale-detail-main', $html);
+        $this->assertStringContainsString('grid-template-columns: 1.6fr 1fr', $html);
+        $this->assertStringContainsString('grid-template-columns: repeat(3, minmax(0, 1fr))', $html);
+        $this->assertStringContainsString('main.append(leftColumn, rightColumn)', $html);
+        $this->assertStringContainsString('wholesale-payment-layout', $html);
+        $this->assertStringContainsString('wholesale-status-actions', $html);
         $this->assertStringContainsString('Upload payment proof', $html);
         $this->assertStringContainsString('Print Invoice', $html);
         $this->assertStringContainsString('wholesale-save-button', $html);

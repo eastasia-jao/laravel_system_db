@@ -48,10 +48,10 @@
     .wholesale-modal-chip.is-success { color: #dcfce7; background: rgba(22,101,52,.25); }
     .wholesale-modal-chip.is-pending { color: #fef3c7; background: rgba(146,64,14,.28); }
     .wholesale-modal-chip.is-danger { color: #fee2e2; background: rgba(153,27,27,.3); }
-    .wholesale-detail-grid { display: flex; flex-direction: column; gap: .8rem; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--wholesale-ink); }
+    .wholesale-detail-grid { display: flex; flex-direction: column; gap: 16px; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--wholesale-ink); }
     .wholesale-info-panel { min-width: 0; overflow: hidden; border: 1px solid var(--wholesale-border); border-radius: 10px; background: #fff; box-shadow: 0 2px 7px rgba(15,23,42,.035); }
     .wholesale-info-panel-title { display: flex; align-items: center; gap: .45rem; margin: 0; padding: .65rem .8rem; border-bottom: 1px solid var(--wholesale-border); color: #334155; background: #fff; font-size: .88rem; font-weight: 650; }
-    .wholesale-info-panel-body { padding: .75rem; }
+    .wholesale-info-panel-body { padding: 16px; }
     .wholesale-financial-panel .wholesale-info-panel-body { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; padding: .7rem; }
     .wholesale-kpi { min-width: 0; padding: .65rem .75rem; border: 1px solid var(--wholesale-border); border-radius: 8px; background: #fff; }
     .wholesale-kpi-label, .wholesale-detail-label { display: block; margin-bottom: .3rem; color: var(--wholesale-muted); font-size: .68rem; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; }
@@ -62,14 +62,23 @@
     .wholesale-balance-line .is-due { color: #b45309; font-weight: 700; }
     .wholesale-balance-track { height: 4px; margin: 0 .8rem .75rem; overflow: hidden; border-radius: 999px; background: #e5e7eb; }
     .wholesale-balance-track span { display: block; height: 100%; border-radius: inherit; background: #16a34a; }
-    .wholesale-detail-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); gap: .8rem; align-items: start; }
-    .wholesale-detail-side { display: grid; gap: .7rem; min-width: 0; }
+    .wholesale-detail-main { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; align-items: stretch; }
+    .wholesale-detail-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .wholesale-detail-column > .wholesale-info-panel { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+    .wholesale-detail-column > .wholesale-info-panel > .wholesale-info-panel-body { flex: 1 1 auto; }
     .wholesale-detail-kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem .8rem; }
-    .wholesale-detail-kv { min-width: 0; padding-bottom: .5rem; border-bottom: 1px solid #f1f5f9; }
+    .wholesale-detail-kv { min-width: 0; padding-bottom: .35rem; border-bottom: 1px solid #f1f5f9; }
     .wholesale-detail-kv:last-child, .wholesale-detail-kv:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+    .wholesale-status-chip { display: inline-flex; align-items: center; gap: .25rem; padding: .2rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 700; line-height: 1.2; }
+    .wholesale-status-chip.is-success { color: #166534; background: #dcfce7; }
+    .wholesale-status-chip.is-pending { color: #92400e; background: #fef3c7; }
+    .wholesale-status-chip.is-danger { color: #991b1b; background: #fee2e2; }
+    .wholesale-status-chip.is-info { color: #1e40af; background: #dbeafe; }
     .wholesale-detail-value { overflow-wrap: anywhere; color: #1f2937; font-size: .86rem; font-weight: 550; }
     .wholesale-items-table { width: 100%; margin: 0; border-collapse: separate; border-spacing: 0; }
     .wholesale-items-table th { padding: .55rem .6rem; border-bottom: 1px solid var(--wholesale-border); color: var(--wholesale-muted); background: #f8fafc; font-size: .66rem; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+    .wholesale-items-table th:first-child, .wholesale-items-table td:first-child { width: 34%; }
+    .wholesale-items-table th:last-child, .wholesale-items-table td:last-child { width: 13%; }
     .wholesale-items-table td { padding: .55rem .6rem; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: .78rem; vertical-align: middle; }
     .wholesale-items-table td.text-end, .wholesale-items-table th.text-end { text-align: right; font-variant-numeric: tabular-nums; }
     .wholesale-item-name { color: #111827; font-size: .82rem; font-weight: 650; }
@@ -78,41 +87,54 @@
     .wholesale-item-list.is-collapsed .wholesale-item-row:nth-child(n+6) { display: none; }
     .wholesale-show-all { margin: .55rem .7rem; padding: 0; border: 0; color: var(--wholesale-blue); background: none; font-size: .78rem; font-weight: 650; }
     .wholesale-payment-proof { min-width: 0; }
+    .wholesale-payment-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 16px; height: 100%; }
+    .wholesale-payment-method strong { color: #111827; font-size: 1rem; }
+    .wholesale-payment-proof-slot { display: flex; min-width: 0; min-height: 80px; align-items: center; justify-content: center; gap: 10px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+    .wholesale-proof-empty-note { color: var(--wholesale-muted); font-size: .76rem; text-align: center; }
+    .wholesale-proof-thumbnail { display: block; width: 88px; height: 64px; border-radius: 5px; object-fit: cover; }
+    .wholesale-proof-document { color: var(--wholesale-blue); font-size: 2rem; }
+    .wholesale-payment-proof-slot .wholesale-proof-upload { width: 100%; }
+    .wholesale-payment-proof-slot .wholesale-proof-dropzone { min-height: 80px; }
     .wholesale-detail-payment .payment-proof-empty { display: none; }
-    .wholesale-proof-upload { margin-top: .7rem; }
-    .wholesale-proof-dropzone { display: flex; min-height: 82px; align-items: center; justify-content: center; gap: .75rem; padding: 1rem; border: 1.5px dashed #94a3b8; border-radius: 9px; color: #475569; background: #f8fafc; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+    .wholesale-proof-upload { margin: 0; }
+    .wholesale-proof-dropzone { display: flex; min-height: 80px; align-items: center; justify-content: center; gap: .75rem; padding: .65rem; border: 1.5px dashed #94a3b8; border-radius: 9px; color: #475569; background: #f8fafc; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
     .wholesale-proof-dropzone:hover, .wholesale-proof-dropzone.is-dragging { border-color: var(--wholesale-blue); background: #eff6ff; }
     .wholesale-proof-dropzone > i { color: var(--wholesale-blue); font-size: 1.25rem; }
     .wholesale-proof-dropzone strong, .wholesale-proof-dropzone small { display: block; }
     .wholesale-proof-dropzone small { margin-top: .15rem; color: var(--wholesale-muted); font-size: .72rem; }
     .wholesale-proof-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
-    .wholesale-detail-status .wholesale-info-panel-body { padding: .8rem; }
+    .wholesale-detail-status .wholesale-info-panel-body { padding: 16px; }
     .wholesale-detail-status .wholesale-detail-section { padding: 0; border: 0; background: transparent; }
     .wholesale-detail-status .wholesale-detail-label { display: none; }
     .wholesale-detail-status .wholesale-detail-section > div:last-child { display: block; }
-    .wholesale-detail-status .status-update-form { display: grid; gap: .75rem; margin: 0; }
-    .wholesale-detail-status .wholesale-status-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+    .wholesale-detail-status .status-update-form { display: grid; gap: 16px; margin: 0; }
+    .wholesale-detail-status .wholesale-status-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     .wholesale-detail-status .wholesale-status-field { min-width: 0; }
     .wholesale-detail-status .wholesale-status-field label { display: block; margin: 0 0 .35rem; color: var(--wholesale-muted); font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
     .wholesale-detail-status .wholesale-status-field .form-control,
-    .wholesale-detail-status .wholesale-status-field .form-select { min-height: 38px; }
+    .wholesale-detail-status .wholesale-status-field .form-select,
+    .wholesale-detail-status .wholesale-status-field .input-group,
+    .wholesale-detail-status .wholesale-status-field .input-group-text { height: 38px; min-height: 38px; }
     .wholesale-detail-status .wholesale-status-fields > .row { grid-column: 1 / -1; display: contents; margin: 0; }
     .wholesale-detail-status .wholesale-status-fields > .row > div { min-width: 0; }
     .wholesale-detail-status .wholesale-status-note,
     .wholesale-detail-status .wholesale-status-help { color: var(--wholesale-muted); font-size: .76rem; }
-    .wholesale-detail-status .wholesale-save-button { justify-self: end; min-width: 150px; }
+    .wholesale-status-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .wholesale-status-banner { flex: 1 1 auto; padding: .6rem .75rem; border: 1px solid #bfdbfe; border-radius: 8px; color: #1e3a8a; background: #eff6ff; font-size: .76rem; }
+    .wholesale-status-banner .payment-amount-error { display: block; margin-top: .25rem; }
+    .wholesale-detail-status .wholesale-save-button { flex: 0 0 auto; min-width: 150px; }
     .wholesale-detail-status .wholesale-save-button:disabled { opacity: .55; cursor: not-allowed; }
-    .wholesale-detail-status .wholesale-danger-zone { margin-top: .85rem; padding: .8rem; border: 1px solid #fecaca; border-radius: 9px; background: #fffafa; }
-    .wholesale-danger-title { margin-bottom: .45rem; color: #b91c1c; font-size: .75rem; font-weight: 750; text-transform: uppercase; }
+    .wholesale-detail-status .wholesale-danger-zone { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding: .45rem .65rem; border: 1px solid #fecaca; border-radius: 9px; background: #fffafa; }
+    .wholesale-danger-title { margin: 0; color: #b91c1c; font-size: .75rem; font-weight: 750; text-transform: uppercase; }
     .wholesale-detail-status .wholesale-refund-form { margin: 0 !important; }
-    .wholesale-detail-status .wholesale-refund-form button { min-height: 38px; }
+    .wholesale-detail-status .wholesale-refund-form button { min-height: 34px; }
     .wholesale-detail-status .wholesale-refund-form small { font-size: .75rem; }
     .wholesale-order-update-meta { color: #64748b; font-size: .74rem; }
     .wholesale-toast { z-index: 1090; }
     @media (max-width: 991.98px) {
         .wholesale-detail-main { grid-template-columns: 1fr; }
-        .wholesale-detail-side { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-        .wholesale-detail-side > :last-child { grid-column: 1 / -1; }
+        .wholesale-detail-column > .wholesale-info-panel { flex: 0 0 auto; }
+        .wholesale-detail-status .wholesale-status-fields { grid-template-columns: 1fr; }
     }
     @media (max-width: 767.98px) {
         #wholesaleDetailsModal .modal-dialog { width: calc(100vw - 1rem); margin: .5rem auto; }
@@ -121,8 +143,8 @@
         .wholesale-modal-header-statuses { display: flex; flex-basis: 100%; order: 3; justify-content: flex-start; margin: 0; padding: .15rem 0 0; }
         .wholesale-modal-chip { padding: .2rem .45rem; font-size: .65rem; }
         .wholesale-financial-panel .wholesale-info-panel-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .wholesale-detail-side { grid-template-columns: 1fr; }
-        .wholesale-detail-side > :last-child { grid-column: auto; }
+        .wholesale-detail-kv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .wholesale-payment-layout { grid-template-columns: 1fr; }
         .wholesale-items-table thead { display: none; }
         .wholesale-items-table, .wholesale-items-table tbody, .wholesale-items-table tr, .wholesale-items-table td { display: block; width: 100%; }
         .wholesale-items-table tr { padding: .55rem .7rem; border-bottom: 1px solid var(--wholesale-border); }
@@ -130,15 +152,14 @@
         .wholesale-items-table td::before { content: attr(data-label); color: var(--wholesale-muted); font-size: .67rem; font-weight: 700; text-align: left; text-transform: uppercase; }
         .wholesale-items-table td:first-child { display: block; text-align: left; }
         .wholesale-items-table td:first-child::before { content: none; }
-        .wholesale-detail-status .wholesale-status-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .wholesale-detail-status .wholesale-status-fields > .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
     }
     @media (max-width: 575.98px) {
         .wholesale-financial-panel .wholesale-info-panel-body,
         .wholesale-detail-kv-grid,
-        .wholesale-detail-status .wholesale-status-fields,
-        .wholesale-detail-status .wholesale-status-fields > .row { grid-template-columns: 1fr; }
+        .wholesale-detail-status .wholesale-status-fields { grid-template-columns: 1fr; }
         .wholesale-detail-status .wholesale-save-button { width: 100%; }
+        .wholesale-status-actions, .wholesale-detail-status .wholesale-danger-zone { align-items: stretch; flex-direction: column; }
+        .wholesale-detail-status .wholesale-refund-form { align-self: stretch; }
         .wholesale-item-footer { display: grid; grid-template-columns: 1fr 1fr; }
         .wholesale-order-update-meta { max-width: 58%; }
     }
@@ -1041,11 +1062,32 @@
                 itemFooter.className = 'wholesale-item-footer';
                 itemFooter.innerHTML = `<span><strong>${itemCount}</strong> product item(s)</span><span>Subtotal <strong>${money(Number(row.dataset.subtotal || subtotal))}</strong></span><span>Shipping <strong>${shippingFee > 0 ? money(shippingFee) : 'Free'}</strong></span><span>Grand total <strong>${money(orderValue)}</strong></span>`;
                 items.panel.append(itemFooter);
-                main.append(items.panel);
-
-                const side = document.createElement('div');
-                side.className = 'wholesale-detail-side';
+                const leftColumn = document.createElement('div');
+                leftColumn.className = 'wholesale-detail-column wholesale-detail-column-left';
+                const rightColumn = document.createElement('div');
+                rightColumn.className = 'wholesale-detail-column wholesale-detail-column-right';
                 const orderInfo = createPanel('Order Information', 'fa-file-invoice');
+                orderInfo.body.classList.add('wholesale-detail-kv-grid');
+                const statusValue = text => {
+                    const label = cleanValue(text);
+                    const chip = document.createElement('span');
+                    const normalized = label.toLowerCase();
+                    const displayLabel = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+                    const tone = ['paid', 'confirmed', 'delivered'].includes(normalized)
+                        ? 'is-success'
+                        : ['unpaid', 'partial', 'pending', 'preparing', 'shipped'].includes(normalized)
+                            ? 'is-pending'
+                            : ['refunded', 'cancelled', 'rejected'].includes(normalized)
+                                ? 'is-danger'
+                                : 'is-info';
+                    chip.className = `wholesale-status-chip ${tone}`;
+                    const icon = document.createElement('i');
+                    icon.className = `fa-solid ${tone === 'is-success' ? 'fa-circle-check' : tone === 'is-danger' ? 'fa-circle-xmark' : 'fa-circle-info'}`;
+                    const value = document.createElement('span');
+                    value.textContent = displayLabel || 'Not specified';
+                    chip.append(icon, value);
+                    return chip;
+                };
                 [
                     ['Purchase Date', 1],
                     ['Invoice Number', 7],
@@ -1063,29 +1105,71 @@
                             input?.focus();
                         });
                         addKeyValue(orderInfo.body, label, link, '');
+                    } else if (label === 'Payment Status' || label === 'Order Status') {
+                        addKeyValue(orderInfo.body, label, statusValue(text), '');
                     } else {
                         addKeyValue(orderInfo.body, label, null, text);
                     }
                 });
                 const fulfillment = createPanel('Fulfillment', 'fa-truck-fast');
+                fulfillment.body.classList.add('wholesale-detail-kv-grid');
+                const deliveryText = cleanValue(cells[10]?.textContent);
+                addKeyValue(fulfillment.body, 'Delivery Status', statusValue(deliveryText), '');
                 [
-                    ['Delivery Status', 10],
                     ['Delivery Date', 11],
                     ['Shipping Type', 12],
                     ['Courier', 13],
-                    ['Check Date', 14],
                 ].forEach(([label, index]) => addKeyValue(fulfillment.body, label, null, cells[index]?.textContent));
+                const checkDate = cleanValue(cells[14]?.textContent);
+                if (checkDate && !['—', '-', 'N/A'].includes(checkDate.toUpperCase())) {
+                    const deliveryDate = fulfillment.body.querySelector('.wholesale-detail-kv:nth-child(2) .wholesale-detail-value');
+                    if (deliveryDate) deliveryDate.append(document.createTextNode(` · Check date: ${checkDate}`));
+                }
 
                 const payment = createPanel('Payment', 'fa-credit-card');
                 const paymentValue = panelValue(cells[2], 2);
                 const proofDetails = paymentValue.querySelector('details');
-                const paymentInfo = document.createElement('div');
-                paymentInfo.className = 'wholesale-detail-kv wholesale-payment-proof';
-                const paymentLabel = document.createElement('span');
-                paymentLabel.className = 'wholesale-detail-label';
-                paymentLabel.textContent = 'Mode of Payment & Proof';
-                paymentInfo.append(paymentLabel, paymentValue);
-                payment.body.append(paymentInfo);
+                const paymentLayout = document.createElement('div');
+                paymentLayout.className = 'wholesale-payment-layout';
+                const paymentMethod = document.createElement('div');
+                paymentMethod.className = 'wholesale-payment-method';
+                const paymentMethodLabel = document.createElement('span');
+                paymentMethodLabel.className = 'wholesale-detail-label';
+                paymentMethodLabel.textContent = 'Mode of Payment';
+                const paymentMethodValue = document.createElement('strong');
+                paymentMethodValue.textContent = cleanValue([...paymentValue.childNodes]
+                    .filter(node => node.nodeType === Node.TEXT_NODE)
+                    .map(node => node.textContent).join(' ')).toUpperCase() || 'NOT SPECIFIED';
+                paymentMethod.append(paymentMethodLabel, paymentMethodValue);
+                const proofSlot = document.createElement('div');
+                proofSlot.className = 'wholesale-payment-proof-slot';
+                const proofLink = proofDetails?.querySelector('a[href]');
+                if (proofLink) {
+                    const image = proofLink.querySelector('img');
+                    if (image) {
+                        const thumbnail = image.cloneNode(true);
+                        thumbnail.className = 'wholesale-proof-thumbnail';
+                        proofSlot.append(thumbnail);
+                    } else {
+                        const documentIcon = document.createElement('i');
+                        documentIcon.className = 'fa-solid fa-file-lines wholesale-proof-document';
+                        proofSlot.append(documentIcon);
+                    }
+                    const viewProof = document.createElement('a');
+                    viewProof.className = 'btn btn-sm btn-outline-primary';
+                    viewProof.href = proofLink.href;
+                    viewProof.target = '_blank';
+                    viewProof.rel = 'noopener';
+                    viewProof.innerHTML = '<i class="fa-solid fa-eye me-1"></i>View';
+                    proofSlot.append(viewProof);
+                } else {
+                    const proofNote = document.createElement('span');
+                    proofNote.className = 'wholesale-proof-empty-note';
+                    proofNote.innerHTML = '<i class="fa-regular fa-circle-xmark me-1"></i>No payment proof attached';
+                    paymentMethod.append(proofNote);
+                }
+                paymentLayout.append(paymentMethod, proofSlot);
+                payment.body.append(paymentLayout);
 
                 const statusPanel = createPanel('Update Status', 'fa-sliders');
                 const statusSourceForm = cells[16].querySelector('.status-update-form');
@@ -1102,12 +1186,38 @@
                     const upload = statusForm.querySelector('.wholesale-proof-upload');
                     if (upload) {
                         uploadPanel = upload;
-                        upload.classList.remove('d-none');
                         upload.querySelector('input[type="file"]')?.setAttribute('form', statusForm.id);
                     }
+                    const statusFields = statusForm.querySelector('.wholesale-status-fields');
+                    const statusNote = statusFields?.querySelector('.wholesale-status-note');
+                    const statusHelp = statusFields?.querySelector('.wholesale-status-help');
+                    const actionRow = document.createElement('div');
+                    actionRow.className = 'wholesale-status-actions';
+                    const statusBanner = document.createElement('div');
+                    statusBanner.className = 'wholesale-status-banner';
+                    const bannerIcon = document.createElement('i');
+                    bannerIcon.className = `fa-solid ${paymentStatus === 'paid' ? 'fa-lock' : 'fa-circle-info'} me-1`;
+                    bannerIcon.dataset.bsToggle = 'tooltip';
+                    bannerIcon.title = 'Withholding tax affects displayed Order Value and monthly subtotals only; it does not change customer payment or Collected.';
+                    statusBanner.append(bannerIcon);
+                    const bannerText = document.createElement('span');
+                    const paymentHelpText = cleanValue(statusHelp?.querySelector('.payment-balance-help')?.textContent);
+                    bannerText.textContent = [
+                        paymentStatus === 'paid'
+                            ? 'Payment is fully paid and locked. Delivery remains editable.'
+                            : paymentHelpText,
+                        'Withholding tax changes the displayed Order Value and monthly subtotal, not Collected.',
+                    ].filter(Boolean).join(' ');
+                    statusBanner.append(bannerText);
+                    const amountError = statusHelp?.querySelector('.payment-amount-error');
+                    if (amountError) statusBanner.append(amountError);
+                    statusNote?.remove();
+                    statusHelp?.remove();
                     const saveButton = statusForm.querySelector('.wholesale-save-button');
                     if (saveButton) {
                         saveButton.disabled = true;
+                        actionRow.append(statusBanner, saveButton);
+                        statusFields?.after(actionRow);
                     }
                     statusPanel.body.append(statusForm);
                 }
@@ -1117,6 +1227,9 @@
                     const dangerTitle = document.createElement('div');
                     dangerTitle.className = 'wholesale-danger-title';
                     dangerTitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i>Danger zone';
+                    refundForm.classList.remove('mt-2');
+                    refundForm.querySelector('button')?.classList.remove('w-100');
+                    refundForm.querySelector('small')?.remove();
                     dangerZone.append(dangerTitle, refundForm);
                     statusPanel.body.append(dangerZone);
                 }
@@ -1124,13 +1237,26 @@
                     proofDetails.open = true;
                     proofDetails.classList.add('d-block');
                 }
-                if (uploadPanel && paymentValue.querySelector('.payment-proof-empty')) {
-                    paymentValue.querySelector('.payment-proof-empty').remove();
+                if (uploadPanel && !proofLink) {
+                    uploadPanel.classList.remove('d-none');
                     uploadPanel.querySelector('.wholesale-proof-input')?.setAttribute('form', statusForm.id);
-                    paymentValue.append(uploadPanel);
+                    proofSlot.replaceChildren(uploadPanel);
                 }
-                side.append(orderInfo.panel, fulfillment.panel, payment.panel);
-                main.append(side);
+                leftColumn.append(items.panel, payment.panel);
+                rightColumn.append(orderInfo.panel, fulfillment.panel);
+                main.append(leftColumn, rightColumn);
+                if (!statusForm) {
+                    const statusMessage = document.createElement('div');
+                    statusMessage.className = 'alert alert-secondary mb-0';
+                    const locked = orderStatus.toLowerCase() === 'refunded';
+                    statusMessage.innerHTML = `<i class="fa-solid ${locked ? 'fa-lock' : 'fa-circle-info'} me-1"></i>`;
+                    statusMessage.append(document.createTextNode(
+                        locked
+                            ? 'This order is refunded and locked. Payment and status changes are unavailable.'
+                            : 'Status updates are unavailable for this order.'
+                    ));
+                    statusPanel.body.append(statusMessage);
+                }
                 content.append(main, statusPanel.panel);
 
                 content.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(element => {
@@ -1158,7 +1284,7 @@
             const amountInput = form.querySelector('.amount-paid-input');
             const help = form.querySelector('.payment-balance-help');
             const error = form.querySelector('.payment-amount-error');
-            if (!paymentSelect || !amountInput || !help || amountInput.disabled) return true;
+            if (!paymentSelect || !amountInput || amountInput.disabled) return true;
 
             const total = Number(amountInput.dataset.orderTotal || 0);
             const paid = Math.max(0, Number(amountInput.value || 0));
@@ -1168,13 +1294,13 @@
                 ? 'An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.'
                 : '');
 
-            if (paymentSelect.value === 'partial') {
+            if (help && paymentSelect.value === 'partial') {
                 const remaining = Math.max(0, total - paid);
                 help.textContent = `Remaining balance after this payment: ₱${remaining.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
-            } else if (paymentSelect.value === 'paid' && amountInput.readOnly) {
+            } else if (help && paymentSelect.value === 'paid' && amountInput.readOnly) {
                 help.textContent = 'Paid selected. Amount is set to the full order total.';
-            } else if (paymentSelect.value === 'unpaid') {
-                help.textContent = `For Unpaid, the amount paid must be ₱0.00.`;
+            } else if (help && paymentSelect.value === 'unpaid') {
+                help.textContent = 'For Unpaid, the amount paid must be ₱0.00.';
             }
 
             return !invalidUnpaidAmount;
