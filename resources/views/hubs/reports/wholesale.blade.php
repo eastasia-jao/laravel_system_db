@@ -32,22 +32,22 @@
     .wholesale-customer-summary .customer-copy { min-width: 0; }
     .wholesale-customer-summary .wholesale-view-details { flex: 0 0 auto; white-space: nowrap; }
     .wholesale-table-status { display: inline-flex; align-items: center; min-width: 76px; justify-content: center; padding: .32rem .55rem; border-radius: 999px; font-size: .68rem; font-weight: 700; letter-spacing: .02em; }
-    .wholesale-detail-grid { display: flex; flex-direction: column; gap: .8rem; }
-    .wholesale-detail-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; align-items: start; }
+    .wholesale-detail-grid { display: flex; flex-direction: column; gap: .55rem; }
+    .wholesale-detail-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; align-items: start; }
     .wholesale-info-panel { overflow: hidden; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; }
-    .wholesale-info-panel-title { margin: 0; padding: .7rem .85rem; border-bottom: 1px solid #dbe4f0; background: #eef5ff; color: #1e3a8a; font-size: .78rem; font-weight: 700; }
+    .wholesale-info-panel-title { margin: 0; padding: .55rem .7rem; border-bottom: 1px solid #dbe4f0; background: #eef5ff; color: #1e3a8a; font-size: .76rem; font-weight: 700; }
     .wholesale-info-panel-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .wholesale-info-panel .wholesale-detail-section { min-height: 70px; padding: .7rem .85rem; border: 0; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; border-radius: 0; background: #fff; }
+    .wholesale-info-panel .wholesale-detail-section { min-height: 0; padding: .55rem .7rem; border: 0; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; border-radius: 0; background: #fff; }
     .wholesale-financial-panel .wholesale-info-panel-body { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .wholesale-financial-panel .wholesale-detail-section { min-height: auto; padding: .8rem 1rem; }
+    .wholesale-financial-panel .wholesale-detail-section { min-height: auto; padding: .6rem .75rem; }
     .wholesale-financial-panel .wholesale-detail-section:nth-child(1) { border-left: 4px solid #2563eb; }
     .wholesale-financial-panel .wholesale-detail-section:nth-child(2) { border-left: 4px solid #059669; }
     .wholesale-financial-panel .wholesale-detail-section:nth-child(3) { border-left: 4px solid #d97706; }
     .wholesale-status-panel .wholesale-info-panel-body { display: block; }
     .wholesale-status-panel .wholesale-detail-section { border-right: 0; border-bottom: 0; }
     .wholesale-status-panel .wholesale-detail-label { display: none; }
-    .wholesale-detail-section { padding: .85rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
-    .wholesale-detail-label { margin-bottom: .35rem; color: #64748b; font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .wholesale-detail-section { padding: .65rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+    .wholesale-detail-label { margin-bottom: .25rem; color: #64748b; font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
     .wholesale-detail-items details > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
     .wholesale-detail-items .item-line { margin: 0; padding: .7rem; border: 1px solid #dbe4f0 !important; border-radius: 10px; background: #fff; }
     .wholesale-detail-payment details .border { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(300px, 520px); column-gap: 1rem; align-items: start; }
@@ -74,6 +74,7 @@
                 'all' => ['label' => 'All Transactions', 'color' => 'primary'],
                 'open' => ['label' => 'Open Transactions', 'color' => 'warning'],
                 'completed' => ['label' => 'Completed Transactions', 'color' => 'success'],
+                'refunded' => ['label' => 'Refunded Orders', 'color' => 'danger'],
             ] as $state => $definition)
                 <a href="{{ route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale', 'transaction_state' => $state, 'date_from' => $dateFrom, 'date_to' => $dateTo]) }}"
                    class="btn btn-sm {{ $transactionState === $state ? 'btn-'.$definition['color'] : 'btn-outline-'.$definition['color'] }} mb-3">
@@ -82,7 +83,7 @@
                 </a>
             @endforeach
         </div>
-        <div class="small text-muted mb-3"><strong>Completed</strong> means fully paid and delivered. Everything else remains <strong>Open</strong>.</div>
+        <div class="small text-muted mb-3"><strong>Completed</strong> means fully paid and delivered. Refunded orders are shown separately and locked.</div>
     </div>
     <div class="table-responsive">
         <table class="table table-bordered table-sm align-middle mb-0">
@@ -98,6 +99,7 @@
                         $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
                         $shippingFee = (float) ($transaction->shipping_fee_amount ?? 0);
                         $paymentStatus = $transaction->payment_status ?? 'unpaid';
+                        $isRefunded = $transaction->status === 'refunded';
                         $deliveryStatus = $transaction->delivery_status ?? 'pending';
                         $withholdingAmount = $transaction->withholding_tax_amount === null ? null : (float) $transaction->withholding_tax_amount;
                         $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0) > 0
@@ -108,12 +110,19 @@
                         $productPaymentTotal = max(0, $invoiceTotal - $shippingFee);
                         // Collected is always the amount actually paid by the customer.
                         // It must not be replaced or capped by the withholding breakdown.
-                        $collected = min($productPaymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
-                        $total = $withholdingTax ?? $collected;
+                        $collected = $isRefunded ? 0 : min($productPaymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                        $total = $isRefunded ? 0 : ($withholdingTax ?? $collected);
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
-                        $paymentLocked = $paymentStatus === 'paid';
+                        $paymentLocked = $paymentStatus === 'paid' || $isRefunded;
+                        $refundItemsComplete = $transaction->items->isNotEmpty()
+                            && $transaction->items->every(fn ($item) => $item->returnedQuantity() >= (int) $item->quantity);
+                        $refundHasActiveReplacement = $transaction->items->contains(
+                            fn ($item) => $item->replacements->contains(fn ($replacement) => in_array($replacement->status, ['pending', 'approved'], true))
+                        );
+                        $refundEligible = ! $isRefunded && in_array($transaction->status, ['confirmed', 'completed'], true)
+                            && $refundItemsComplete && ! $refundHasActiveReplacement;
                     @endphp
                     <tr data-wholesale-order-row="{{ $transaction->id }}">
                         <td class="wholesale-items">
@@ -261,6 +270,15 @@
                         <td>{{ optional($transaction->check_date)->format('F d, Y') ?? '—' }}</td>
                         <td class="text-end">{{ $withholdingTax === null ? '—' : '₱'.number_format($withholdingTax, 2) }}</td>
                         <td class="wholesale-status">
+                            @if($isRefunded)
+                                <div class="alert alert-secondary py-2 px-3 mb-0">
+                                    <div class="fw-bold"><i class="fa-solid fa-lock me-1"></i>Refunded and locked</div>
+                                    <div class="small">Refund: ₱{{ number_format($transaction->wholesale_refund_amount, 2) }}
+                                        @if($transaction->refunded_at) · {{ $transaction->refunded_at->format('M d, Y h:i A') }}@endif
+                                        @if($transaction->refundedBy) · by {{ $transaction->refundedBy->name }}@endif
+                                    </div>
+                                </div>
+                            @else
                             <form action="{{ route('sales.status.update', $transaction->id) }}" method="POST" class="status-update-form">
                                 @csrf
                                 @method('PATCH')
@@ -304,6 +322,26 @@
                                 <small class="text-muted payment-balance-help">{{ $paymentLocked ? 'Payment is fully paid and locked. Delivery status remains editable.' : 'For Partial, enter an amount below ₱'.number_format($productPaymentTotal, 2).'.' }}</small>
                                 <small class="text-danger d-none payment-amount-error">An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.</small>
                             </form>
+                            @can('manage-sales-status')
+                                <form action="{{ route('hub.report.wholesale.refund', [$hub->id, $transaction->id]) }}" method="POST" class="wholesale-refund-form mt-2"
+                                    data-confirm-message="Refund ₱{{ number_format($collected, 2) }} and permanently lock order #{{ $transaction->order_number }}? Collected and order value will become ₱0.00.">
+                                    @csrf
+                                    @if($refundEligible)
+                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                            <i class="fa-solid fa-lock me-1"></i>Refund &amp; Lock Order
+                                        </button>
+                                    @else
+                                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" disabled
+                                            title="{{ $refundHasActiveReplacement ? 'Resolve all pending or approved replacements first.' : ($refundItemsComplete ? 'Only verified wholesale orders can be refunded.' : 'Refund unlocks after every ordered unit is recorded as returned.') }}">
+                                            <i class="fa-solid fa-lock me-1"></i>Refund Locked
+                                        </button>
+                                        <small class="text-muted d-block mt-1">
+                                            {{ $refundHasActiveReplacement ? 'Resolve pending or approved replacements before refunding.' : ($refundItemsComplete ? 'Refund is available only for verified wholesale orders.' : 'Refund is available after every ordered unit is recorded as returned.') }}
+                                        </small>
+                                    @endif
+                                </form>
+                            @endcan
+                            @endif
                         </td>
                     </tr>
                     @php
@@ -317,6 +355,10 @@
                                 fn ($sale) => (optional($sale->order_date)->format('Y-m') ?? 'undated') === $monthKey
                             );
                             $monthCustomerPayable = $monthTransactions->sum(function ($sale) {
+                                if ($sale->status === 'refunded') {
+                                    return 0;
+                                }
+
                                 $invoiceTotal = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
 
                                 $productPaymentTotal = max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0));
@@ -445,6 +487,10 @@
     <div class="sales-report-print-only" id="wholesaleReportImageSource">
             @php
                 $wholesaleSalesValue = function ($transaction): float {
+                    if ($transaction->status === 'refunded') {
+                        return 0;
+                    }
+
                     $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
 
                     $productPaymentTotal = max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0));
@@ -658,6 +704,12 @@
             }
         });
         document.addEventListener('submit', event => {
+            const refundForm = event.target.closest('.wholesale-refund-form');
+            if (refundForm && !window.confirm(refundForm.dataset.confirmMessage || 'Refund and lock this wholesale order?')) {
+                event.preventDefault();
+                return;
+            }
+
             if (event.target.matches('.status-update-form') && !updatePaymentAmountState(event.target)) {
                 event.preventDefault();
                 event.target.querySelector('.amount-paid-input')?.reportValidity();

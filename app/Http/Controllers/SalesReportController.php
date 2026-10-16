@@ -180,7 +180,7 @@ class SalesReportController extends Controller
             'channel' => ['nullable', 'string'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
-            'transaction_state' => ['nullable', 'in:all,open,completed'],
+            'transaction_state' => ['nullable', 'in:all,open,completed,refunded'],
             'search' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -224,6 +224,7 @@ class SalesReportController extends Controller
                 'items.replacements.creator',
                 'inventoryReturns',
                 'paymentRecords.recorder',
+                'refundedBy',
             ]);
 
         if ($channel !== 'all') {
@@ -248,23 +249,30 @@ class SalesReportController extends Controller
         if ($search !== '') {
             $query->where(fn ($builder) => KeywordSearch::apply($builder, $search, ['customer_name', 'order_number', 'note']));
         }
-        $stateCounts = ['all' => 0, 'open' => 0, 'completed' => 0];
+        $stateCounts = ['all' => 0, 'open' => 0, 'completed' => 0, 'refunded' => 0];
         if ($channel === 'wholesale') {
             $completedScope = fn ($builder) => $builder
+                ->where(fn ($status) => $status->whereNull('status')->orWhere('status', '<>', 'refunded'))
                 ->where('payment_status', 'paid')
                 ->where('delivery_status', 'delivered');
             $stateCounts['all'] = (clone $query)->count();
+            $stateCounts['refunded'] = (clone $query)->where('status', 'refunded')->count();
             $stateCounts['completed'] = (clone $query)->where($completedScope)->count();
-            $stateCounts['open'] = $stateCounts['all'] - $stateCounts['completed'];
+            $stateCounts['open'] = $stateCounts['all'] - $stateCounts['completed'] - $stateCounts['refunded'];
 
             if ($transactionState === 'completed') {
                 $query->where($completedScope);
+            } elseif ($transactionState === 'refunded') {
+                $query->where('status', 'refunded');
             } elseif ($transactionState === 'open') {
                 $query->where(function ($builder) {
-                    $builder->whereNull('payment_status')
-                        ->orWhere('payment_status', '<>', 'paid')
-                        ->orWhereNull('delivery_status')
-                        ->orWhere('delivery_status', '<>', 'delivered');
+                    $builder->where(fn ($status) => $status->whereNull('status')->orWhere('status', '<>', 'refunded'))
+                        ->where(function ($status) {
+                            $status->whereNull('payment_status')
+                                ->orWhere('payment_status', '<>', 'paid')
+                                ->orWhereNull('delivery_status')
+                                ->orWhere('delivery_status', '<>', 'delivered');
+                        });
                 });
             }
         }
@@ -287,10 +295,14 @@ class SalesReportController extends Controller
                 ->groupBy(fn ($return) => trim($return->reference).'|'.$return->product_id)
             : collect();
 
-        $resolveTotal = fn (SalesTransaction $transaction): float => $transaction->netOrderTotal(
-            $this->resolveReportedTotal($transaction)
-        );
+        $resolveTotal = fn (SalesTransaction $transaction): float => $transaction->status === 'refunded'
+            ? 0.0
+            : $transaction->netOrderTotal($this->resolveReportedTotal($transaction));
         $currentGross = function (SalesTransaction $transaction): float {
+            if ($transaction->status === 'refunded') {
+                return 0.0;
+            }
+
             $gross = (float) $transaction->items->sum(fn ($item) => (float) $item->unit_price * ((int) $item->quantity - $item->returnedQuantity()));
             $gross -= (float) $transaction->replacements->where('status', 'approved')->sum(fn ($replacement) => (float) $replacement->original_unit_price * (int) $replacement->quantity);
             $gross += (float) $transaction->replacements->where('status', 'approved')->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
@@ -333,7 +345,11 @@ class SalesReportController extends Controller
                 ->reject(fn ($item) => $item->replacements->isNotEmpty())
                 ->sum(fn ($item) => $item->refundCostAmount());
 
-            return max($itemRefunds, (float) $linkedReturns->sum('refund_amount'));
+            $recordedRefund = max($itemRefunds, (float) $linkedReturns->sum('refund_amount'));
+
+            return $transaction->status === 'refunded'
+                ? max($recordedRefund, (float) $transaction->wholesale_refund_amount)
+                : $recordedRefund;
         });
         $refundTotal += (float) $returnRefunds
             ->reject(fn ($return) => $matchedReturnIds->contains($return->id))
@@ -916,6 +932,7 @@ class SalesReportController extends Controller
             if (! in_array($channel, ['wholesale', 'tiktok', 'online', 'walk_in'], true)) {
                 abort(404);
             }
+
             if (auth()->user()?->role === 'sales_associate'
                 && ($channel !== 'walk_in' || $storeHub->is_head_office)) {
                 abort(403);
@@ -1100,6 +1117,74 @@ class SalesReportController extends Controller
             ));
 
         return back()->with('success', 'Replacement request submitted for inventory verification. No stock or order total has changed yet.');
+    }
+
+    public function refundWholesaleOrder(Request $request, int $hub, int $transaction)
+    {
+        $storeHub = StoreHub::findOrFail($hub);
+        abort_unless(auth()->user()?->canAccessHub($storeHub->id), 403);
+
+        DB::transaction(function () use ($storeHub, $transaction) {
+            $sale = SalesTransaction::query()
+                ->whereKey($transaction)
+                ->where('store_hub_id', $storeHub->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_unless($this->normalizeChannel($sale->channel_type) === 'wholesale', 404);
+
+            if ($sale->status === 'refunded') {
+                throw ValidationException::withMessages([
+                    'refund' => 'This wholesale order has already been refunded and locked.',
+                ]);
+            }
+
+            if (! in_array($sale->status, ['confirmed', 'completed'], true)) {
+                throw ValidationException::withMessages([
+                    'refund' => 'Only verified wholesale orders can be refunded.',
+                ]);
+            }
+
+            $items = $sale->items()
+                ->with(['inventoryReturns', 'replacements'])
+                ->lockForUpdate()
+                ->get();
+
+            if ($items->isEmpty() || $items->contains(fn ($item) => $item->returnedQuantity() < (int) $item->quantity)) {
+                throw ValidationException::withMessages([
+                    'refund' => 'Every ordered item must be recorded as received back before the order can be refunded.',
+                ]);
+            }
+
+            if ($sale->replacements()->whereIn('status', ['pending', 'approved'])->exists()) {
+                throw ValidationException::withMessages([
+                    'refund' => 'This order cannot be refunded while a replacement is pending or approved.',
+                ]);
+            }
+
+            $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items()->sum('line_total'));
+            $productTotal = max(0, $orderValue - (float) ($sale->shipping_fee_amount ?? 0));
+            $collected = min($productTotal, max(0, (float) ($sale->amount_paid ?? 0)));
+
+            $sale->forceFill([
+                'refund_original_order_value' => $orderValue,
+                'refund_original_collected' => (float) ($sale->amount_paid ?? 0),
+                'refund_original_withholding_tax' => (float) ($sale->wholesale_withholding_tax ?? 0),
+                'wholesale_refund_amount' => $collected,
+                'refunded_at' => now(),
+                'refunded_by' => auth()->id(),
+                'status' => 'refunded',
+                'payment_status' => 'refunded',
+                'amount_paid' => 0,
+                'sub_total' => 0,
+                'total_amount' => 0,
+                'grand_total' => 0,
+                'wholesale_withholding_tax' => 0,
+                'withholding_tax_amount' => 0,
+            ])->save();
+        });
+
+        return back()->with('success', 'Wholesale order refunded and locked. The original order values were retained for audit.');
     }
 
     public function recordWalkInReplacementPayment(Request $request, int $hub, int $transaction)

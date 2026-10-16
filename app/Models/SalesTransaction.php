@@ -32,6 +32,11 @@ class SalesTransaction extends Model
         'total_amount' => 'decimal:2',
         'grand_total' => 'decimal:2',
         'amount_paid' => 'decimal:2',
+        'wholesale_refund_amount' => 'decimal:2',
+        'refund_original_order_value' => 'decimal:2',
+        'refund_original_collected' => 'decimal:2',
+        'refund_original_withholding_tax' => 'decimal:2',
+        'refunded_at' => 'datetime',
         'refund_shipping_fee' => 'decimal:2',
         'proof_amount' => 'decimal:2',
         'drop_off_date' => 'date',
@@ -85,6 +90,10 @@ class SalesTransaction extends Model
 
     public function netOrderTotal(?float $orderAmount = null): float
     {
+        if ($this->status === 'refunded') {
+            return 0.0;
+        }
+
         $baseAmount = $orderAmount
             ?? (float) ($this->grand_total ?: $this->total_amount ?: $this->items->sum('line_total'));
         $itemReturnDeduction = $this->items->sum(fn ($item) => $item->netReturnDeduction());
@@ -155,6 +164,11 @@ class SalesTransaction extends Model
     public function confirmedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'confirmed_by');
+    }
+
+    public function refundedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'refunded_by');
     }
 
     public function storeHub(): BelongsTo

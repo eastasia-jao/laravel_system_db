@@ -972,6 +972,9 @@ class SalesController extends Controller
         if (! in_array($channel, ['wholesale', 'online', 'walk_in'], true)) {
             abort(403, 'Statuses are not managed for this sales channel.');
         }
+        if ($channel === 'wholesale' && $sale->status === 'refunded') {
+            abort(409, 'Refunded wholesale orders are locked and cannot be updated.');
+        }
 
         $validated = $request->validate([
             'payment_status' => [Rule::requiredIf($channel !== 'online'), 'nullable', Rule::in(['unpaid', 'partial', 'paid'])],

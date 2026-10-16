@@ -62,6 +62,123 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame('547.20', $sale->fresh()->amount_paid);
     }
 
+    public function test_wholesale_refund_requires_all_items_returned_and_zeroes_sales_while_locking_order(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $product = Product::create([
+            'store_hub_id' => $hub->id, 'item_id' => 'REFUND-1', 'name' => 'Refund Item',
+            'stock' => 5, 'status' => 'active', 'wholesale_price' => 100,
+        ]);
+        $sale = SalesTransaction::create([
+            'user_id' => $user->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'customer_name' => 'Refund Customer',
+            'order_number' => 'REFUND-ORDER-1',
+            'order_date' => '2026-10-12',
+            'sub_total' => 200,
+            'total_amount' => 200,
+            'grand_total' => 200,
+            'amount_paid' => 150,
+            'wholesale_withholding_tax' => 180,
+            'status' => 'confirmed',
+            'payment_status' => 'partial',
+            'delivery_status' => 'delivered',
+        ]);
+        $item = $sale->items()->create([
+            'product_id' => $product->id, 'quantity' => 2, 'unit_price' => 100, 'line_total' => 200,
+        ]);
+        $reportUrl = route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']);
+        $refundUrl = route('hub.report.wholesale.refund', [$hub->id, $sale->id]);
+
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'wholesale',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-10-13',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)->get($reportUrl)
+            ->assertOk()
+            ->assertSee('Refund is available after every ordered unit is recorded as returned.');
+        $this->from($reportUrl)->post($refundUrl)->assertRedirect($reportUrl)
+            ->assertSessionHasErrors('refund');
+        $this->assertSame('confirmed', $sale->fresh()->status);
+        $this->assertSame('200.00', $sale->fresh()->grand_total);
+
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'wholesale',
+            'condition' => 'damaged',
+            'quantity' => 1,
+            'occurred_on' => '2026-10-13',
+            'created_by' => $user->id,
+        ]);
+
+        $replacementProduct = Product::create([
+            'store_hub_id' => $hub->id, 'item_id' => 'REFUND-REPLACEMENT', 'name' => 'Replacement Item',
+            'stock' => 3, 'status' => 'active', 'wholesale_price' => 100,
+        ]);
+        $replacement = ProductReplacement::create([
+            'transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'original_product_id' => $product->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 1,
+            'status' => 'pending',
+        ]);
+        $this->from($reportUrl)->post($refundUrl)->assertRedirect($reportUrl)
+            ->assertSessionHasErrors('refund');
+        $replacement->delete();
+
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $sale = $sale->fresh();
+        $this->assertSame('refunded', $sale->status);
+        $this->assertSame('refunded', $sale->payment_status);
+        $this->assertSame('0.00', $sale->amount_paid);
+        $this->assertSame('0.00', $sale->grand_total);
+        $this->assertSame('0.00', $sale->total_amount);
+        $this->assertSame('0.00', $sale->sub_total);
+        $this->assertSame('200.00', $sale->refund_original_order_value);
+        $this->assertSame('150.00', $sale->refund_original_collected);
+        $this->assertSame('180.00', $sale->refund_original_withholding_tax);
+        $this->assertSame('150.00', $sale->wholesale_refund_amount);
+        $this->assertSame($user->id, $sale->refunded_by);
+        $this->assertNotNull($sale->refunded_at);
+
+        $this->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'wholesale',
+            'transaction_state' => 'refunded',
+        ]))->assertOk()
+            ->assertSee('Refunded and locked')
+            ->assertViewHas('totalSales', 0.0)
+            ->assertViewHas('wholesaleCollectedSales', 0.0);
+
+        $this->patch(route('sales.status.update', $sale->id), [
+            'payment_status' => 'paid', 'amount_paid' => 200, 'delivery_status' => 'delivered',
+        ])->assertStatus(409);
+        $this->from($reportUrl)->post($refundUrl)->assertRedirect($reportUrl)->assertSessionHasErrors('refund');
+        $this->assertSame('0.00', $sale->fresh()->grand_total);
+    }
+
     public function test_wholesale_item_can_be_replaced_and_inventory_is_moved_once(): void
     {
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
@@ -435,7 +552,7 @@ class WholesalePaymentTest extends TestCase
         $all = $this->actingAs($user)->get(route('hub.report', $base));
         $all->assertOk()->assertSee('Open Transactions')->assertSee('Completed Transactions')
             ->assertSee('OPEN-ORDER')->assertSee('COMPLETED-ORDER')
-            ->assertViewHas('stateCounts', ['all' => 2, 'open' => 1, 'completed' => 1]);
+            ->assertViewHas('stateCounts', ['all' => 2, 'open' => 1, 'completed' => 1, 'refunded' => 0]);
 
         $this->get(route('hub.report', $base + ['transaction_state' => 'open']))
             ->assertOk()->assertSee('OPEN-ORDER')->assertDontSee('COMPLETED-ORDER');
