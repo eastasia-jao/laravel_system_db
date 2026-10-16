@@ -72,11 +72,12 @@
                     </div>
                     <div class="d-flex flex-wrap gap-2">
                         @foreach([
-                            ['Pulled', $event->pulled_total],
-                            ['Sold', $event->sold_total],
-                            ['Returned', $event->returned_total],
-                            ['Remaining', $event->remaining_total],
-                            ['Missing', $event->missing_total],
+                            ['Product Items', $event->product_item_count],
+                            ['Pulled Items', $event->pulled_total],
+                            ['Sold Items', $event->sold_total],
+                            ['Returned Items', $event->returned_total],
+                            ['Remaining Items', $event->remaining_total],
+                            ['Missing Items', $event->missing_total],
                         ] as [$label, $value])
                             <div class="event-ledger-kpi"><div class="label">{{ $label }}</div><div class="value">{{ $value }}</div></div>
                         @endforeach

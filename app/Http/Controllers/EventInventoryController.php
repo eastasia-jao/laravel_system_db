@@ -62,6 +62,7 @@ class EventInventoryController extends Controller
         $events->getCollection()->each(function (EventPullout $event) {
             $rows = $this->summaryRows($event);
             $event->setAttribute('summary_rows', $rows);
+            $event->setAttribute('product_item_count', $rows->where('pulled_total', '>', 0)->count());
             $event->setAttribute('pulled_total', $rows->sum('pulled_total'));
             $event->setAttribute('sold_total', $rows->sum('sold_total'));
             $event->setAttribute('returned_total', $rows->sum('returned_total'));
