@@ -224,7 +224,9 @@ class ReturnWorkflowPilotTest extends TestCase
         ]))
             ->assertOk()
             ->assertJsonPath('transaction.items.0.quantity', 3)
-            ->assertJsonPath('transaction.items.0.returned_quantity', 0);
+            ->assertJsonPath('transaction.items.0.returned_quantity', 0)
+            ->assertJsonPath('transaction.items.0.remaining_good_quantity', 2)
+            ->assertJsonPath('transaction.items.0.remaining_damaged_quantity', 1);
 
         $returnData = [
             'type' => 'return',
@@ -235,23 +237,41 @@ class ReturnWorkflowPilotTest extends TestCase
             'event_reference' => 'SW-EVENT-RETURN-001',
             'items' => [[
                 'product_id' => $product->id,
-                'good_quantity' => 1,
-                'damaged_quantity' => 1,
+                'good_quantity' => 2,
+                'damaged_quantity' => 0,
             ]],
         ];
         $this->post(route('inventory-transactions.return.store'), $returnData)
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success', 'Return items recorded successfully.');
 
-        $this->assertSame(4, (int) $product->fresh()->stock);
-        $this->assertSame(1, (int) $product->fresh()->damaged_stock);
+        $this->assertSame(5, (int) $product->fresh()->stock);
+        $this->assertSame(0, (int) $product->fresh()->damaged_stock);
         $this->assertDatabaseHas('inventory_transactions', [
             'type' => 'return',
             'reference' => 'SW-EVENT-RETURN-001',
             'channel' => 'event',
             'condition' => 'good',
-            'quantity' => 1,
+            'quantity' => 2,
         ]);
+
+        $this->post(route('inventory-transactions.return.store'), array_replace_recursive($returnData, [
+            'items' => [[
+                'good_quantity' => 1,
+                'damaged_quantity' => 0,
+            ]],
+        ]))->assertSessionHasErrors([
+            'items' => 'Good return quantity for Event Return Product exceeds the remaining Good Event stock. Only 0 Good item(s) can be returned.',
+        ]);
+        $this->assertSame(5, (int) $product->fresh()->stock);
+        $this->assertSame(0, (int) $product->fresh()->damaged_stock);
+
+        $this->post(route('inventory-transactions.return.store'), array_replace_recursive($returnData, [
+            'items' => [[
+                'good_quantity' => 0,
+                'damaged_quantity' => 1,
+            ]],
+        ]))->assertSessionHasNoErrors();
         $this->assertDatabaseHas('inventory_transactions', [
             'type' => 'return',
             'reference' => 'SW-EVENT-RETURN-001',
@@ -268,9 +288,8 @@ class ReturnWorkflowPilotTest extends TestCase
             ->assertSee('Event return SW-EVENT-RETURN-001')
             ->assertSee('Community Event')
             ->assertViewHas('transactions', function ($logs) {
-                return $logs->total() === 1
-                    && $logs->getCollection()->first()->count() === 2
-                    && $logs->getCollection()->first()->sum('quantity') === 2;
+                return $logs->total() === 2
+                    && $logs->getCollection()->sum(fn ($group) => $group->sum('quantity')) === 3;
             });
 
         $this->post(route('inventory-transactions.return.store'), array_replace_recursive($returnData, [
@@ -286,8 +305,10 @@ class ReturnWorkflowPilotTest extends TestCase
             'event_reference' => 'SW-EVENT-RETURN-001',
         ]))
             ->assertOk()
-            ->assertJsonPath('transaction.items.0.returned_quantity', 2);
-        $this->assertSame(4, (int) $product->fresh()->stock);
+            ->assertJsonPath('transaction.items.0.returned_quantity', 3)
+            ->assertJsonPath('transaction.items.0.remaining_good_quantity', 0)
+            ->assertJsonPath('transaction.items.0.remaining_damaged_quantity', 0);
+        $this->assertSame(5, (int) $product->fresh()->stock);
         $this->assertSame(1, (int) $product->fresh()->damaged_stock);
     }
 

@@ -119,6 +119,8 @@ class TransactionBulkTest extends TestCase
             ->assertDontSee('value="shopee"', false)
             ->assertSee('class="return-actions"', false)
             ->assertSee('id="returnAttachmentPreview"', false)
+            ->assertSee('id="returnItemSearch"', false)
+            ->assertSee('Search product name or Item ID')
             ->assertSee('showFullyBookedAttachment', false)
             ->assertSee('<i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Return Items', false);
         $returnFormHtml = $this->get(route('inventory-transactions.return.create', ['hub_id' => $branch->id]))

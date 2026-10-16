@@ -349,7 +349,7 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Exported selected items retain the chosen condition and can be reimported.
 - [ ] Valid pull-out consumes Good and Damaged stock separately and creates grouped logs.
 - [ ] Invalid or over-stock request fails atomically.
-- [ ] Event return restores Good and Damaged quantities to their original conditions and rejects over-return.
+- [ ] Event return restores Good and Damaged quantities to their original conditions, rejects condition swapping, and reports the remaining condition-specific limit in its error message.
 - [ ] Confirmed pull-out creates one Event Inventory ledger without deducting stock a second time when viewed or tracked.
 - [ ] Event Inventory compares Actual Released, Sold, Returned Good, Returned Damaged, Remaining, and Missing quantities per product.
 - [ ] Event sale creates a linked sales/audit record, deducts only the Event balance, and leaves Head Office physical stock and marketplace allocations unchanged.
@@ -359,7 +359,7 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Event Transaction Logs are available as an internal Event Inventory tab and display Event Pull-Out, Event Sale, Return, and Missing activity.
 - [ ] Event Transaction Logs can be filtered by Store Hub, Event, activity, date range, and reference/product search.
 - [ ] Event Transaction Logs combine repeated product IDs into one product line with Good/Damaged quantity breakdowns.
-- [ ] Event Transaction Logs use compact summary rows and show the consolidated products, inventory effect, sale image attachments, and audit metadata through View Details.
+- [ ] Event Transaction Logs use compact summary rows and show the consolidated products in a vertically scrollable list, inventory effect, sale image attachments, and audit metadata through View Details.
 - [ ] Record Event Sale opens as a channel-sales-style popup with a visible generated order number, customer details, per-row Good/Damaged selection, searchable product rows, availability, price, line discount, additional discount, totals, and remarks; Payment Status and Amount Paid are not shown.
 - [ ] One Event Sale can contain both Good and Damaged rows, including the same product in both conditions, while deducting each Event balance separately without another Head Office deduction.
 - [ ] Customer names are saved in title case, and Event Sale contact numbers accept only valid Philippine mobile numbers stored as `+639XXXXXXXXX`.
@@ -392,6 +392,7 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Non-Head Office return channel is locked to Walk-In where required.
 - [ ] Return Date limits customer/order lookup to sales on that date.
 - [ ] Order lookup loads the exact original items, sold quantities, prior returned quantities, price/discount, channel, and reference.
+- [ ] Loaded return products appear in a vertically scrollable list searchable by product name or Item ID.
 - [ ] Return quantity cannot be zero, negative, fractional where not allowed, exceed sold quantity, or exceed remaining returnable quantity.
 - [ ] At least one returned quantity is required; blank worksheet rows do not create movements.
 - [ ] Each returned unit requires an explicit Good or Damaged condition.
