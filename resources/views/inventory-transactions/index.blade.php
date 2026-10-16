@@ -84,6 +84,11 @@
     .transfer-detail-section-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
     .transfer-detail-section-title { color: #334155; font-size: .72rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
     .national-pullout-detail-items { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+    .event-pullout-detail-items { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+    .event-pullout-condition-line { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .25rem; color: #64748b; font-size: .78rem; }
+    .event-pullout-condition-line .condition-label { font-weight: 700; }
+    .event-pullout-condition-line.good .condition-label { color: #15803d; }
+    .event-pullout-condition-line.damaged .condition-label { color: #b91c1c; }
     .transfer-detail-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
     .transfer-detail-item + .transfer-detail-item { border-top: 1px solid #eef2f7; }
     .transfer-detail-item-name { color: #1e293b; font-weight: 700; }
@@ -551,6 +556,7 @@
                                     </div></div>
                                 @endif
                             @elseif($isSponsorGroup)
+                                @php($eventProducts = $group->groupBy('product_id'))
                                 <div class="col-12">
                                     <div class="transfer-detail-hero">
                                         <div class="eyebrow"><i class="fa-solid fa-people-group me-1"></i>Event record</div>
@@ -560,13 +566,27 @@
                                 </div>
                                 <div class="col-12">
                                     <div class="transfer-detail-section">
-                                        <div class="transfer-detail-section-header"><span class="transfer-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2" style="color:#6d28d9;"></i>Items pulled out</span><span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} actual released{{ $group->sum('pullout_qty') ? ' · '.$group->sum('pullout_qty').' requested' : '' }}</span></div>
-                                        @foreach($group as $entry)
-                                            <div class="transfer-detail-item">
-                                                <div><div class="transfer-detail-item-name">{{ $entry->product?->name ?? 'Unknown product' }}</div><div class="transfer-detail-item-id">Item ID: {{ $entry->product?->item_id ?? '—' }}{{ $entry->pullout_qty !== null ? ' · Requested Qty: '.$entry->pullout_qty : '' }}</div></div>
-                                                <div class="transfer-detail-qty">Actual {{ $entry->quantity }}</div>
-                                            </div>
-                                        @endforeach
+                                        <div class="transfer-detail-section-header"><span class="transfer-detail-section-title"><i class="fa-solid fa-boxes-stacked me-2" style="color:#6d28d9;"></i>Items pulled out</span><span class="small text-muted">{{ $eventProducts->count() }} product(s) · {{ $group->sum('quantity') }} actual released{{ $group->sum('pullout_qty') ? ' · '.$group->sum('pullout_qty').' requested' : '' }}</span></div>
+                                        <div class="event-pullout-detail-items" aria-label="Event pull-out items">
+                                            @foreach($eventProducts as $productEntries)
+                                                @php($productEntry = $productEntries->first())
+                                                <div class="transfer-detail-item align-items-start">
+                                                    <div>
+                                                        <div class="transfer-detail-item-name">{{ $productEntry->product?->name ?? 'Unknown product' }}</div>
+                                                        <div class="transfer-detail-item-id">Item ID: {{ $productEntry->product?->item_id ?? '—' }}</div>
+                                                        @foreach($productEntries->groupBy(fn ($entry) => $entry->condition ?: 'good') as $condition => $conditionEntries)
+                                                            <div class="event-pullout-condition-line {{ $condition === 'damaged' ? 'damaged' : 'good' }}">
+                                                                <span class="condition-label">{{ ucfirst($condition) }}</span>
+                                                                @if($conditionEntries->sum('pullout_qty') > 0)
+                                                                    <span>· Requested {{ $conditionEntries->sum('pullout_qty') }}</span>
+                                                                @endif
+                                                                <span>· Actual {{ $conditionEntries->sum('quantity') }}</span>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
                                     </div>
                                 </div>
                             @elseif($isTransferGroup)

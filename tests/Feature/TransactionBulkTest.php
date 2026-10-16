@@ -685,14 +685,23 @@ class TransactionBulkTest extends TestCase
             'pullout_qty' => 2,
         ]);
         $eventReference = InventoryTransaction::where('type', 'sponsor_workshop')->value('reference');
-        $this->get(route('inventory-transactions.index', [
+        $eventLogs = $this->get(route('inventory-transactions.index', [
             'hub_id' => $hub->id,
             'type' => 'sponsor_workshop',
         ]))->assertOk()
             ->assertSee('<strong>'.$eventReference.'</strong>', false)
             ->assertDontSee('total pulled out')
-            ->assertSee('Requested Qty: 3')
-            ->assertSee('Requested Qty: 2');
+            ->assertSee('event-pullout-detail-items', false)
+            ->assertSee('Good')
+            ->assertSee('Requested 3')
+            ->assertSee('Actual 2')
+            ->assertSee('Damaged')
+            ->assertSee('Requested 2')
+            ->assertSee('Actual 1');
+        $this->assertSame(
+            1,
+            substr_count($eventLogs->getContent(), '<div class="transfer-detail-item-name">Event Pullout Product</div>')
+        );
 
         $this->post(route('inventory-transactions.store'), [
             'type' => 'sponsor_workshop',
