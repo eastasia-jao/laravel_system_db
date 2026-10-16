@@ -45,7 +45,7 @@ class EventInventoryTest extends TestCase
             ->assertSee('October Art Fair')
             ->assertSee($event->reference)
             ->assertSee('Record Event Sale')
-            ->assertSee('Product Condition')
+            ->assertSee('Choose Good or Damaged for each row')
             ->assertSee('Search product name or Item ID')
             ->assertSee('Order Slip Image')
             ->assertSee('Upload up to 5 images; maximum 2 MB each.')
@@ -97,7 +97,6 @@ class EventInventoryTest extends TestCase
         $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
             'order_number' => $orderNumber,
-            'stock_condition' => 'good',
             'customer_name' => 'event customer',
             'contact_number' => '09171234567',
             'address' => 'Event Hall, Manila',
@@ -115,6 +114,7 @@ class EventInventoryTest extends TestCase
             'proof_of_payment_image' => $this->fakePng('payment.png'),
             'items' => [[
                 'event_pullout_item_id' => $line->id,
+                'stock_condition' => 'good',
                 'quantity' => 2,
                 'unit_price' => 150,
                 'discount_percentage' => 10,
@@ -201,10 +201,10 @@ class EventInventoryTest extends TestCase
         $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
             'order_number' => 'EVENT-'.$event->id.'-20261015130000-CD34',
-            'stock_condition' => 'good',
             'mode_of_payment' => 'CASH',
             'items' => [[
                 'event_pullout_item_id' => $line->id,
+                'stock_condition' => 'good',
                 'quantity' => 2,
                 'unit_price' => 100,
             ]],
@@ -226,14 +226,72 @@ class EventInventoryTest extends TestCase
         $this->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
             'order_number' => 'EVENT-'.$event->id.'-20261015140000-EF56',
-            'stock_condition' => 'good',
             'mode_of_payment' => 'CASH',
             'items' => [[
                 'event_pullout_item_id' => $line->id,
+                'stock_condition' => 'good',
                 'quantity' => 1,
                 'unit_price' => 100,
             ]],
         ])->assertSessionHasErrors('event');
+    }
+
+    public function test_one_event_sale_can_include_good_and_damaged_items(): void
+    {
+        [$admin, $hub, $product] = $this->eventFixture();
+
+        $this->actingAs($admin)->post(route('inventory-transactions.store'), [
+            'type' => 'sponsor_workshop',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-15',
+            'source' => 'Mixed Condition Event',
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 3, 'pullout_qty' => 3, 'stock_condition' => 'good'],
+                ['product_id' => $product->id, 'quantity' => 2, 'pullout_qty' => 2, 'stock_condition' => 'damaged'],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $event = EventPullout::with('items')->sole();
+        $goodLine = $event->items->firstWhere('stock_condition', 'good');
+        $damagedLine = $event->items->firstWhere('stock_condition', 'damaged');
+        $goodStockAfterPullout = (int) $product->fresh()->stock;
+        $damagedStockAfterPullout = (int) $product->fresh()->damaged_stock;
+
+        $this->post(route('event-inventory.sales.store', $event), [
+            'order_date' => '2026-10-15',
+            'order_number' => 'EVENT-'.$event->id.'-20261015143000-MX12',
+            'mode_of_payment' => 'CASH',
+            'items' => [
+                [
+                    'event_pullout_item_id' => $goodLine->id,
+                    'stock_condition' => 'good',
+                    'quantity' => 1,
+                    'unit_price' => 150,
+                ],
+                [
+                    'event_pullout_item_id' => $damagedLine->id,
+                    'stock_condition' => 'damaged',
+                    'quantity' => 1,
+                    'unit_price' => 100,
+                ],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $sale = SalesTransaction::where('event_pullout_id', $event->id)->sole();
+        $this->assertSame(1, $sale->items()->where('stock_condition', 'good')->sum('quantity'));
+        $this->assertSame(1, $sale->items()->where('stock_condition', 'damaged')->sum('quantity'));
+        $this->assertDatabaseHas('inventory_transactions', [
+            'sales_transaction_id' => $sale->id,
+            'condition' => 'good',
+            'quantity' => 1,
+        ]);
+        $this->assertDatabaseHas('inventory_transactions', [
+            'sales_transaction_id' => $sale->id,
+            'condition' => 'damaged',
+            'quantity' => 1,
+        ]);
+        $this->assertSame($goodStockAfterPullout, (int) $product->fresh()->stock);
+        $this->assertSame($damagedStockAfterPullout, (int) $product->fresh()->damaged_stock);
     }
 
     public function test_event_inventory_contains_a_filterable_transaction_log(): void
@@ -245,11 +303,11 @@ class EventInventoryTest extends TestCase
         $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
             'order_date' => '2026-10-15',
             'order_number' => 'EVENT-'.$event->id.'-20261015150000-GH78',
-            'stock_condition' => 'good',
             'customer_name' => 'Log Customer',
             'mode_of_payment' => 'CASH',
             'items' => [[
                 'event_pullout_item_id' => $line->id,
+                'stock_condition' => 'good',
                 'quantity' => 2,
                 'unit_price' => 150,
             ]],
@@ -296,10 +354,10 @@ class EventInventoryTest extends TestCase
         $basePayload = [
             'order_date' => '2026-10-15',
             'order_number' => 'EVENT-'.$event->id.'-20261015160000-IJ90',
-            'stock_condition' => 'good',
             'mode_of_payment' => 'CASH',
             'items' => [[
                 'event_pullout_item_id' => $line->id,
+                'stock_condition' => 'good',
                 'quantity' => 1,
                 'unit_price' => 150,
             ]],
@@ -316,9 +374,10 @@ class EventInventoryTest extends TestCase
             ],
         ])->assertSessionHasErrors('item_images');
 
-        $this->post(route('event-inventory.sales.store', $event), array_replace($basePayload, [
-            'stock_condition' => 'damaged',
-        ]))->assertSessionHasErrors('items');
+        $conditionMismatchPayload = $basePayload;
+        $conditionMismatchPayload['items'][0]['stock_condition'] = 'damaged';
+        $this->post(route('event-inventory.sales.store', $event), $conditionMismatchPayload)
+            ->assertSessionHasErrors('items');
 
         $this->post(route('event-inventory.sales.store', $event), array_replace($basePayload, [
             'contact_number' => '12345',

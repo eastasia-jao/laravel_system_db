@@ -359,7 +359,8 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Event Transaction Logs can be filtered by Store Hub, Event, activity, date range, and reference/product search.
 - [ ] Event Transaction Logs combine repeated product IDs into one product line with Good/Damaged quantity breakdowns.
 - [ ] Event Transaction Logs use compact summary rows and show the consolidated products, inventory effect, sale image attachments, and audit metadata through View Details.
-- [ ] Record Event Sale opens as a channel-sales-style popup with a visible generated order number, customer details, Good/Damaged product filtering, searchable product rows, availability, price, line discount, additional discount, totals, and remarks; Payment Status and Amount Paid are not shown.
+- [ ] Record Event Sale opens as a channel-sales-style popup with a visible generated order number, customer details, per-row Good/Damaged selection, searchable product rows, availability, price, line discount, additional discount, totals, and remarks; Payment Status and Amount Paid are not shown.
+- [ ] One Event Sale can contain both Good and Damaged rows, including the same product in both conditions, while deducting each Event balance separately without another Head Office deduction.
 - [ ] Customer names are saved in title case, and Event Sale contact numbers accept only valid Philippine mobile numbers stored as `+639XXXXXXXXX`.
 - [ ] Record Event Sale is vertically scrollable and keeps its header/footer controls usable while reviewing a long form.
 - [ ] Event Sale separates Order Slip Image, up to five Item Images, and Proof of Payment; every JPG/PNG/WebP file is limited to 2 MB and saved under the correct category.

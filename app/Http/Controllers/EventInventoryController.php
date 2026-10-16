@@ -127,7 +127,6 @@ class EventInventoryController extends Controller
         $validated = $request->validate([
             'order_date' => ['required', 'date'],
             'order_number' => ['required', 'string', 'max:100'],
-            'stock_condition' => ['required', Rule::in(['good', 'damaged'])],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'contact_number' => ['nullable', 'regex:/^\+639\d{9}$/'],
             'address' => ['nullable', 'string', 'max:1000'],
@@ -141,6 +140,7 @@ class EventInventoryController extends Controller
             'proof_of_payment_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.event_pullout_item_id' => ['required', 'integer', 'distinct', 'exists:event_pullout_items,id'],
+            'items.*.stock_condition' => ['required', Rule::in(['good', 'damaged'])],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
@@ -218,7 +218,7 @@ class EventInventoryController extends Controller
                 foreach ($requestedItems as $lineId => $item) {
                     $line = $eventItems->get((int) $lineId);
                     $quantity = (int) $item['quantity'];
-                    if ($line->stock_condition !== $validated['stock_condition']) {
+                    if ($line->stock_condition !== $item['stock_condition']) {
                         throw ValidationException::withMessages([
                             'items' => 'Every selected product must match the chosen stock condition.',
                         ]);

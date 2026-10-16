@@ -81,13 +81,10 @@
 
                     <section class="event-sale-section p-3 mb-3">
                         <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
-                            <div><div class="event-sale-section-title mb-1">Order items</div><div class="small text-muted">Select a condition, then search by product name or Item ID.</div></div>
-                            <div class="d-flex flex-wrap align-items-end gap-2">
-                                <div><label class="form-label small fw-semibold mb-1" for="popupStockCondition">Product Condition</label><select name="stock_condition" id="popupStockCondition" class="form-select form-select-sm" required><option value="good" @selected(old('stock_condition', 'good') === 'good')>Good Products</option><option value="damaged" @selected(old('stock_condition') === 'damaged')>Damaged Products</option></select></div>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="addPopupEventItem"><i class="fa-solid fa-plus me-1"></i>Add item</button>
-                            </div>
+                            <div><div class="event-sale-section-title mb-1">Order items</div><div class="small text-muted">Choose Good or Damaged for each row, then search by product name or Item ID.</div></div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="addPopupEventItem"><i class="fa-solid fa-plus me-1"></i>Add item</button>
                         </div>
-                        <div class="row g-2 small fw-bold text-muted d-none d-lg-flex px-1"><div class="col-lg-4">Search Product Item</div><div class="col-lg-1">Available</div><div class="col-lg-1">Qty</div><div class="col-lg-2">Regular Price</div><div class="col-lg-1">Disc %</div><div class="col-lg-2">Total</div><div class="col-lg-1">Action</div></div>
+                        <div class="row g-2 small fw-bold text-muted d-none d-lg-flex px-1"><div class="col-lg-4">Search Product Item</div><div class="col-lg-1">Condition</div><div class="col-lg-1">Available</div><div class="col-lg-1">Qty</div><div class="col-lg-2">Regular Price</div><div class="col-lg-1">Disc %</div><div class="col-lg-1">Total</div><div class="col-lg-1">Action</div></div>
                         <div id="popupEventItemRows"><div class="text-center text-muted py-4">Select an event to load its available products.</div></div>
                     </section>
 
@@ -131,7 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalElement = document.getElementById('recordEventSaleModal');
     const form = document.getElementById('eventSalePopupForm');
     const eventSelect = document.getElementById('popupEventId');
-    const conditionSelect = document.getElementById('popupStockCondition');
     const rows = document.getElementById('popupEventItemRows');
     const addButton = document.getElementById('addPopupEventItem');
     const saveButton = document.getElementById('savePopupEventSale');
@@ -162,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const attachmentPreviewState = {};
     const money = value => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
-    const matchingLines = () => eventLines.filter(line => line.condition === conditionSelect.value);
+    const matchingLines = condition => eventLines.filter(line => line.condition === condition);
     const hideResults = () => document.querySelectorAll('.event-product-results').forEach(result => result.hidden = true);
 
     function recalculate() {
@@ -192,7 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const search = row.querySelector('.popup-event-product-search');
         const selected = selectedLineIds(row);
         const normalizedTerm = term.toLowerCase();
-        const matches = matchingLines().filter(line => {
+        const condition = row.querySelector('.popup-event-condition-select').value;
+        const matches = matchingLines(condition).filter(line => {
             const haystack = `${line.name} ${line.item_id}`.toLowerCase();
             return !selected.has(String(line.id)) && haystack.includes(normalizedTerm);
         }).slice(0, 20);
@@ -221,11 +218,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const index = nextIndex++;
         const row = document.createElement('div');
         row.className = 'row g-2 align-items-end event-sale-item-row';
-        row.innerHTML = `<div class="col-lg-4"><label class="form-label fw-semibold d-lg-none">Search Product Item</label><div class="position-relative"><input type="search" class="form-control popup-event-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" name="items[${index}][event_pullout_item_id]" class="popup-event-line"><div class="event-product-results" hidden></div></div></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Available</label><input class="form-control bg-light popup-event-available" value="—" readonly></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Qty</label><input type="number" name="items[${index}][quantity]" class="form-control popup-event-qty" min="1" value="${values.quantity ?? 1}" required></div><div class="col-6 col-lg-2"><label class="form-label fw-semibold d-lg-none">Regular Price</label><input type="number" name="items[${index}][unit_price]" class="form-control popup-event-price" min="0" step="0.01" value="${values.unit_price ?? 0}" required></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Disc %</label><input type="number" name="items[${index}][discount_percentage]" class="form-control popup-event-discount" min="0" max="100" step="0.01" value="${values.discount_percentage ?? 0}"></div><div class="col-6 col-lg-2"><label class="form-label fw-semibold d-lg-none">Total</label><input class="form-control bg-light popup-event-line-total" value="${money(0)}" readonly></div><div class="col-6 col-lg-1"><button type="button" class="btn btn-outline-danger w-100 popup-remove-event-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div>`;
+        row.innerHTML = `<div class="col-lg-4"><label class="form-label fw-semibold d-lg-none">Search Product Item</label><div class="position-relative"><input type="search" class="form-control popup-event-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" name="items[${index}][event_pullout_item_id]" class="popup-event-line"><div class="event-product-results" hidden></div></div></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Condition</label><select name="items[${index}][stock_condition]" class="form-select popup-event-condition-select" required><option value="good">Good</option><option value="damaged">Damaged</option></select></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Available</label><input class="form-control bg-light popup-event-available" value="—" readonly></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Qty</label><input type="number" name="items[${index}][quantity]" class="form-control popup-event-qty" min="1" value="${values.quantity ?? 1}" required></div><div class="col-6 col-lg-2"><label class="form-label fw-semibold d-lg-none">Regular Price</label><input type="number" name="items[${index}][unit_price]" class="form-control popup-event-price" min="0" step="0.01" value="${values.unit_price ?? 0}" required></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Disc %</label><input type="number" name="items[${index}][discount_percentage]" class="form-control popup-event-discount" min="0" max="100" step="0.01" value="${values.discount_percentage ?? 0}"></div><div class="col-6 col-lg-1"><label class="form-label fw-semibold d-lg-none">Total</label><input class="form-control bg-light popup-event-line-total" value="${money(0)}" readonly></div><div class="col-6 col-lg-1"><button type="button" class="btn btn-outline-danger w-100 popup-remove-event-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div>`;
         rows.appendChild(row);
         const search = row.querySelector('.popup-event-product-search');
         const results = row.querySelector('.event-product-results');
-        const selected = eventLines.find(line => String(line.id) === String(values.event_pullout_item_id ?? '') && line.condition === conditionSelect.value);
+        const condition = row.querySelector('.popup-event-condition-select');
+        condition.value = values.stock_condition ?? (eventLines.some(line => line.condition === 'good') ? 'good' : 'damaged');
+        const selected = eventLines.find(line => String(line.id) === String(values.event_pullout_item_id ?? '') && line.condition === condition.value);
         updateRow(row, selected, values.unit_price !== undefined);
         search.addEventListener('focus', () => renderResults(row, search.value && !row.querySelector('.popup-event-line').value ? search.value.trim() : ''));
         search.addEventListener('input', () => {
@@ -236,8 +235,13 @@ document.addEventListener('DOMContentLoaded', () => {
         results.addEventListener('click', event => {
             const button = event.target.closest('[data-line-id]');
             if (!button) return;
-            const line = matchingLines().find(item => String(item.id) === button.dataset.lineId);
+            const line = matchingLines(condition.value).find(item => String(item.id) === button.dataset.lineId);
             if (line) updateRow(row, line);
+        });
+        condition.addEventListener('change', () => {
+            updateRow(row, null);
+            renderResults(row);
+            search.focus();
         });
         row.querySelectorAll('.popup-event-qty, .popup-event-price, .popup-event-discount').forEach(input => input.addEventListener('input', recalculate));
         row.querySelector('.popup-remove-event-row').addEventListener('click', () => {
@@ -251,8 +255,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetRows(values = [{}]) {
         rows.innerHTML = '';
         nextIndex = 0;
-        if (!matchingLines().length) {
-            rows.innerHTML = `<div class="text-center text-muted py-4">No ${escapeHtml(conditionSelect.options[conditionSelect.selectedIndex].text.toLowerCase())} remain for this event.</div>`;
+        if (!eventLines.length) {
+            rows.innerHTML = '<div class="text-center text-muted py-4">No Good or Damaged products remain for this event.</div>';
             return;
         }
         values.forEach(addRow);
@@ -262,13 +266,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const event = events.find(item => String(item.id) === eventSelect.value);
         eventLines = event?.lines ?? [];
         form.action = event ? `${form.dataset.storeBase}/${event.id}/sales` : '';
-        const visibleAvailable = matchingLines().reduce((sum, line) => sum + Number(line.available), 0);
-        document.getElementById('popupEventHub').textContent = event ? `${event.hub} · ${visibleAvailable} ${conditionSelect.value} item(s) available` : 'Select the event whose stock will be sold.';
+        const visibleAvailable = eventLines.reduce((sum, line) => sum + Number(line.available), 0);
+        document.getElementById('popupEventHub').textContent = event ? `${event.hub} · ${visibleAvailable} Good/Damaged item(s) available` : 'Select the event whose stock will be sold.';
         const displayedOrderNumber = event ? (useOldValues && oldOrderNumber ? oldOrderNumber : event.order_number) : '';
         orderNumber.value = displayedOrderNumber;
         orderNumberInput.value = displayedOrderNumber;
-        saveButton.disabled = !event || matchingLines().length === 0;
-        addButton.disabled = !event || matchingLines().length === 0;
+        saveButton.disabled = !event || eventLines.length === 0;
+        addButton.disabled = !event || eventLines.length === 0;
         if (!event) {
             rows.innerHTML = '<div class="text-center text-muted py-4">Select an event to load its available products.</div>';
             return;
@@ -357,7 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === 'ArrowRight' && !viewerNext.hidden) { viewerIndex++; updateImageViewer(); }
     });
     eventSelect.addEventListener('change', () => loadEvent(false));
-    conditionSelect.addEventListener('change', () => loadEvent(false));
     addButton.addEventListener('click', () => addRow());
     additionalDiscount.addEventListener('input', recalculate);
     form.addEventListener('submit', event => {
