@@ -320,7 +320,7 @@ class InventoryTransactionController extends Controller
             ->where('status', 'active')
             ->orderByCatalog('item_id')
             ->get()
-            ->map(fn (Product $product) => [
+            ->flatMap(fn (Product $product) => collect(['good', 'damaged'])->map(fn (string $condition) => [
                 'name' => $product->description ?: $product->name,
                 'barcode' => (string) ($product->barcode ?? ''),
                 'item_id' => (string) $product->item_id,
@@ -329,7 +329,10 @@ class InventoryTransactionController extends Controller
                 'damaged_stock' => (int) $product->damaged_stock,
                 'pullout_qty' => '',
                 'actual_pullout' => '',
-            ])->all();
+                'stock_condition' => $condition,
+            ]))
+            ->values()
+            ->all();
         $path = EventPulloutWorkbook::create($items, [
             'reference' => $validated['reference'] ?? '',
             'occurred_on' => $validated['occurred_on'] ?? now()->toDateString(),
