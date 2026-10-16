@@ -381,18 +381,37 @@
     const productOptions = @json($sponsorProductOptions);
     const dataList = document.createElement('datalist');
     dataList.id = 'sponsorProductOptions';
-    productOptions.forEach(product => {
-        const option = document.createElement('option');
-        option.value = product.label;
-        dataList.appendChild(option);
-    });
+    const stockForCondition = (product, condition) => condition === 'damaged'
+        ? Number(product.damaged_stock_available ?? product.damaged_stock ?? 0)
+        : Number(product.good_stock_available ?? product.stock ?? 0);
+    const labelForCondition = (product, condition) =>
+        window.transactionProductLabel(product, true, condition);
+    const updateSuggestions = row => {
+        const condition = row.querySelector('[name$="[stock_condition]"]').value;
+        dataList.replaceChildren();
+        productOptions
+            .filter(product => stockForCondition(product, condition) > 0)
+            .forEach(product => {
+                const option = document.createElement('option');
+                option.value = labelForCondition(product, condition);
+                dataList.appendChild(option);
+            });
+    };
     document.body.appendChild(dataList);
     setupTransactionSuggestions(
         container,
         dataList,
         productOptions,
         @json(route('hub.products.search.ajax', $hubId ?? 0)),
-        true
+        true,
+        (product, input) => labelForCondition(
+            product,
+            input.closest('.sponsor-item').querySelector('[name$="[stock_condition]"]').value
+        ),
+        (product, input) => stockForCondition(
+            product,
+            input.closest('.sponsor-item').querySelector('[name$="[stock_condition]"]').value
+        ) > 0
     );
     let itemIndex = 1;
 
@@ -406,10 +425,11 @@
     const bindProductSearch = row => {
         const input = row.querySelector('.product-search');
         const hidden = row.querySelector('.product-id');
+        const condition = row.querySelector('[name$="[stock_condition]"]');
         input.addEventListener('input', () => {
             const value = input.value.trim().toLowerCase();
             const product = productOptions.find(item =>
-                item.label.toLowerCase() === value
+                labelForCondition(item, condition.value).toLowerCase() === value
             );
             hidden.value = product ? product.id : '';
             input.setCustomValidity(product ? '' : 'Select a product from the search suggestions.');
@@ -417,6 +437,20 @@
     };
 
     bindProductSearch(container.querySelector('.sponsor-item'));
+    container.addEventListener('focusin', event => {
+        if (!event.target.matches('.product-search')) return;
+        updateSuggestions(event.target.closest('.sponsor-item'));
+    });
+    container.addEventListener('change', event => {
+        if (!event.target.matches('[name$="[stock_condition]"]')) return;
+        const row = event.target.closest('.sponsor-item');
+        const input = row.querySelector('.product-search');
+        const productId = row.querySelector('.product-id').value;
+        const product = productOptions.find(item => String(item.id) === productId)
+            || window.transactionProducts.get(String(productId));
+        if (product) input.value = labelForCondition(product, event.target.value);
+        updateSuggestions(row);
+    });
     addButton.addEventListener('click', () => {
         const row = document.createElement('div');
         row.className = 'row g-2 align-items-center sponsor-item py-2';

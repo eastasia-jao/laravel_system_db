@@ -1,4 +1,4 @@
-window.setupProductSuggestions = function (root, list, options, endpoint, mapProduct, labelOnly = false, sortField = null) {
+window.setupProductSuggestions = function (root, list, options, endpoint, mapProduct, labelOnly = false, sortField = null, filterProduct = null) {
     let timer, controller, version = 0;
     root.addEventListener('input', event => {
         const input = event.target;
@@ -24,18 +24,19 @@ window.setupProductSuggestions = function (root, list, options, endpoint, mapPro
                 if (current !== version) return;
                 list.replaceChildren();
                 const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
-                products.map(mapProduct).filter(product => {
-                    const searchableValues = [product.item_id, product.barcode, product.name, product.description, product.label]
-                        .map(value => String(value || '').toLowerCase());
-                    return keywords.every(keyword => searchableValues.some(value => value.includes(keyword)));
-                }).forEach(product => {
-                    const existing = options.findIndex(item => item.id === product.id);
-                    if (existing >= 0) options[existing] = product;
-                    else options.push(product);
-                    const option = document.createElement('option');
-                    option.value = labelOnly ? product.label : `${product.label} | ${product.barcode || ''} | ${product.description || ''}`;
-                    list.append(option);
-                });
+                products.filter(product => !filterProduct || filterProduct(product, input))
+                    .map(product => mapProduct(product, input)).filter(product => {
+                        const searchableValues = [product.item_id, product.barcode, product.name, product.description, product.label]
+                            .map(value => String(value || '').toLowerCase());
+                        return keywords.every(keyword => searchableValues.some(value => value.includes(keyword)));
+                    }).forEach(product => {
+                        const existing = options.findIndex(item => item.id === product.id);
+                        if (existing >= 0) options[existing] = product;
+                        else options.push(product);
+                        const option = document.createElement('option');
+                        option.value = labelOnly ? product.label : `${product.label} | ${product.barcode || ''} | ${product.description || ''}`;
+                        list.append(option);
+                    });
             } catch (error) {
                 if (error.name !== 'AbortError' && current === version) {
                     window.AppAlert?.show('Product search is unavailable. Please try again.', 'error');
@@ -45,22 +46,26 @@ window.setupProductSuggestions = function (root, list, options, endpoint, mapPro
     });
 };
 
-window.transactionProductLabel = (product, showDamagedStock = false) => {
-    const stockLabel = showDamagedStock
-        ? `good: ${product.good_stock_available ?? product.stock ?? 0} · damaged: ${product.damaged_stock_available ?? 0}`
-        : `stock: ${product.stock}`;
+window.transactionProductLabel = (product, showDamagedStock = false, stockCondition = null) => {
+    const stockLabel = stockCondition
+        ? `stock: ${stockCondition === 'damaged'
+            ? product.damaged_stock_available ?? product.damaged_stock ?? 0
+            : product.good_stock_available ?? product.stock ?? 0}`
+        : showDamagedStock
+            ? `good: ${product.good_stock_available ?? product.stock ?? 0} · damaged: ${product.damaged_stock_available ?? product.damaged_stock ?? 0}`
+            : `stock: ${product.stock}`;
     return `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}${product.barcode ? ' · ' + product.barcode : ''} (${stockLabel})`;
 };
-window.setupTransactionSuggestions = (container, list, options, endpoint, showDamagedStock = false, labelProduct = null) => {
+window.setupTransactionSuggestions = (container, list, options, endpoint, showDamagedStock = false, labelProduct = null, filterProduct = null) => {
     window.transactionProducts = window.transactionProducts || new Map();
     window.transactionProductOptions = options;
-    setupProductSuggestions(container, list, options, endpoint, product => {
+    setupProductSuggestions(container, list, options, endpoint, (product, input) => {
         window.transactionProducts.set(String(product.id), product);
         return {
             ...product,
             label: labelProduct
-                ? labelProduct(product)
+                ? labelProduct(product, input)
                 : transactionProductLabel(product, showDamagedStock)
         };
-    }, true, 'item_id');
+    }, true, 'item_id', filterProduct);
 };

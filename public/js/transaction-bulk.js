@@ -117,6 +117,9 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     const options = [...document.getElementById(prefix + 'ProductOptions').options];
     const labels = new Map(products.map((p, i) => [String(p.id), options[i].value]));
     const labelIds = new Map([...labels].map(([id, label]) => [label.toLowerCase(), id]));
+    const productLabel = (product, condition) => type === 'sponsor_workshop'
+        ? window.transactionProductLabel(product, true, condition)
+        : null;
     const workbookImportUrl = importButton.dataset.bulkImportUrl;
     const workbookExportUrl = panel.querySelector('[data-bulk="export"]').dataset.bulkExportUrl;
     const inventoryWorkbook = ['stock_transfer', 'branch_transfer', 'restock'].includes(type);
@@ -344,16 +347,34 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
                 const batch = items.slice(start, start + 50);
                 batch.forEach(item => {
                     const row = template.cloneNode(true), search = row.querySelector('.product-search'), hidden = row.querySelector('.product-id');
-                    search.value = labels.get(String(item.product_id)); hidden.value = item.product_id;
+                    const conditionSelect = type === 'sponsor_workshop'
+                        ? row.querySelector('[name$="[stock_condition]"]')
+                        : null;
+                    if (conditionSelect) conditionSelect.value = item.stock_condition;
+                    const product = byId.get(String(item.product_id));
+                    search.value = conditionSelect
+                        ? productLabel(product, item.stock_condition)
+                        : labels.get(String(item.product_id));
+                    hidden.value = item.product_id;
                     search.addEventListener('input', () => {
-                        hidden.value = labelIds.get(search.value.trim().toLowerCase()) || '';
+                        if (conditionSelect) {
+                            const matchingProduct = [...byId.values()].find(candidate =>
+                                productLabel(candidate, conditionSelect.value).toLowerCase() === search.value.trim().toLowerCase()
+                            );
+                            hidden.value = matchingProduct ? matchingProduct.id : '';
+                        } else {
+                            hidden.value = labelIds.get(search.value.trim().toLowerCase()) || '';
+                        }
                         search.setCustomValidity(hidden.value ? '' : 'Select a product from the search suggestions.');
                     });
                     row.querySelector('[name$="[quantity]"]').value = item.quantity;
                     if (type === 'return') row.querySelector('select').value = item.condition;
                     if (type === 'sponsor_workshop') {
-                        row.querySelector('[name$="[stock_condition]"]').value = item.stock_condition;
                         row.querySelector('[name$="[pullout_qty]"]').value = item.pullout_qty ?? '';
+                        conditionSelect.addEventListener('change', () => {
+                            const selectedProduct = byId.get(String(hidden.value));
+                            if (selectedProduct) search.value = productLabel(selectedProduct, conditionSelect.value);
+                        });
                     }
                     row.querySelector('button').disabled = false;
                     fragment.appendChild(row);

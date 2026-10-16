@@ -1,5 +1,5 @@
 @php
-    $bulkProducts = $products->map(fn ($product) => $product->only(['id', 'item_id', 'barcode', 'name', 'description', 'stock']))->values();
+    $bulkProducts = $products->map(fn ($product) => $product->only(['id', 'item_id', 'barcode', 'name', 'description', 'stock', 'damaged_stock']))->values();
 @endphp
 @php
     $eventWorkbook = $type === 'sponsor_workshop';

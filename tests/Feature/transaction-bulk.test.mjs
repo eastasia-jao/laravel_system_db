@@ -1,7 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
 import { importRows, csvText, parseCsv, exportFilename, findReviewProductRow } from '../../public/js/transaction-bulk.js';
 const products = [{ id: 1, item_id: '001', barcode: '009', name: 'Test' }];
+const suggestionWindow = {};
+vm.runInNewContext(
+    await readFile(new URL('../../public/js/product-suggestions.js', import.meta.url), 'utf8'),
+    { window: suggestionWindow }
+);
 test('imports 1500 rows with identifiers preserved', () => {
     const csv = csvText([['Item ID', 'Barcode', 'Actual Pull out Qty'], ...Array.from({ length: 1500 }, () => ['001', '009', 2])]);
     assert.equal(importRows(csv, products, 'stock_transfer').length, 1500);
@@ -22,6 +29,24 @@ test('event CSV imports require explicit good or damaged stock conditions', () =
     assert.deepEqual(importRows('Item ID,Quantity,Stock Condition\n001,2,damaged', products, 'sponsor_workshop'), [
         { product_id: 1, quantity: 2, stock_condition: 'damaged', pullout_qty: 2 }
     ]);
+});
+test('event product labels show only the stock for the selected condition', () => {
+    const product = {
+        id: 1,
+        item_id: '001',
+        barcode: '009',
+        name: 'Test',
+        good_stock_available: 8,
+        damaged_stock_available: 3
+    };
+    assert.equal(
+        suggestionWindow.transactionProductLabel(product, true, 'good'),
+        '001 — Test · 009 (stock: 8)'
+    );
+    assert.equal(
+        suggestionWindow.transactionProductLabel(product, true, 'damaged'),
+        '001 — Test · 009 (stock: 3)'
+    );
 });
 test('CSV handles commas, multiline descriptions, BOM and escaped quotes', () => {
     const rows = [['Name', 'Item ID'], ['A, "quoted"\nname', '001']];
