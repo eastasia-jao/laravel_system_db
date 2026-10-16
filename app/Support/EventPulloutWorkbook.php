@@ -149,7 +149,7 @@ class EventPulloutWorkbook
                 }
             }
         }
-        $metadata['occurred_on'] = preg_replace('/^Date:\s*/i', '', $rows[1][4] ?? '') ?? '';
+        $metadata['occurred_on'] = preg_replace('/^Date:\s*/i', '', $rows[1][5] ?? '') ?? '';
 
         $columns = [];
         foreach ($rows[2] ?? [] as $column => $heading) {
@@ -256,15 +256,16 @@ class EventPulloutWorkbook
             .'<sheetFormatPr defaultRowHeight="15"/>'
             .'<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="8" width="20" customWidth="1"/><col min="9" max="9" width="18" customWidth="1"/></cols>'
             .'<sheetData>'
-            .'<row r="1" ht="20.1" customHeight="1">'
+            .'<row r="1" ht="42" customHeight="1">'
             .self::inlineCell('A1', 'EVENT PULL-OUT', 1)
             .self::inlineCell('B1', 'Reference Document No.: '.($document['reference'] ?? ''), 2)
             .self::inlineCell('C1', '', 2)
-            .self::inlineCell('D1', 'Date: '.($document['occurred_on'] ?? ''), 2)
-            .self::inlineCell('E1', 'Event / Recipient: '.($document['source'] ?? ''), 2)
-            .self::inlineCell('F1', '', 2)
-            .self::inlineCell('G1', 'Remarks: '.($document['notes'] ?? ''), 2)
-            .self::inlineCell('H1', '', 2)
+            .self::inlineCell('D1', '', 2)
+            .self::inlineCell('E1', 'Date: '.($document['occurred_on'] ?? ''), 2)
+            .self::inlineCell('F1', 'Event / Recipient: '.($document['source'] ?? ''), 2)
+            .self::inlineCell('G1', '', 2)
+            .self::inlineCell('H1', 'Remarks: '.($document['notes'] ?? ''), 2)
+            .self::inlineCell('I1', '', 2)
             .'</row><row r="2" ht="30" customHeight="1">';
 
         foreach ([
@@ -311,7 +312,7 @@ class EventPulloutWorkbook
             $xml .= '</row>';
         }
 
-        $xml .= '</sheetData><mergeCells count="3"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/><mergeCell ref="G1:H1"/></mergeCells>';
+        $xml .= '</sheetData><mergeCells count="3"><mergeCell ref="B1:D1"/><mergeCell ref="F1:G1"/><mergeCell ref="H1:I1"/></mergeCells>';
         if ($items !== []) {
             $xml .= '<dataValidations count="1"><dataValidation type="list" allowBlank="0" showErrorMessage="1" errorTitle="Invalid stock condition" error="Choose Good or Damaged." sqref="I3:I'.$lastRow.'"><formula1>"Good,Damaged"</formula1></dataValidation></dataValidations>';
         }
@@ -423,7 +424,7 @@ class EventPulloutWorkbook
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
             .'<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .'<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
-            .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" shrinkToFit="1"/></xf>'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>'

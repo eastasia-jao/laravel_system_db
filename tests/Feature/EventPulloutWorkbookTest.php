@@ -53,11 +53,11 @@ class EventPulloutWorkbookTest extends TestCase
         $worksheetXml = $archive['xl/worksheets/sheet1.xml']->getContent();
         $stylesXml = $archive['xl/styles.xml']->getContent();
         unset($archive);
-        $this->assertStringContainsString('<mergeCell ref="B1:C1"/>', $worksheetXml);
-        $this->assertStringContainsString('<mergeCell ref="E1:F1"/>', $worksheetXml);
-        $this->assertStringContainsString('<mergeCell ref="G1:H1"/>', $worksheetXml);
+        $this->assertStringContainsString('<mergeCell ref="B1:D1"/>', $worksheetXml);
+        $this->assertStringContainsString('<mergeCell ref="F1:G1"/>', $worksheetXml);
+        $this->assertStringContainsString('<mergeCell ref="H1:I1"/>', $worksheetXml);
         $this->assertStringContainsString('<dimension ref="A1:I4"/>', $worksheetXml);
-        $this->assertStringContainsString('<row r="1" ht="20.1" customHeight="1">', $worksheetXml);
+        $this->assertStringContainsString('<row r="1" ht="42" customHeight="1">', $worksheetXml);
         $this->assertStringContainsString('<row r="2" ht="30" customHeight="1">', $worksheetXml);
         $this->assertStringContainsString('<row r="3" ht="20.1" customHeight="1">', $worksheetXml);
         $this->assertStringContainsString('<row r="4" ht="20.1" customHeight="1">', $worksheetXml);
@@ -72,8 +72,9 @@ class EventPulloutWorkbookTest extends TestCase
         $this->assertStringContainsString('<c r="A1" s="1"', $worksheetXml);
         $this->assertStringContainsString('<c r="B1" s="2"', $worksheetXml);
         $this->assertStringContainsString('Date: 2026-10-01', $worksheetXml);
-        $this->assertStringContainsString('<c r="E1" s="2"', $worksheetXml);
-        $this->assertStringContainsString('<c r="G1" s="2"', $worksheetXml);
+        $this->assertStringContainsString('<c r="F1" s="2"', $worksheetXml);
+        $this->assertStringContainsString('<c r="H1" s="2"', $worksheetXml);
+        $this->assertStringContainsString('<alignment vertical="top" wrapText="1"/>', $stylesXml);
         $this->assertStringContainsString('fontId="1" fillId="0" borderId="1"', $stylesXml);
         $this->assertStringContainsString('<c r="B2" s="3"', $worksheetXml);
         $this->assertStringContainsString('<c r="B3" s="4"', $worksheetXml);
