@@ -414,6 +414,9 @@ class EventInventoryTest extends TestCase
             'section' => 'transactions',
         ]))->assertOk()
             ->assertSee('Stock sold from Event inventory')
+            ->assertSee('<strong>Log Customer</strong>', false)
+            ->assertDontSee('Inventory Effect')
+            ->assertSee('event-log-products-list')
             ->assertDontSee('Stock entered Event inventory');
     }
 

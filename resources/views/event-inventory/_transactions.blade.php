@@ -18,7 +18,10 @@
     .event-log-meta .label { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .event-log-products { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; overflow: hidden; }
     .event-log-products-header { padding: .75rem 1rem; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
-    .event-log-products-list { max-height: min(46vh, 420px); overflow-y: auto; scrollbar-gutter: stable; }
+    .event-log-products-list { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #94a3b8 #f1f5f9; }
+    .event-log-products-list::-webkit-scrollbar { width: 8px; }
+    .event-log-products-list::-webkit-scrollbar-track { background: #f1f5f9; }
+    .event-log-products-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
     .event-log-product { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
     .event-log-product + .event-log-product { border-top: 1px solid #eef2f7; }
     .event-log-condition { font-size: .7rem; }
@@ -53,7 +56,14 @@
                     <td class="text-nowrap"><strong>{{ $group['occurred_on']?->format('M d, Y') }}</strong><div class="small text-muted">{{ $group['created_at']?->format('h:i A') }}</div></td>
                     <td><span class="badge {{ $badge }}">{{ $label }}</span><div class="small text-muted mt-1">{{ $effect }}</div></td>
                     <td><strong>{{ $group['event']?->source ?? 'Event' }}</strong><div class="small text-muted">{{ $group['event']?->reference ?? $group['reference'] }}</div></td>
-                    <td><strong>{{ $group['reference'] }}</strong>@if($group['sale'])<div class="small text-muted">{{ $group['sale']->customer_name }} &middot; &#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div>@endif</td>
+                    <td>
+                        @if($group['sale'])
+                            <strong>{{ $group['sale']->customer_name }}</strong>
+                            <div class="small text-muted">{{ $group['reference'] }} &middot; &#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div>
+                        @else
+                            <strong>{{ $group['reference'] }}</strong>
+                        @endif
+                    </td>
                     <td><strong>{{ $group['products']->count() }}</strong><div class="small text-muted">unique {{ $group['products']->count() === 1 ? 'product' : 'products' }}</div></td>
                     <td class="fw-bold">{{ $group['quantity'] }}</td>
                     <td>{{ $group['creator']?->name ?? $group['creator']?->username ?? 'System' }}</td>
@@ -95,7 +105,9 @@
                         <div class="col-md-4"><div class="event-log-meta"><div class="label">Date / Time</div><div class="fw-semibold mt-1">{{ $group['occurred_on']?->format('M d, Y') }}<div class="small text-muted">{{ $group['created_at']?->format('h:i A') }}</div></div></div></div>
                         <div class="col-md-4"><div class="event-log-meta"><div class="label">Event Reference</div><div class="fw-semibold mt-1 text-break">{{ $group['event']?->reference ?? $group['reference'] }}</div></div></div>
                         <div class="col-md-4"><div class="event-log-meta"><div class="label">Recorded By</div><div class="fw-semibold mt-1">{{ $group['creator']?->name ?? $group['creator']?->username ?? 'System' }}</div></div></div>
-                        <div class="col-md-6"><div class="event-log-meta"><div class="label">Inventory Effect</div><div class="fw-semibold mt-1">{{ $headOfficeEffect }}</div><div class="small text-muted">Event balance {{ $eventEffect }}{{ $group['quantity'] }}</div></div></div>
+                        @if($group['type'] !== 'sold')
+                            <div class="col-md-6"><div class="event-log-meta"><div class="label">Inventory Effect</div><div class="fw-semibold mt-1">{{ $headOfficeEffect }}</div><div class="small text-muted">Event balance {{ $eventEffect }}{{ $group['quantity'] }}</div></div></div>
+                        @endif
                         <div class="col-md-6"><div class="event-log-meta"><div class="label">Activity</div><div class="fw-semibold mt-1">{{ $effect }}</div>@if($group['notes'])<div class="small text-muted mt-1">{{ $group['notes'] }}</div>@endif</div></div>
                     </div>
 
