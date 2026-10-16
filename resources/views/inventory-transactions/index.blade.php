@@ -73,7 +73,11 @@
     .fully-booked-attachment-file { display: flex; align-items: center; gap: .65rem; min-width: 0; color: #334155; }
     .fully-booked-attachment-file i { color: #64748b; }
     .fully-booked-attachment-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .fully-booked-detail-items { max-height: min(42vh, 360px); overflow-y: auto; overscroll-behavior: contain; }
+    .fully-booked-detail-items { max-height: min(42vh, 360px); overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #94a3b8 #f1f5f9; }
+    .fully-booked-detail-items::-webkit-scrollbar { width: 8px; }
+    .fully-booked-detail-items::-webkit-scrollbar-track { background: #f1f5f9; }
+    .fully-booked-detail-items::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
+    .fully-booked-detail-items::-webkit-scrollbar-thumb:hover { background: #64748b; }
     .fully-booked-detail-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
     .fully-booked-detail-item + .fully-booked-detail-item { border-top: 1px solid #eef2f7; }
     .fully-booked-detail-item-name { color: #1e293b; font-weight: 700; }
@@ -513,7 +517,7 @@
                                                         <i class="fa-solid fa-file-excel me-1"></i>Export Excel
                                                     </button>
                                                 </div>
-                                                <div class="fully-booked-detail-items">
+                                                <div class="fully-booked-detail-items" aria-label="Items pulled out">
                                                     @foreach($fullyBookedOrder->items->sortBy('item_id', SORT_NATURAL | SORT_FLAG_CASE) as $item)
                                                         <div class="fully-booked-detail-item fully-booked-export-item"
                                                             data-item-id="{{ $item->item_id }}"

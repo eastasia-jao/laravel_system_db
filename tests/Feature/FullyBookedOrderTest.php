@@ -1028,6 +1028,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('fully-booked-detail-meta', false)
             ->assertSee('fully-booked-attachment-row', false)
             ->assertSee('fully-booked-detail-items', false)
+            ->assertSee('aria-label="Items pulled out"', false)
+            ->assertSee('scrollbar-gutter: stable', false)
             ->assertSee('Items Pulled Out')
             ->assertSee('export-fully-booked-xlsx', false)
             ->assertSee('Export Excel')
