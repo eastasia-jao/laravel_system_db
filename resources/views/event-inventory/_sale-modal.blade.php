@@ -15,8 +15,13 @@
     ])->values();
 @endphp
 <style>
+    .event-sale-modal .modal-dialog { height: calc(100vh - 2rem); margin-top: 1rem; margin-bottom: 1rem; }
+    .event-sale-modal .modal-content { height: 100%; max-height: 100%; overflow: hidden; }
+    .event-sale-modal form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+    .event-sale-modal .modal-header, .event-sale-modal .modal-footer { flex: 0 0 auto; }
     .event-sale-modal .modal-header { background: linear-gradient(135deg, #eff6ff, #fff); border-bottom-color: #dbeafe; }
-    .event-sale-modal .modal-body { max-height: calc(100vh - 11rem); overflow-y: auto; background: #f8fafc; }
+    .event-sale-modal .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; background: #f8fafc; }
+    .event-sale-modal .modal-footer { position: relative; z-index: 3; background: #fff; box-shadow: 0 -8px 20px rgba(15, 23, 42, .06); }
     .event-sale-section { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; }
     .event-sale-section-title { color: #64748b; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
     .event-sale-item-row { border-bottom: 1px solid #e2e8f0; padding: .85rem 0; }
@@ -27,12 +32,13 @@
     .event-product-result:last-child { border-bottom: 0; }
     .event-product-result:hover, .event-product-result:focus { background: #eff6ff; }
     .event-product-result small { display: block; color: #64748b; }
-    .event-sale-preview { width: 112px; max-width: 100%; }
-    .event-sale-preview-button { display: block; width: 112px; max-width: 100%; padding: 0; border: 0; border-radius: .65rem; background: transparent; }
+    .event-sale-preview { width: 92px; max-width: 100%; }
+    .event-sale-preview-button { display: block; width: 92px; max-width: 100%; padding: 0; border: 0; border-radius: .65rem; background: transparent; }
     .event-sale-preview-button:focus-visible { outline: 3px solid rgba(37, 99, 235, .3); outline-offset: 2px; }
-    .event-sale-preview img { display: block; width: 112px; height: 86px; max-width: 100%; border: 1px solid #dbe3ee; border-radius: .65rem; object-fit: cover; background: #f8fafc; cursor: zoom-in; }
+    .event-sale-preview img { display: block; width: 92px; height: 72px; max-width: 100%; border: 1px solid #dbe3ee; border-radius: .65rem; object-fit: cover; background: #f8fafc; cursor: zoom-in; }
     .event-sale-preview-name { overflow: hidden; color: #64748b; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
     .event-sale-attachment-card { height: 100%; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; padding: .85rem; }
+    .event-sale-attachment-card .form-text { min-height: 2.5rem; }
     .event-sale-image-viewer { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .86); }
     .event-sale-image-viewer[hidden] { display: none; }
     .event-sale-image-stage { position: relative; display: flex; align-items: center; justify-content: center; width: min(980px, 100%); height: min(82vh, 760px); }
@@ -54,7 +60,6 @@
                 <input type="hidden" name="order_number" id="popupOrderNumberInput" value="{{ old('order_number') }}">
                 <div class="modal-header">
                     <div><div class="small fw-bold text-primary text-uppercase">Event sales workspace</div><h5 class="modal-title fw-bold" id="recordEventSaleModalLabel"><i class="fa-solid fa-cart-shopping me-2"></i>Record Event Sale</h5></div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-3 p-lg-4">
                     @if($errors->any() && old('sale_form'))
@@ -90,14 +95,14 @@
                         <div class="event-sale-section-title mb-3">Order summary and attachments</div>
                         <div class="row g-3">
                             <div class="col-lg-7"><div class="row g-3">
-                                <div class="col-md-6"><label class="form-label fw-semibold" for="popupEventMop">Mode of Payment</label><select name="mode_of_payment" id="popupEventMop" class="form-select" required><option value="">-- Select MOP --</option>@foreach(['CASH' => 'Cash', 'GCASH' => 'GCash', 'BDO' => 'BDO', 'BPI' => 'BPI', 'PAYMAYA' => 'PayMaya', 'OTHERS' => 'Others'] as $value => $label)<option value="{{ $value }}" @selected(old('mode_of_payment') === $value)>{{ $label }}</option>@endforeach</select></div>
-                                <div class="col-md-6" id="popupCustomMopWrap" hidden><label class="form-label fw-semibold" for="popupCustomMop">Specify Payment Method</label><input name="custom_mop" id="popupCustomMop" value="{{ old('custom_mop') }}" class="form-control" maxlength="100" placeholder="Enter payment method"></div>
-                                <div class="col-12"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupOrderSlipImage">Order Slip Image</label><input type="file" name="order_slip_image" id="popupOrderSlipImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupOrderSlipPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
-                                <div class="col-12"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupItemImages">Item Images</label><input type="file" name="item_images[]" id="popupItemImages" class="form-control" accept="image/jpeg,image/png,image/webp" multiple><div class="form-text">Upload up to 5 images; maximum 2 MB each. Click a preview and use the arrows to browse.</div><div id="popupItemImagePreviews" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
-                                <div class="col-12"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupProofOfPaymentImage">Proof of Payment</label><input type="file" name="proof_of_payment_image" id="popupProofOfPaymentImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupProofOfPaymentPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
+                                <div class="col-12" id="popupEventMopWrap"><label class="form-label fw-semibold" for="popupEventMop">Mode of Payment</label><select name="mode_of_payment" id="popupEventMop" class="form-select" required><option value="">-- Select MOP --</option>@foreach(['CASH' => 'Cash', 'GCASH' => 'GCash', 'BDO' => 'BDO', 'BPI' => 'BPI', 'PAYMAYA' => 'PayMaya', 'OTHERS' => 'Others'] as $value => $label)<option value="{{ $value }}" @selected(old('mode_of_payment') === $value)>{{ $label }}</option>@endforeach</select></div>
+                                <div class="col-12 col-md-6" id="popupCustomMopWrap" hidden><label class="form-label fw-semibold" for="popupCustomMop">Specify Payment Method</label><input name="custom_mop" id="popupCustomMop" value="{{ old('custom_mop') }}" class="form-control" maxlength="100" placeholder="Enter payment method"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" for="popupSaleNote">Remarks</label><textarea name="note" id="popupSaleNote" class="form-control" rows="3" maxlength="2000">{{ old('note') }}</textarea></div>
                             </div></div>
-                            <div class="col-lg-5"><div class="event-sale-summary p-3"><div class="d-flex justify-content-between mb-3"><span>Items subtotal</span><strong id="popupEventSubtotal">&#8369;0.00</strong></div><div class="row g-2 align-items-center mb-3"><div class="col"><label class="form-label mb-0">Additional Discount</label></div><div class="col-5"><div class="input-group"><input type="number" name="additional_discount_percentage" id="popupAdditionalDiscount" min="0" max="100" step="0.01" value="{{ old('additional_discount_percentage', 0) }}" class="form-control text-end"><span class="input-group-text">%</span></div></div></div><div class="border-top pt-3 d-flex justify-content-between align-items-end"><strong>Grand Total</strong><strong class="fs-4 text-success" id="popupEventGrandTotal">&#8369;0.00</strong></div></div></div>
+                            <div class="col-lg-5"><div class="event-sale-summary p-3 h-100"><div class="d-flex justify-content-between mb-3"><span>Items subtotal</span><strong id="popupEventSubtotal">&#8369;0.00</strong></div><div class="row g-2 align-items-center mb-3"><div class="col"><label class="form-label mb-0">Additional Discount</label></div><div class="col-5"><div class="input-group"><input type="number" name="additional_discount_percentage" id="popupAdditionalDiscount" min="0" max="100" step="0.01" value="{{ old('additional_discount_percentage', 0) }}" class="form-control text-end"><span class="input-group-text">%</span></div></div></div><div class="border-top pt-3 d-flex justify-content-between align-items-end"><strong>Grand Total</strong><strong class="fs-4 text-success" id="popupEventGrandTotal">&#8369;0.00</strong></div></div></div>
+                            <div class="col-lg-3"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupOrderSlipImage">Order Slip Image</label><input type="file" name="order_slip_image" id="popupOrderSlipImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupOrderSlipPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
+                            <div class="col-lg-6"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupItemImages">Item Images</label><input type="file" name="item_images[]" id="popupItemImages" class="form-control" accept="image/jpeg,image/png,image/webp" multiple><div class="form-text">Upload up to 5 images; maximum 2 MB each. Click a preview and use the arrows to browse.</div><div id="popupItemImagePreviews" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
+                            <div class="col-lg-3"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupProofOfPaymentImage">Proof of Payment</label><input type="file" name="proof_of_payment_image" id="popupProofOfPaymentImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupProofOfPaymentPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
                         </div>
                     </section>
                 </div>
@@ -136,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const customerName = document.getElementById('popupCustomerName');
     const contactNumber = document.getElementById('popupContactNumber');
     const paymentMethod = document.getElementById('popupEventMop');
+    const paymentMethodWrap = document.getElementById('popupEventMopWrap');
     const customPaymentWrap = document.getElementById('popupCustomMopWrap');
     const customPayment = document.getElementById('popupCustomMop');
     const attachmentGroups = [
@@ -319,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateCustomPaymentMethod() {
         const isOther = paymentMethod.value === 'OTHERS';
+        paymentMethodWrap.classList.toggle('col-md-6', isOther);
         customPaymentWrap.hidden = !isOther;
         customPayment.disabled = !isOther;
         customPayment.required = isOther;
