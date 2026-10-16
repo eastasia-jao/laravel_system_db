@@ -950,7 +950,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('Pending inventory pull-out')
             ->assertSee('Store: HEAD OFFICE')
             ->assertSee('Please prioritize this order.')
-            ->assertSee($orderNumber);
+            ->assertSee($orderNumber)
+            ->assertDontSee('View Items');
 
         $previewUrl = route('inventory-transactions.fully-booked.attachment', $order);
         $this->actingAs($inventoryStaff)->get(route('inventory-transactions.index', [
@@ -1055,7 +1056,21 @@ class FullyBookedOrderTest extends TestCase
         ]))->assertOk()
             ->assertSee('Stock updated')
             ->assertSee($orderNumber)
+            ->assertSee('View Items')
+            ->assertSee('data-bs-target="#fullyBookedItemsModal'.$order->id.'"', false)
+            ->assertSee('Items for '.$orderNumber)
+            ->assertSee('fully-booked-tracking-items', false)
+            ->assertSee('Items pulled out for '.$orderNumber)
+            ->assertSee('Unaffected Product')
+            ->assertSee('Item ID: FB-1')
+            ->assertSee('Qty 3')
             ->assertDontSee('Pending inventory pull-out');
+        $this->actingAs($otherStaff)->get(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'fully_booked',
+        ]))->assertOk()
+            ->assertDontSee($orderNumber)
+            ->assertDontSee('View Items');
         $this->actingAs($inventoryStaff)
             ->post(route('inventory-transactions.fully-booked.pull-out', $order), [
                 'items' => [['product_id' => $product->id, 'quantity' => 3]],

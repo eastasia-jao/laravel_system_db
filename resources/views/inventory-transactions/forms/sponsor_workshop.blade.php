@@ -55,6 +55,26 @@
         border-radius: .75rem;
         background: #f8fafc;
     }
+    .fully-booked-tracking-items {
+        max-height: min(52vh, 420px);
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        scrollbar-gutter: stable;
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: .75rem;
+    }
+    .fully-booked-tracking-items::-webkit-scrollbar { width: 8px; }
+    .fully-booked-tracking-items::-webkit-scrollbar-track { background: #f1f5f9; }
+    .fully-booked-tracking-items::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
+    .fully-booked-tracking-items::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    .fully-booked-tracking-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; background: #fff; }
+    .fully-booked-tracking-item + .fully-booked-tracking-item { border-top: 1px solid #eef2f7; }
+    .fully-booked-tracking-item-name { color: #1e293b; font-weight: 700; }
+    .fully-booked-tracking-item-id { margin-top: .15rem; color: #64748b; font-size: .78rem; }
+    .fully-booked-tracking-item-qty { flex: 0 0 auto; border-radius: 999px; padding: .3rem .65rem; color: #1d4ed8; background: #eff6ff; font-size: .78rem; font-weight: 800; }
     @media (max-width: 575.98px) {
         .transaction-page-heading { align-items: flex-start; padding: 1rem; }
         .transaction-page-heading-icon { flex-basis: 2.5rem; width: 2.5rem; height: 2.5rem; }
@@ -253,10 +273,50 @@
                                 <div class="small mt-2"><strong>Remarks:</strong> {{ $order->remarks }}</div>
                             @endif
                             <div class="d-flex gap-2 mt-3">
+                                @if($order->pulled_out_at && $order->items->isNotEmpty())
+                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#fullyBookedItemsModal{{ $order->id }}"><i class="fa-solid fa-boxes-stacked me-1"></i>View Items</button>
+                                @endif
                                 <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.fully-booked.attachment', $order) }}" target="_blank" rel="noopener">View Attachment</a>
                                 <a class="btn btn-sm btn-outline-secondary" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'download' => 1]) }}">Download</a>
                             </div>
                         </article>
+
+                        @if($order->pulled_out_at && $order->items->isNotEmpty())
+                            <div class="modal fade" id="fullyBookedItemsModal{{ $order->id }}" tabindex="-1" aria-labelledby="fullyBookedItemsModalTitle{{ $order->id }}" aria-hidden="true">
+                                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <div>
+                                                <div class="small text-uppercase fw-bold text-primary">Fully Booked order</div>
+                                                <h5 class="modal-title fw-bold" id="fullyBookedItemsModalTitle{{ $order->id }}">Items for {{ $order->order_number }}</h5>
+                                            </div>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                                <div class="small text-muted">{{ $order->items->count() }} item line(s) Â· {{ $order->items->sum('quantity') }} total quantity</div>
+                                                <span class="badge rounded-pill text-bg-success">Stock updated</span>
+                                            </div>
+                                            <div class="fully-booked-tracking-items" aria-label="Items pulled out for {{ $order->order_number }}">
+                                                @foreach($order->items->sortBy('item_id', SORT_NATURAL | SORT_FLAG_CASE) as $item)
+                                                    <div class="fully-booked-tracking-item">
+                                                        <div>
+                                                            <div class="fully-booked-tracking-item-name">{{ $item->product_name }}</div>
+                                                            <div class="fully-booked-tracking-item-id">Item ID: {{ $item->item_id ?? 'â€”' }}</div>
+                                                        </div>
+                                                        <span class="fully-booked-tracking-item-qty">Qty {{ $item->quantity }}</span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                            <div class="small text-muted mt-3"><i class="fa-solid fa-clock-rotate-left me-1"></i>Completed {{ $order->pulled_out_at->format('M d, Y h:i A') }}</div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 @endforeach
             </div>
