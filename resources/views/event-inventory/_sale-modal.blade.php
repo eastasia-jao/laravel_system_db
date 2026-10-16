@@ -16,7 +16,7 @@
 @endphp
 <style>
     .event-sale-modal .modal-header { background: linear-gradient(135deg, #eff6ff, #fff); border-bottom-color: #dbeafe; }
-    .event-sale-modal .modal-body { background: #f8fafc; }
+    .event-sale-modal .modal-body { max-height: calc(100vh - 11rem); overflow-y: auto; background: #f8fafc; }
     .event-sale-section { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; }
     .event-sale-section-title { color: #64748b; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
     .event-sale-item-row { border-bottom: 1px solid #e2e8f0; padding: .85rem 0; }
@@ -28,8 +28,21 @@
     .event-product-result:hover, .event-product-result:focus { background: #eff6ff; }
     .event-product-result small { display: block; color: #64748b; }
     .event-sale-preview { width: 112px; max-width: 100%; }
-    .event-sale-preview img { display: block; width: 112px; height: 86px; max-width: 100%; border: 1px solid #dbe3ee; border-radius: .65rem; object-fit: cover; background: #f8fafc; }
+    .event-sale-preview-button { display: block; width: 112px; max-width: 100%; padding: 0; border: 0; border-radius: .65rem; background: transparent; }
+    .event-sale-preview-button:focus-visible { outline: 3px solid rgba(37, 99, 235, .3); outline-offset: 2px; }
+    .event-sale-preview img { display: block; width: 112px; height: 86px; max-width: 100%; border: 1px solid #dbe3ee; border-radius: .65rem; object-fit: cover; background: #f8fafc; cursor: zoom-in; }
     .event-sale-preview-name { overflow: hidden; color: #64748b; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+    .event-sale-attachment-card { height: 100%; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; padding: .85rem; }
+    .event-sale-image-viewer { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .86); }
+    .event-sale-image-viewer[hidden] { display: none; }
+    .event-sale-image-stage { position: relative; display: flex; align-items: center; justify-content: center; width: min(980px, 100%); height: min(82vh, 760px); }
+    .event-sale-image-stage img { max-width: calc(100% - 7rem); max-height: calc(100% - 4rem); border-radius: .75rem; object-fit: contain; box-shadow: 0 20px 60px rgba(0, 0, 0, .4); }
+    .event-sale-viewer-control { position: absolute; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid rgba(255, 255, 255, .45); border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .68); }
+    .event-sale-viewer-control[hidden] { display: none; }
+    .event-sale-viewer-close { top: 0; right: 0; }
+    .event-sale-viewer-previous { left: .25rem; }
+    .event-sale-viewer-next { right: .25rem; }
+    .event-sale-viewer-caption { position: absolute; right: 4rem; bottom: 0; left: 4rem; color: #fff; text-align: center; }
 </style>
 
 <div class="modal fade event-sale-modal" id="recordEventSaleModal" tabindex="-1" aria-labelledby="recordEventSaleModalLabel" aria-hidden="true" data-bs-backdrop="static">
@@ -77,9 +90,11 @@
                         <div class="event-sale-section-title mb-3">Order summary and attachments</div>
                         <div class="row g-3">
                             <div class="col-lg-7"><div class="row g-3">
-                                <div class="col-md-6"><label class="form-label fw-semibold" for="popupEventMop">Mode of Payment</label><select name="mode_of_payment" id="popupEventMop" class="form-select" required><option value="">-- Select MOP --</option>@foreach(['CASH' => 'Cash', 'GCASH' => 'GCash', 'BANK_TRANSFER' => 'Bank Transfer', 'CREDIT_DEBIT_CARD' => 'Credit/Debit Card', 'OTHERS' => 'Others'] as $value => $label)<option value="{{ $value }}" @selected(old('mode_of_payment') === $value)>{{ $label }}</option>@endforeach</select></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" for="popupEventAttachments">Image Attachments</label><input type="file" name="event_attachments[]" id="popupEventAttachments" class="form-control" accept="image/jpeg,image/png,image/webp" multiple><div class="form-text">Up to 3 images; maximum 2 MB per image.</div></div>
-                                <div class="col-12"><div id="popupEventAttachmentPreviews" class="d-flex flex-wrap gap-2" aria-live="polite"></div></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold" for="popupEventMop">Mode of Payment</label><select name="mode_of_payment" id="popupEventMop" class="form-select" required><option value="">-- Select MOP --</option>@foreach(['CASH' => 'Cash', 'GCASH' => 'GCash', 'BDO' => 'BDO', 'BPI' => 'BPI', 'PAYMAYA' => 'PayMaya', 'OTHERS' => 'Others'] as $value => $label)<option value="{{ $value }}" @selected(old('mode_of_payment') === $value)>{{ $label }}</option>@endforeach</select></div>
+                                <div class="col-md-6" id="popupCustomMopWrap" hidden><label class="form-label fw-semibold" for="popupCustomMop">Specify Payment Method</label><input name="custom_mop" id="popupCustomMop" value="{{ old('custom_mop') }}" class="form-control" maxlength="100" placeholder="Enter payment method"></div>
+                                <div class="col-12"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupOrderSlipImage">Order Slip Image</label><input type="file" name="order_slip_image" id="popupOrderSlipImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupOrderSlipPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
+                                <div class="col-12"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupItemImages">Item Images</label><input type="file" name="item_images[]" id="popupItemImages" class="form-control" accept="image/jpeg,image/png,image/webp" multiple><div class="form-text">Upload up to 5 images; maximum 2 MB each. Click a preview and use the arrows to browse.</div><div id="popupItemImagePreviews" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
+                                <div class="col-12"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupProofOfPaymentImage">Proof of Payment</label><input type="file" name="proof_of_payment_image" id="popupProofOfPaymentImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupProofOfPaymentPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold" for="popupSaleNote">Remarks</label><textarea name="note" id="popupSaleNote" class="form-control" rows="3" maxlength="2000">{{ old('note') }}</textarea></div>
                             </div></div>
                             <div class="col-lg-5"><div class="event-sale-summary p-3"><div class="d-flex justify-content-between mb-3"><span>Items subtotal</span><strong id="popupEventSubtotal">&#8369;0.00</strong></div><div class="row g-2 align-items-center mb-3"><div class="col"><label class="form-label mb-0">Additional Discount</label></div><div class="col-5"><div class="input-group"><input type="number" name="additional_discount_percentage" id="popupAdditionalDiscount" min="0" max="100" step="0.01" value="{{ old('additional_discount_percentage', 0) }}" class="form-control text-end"><span class="input-group-text">%</span></div></div></div><div class="border-top pt-3 d-flex justify-content-between align-items-end"><strong>Grand Total</strong><strong class="fs-4 text-success" id="popupEventGrandTotal">&#8369;0.00</strong></div></div></div>
@@ -89,6 +104,16 @@
                 <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary px-4" id="savePopupEventSale" disabled><i class="fa-solid fa-check me-1"></i>Save Event Sale</button></div>
             </form>
         </div>
+    </div>
+</div>
+
+<div class="event-sale-image-viewer" id="eventSaleImageViewer" role="dialog" aria-modal="true" aria-labelledby="eventSaleImageViewerCaption" hidden>
+    <div class="event-sale-image-stage">
+        <button type="button" class="event-sale-viewer-control event-sale-viewer-close" id="eventSaleViewerClose" aria-label="Close image preview"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="event-sale-viewer-control event-sale-viewer-previous" id="eventSaleViewerPrevious" aria-label="Previous image"><i class="fa-solid fa-chevron-left"></i></button>
+        <img id="eventSaleViewerImage" src="" alt="Selected attachment preview">
+        <button type="button" class="event-sale-viewer-control event-sale-viewer-next" id="eventSaleViewerNext" aria-label="Next image"><i class="fa-solid fa-chevron-right"></i></button>
+        <div class="event-sale-viewer-caption"><div id="eventSaleImageViewerCaption" class="fw-semibold"></div><div id="eventSaleViewerCounter" class="small text-white-50"></div></div>
     </div>
 </div>
 
@@ -110,11 +135,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const orderNumberInput = document.getElementById('popupOrderNumberInput');
     const customerName = document.getElementById('popupCustomerName');
     const contactNumber = document.getElementById('popupContactNumber');
-    const attachmentInput = document.getElementById('popupEventAttachments');
-    const attachmentPreviews = document.getElementById('popupEventAttachmentPreviews');
+    const paymentMethod = document.getElementById('popupEventMop');
+    const customPaymentWrap = document.getElementById('popupCustomMopWrap');
+    const customPayment = document.getElementById('popupCustomMop');
+    const attachmentGroups = [
+        { key: 'order_slip', label: 'Order Slip Image', input: document.getElementById('popupOrderSlipImage'), previews: document.getElementById('popupOrderSlipPreview'), maximum: 1 },
+        { key: 'item_images', label: 'Item Image', input: document.getElementById('popupItemImages'), previews: document.getElementById('popupItemImagePreviews'), maximum: 5 },
+        { key: 'proof_of_payment', label: 'Proof of Payment', input: document.getElementById('popupProofOfPaymentImage'), previews: document.getElementById('popupProofOfPaymentPreview'), maximum: 1 },
+    ];
+    const imageViewer = document.getElementById('eventSaleImageViewer');
+    const viewerImage = document.getElementById('eventSaleViewerImage');
+    const viewerCaption = document.getElementById('eventSaleImageViewerCaption');
+    const viewerCounter = document.getElementById('eventSaleViewerCounter');
+    const viewerPrevious = document.getElementById('eventSaleViewerPrevious');
+    const viewerNext = document.getElementById('eventSaleViewerNext');
     let nextIndex = 0;
     let eventLines = [];
-    let previewUrls = [];
+    let viewerGroup = null;
+    let viewerIndex = 0;
+    const attachmentPreviewState = {};
     const money = value => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
     const matchingLines = () => eventLines.filter(line => line.condition === conditionSelect.value);
@@ -232,21 +271,57 @@ document.addEventListener('DOMContentLoaded', () => {
         recalculate();
     }
 
-    function renderAttachmentPreviews() {
-        previewUrls.forEach(url => URL.revokeObjectURL(url));
-        previewUrls = [];
-        attachmentPreviews.innerHTML = '';
-        const files = [...attachmentInput.files];
-        const invalid = files.length > 3 || files.some(file => file.size > 2 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
-        attachmentInput.setCustomValidity(invalid ? 'Choose up to 3 JPG, PNG, or WebP images, no larger than 2 MB each.' : '');
-        files.slice(0, 3).forEach(file => {
-            const url = URL.createObjectURL(file);
-            previewUrls.push(url);
+    function updateImageViewer() {
+        const images = attachmentPreviewState[viewerGroup] ?? [];
+        if (!images.length) return closeImageViewer();
+        viewerIndex = (viewerIndex + images.length) % images.length;
+        const selected = images[viewerIndex];
+        viewerImage.src = selected.url;
+        viewerImage.alt = `Preview of ${selected.name}`;
+        viewerCaption.textContent = selected.name;
+        viewerCounter.textContent = images.length > 1 ? `${viewerIndex + 1} of ${images.length}` : '';
+        viewerPrevious.hidden = images.length < 2;
+        viewerNext.hidden = images.length < 2;
+    }
+
+    function openImageViewer(group, index) {
+        viewerGroup = group;
+        viewerIndex = index;
+        imageViewer.hidden = false;
+        updateImageViewer();
+        document.getElementById('eventSaleViewerClose').focus();
+    }
+
+    function closeImageViewer() {
+        imageViewer.hidden = true;
+        viewerImage.src = '';
+    }
+
+    function renderAttachmentPreviews(group) {
+        (attachmentPreviewState[group.key] ?? []).forEach(image => URL.revokeObjectURL(image.url));
+        group.previews.innerHTML = '';
+        const files = [...group.input.files];
+        const invalid = files.length > group.maximum || files.some(file => file.size > 2 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+        const countDescription = group.maximum === 1 ? 'one image' : `up to ${group.maximum} images`;
+        group.input.setCustomValidity(invalid ? `Choose ${countDescription} in JPG, PNG, or WebP format, no larger than 2 MB each.` : '');
+        attachmentPreviewState[group.key] = files.slice(0, group.maximum).map(file => ({
+            name: file.name,
+            url: URL.createObjectURL(file),
+        }));
+        attachmentPreviewState[group.key].forEach((image, index) => {
             const preview = document.createElement('div');
             preview.className = 'event-sale-preview';
-            preview.innerHTML = `<img src="${url}" alt="Preview of ${escapeHtml(file.name)}"><div class="event-sale-preview-name mt-1" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>`;
-            attachmentPreviews.appendChild(preview);
+            preview.innerHTML = `<button type="button" class="event-sale-preview-button" aria-label="Open ${escapeHtml(group.label)} ${index + 1}"><img src="${image.url}" alt="Preview of ${escapeHtml(image.name)}"></button><div class="event-sale-preview-name mt-1" title="${escapeHtml(image.name)}">${escapeHtml(image.name)}</div>`;
+            preview.querySelector('button').addEventListener('click', () => openImageViewer(group.key, index));
+            group.previews.appendChild(preview);
         });
+    }
+
+    function updateCustomPaymentMethod() {
+        const isOther = paymentMethod.value === 'OTHERS';
+        customPaymentWrap.hidden = !isOther;
+        customPayment.disabled = !isOther;
+        customPayment.required = isOther;
     }
 
     customerName.addEventListener('input', () => {
@@ -262,7 +337,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (digits.startsWith('0')) digits = digits.slice(1);
         contactNumber.value = `+63${digits.slice(0, 10)}`;
     });
-    attachmentInput.addEventListener('change', renderAttachmentPreviews);
+    attachmentGroups.forEach(group => group.input.addEventListener('change', () => renderAttachmentPreviews(group)));
+    paymentMethod.addEventListener('change', updateCustomPaymentMethod);
+    document.getElementById('eventSaleViewerClose').addEventListener('click', closeImageViewer);
+    viewerPrevious.addEventListener('click', () => { viewerIndex--; updateImageViewer(); });
+    viewerNext.addEventListener('click', () => { viewerIndex++; updateImageViewer(); });
+    imageViewer.addEventListener('click', event => { if (event.target === imageViewer) closeImageViewer(); });
+    document.addEventListener('keydown', event => {
+        if (imageViewer.hidden) return;
+        if (event.key === 'Escape') closeImageViewer();
+        if (event.key === 'ArrowLeft' && !viewerPrevious.hidden) { viewerIndex--; updateImageViewer(); }
+        if (event.key === 'ArrowRight' && !viewerNext.hidden) { viewerIndex++; updateImageViewer(); }
+    });
     eventSelect.addEventListener('change', () => loadEvent(false));
     conditionSelect.addEventListener('change', () => loadEvent(false));
     addButton.addEventListener('click', () => addRow());
@@ -279,7 +365,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.addEventListener('click', event => { if (!event.target.closest('.position-relative')) hideResults(); });
     document.addEventListener('scroll', hideResults, true);
-    modalElement.addEventListener('hidden.bs.modal', hideResults);
+    modalElement.addEventListener('hidden.bs.modal', () => { hideResults(); closeImageViewer(); });
+    updateCustomPaymentMethod();
     loadEvent(true);
     if (shouldOpen && window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalElement).show();
 });

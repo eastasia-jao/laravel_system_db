@@ -361,7 +361,10 @@ Test both the visible menu/button and direct URL/API access. Hidden UI alone is 
 - [ ] Event Transaction Logs use compact summary rows and show the consolidated products, inventory effect, sale image attachments, and audit metadata through View Details.
 - [ ] Record Event Sale opens as a channel-sales-style popup with a visible generated order number, customer details, Good/Damaged product filtering, searchable product rows, availability, price, line discount, additional discount, totals, and remarks; Payment Status and Amount Paid are not shown.
 - [ ] Customer names are saved in title case, and Event Sale contact numbers accept only valid Philippine mobile numbers stored as `+639XXXXXXXXX`.
-- [ ] Event Sale accepts up to three JPG/PNG/WebP attachments at no more than 2 MB each and previews them inside the popup before saving.
+- [ ] Record Event Sale is vertically scrollable and keeps its header/footer controls usable while reviewing a long form.
+- [ ] Event Sale separates Order Slip Image, up to five Item Images, and Proof of Payment; every JPG/PNG/WebP file is limited to 2 MB and saved under the correct category.
+- [ ] Clicking an attachment preview opens an in-page image viewer; multiple Item Images support previous/next buttons and keyboard arrow navigation without opening another tab.
+- [ ] Event payment methods are limited to Cash, GCash, BDO, BPI, PayMaya, and Others; selecting Others requires and saves a specified payment method.
 - [ ] Large workbook import matches products in bounded batches and preserves identifiers.
 
 ## 23. National Inventory and National Pull-out

@@ -131,11 +131,14 @@ class EventInventoryController extends Controller
             'customer_name' => ['nullable', 'string', 'max:255'],
             'contact_number' => ['nullable', 'regex:/^\+639\d{9}$/'],
             'address' => ['nullable', 'string', 'max:1000'],
-            'mode_of_payment' => ['nullable', 'string', 'max:100'],
+            'mode_of_payment' => ['required', Rule::in(['CASH', 'GCASH', 'BDO', 'BPI', 'PAYMAYA', 'OTHERS'])],
+            'custom_mop' => ['nullable', 'required_if:mode_of_payment,OTHERS', 'string', 'max:100'],
             'additional_discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
             'note' => ['nullable', 'string', 'max:2000'],
-            'event_attachments' => ['nullable', 'array', 'max:3'],
-            'event_attachments.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+            'order_slip_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+            'item_images' => ['nullable', 'array', 'max:5'],
+            'item_images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+            'proof_of_payment_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.event_pullout_item_id' => ['required', 'integer', 'distinct', 'exists:event_pullout_items,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
@@ -143,10 +146,27 @@ class EventInventoryController extends Controller
             'items.*.discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
         ]);
 
-        $attachmentPaths = [];
+        $attachmentPaths = [
+            'order_slip' => null,
+            'item_images' => [],
+            'proof_of_payment' => null,
+        ];
+        $storedAttachmentPaths = [];
         try {
-            foreach ($request->file('event_attachments', []) as $attachment) {
-                $attachmentPaths[] = $attachment->store('event_sale_attachments', 'public');
+            if ($request->hasFile('order_slip_image')) {
+                $attachmentPaths['order_slip'] = $request->file('order_slip_image')
+                    ->store('event_sale_attachments/order_slips', 'public');
+                $storedAttachmentPaths[] = $attachmentPaths['order_slip'];
+            }
+            foreach ($request->file('item_images', []) as $attachment) {
+                $path = $attachment->store('event_sale_attachments/items', 'public');
+                $attachmentPaths['item_images'][] = $path;
+                $storedAttachmentPaths[] = $path;
+            }
+            if ($request->hasFile('proof_of_payment_image')) {
+                $attachmentPaths['proof_of_payment'] = $request->file('proof_of_payment_image')
+                    ->store('event_sale_attachments/payment_proofs', 'public');
+                $storedAttachmentPaths[] = $attachmentPaths['proof_of_payment'];
             }
 
             $sale = DB::transaction(function () use ($eventPullout, $validated, $request, $attachmentPaths) {
@@ -255,6 +275,7 @@ class EventInventoryController extends Controller
                     'contact_number' => $validated['contact_number'] ?? null,
                     'address' => $validated['address'] ?? null,
                     'mode_of_payment' => $validated['mode_of_payment'] ?? null,
+                    'custom_mop' => $validated['custom_mop'] ?? null,
                     'note' => $validated['note'] ?? null,
                     'sub_total' => $subTotal,
                     'additional_discount_percentage' => $additionalDiscountPercentage,
@@ -304,7 +325,7 @@ class EventInventoryController extends Controller
                 return $sale;
             });
         } catch (\Throwable $exception) {
-            foreach ($attachmentPaths as $attachmentPath) {
+            foreach ($storedAttachmentPaths as $attachmentPath) {
                 Storage::disk('public')->delete($attachmentPath);
             }
 

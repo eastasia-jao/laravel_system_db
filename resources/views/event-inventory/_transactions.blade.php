@@ -99,19 +99,38 @@
                     </div>
 
                     @if($group['sale'])
+                        @php
+                            $paymentLabels = ['CASH' => 'Cash', 'GCASH' => 'GCash', 'BDO' => 'BDO', 'BPI' => 'BPI', 'PAYMAYA' => 'PayMaya', 'OTHERS' => 'Others'];
+                            $paymentLabel = $group['sale']->mode_of_payment === 'OTHERS'
+                                ? ($group['sale']->custom_mop ?: 'Others')
+                                : ($paymentLabels[$group['sale']->mode_of_payment] ?? ($group['sale']->mode_of_payment ?: 'Not specified'));
+                            $storedAttachments = $group['sale']->event_attachments ?? [];
+                            $categorizedAttachments = is_array($storedAttachments)
+                                && (array_key_exists('order_slip', $storedAttachments) || array_key_exists('item_images', $storedAttachments) || array_key_exists('proof_of_payment', $storedAttachments));
+                            $attachmentGroups = $categorizedAttachments ? [
+                                'Order Slip Image' => array_filter([$storedAttachments['order_slip'] ?? null]),
+                                'Item Images' => array_filter($storedAttachments['item_images'] ?? []),
+                                'Proof of Payment' => array_filter([$storedAttachments['proof_of_payment'] ?? null]),
+                            ] : ['Event Images' => array_filter(is_array($storedAttachments) ? $storedAttachments : [])];
+                        @endphp
                         <div class="row g-3 mb-3">
                             <div class="col-md-4"><div class="event-log-meta"><div class="label">Customer</div><div class="fw-semibold mt-1">{{ $group['sale']->customer_name }}</div></div></div>
-                            <div class="col-md-4"><div class="event-log-meta"><div class="label">Payment</div><div class="fw-semibold mt-1">{{ $group['sale']->mode_of_payment ?: 'Not specified' }}</div><div class="small text-muted">{{ ucfirst($group['sale']->payment_status ?: 'paid') }}</div></div></div>
+                            <div class="col-md-4"><div class="event-log-meta"><div class="label">Payment</div><div class="fw-semibold mt-1">{{ $paymentLabel }}</div><div class="small text-muted">{{ ucfirst($group['sale']->payment_status ?: 'paid') }}</div></div></div>
                             <div class="col-md-4"><div class="event-log-meta"><div class="label">Sale Total</div><div class="fw-bold text-success fs-5 mt-1">&#8369;{{ number_format((float) $group['sale']->grand_total, 2) }}</div></div></div>
                         </div>
-                        @if(!empty($group['sale']->event_attachments))
+                        @if(collect($attachmentGroups)->flatten()->isNotEmpty())
                             <div class="event-log-meta mb-3">
                                 <div class="label mb-2">Sale Image Attachments</div>
-                                <div class="d-flex flex-wrap gap-2">
-                                    @foreach($group['sale']->event_attachments as $attachment)
-                                        <img src="{{ asset('storage/'.$attachment) }}" class="event-log-attachment" alt="Event sale attachment {{ $loop->iteration }}">
-                                    @endforeach
-                                </div>
+                                @foreach($attachmentGroups as $attachmentLabel => $attachments)
+                                    @if(!empty($attachments))
+                                        <div class="small fw-semibold text-muted mt-2 mb-1">{{ $attachmentLabel }}</div>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            @foreach($attachments as $attachment)
+                                                <img src="{{ asset('storage/'.$attachment) }}" class="event-log-attachment" alt="{{ $attachmentLabel }} {{ $loop->iteration }}">
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                @endforeach
                             </div>
                         @endif
                     @endif
