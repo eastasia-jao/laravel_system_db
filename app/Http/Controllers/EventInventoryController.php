@@ -430,6 +430,8 @@ class EventInventoryController extends Controller
                 'returned_good' => $returnedGood,
                 'returned_damaged' => $returnedDamaged,
                 'returned_total' => $returned,
+                'remaining_good' => max(0, $pulledGood - $soldGood - $returnedGood),
+                'remaining_damaged' => max(0, $pulledDamaged - $soldDamaged - $returnedDamaged),
                 'missing_total' => $missing,
                 'remaining' => max(0, $pulled - $sold - $returned - $missing),
             ];

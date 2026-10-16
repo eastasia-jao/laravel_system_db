@@ -363,6 +363,26 @@ class EventInventoryTest extends TestCase
             ->assertJsonPath('transaction.items.0.remaining_damaged_quantity', 1);
         $this->assertSame($goodStockAfterPullout, (int) $product->fresh()->stock);
         $this->assertSame($damagedStockAfterPullout, (int) $product->fresh()->damaged_stock);
+
+        $this->post(route('inventory-transactions.return.store'), [
+            'type' => 'return',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-15',
+            'channel' => 'event',
+            'event_reference' => $event->reference,
+            'items' => [[
+                'product_id' => $product->id,
+                'good_quantity' => 0,
+                'damaged_quantity' => 1,
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $this->get(route('event-inventory.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('Good returned 0', false)
+            ->assertSee('Damaged returned 1', false)
+            ->assertSee('Good 2', false)
+            ->assertSee('Damaged 0', false);
     }
 
     public function test_event_inventory_contains_a_filterable_transaction_log(): void

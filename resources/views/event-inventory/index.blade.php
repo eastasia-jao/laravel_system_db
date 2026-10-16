@@ -101,8 +101,13 @@
                             <td><strong>{{ $row['product']?->name ?? 'Unknown product' }}</strong><div class="small text-muted">{{ $row['product']?->item_id ?? 'N/A' }}</div></td>
                             <td><strong>{{ $row['pulled_total'] }}</strong><div class="small text-muted">Good {{ $row['pulled_good'] }} &middot; Damaged {{ $row['pulled_damaged'] }}</div></td>
                             <td><strong>{{ $row['sold_total'] }}</strong><div class="small text-muted">Good {{ $row['sold_good'] }} &middot; Damaged {{ $row['sold_damaged'] }}</div></td>
-                            <td><strong>{{ $row['returned_total'] }}</strong><div class="small text-muted">Good {{ $row['returned_good'] }} &middot; Damaged {{ $row['returned_damaged'] }}</div></td>
-                            <td><span class="badge {{ $row['remaining'] > 0 ? 'text-bg-warning' : 'text-bg-success' }}">{{ $row['remaining'] }}</span></td>
+                            <td><strong>{{ $row['returned_total'] }}</strong><div class="small text-muted">Good returned {{ $row['returned_good'] }} &middot; Damaged returned {{ $row['returned_damaged'] }}</div></td>
+                            <td>
+                                <span class="badge {{ $row['remaining'] > 0 ? 'text-bg-warning' : 'text-bg-success' }}">{{ $row['remaining'] }}</span>
+                                @if($event->status === 'open')
+                                    <div class="small text-muted">Good {{ $row['remaining_good'] }} &middot; Damaged {{ $row['remaining_damaged'] }}</div>
+                                @endif
+                            </td>
                             <td><span class="badge {{ $row['missing_total'] > 0 ? 'text-bg-danger' : 'text-bg-light' }}">{{ $row['missing_total'] }}</span></td>
                         </tr>
                     @endforeach
