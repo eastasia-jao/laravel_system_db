@@ -256,8 +256,9 @@ class EventInventoryController extends Controller
                     ]);
                 }
                 $orderNumber = $submittedOrderNumber;
-                $subTotal = $requestedItems->sum(function ($item) {
-                    $gross = (int) $item['quantity'] * (float) $item['unit_price'];
+                $subTotal = $requestedItems->sum(function ($item) use ($eventItems) {
+                    $unitPrice = (float) ($eventItems->get((int) $item['event_pullout_item_id'])?->product?->sales_price ?? 0);
+                    $gross = (int) $item['quantity'] * $unitPrice;
 
                     return round($gross * (1 - ((float) ($item['discount_percentage'] ?? 0) / 100)), 2);
                 });
@@ -291,7 +292,7 @@ class EventInventoryController extends Controller
                 foreach ($requestedItems as $lineId => $item) {
                     $line = $eventItems->get((int) $lineId);
                     $quantity = (int) $item['quantity'];
-                    $unitPrice = (float) $item['unit_price'];
+                    $unitPrice = (float) ($line->product?->sales_price ?? 0);
                     $discountPercentage = (float) ($item['discount_percentage'] ?? 0);
                     $lineTotal = round(($quantity * $unitPrice) * (1 - ($discountPercentage / 100)), 2);
                     $transactionItem = TransactionItem::create([

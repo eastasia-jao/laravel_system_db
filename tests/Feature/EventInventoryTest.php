@@ -55,6 +55,7 @@ class EventInventoryTest extends TestCase
             ->assertSee('eventSaleImageViewer')
             ->assertSee('maxlength="150"', false)
             ->assertSee('event-sale-remarks')
+            ->assertSee('popup-event-price-display')
             ->assertDontSee('Bank Transfer')
             ->assertDontSee('Credit/Debit Card')
             ->assertDontSee('Payment Status')
@@ -118,7 +119,7 @@ class EventInventoryTest extends TestCase
                 'event_pullout_item_id' => $line->id,
                 'stock_condition' => 'good',
                 'quantity' => 2,
-                'unit_price' => 150,
+                'unit_price' => 1,
                 'discount_percentage' => 10,
             ]],
         ])->assertSessionHasNoErrors();
@@ -142,6 +143,7 @@ class EventInventoryTest extends TestCase
             Storage::disk('public')->assertExists($attachment);
         }
         $this->assertEquals(10.00, $sale->items()->sole()->discount_percentage);
+        $this->assertEquals(150.00, $sale->items()->sole()->unit_price);
         $this->assertEquals(270.00, $sale->items()->sole()->line_total);
         $this->assertSame($stockAfterPullout, (int) $product->fresh()->stock);
         $this->assertDatabaseHas('inventory_transactions', [
