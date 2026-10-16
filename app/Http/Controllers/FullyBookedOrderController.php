@@ -217,6 +217,7 @@ class FullyBookedOrderController extends Controller
             'po_number' => $fullyBookedOrder->order_number,
             'occurred_on' => ($fullyBookedOrder->pulled_out_at ?? $fullyBookedOrder->created_at)?->format('Y-m-d') ?? '',
             'remarks' => $fullyBookedOrder->remarks ?? '',
+            'top_align_metadata' => true,
         ]);
         $filename = 'FULLY_BOOKED_'.Str::slug($fullyBookedOrder->order_number, '_').'_PULLOUT.xlsx';
 

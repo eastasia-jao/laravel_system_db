@@ -382,8 +382,13 @@ class FullyBookedOrderTest extends TestCase
         try {
             $workbook = new \PharData($path, 0, null, \Phar::ZIP);
             $sheet = $workbook['xl/worksheets/sheet1.xml']->getContent();
+            $styles = $workbook['xl/styles.xml']->getContent();
             $this->assertStringContainsString('FULLY BOOKED', $sheet);
             $this->assertStringContainsString('Order #: FB-EXPORT-001', $sheet);
+            $this->assertStringContainsString('<c r="B1" s="6"', $sheet);
+            $this->assertStringContainsString('<c r="D1" s="6"', $sheet);
+            $this->assertStringContainsString('<c r="E1" s="6"', $sheet);
+            $this->assertStringContainsString('<alignment vertical="top" wrapText="1"/>', $styles);
             $this->assertStringContainsString('Item ID', $sheet);
             $this->assertStringContainsString('r="A2" s="2"', $sheet);
             $this->assertStringContainsString('FB-EXPORT-1</t>', $sheet);

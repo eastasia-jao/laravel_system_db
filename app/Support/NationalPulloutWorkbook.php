@@ -105,7 +105,7 @@ class NationalPulloutWorkbook
 
     /**
      * @param  list<array{name: string, item_id?: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
-     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string}  $document
+     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string, top_align_metadata?: bool}  $document
      */
     public static function create(array $items, array $document = []): string
     {
@@ -229,13 +229,14 @@ class NationalPulloutWorkbook
 
     /**
      * @param  list<array{name: string, item_id?: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
-     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string}  $document
+     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string, top_align_metadata?: bool}  $document
      * @return array<string, string>
      */
     private static function workbookFiles(array $items, array $document): array
     {
         $blankRows = $items === [] ? 10 : 0;
         $lastRow = count($items) + $blankRows + 2;
+        $metadataStyle = ($document['top_align_metadata'] ?? false) ? 6 : 3;
         $rows = [
             self::rowXml(1, [
                 $document['brand'] ?? 'NBS',
@@ -244,7 +245,7 @@ class NationalPulloutWorkbook
                 'Date: '.($document['occurred_on'] ?? ''),
                 'Remarks: '.($document['remarks'] ?? ''),
                 '',
-            ], 45, 3, [0 => 5]),
+            ], 45, $metadataStyle, [0 => 5]),
             self::rowXml(2, ['Item ID', 'Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-out'], 35, 2),
         ];
 
@@ -360,12 +361,13 @@ class NationalPulloutWorkbook
             .'<border><left style="thin"><color rgb="FF64748B"/></left><right style="thin"><color rgb="FF64748B"/></right>'
             .'<top style="thin"><color rgb="FF64748B"/></top><bottom style="thin"><color rgb="FF64748B"/></bottom><diagonal/></border></borders>'
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            .'<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            .'<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .'<xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0"><alignment vertical="center" shrinkToFit="1"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"><alignment vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf>'
+            .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"><alignment vertical="top" wrapText="1"/></xf>'
             .'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             .'</styleSheet>';
     }
