@@ -287,6 +287,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('Complete Order & Update Stock', false)
             ->assertSee('Export Excel')
             ->assertSee(route('inventory-transactions.fully-booked.export-worksheet', $order), false)
+            ->assertSee('.fully-booked-pullout-rows.is-scrollable', false)
             ->assertSee('name="items[0][product_id]"', false)
             ->assertSee('name="items[0][stock_condition]"', false)
             ->assertDontSee('id="fullyBookedAttachment"', false);
@@ -295,6 +296,12 @@ class FullyBookedOrderTest extends TestCase
         $this->assertIsString($exportScript);
         $this->assertStringContainsString('exportFullyBookedExcel', $exportScript);
         $this->assertStringNotContainsString('exportFullyBookedCsv', $exportScript);
+        $this->assertStringContainsString("allRows.length >= 5", $exportScript);
+        $this->assertStringContainsString('method: \'GET\'', $exportScript);
+        $this->assertStringContainsString('/js/fully-booked-pullout.js?v=', $this->get(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'fully_booked',
+        ]))->assertOk()->getContent());
     }
 
     public function test_fully_booked_product_search_returns_matching_active_store_products(): void
@@ -360,9 +367,10 @@ class FullyBookedOrderTest extends TestCase
         ]);
 
         $response = $this->actingAs($inventoryStaff)
-            ->post(route('inventory-transactions.fully-booked.export-worksheet', $order), [
+            ->get(route('inventory-transactions.fully-booked.export-worksheet', [
+                'fullyBookedOrder' => $order,
                 'items' => [['product_id' => $product->id, 'quantity' => 3]],
-            ])
+            ]))
             ->assertOk();
 
         $this->assertStringContainsString(
@@ -418,7 +426,7 @@ class FullyBookedOrderTest extends TestCase
                 'items' => [['product_id' => $product->id, 'quantity' => 4]],
             ])->assertRedirect();
 
-        $response = $this->post(route('inventory-transactions.fully-booked.export-worksheet', $order))
+        $response = $this->get(route('inventory-transactions.fully-booked.export-worksheet', $order))
             ->assertOk();
         $path = $response->baseResponse->getFile()->getPathname();
         try {

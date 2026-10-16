@@ -34,12 +34,16 @@
         box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .15);
     }
     .fully-booked-pullout-rows {
-        max-height: 320px;
-        overflow-y: auto;
+        overflow-y: visible;
         overflow-x: hidden;
         padding: .5rem;
         border: 1px solid #dee2e6;
         border-radius: .375rem;
+    }
+    .fully-booked-pullout-rows.is-scrollable {
+        max-height: 220px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
     }
     .fully-booked-attachment-preview {
         min-height: 220px;
@@ -372,7 +376,7 @@
 
 @push('scripts')
 <script src="{{ asset('js/product-suggestions.js') }}"></script>
-<script src="{{ asset('js/fully-booked-pullout.js') }}"></script>
+<script src="{{ asset('js/fully-booked-pullout.js') }}?v={{ filemtime(public_path('js/fully-booked-pullout.js')) }}"></script>
 <script>
 (() => {
     const container = document.getElementById('sponsorItems');

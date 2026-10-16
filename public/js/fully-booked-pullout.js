@@ -7,27 +7,18 @@ const exportFullyBookedExcel = async (button, items = []) => {
         return;
     }
 
-    const formData = new FormData();
-    const csrfToken = button.closest('form')?.querySelector('[name="_token"]')?.value
-        || document.querySelector('meta[name="csrf-token"]')?.content;
-    if (!csrfToken) {
-        window.AppAlert?.show('The export request could not be verified. Refresh the page and try again.', 'error');
-        return;
-    }
-    formData.append('_token', csrfToken);
+    const exportUrl = new URL(button.dataset.exportUrl, window.location.origin);
     items.forEach((item, index) => {
-        formData.append(`items[${index}][product_id]`, item.productId);
-        if (item.quantity) formData.append(`items[${index}][quantity]`, item.quantity);
+        exportUrl.searchParams.set(`items[${index}][product_id]`, item.productId);
+        if (item.quantity) exportUrl.searchParams.set(`items[${index}][quantity]`, item.quantity);
     });
 
     button.disabled = true;
     try {
-        const response = await fetch(button.dataset.exportUrl, {
-            method: 'POST',
-            body: formData,
+        const response = await fetch(exportUrl, {
+            method: 'GET',
             headers: {
                 Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
-                'X-CSRF-TOKEN': csrfToken,
             },
         });
         if (!response.ok || !response.headers.get('Content-Type')?.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
@@ -89,6 +80,7 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
         allRows.forEach(row => {
             row.querySelector('.remove-fully-booked-row').disabled = allRows.length <= 1;
         });
+        rows.classList.toggle('is-scrollable', allRows.length >= 5);
     };
 
     const bindSearch = row => {
@@ -210,6 +202,7 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
     };
 
     rows.querySelectorAll('.fully-booked-pullout-row').forEach(bindSearch);
+    updateRemoveButtons();
 
     form.querySelector('.add-fully-booked-row').addEventListener('click', () => {
         const row = document.createElement('div');

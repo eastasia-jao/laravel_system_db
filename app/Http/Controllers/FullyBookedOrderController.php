@@ -175,7 +175,7 @@ class FullyBookedOrderController extends Controller
         } else {
             $validated = $request->validate([
                 'items' => ['required', 'array', 'min:1', 'max:200'],
-                'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:products,id'],
+                'items.*.product_id' => ['required', 'integer', 'distinct'],
                 'items.*.quantity' => ['nullable', 'integer', 'min:1'],
             ]);
             $products = Product::query()
@@ -195,7 +195,7 @@ class FullyBookedOrderController extends Controller
 
                 return [
                     'name' => $product->name ?: $product->description ?: 'Unknown product',
-                    'quantity' => $entry['quantity'] ?? '',
+                    'quantity' => isset($entry['quantity']) ? (int) $entry['quantity'] : '',
                     'purpose' => 'Fully Booked Pullout',
                     'physical_stock' => (int) $product->stock,
                     'actual_pullout' => '',

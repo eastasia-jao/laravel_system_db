@@ -214,7 +214,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::patch('/inventory-transactions/fully-booked/{fullyBookedOrder}/reject', [FullyBookedOrderController::class, 'reject'])
             ->middleware('can:manage-fully-booked-orders')
             ->name('inventory-transactions.fully-booked.reject');
-        Route::post('/inventory-transactions/fully-booked/{fullyBookedOrder}/export-worksheet', [FullyBookedOrderController::class, 'exportWorksheet'])
+        Route::get('/inventory-transactions/fully-booked/{fullyBookedOrder}/export-worksheet', [FullyBookedOrderController::class, 'exportWorksheet'])
             ->middleware('can:view-fully-booked-orders')
             ->name('inventory-transactions.fully-booked.export-worksheet');
         Route::post('/inventory-transactions/fully-booked/{fullyBookedOrder}/pull-out', [FullyBookedOrderController::class, 'pullOut'])

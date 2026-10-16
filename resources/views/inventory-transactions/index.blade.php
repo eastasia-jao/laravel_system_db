@@ -828,5 +828,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/fully-booked-pullout.js') }}"></script>
+<script src="{{ asset('js/fully-booked-pullout.js') }}?v={{ filemtime(public_path('js/fully-booked-pullout.js')) }}"></script>
 @endpush
