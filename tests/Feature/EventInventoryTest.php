@@ -16,6 +16,17 @@ class EventInventoryTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_empty_event_inventory_omits_duplicate_create_button(): void
+    {
+        [$admin, $hub] = $this->eventFixture();
+
+        $this->actingAs($admin)
+            ->get(route('event-inventory.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('No open events found')
+            ->assertDontSee('>Create Event Pull-Out</a>', false);
+    }
+
     public function test_event_pullout_creates_a_trackable_ledger_and_deducts_condition_stock_once(): void
     {
         [$admin, $hub, $product] = $this->eventFixture();

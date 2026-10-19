@@ -143,7 +143,6 @@
             <i class="fa-solid fa-tents fs-1 text-muted mb-3"></i>
             <h4>No {{ $status === 'all' ? '' : $status }} events found</h4>
             <p class="text-muted mb-3">Create an Event Pull-Out to begin tracking off-site stock.</p>
-            <div><a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId]) }}" class="btn btn-primary">Create Event Pull-Out</a></div>
         </div>
     @endforelse
 

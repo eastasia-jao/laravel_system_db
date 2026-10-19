@@ -172,7 +172,7 @@
                 </div>
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <button class="btn btn-primary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Event Items</button>
-                    <a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a>
+                    <a href="{{ route('event-inventory.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a>
                 </div>
             @endif
         </section>

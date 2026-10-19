@@ -607,6 +607,7 @@ class TransactionBulkTest extends TestCase
             ->assertSee('<title>Event / Fully Booked</title>', false)
             ->assertSee('<h1 class="topbar-title">Event / Fully Booked</h1>', false)
             ->assertSee('class="page-hero mb-3"', false)
+            ->assertSee('href="'.route('event-inventory.index', ['hub_id' => $hub->id]).'" class="btn btn-outline-secondary">Cancel</a>', false)
             ->assertSee('Reference Document No.')
             ->assertSee('id="sponsorItemsHeader"', false)
             ->assertSee('aria-label="Product"', false)
