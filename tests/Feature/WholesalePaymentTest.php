@@ -317,7 +317,8 @@ class WholesalePaymentTest extends TestCase
             ->assertSee('Replacement Item')
             ->assertSee('Replaced/returned:')
             ->assertSee('APPROVED')
-            ->assertSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
+            ->assertSee('Wholesale activity overview')
+            ->assertDontSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
             ->assertDontSee('Gross Sales');
     }
 
@@ -638,6 +639,7 @@ class WholesalePaymentTest extends TestCase
         $document = new \DOMDocument;
         @$document->loadHTML($response->getContent());
         $xpath = new \DOMXPath($document);
+        $this->assertSame(6, $xpath->query('//section[@aria-label="Wholesale activity overview"]//div[contains(@class, "col-xl-4")]')->length);
         $paidRow = $xpath->query('//tr[@data-order-number="PAID-ORDER"]')->item(0);
         $partialRow = $xpath->query('//tr[@data-order-number="PARTIAL-ORDER"]')->item(0);
         $replacementRow = $xpath->query('//tr[@data-order-number="REPLACEMENT-ORDER"]')->item(0);

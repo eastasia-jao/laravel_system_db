@@ -497,13 +497,21 @@
                 </section>
             </div>
         @elseif($channel === 'wholesale')
-            <div class="col-12"><div class="sales-channel-section-heading"><h5>Activity overview</h5><p>Sales, returns, payment, and customer summary</p></div></div>
-            @include('hubs.reports.metric', ['label' => 'Total Shipping Fee', 'value' => $metrics['shipping_fees'], 'color' => 'info', 'description' => 'Shipping fees are reported separately.'])
-            @include('hubs.reports.metric', ['label' => 'Replacement Requests', 'value' => $metrics['replacement_count'], 'money' => false, 'color' => 'warning'])
-            @include('hubs.reports.metric', ['label' => 'Wholesale Return Entries', 'value' => $metrics['return_count'], 'money' => false, 'color' => 'info'])
-            @include('hubs.reports.metric', ['label' => 'Total Refund Cost', 'value' => $metrics['refund_total'], 'color' => 'danger'])
-            @include('hubs.reports.metric', ['label' => 'Total Customers', 'value' => $customerMetrics['total'], 'money' => false, 'color' => 'primary'])
-            @include('hubs.reports.metric', ['label' => 'New Customers', 'value' => $customerMetrics['new'], 'money' => false, 'color' => 'success'])
+            <div class="col-12">
+                <section class="sales-summary-panel mb-4" aria-label="Wholesale activity overview">
+                    <div class="sales-summary-heading">
+                        <div><h5>Activity overview</h5><p>Sales, returns, payment, and customer summary</p></div>
+                    </div>
+                    <div class="row g-3">
+                        @include('hubs.reports.metric', ['label' => 'Total Shipping Fee', 'value' => $metrics['shipping_fees'], 'color' => 'info', 'description' => 'Shipping fees are reported separately.', 'columnClass' => 'col-sm-6 col-xl-4'])
+                        @include('hubs.reports.metric', ['label' => 'Replacement Requests', 'value' => $metrics['replacement_count'], 'money' => false, 'color' => 'warning', 'columnClass' => 'col-sm-6 col-xl-4'])
+                        @include('hubs.reports.metric', ['label' => 'Wholesale Return Entries', 'value' => $metrics['return_count'], 'money' => false, 'color' => 'info', 'columnClass' => 'col-sm-6 col-xl-4'])
+                        @include('hubs.reports.metric', ['label' => 'Total Refund Cost', 'value' => $metrics['refund_total'], 'color' => 'danger', 'columnClass' => 'col-sm-6 col-xl-4'])
+                        @include('hubs.reports.metric', ['label' => 'Total Customers', 'value' => $customerMetrics['total'], 'money' => false, 'color' => 'primary', 'columnClass' => 'col-sm-6 col-xl-4'])
+                        @include('hubs.reports.metric', ['label' => 'New Customers', 'value' => $customerMetrics['new'], 'money' => false, 'color' => 'success', 'columnClass' => 'col-sm-6 col-xl-4'])
+                    </div>
+                </section>
+            </div>
         @elseif($channel === 'online')
             <div class="col-12">
                 <section class="online-overview-panel">
