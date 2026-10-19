@@ -67,7 +67,7 @@ class WholesalePaymentTest extends TestCase
             'payment_status' => 'partial', 'amount_paid' => '47.20', 'delivery_status' => 'pending',
             'withholding_tax_amount' => '5.47', 'wholesale_withholding_tax' => '12.34',
             'payment_proof' => UploadedFile::fake()->create('receipt.pdf', 100, 'application/pdf'),
-        ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionHas('success');
+        ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionMissing('success');
         $this->assertSame('partial', $sale->fresh()->payment_status);
         $this->assertSame('47.20', $sale->fresh()->amount_paid);
         $this->assertSame('5.47', $sale->fresh()->withholding_tax_amount);

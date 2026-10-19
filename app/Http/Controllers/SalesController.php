@@ -1050,15 +1050,11 @@ class SalesController extends Controller
         }
         $sale->update($statusUpdate);
 
-        if ($channel === 'wholesale' && $validated['payment_status'] === 'paid') {
+        if ($channel === 'wholesale') {
             return back();
         }
 
-        $successMessage = $channel === 'wholesale'
-            ? 'Wholesale payment and delivery statuses updated.'
-            : 'Walk-In payment status updated.';
-
-        return back()->with('success', $successMessage);
+        return back()->with('success', 'Walk-In payment status updated.');
     }
 
     public function pendingSalesIndex(Request $request, $hubId = null)
