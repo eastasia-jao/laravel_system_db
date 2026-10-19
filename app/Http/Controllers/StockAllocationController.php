@@ -80,7 +80,8 @@ class StockAllocationController extends Controller
             $products->getCollection()->pluck('id'),
             $soldFrom,
             $soldTo,
-            includeEventSales: false
+            includeEventSales: false,
+            includeFullyBookedSales: false
         );
 
         $products->getCollection()->transform(function (Product $product) use ($soldByProduct) {

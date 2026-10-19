@@ -11,7 +11,8 @@ class StockAllocationSales
         iterable $productIds,
         ?string $soldFrom = null,
         ?string $soldTo = null,
-        bool $includeEventSales = true
+        bool $includeEventSales = true,
+        bool $includeFullyBookedSales = true
     ): Collection {
         $productIds = collect($productIds)->values();
         if ($productIds->isEmpty()) {
@@ -27,6 +28,10 @@ class StockAllocationSales
             ->when(! $includeEventSales, fn ($query) => $query->where(function ($nested) {
                 $nested->whereNull('sales_transactions.channel_type')
                     ->orWhere('sales_transactions.channel_type', '<>', 'event');
+            }))
+            ->when(! $includeFullyBookedSales, fn ($query) => $query->where(function ($nested) {
+                $nested->whereNull('sales_transactions.channel_type')
+                    ->orWhere('sales_transactions.channel_type', '<>', 'fully_booked');
             }))
             ->where(function ($query) {
                 $query->whereNull('sales_transactions.status')
@@ -53,6 +58,10 @@ class StockAllocationSales
             ->when(! $includeEventSales, fn ($query) => $query->where(function ($nested) {
                 $nested->whereNull('channel')
                     ->orWhere('channel', '<>', 'event');
+            }))
+            ->when(! $includeFullyBookedSales, fn ($query) => $query->where(function ($nested) {
+                $nested->whereNull('channel')
+                    ->orWhere('channel', '<>', 'fully_booked');
             }))
             ->whereIn('type', ['return', 'replacement_return', 'replacement_out'])
             ->whereNotNull('channel')

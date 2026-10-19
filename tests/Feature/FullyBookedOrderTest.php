@@ -473,7 +473,7 @@ class FullyBookedOrderTest extends TestCase
         }
     }
 
-    public function test_fully_booked_pull_out_reduces_online_allocation_and_physical_stock(): void
+    public function test_fully_booked_pull_out_reduces_physical_stock_without_affecting_online_allocation_or_sales(): void
     {
         Storage::fake('local');
         $hub = StoreHub::create([
@@ -517,14 +517,16 @@ class FullyBookedOrderTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame(17, (int) $product->fresh()->stock);
-        $this->assertSame(5, (int) $product->stockAllocation()->value('online'));
+        $this->assertSame(8, (int) $product->stockAllocation()->value('online'));
         $listedProduct = $this->get(route('stock-allocation.index', ['hub_id' => $hub->id]))
             ->assertOk()
             ->viewData('products')
             ->getCollection()
             ->firstWhere('id', $product->id);
-        $this->assertSame(5, $listedProduct->allocation_values['online']);
-        $this->assertSame(3, $listedProduct->sold_values->get('online'));
+        $this->assertSame(17, $listedProduct->physical_stock_total);
+        $this->assertSame(8, $listedProduct->allocation_values['online']);
+        $this->assertSame(0, $listedProduct->sold_values->get('online', 0));
+        $this->assertFalse($listedProduct->sold_values->has('fully_booked'));
 
         $damagedProduct = Product::create([
             'store_hub_id' => $hub->id,
