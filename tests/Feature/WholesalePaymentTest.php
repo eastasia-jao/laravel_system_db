@@ -590,7 +590,7 @@ class WholesalePaymentTest extends TestCase
             ->assertOk()->assertSee('COMPLETED-ORDER')->assertDontSee('OPEN-ORDER');
     }
 
-    public function test_wholesale_total_sales_shows_collected_paid_and_partial_amounts_only(): void
+    public function test_wholesale_report_hides_total_sales_and_preserves_collected_values(): void
     {
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-COLLECT', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
@@ -628,8 +628,8 @@ class WholesalePaymentTest extends TestCase
         ]));
 
         $response->assertOk()
-            ->assertSee('Total Sales')
-            ->assertSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
+            ->assertSee('Total Shipping Fee')
+            ->assertDontSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
             ->assertDontSee('Gross Sales')
             ->assertDontSee('>Reset</a>');
         $this->assertSame(450.0, $response->viewData('wholesaleCollectedSales'));

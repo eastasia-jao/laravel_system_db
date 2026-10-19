@@ -712,7 +712,6 @@
                 <div class="sales-summary-grid">
                 @foreach([
                     ['label' => 'Discounts', 'value' => $metrics['discounts'], 'class' => 'text-danger', 'accent' => '#dc2626', 'icon' => 'fa-tag'],
-                    ['label' => 'Total Sales', 'value' => $kpiCollected, 'class' => 'text-success', 'accent' => '#059669', 'icon' => 'fa-credit-card'],
                     ['label' => 'Shipping Fees', 'value' => $kpiShippingFees, 'class' => 'text-primary', 'accent' => '#2563eb', 'icon' => 'fa-truck'],
                     ['label' => 'Outstanding', 'value' => $kpiOutstanding, 'class' => 'text-warning-emphasis', 'accent' => '#d97706', 'icon' => 'fa-hourglass-half'],
                     ['label' => 'Refund Cost', 'value' => $metrics['refund_total'], 'class' => 'text-danger', 'accent' => '#dc2626', 'icon' => 'fa-money-bill-transfer'],
