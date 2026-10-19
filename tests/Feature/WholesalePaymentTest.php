@@ -637,7 +637,6 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame([
             'cash' => ['paid' => 400.0, 'partial' => 50.0],
             'withholding' => ['paid' => 0.0, 'partial' => 0.0],
-            'total' => ['paid' => 400.0, 'partial' => 50.0],
         ], $response->viewData('wholesaleCollectionBreakdown'));
         $this->assertSame(120.0, $response->viewData('metrics')['shipping_fees']);
 
@@ -746,9 +745,9 @@ class WholesalePaymentTest extends TestCase
 
         $this->assertStringContainsString('100.0%', $scorecard);
         $this->assertStringContainsString('Total Collected', $scorecard);
-        $this->assertStringContainsString('₱1,342.80', $scorecard);
-        $this->assertStringContainsString('Cash received: ₱1,042.80', $scorecard);
-        $this->assertStringContainsString('Withholding Tax', $scorecard);
+        $this->assertStringContainsString('₱1,042.80', $scorecard);
+        $this->assertStringContainsString('Cash only · Paid: ₱1,042.80', $scorecard);
+        $this->assertStringContainsString('Withholding (separate)', $scorecard);
         $this->assertStringContainsString('₱300.00', $scorecard);
         $this->assertStringContainsString('Paid: ₱300.00', $scorecard);
         $this->assertStringContainsString('Partial: ₱0.00', $scorecard);

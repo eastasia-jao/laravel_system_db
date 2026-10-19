@@ -687,7 +687,6 @@
                 };
                 $kpiOrderValue = $allTransactions->sum($wholesaleOrderValue);
                 $kpiCollected = $wholesaleCollectedSales;
-                $kpiCashCollected = array_sum($wholesaleCollectionBreakdown['cash']);
                 $kpiWithholding = array_sum($wholesaleCollectionBreakdown['withholding']);
                 $kpiSettledValue = $allTransactions->sum(function ($transaction) use ($wholesaleOrderValue): float {
                     $orderValue = $wholesaleOrderValue($transaction);
@@ -765,10 +764,10 @@
                             <div class="col-4">
                                 <div class="text-muted">Total Collected</div>
                                 <div class="fw-semibold text-success">₱{{ number_format($kpiCollected, 2) }}</div>
-                                <div class="text-muted">Cash received: ₱{{ number_format($kpiCashCollected, 2) }} (Paid: ₱{{ number_format($wholesaleCollectionBreakdown['cash']['paid'], 2) }} · Partial: ₱{{ number_format($wholesaleCollectionBreakdown['cash']['partial'], 2) }})</div>
+                                <div class="text-muted">Cash only · Paid: ₱{{ number_format($wholesaleCollectionBreakdown['cash']['paid'], 2) }} · Partial: ₱{{ number_format($wholesaleCollectionBreakdown['cash']['partial'], 2) }}</div>
                             </div>
                             <div class="col-4">
-                                <div class="text-muted">Withholding Tax / Amount</div>
+                                <div class="text-muted">Withholding (separate)</div>
                                 <div class="fw-semibold text-primary">₱{{ number_format($kpiWithholding, 2) }}</div>
                                 <div class="text-muted">Tax field takes priority · Paid: ₱{{ number_format($wholesaleCollectionBreakdown['withholding']['paid'], 2) }} · Partial: ₱{{ number_format($wholesaleCollectionBreakdown['withholding']['partial'], 2) }}</div>
                             </div>

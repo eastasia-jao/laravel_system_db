@@ -360,7 +360,6 @@ class SalesReportController extends Controller
         $wholesaleCollectionBreakdown = [
             'cash' => ['paid' => 0.0, 'partial' => 0.0],
             'withholding' => ['paid' => 0.0, 'partial' => 0.0],
-            'total' => ['paid' => 0.0, 'partial' => 0.0],
         ];
         if ($channel === 'wholesale') {
             foreach ($allTransactions as $transaction) {
@@ -387,10 +386,9 @@ class SalesReportController extends Controller
 
                 $wholesaleCollectionBreakdown['cash'][$paymentStatus] += $cashCollected;
                 $wholesaleCollectionBreakdown['withholding'][$paymentStatus] += $withholdingCollected;
-                $wholesaleCollectionBreakdown['total'][$paymentStatus] += $cashCollected + $withholdingCollected;
             }
         }
-        $wholesaleCollectedSales = array_sum($wholesaleCollectionBreakdown['total']);
+        $wholesaleCollectedSales = array_sum($wholesaleCollectionBreakdown['cash']);
         $totalTransactions = $allTransactions->count();
         $totalPurchasedItems = $allTransactions->sum(fn ($transaction) => $transaction->items->sum(
             function ($item) {
