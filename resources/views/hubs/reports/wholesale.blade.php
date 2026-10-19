@@ -686,10 +686,27 @@
                     return max(0, $invoiceTotal);
                 };
                 $kpiOrderValue = $allTransactions->sum($wholesaleOrderValue);
-                $kpiCollected = $wholesaleCollectedSales;
+                $kpiSettledValue = $allTransactions->sum(function ($transaction) use ($wholesaleOrderValue): float {
+                    $orderValue = $wholesaleOrderValue($transaction);
+                    if ($orderValue <= 0) {
+                        return 0;
+                    }
+
+                    $paymentStatus = strtolower((string) $transaction->payment_status);
+                    $collected = in_array($paymentStatus, ['paid', 'partial'], true)
+                        ? min($orderValue, max(0, (float) ($transaction->amount_paid ?? 0)))
+                        : 0;
+                    $withholdingAmount = $transaction->withholding_tax_amount === null
+                        ? null
+                        : (float) $transaction->withholding_tax_amount;
+                    $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0);
+                    $withholdingCredit = max(0, $withholdingTax > 0 ? $withholdingTax : ($withholdingAmount ?? 0));
+
+                    return min($orderValue, $collected + $withholdingCredit);
+                });
                 $kpiShippingFees = $allTransactions->sum('shipping_fee_amount');
-                $kpiOutstanding = max(0, $kpiOrderValue - $kpiCollected);
-                $kpiCollectionRate = $kpiOrderValue > 0 ? ($kpiCollected / $kpiOrderValue) * 100 : 0;
+                $kpiOutstanding = max(0, $kpiOrderValue - $kpiSettledValue);
+                $kpiCollectionRate = $kpiOrderValue > 0 ? ($kpiSettledValue / $kpiOrderValue) * 100 : 0;
                 $kpiPaidOrders = $allTransactions->where('payment_status', 'paid')->count();
                 $kpiPartialOrders = $allTransactions->where('payment_status', 'partial')->count();
                 $kpiUnpaidOrders = $allTransactions->whereIn('payment_status', [null, 'unpaid'])->count();
@@ -731,14 +748,14 @@
                     <div class="border rounded-3 p-4 h-100">
                         <div class="text-uppercase text-muted small fw-bold mb-3">Revenue Overview</div>
                         <div class="d-flex justify-content-between align-items-end mb-2">
-                            <span class="fw-semibold">Collected against order value</span>
+                            <span class="fw-semibold">Settled against order value</span>
                             <span class="text-success fw-bold fs-4">{{ number_format($kpiCollectionRate, 1) }}%</span>
                         </div>
                         <div class="progress" style="height: 18px;">
                             <div class="progress-bar bg-success" style="width: {{ min(100, $kpiCollectionRate) }}%;"></div>
                         </div>
                         <div class="d-flex justify-content-between small text-muted mt-2">
-                            <span>Collected: ₱{{ number_format($kpiCollected, 2) }}</span>
+                            <span>Settled (collected + withholding): ₱{{ number_format($kpiSettledValue, 2) }}</span>
                             <span>Order value: ₱{{ number_format($kpiOrderValue, 2) }}</span>
                         </div>
                     </div>

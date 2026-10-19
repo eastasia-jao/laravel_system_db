@@ -701,4 +701,46 @@ class WholesalePaymentTest extends TestCase
             'channel' => 'wholesale',
         ]))->assertOk()->assertSee('October 2026 subtotal: ₱644.30');
     }
+
+    public function test_wholesale_revenue_overview_counts_withholding_toward_settled_order_value(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-SETTLED', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+
+        foreach ([
+            ['PAID-CASH', 721.40, 721.40, null, 'paid', 'confirmed'],
+            ['PAID-WITHHOLDING', 621.40, 321.40, 300, 'paid', 'confirmed'],
+            ['REFUNDED-ORDER', 344.30, 0, null, 'refunded', 'refunded'],
+        ] as [$orderNumber, $orderTotal, $amountPaid, $withholdingTax, $paymentStatus, $status]) {
+            SalesTransaction::create([
+                'user_id' => $user->id,
+                'store_hub_id' => $hub->id,
+                'channel_type' => 'wholesale',
+                'customer_name' => 'Customer',
+                'order_number' => $orderNumber,
+                'order_date' => '2026-10-06',
+                'grand_total' => $orderTotal,
+                'sub_total' => $orderTotal,
+                'amount_paid' => $amountPaid,
+                'wholesale_withholding_tax' => $withholdingTax,
+                'status' => $status,
+                'payment_status' => $paymentStatus,
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'wholesale',
+        ]))->assertOk();
+
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $scorecard = $xpath->query('//*[@id="wholesaleReportImageSource"]')->item(0)->textContent;
+
+        $this->assertStringContainsString('100.0%', $scorecard);
+        $this->assertStringContainsString('Settled (collected + withholding): ₱1,342.80', $scorecard);
+        $this->assertStringContainsString('Order value: ₱1,342.80', $scorecard);
+        $this->assertStringContainsString('₱0.00', $scorecard);
+    }
 }
