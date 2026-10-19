@@ -515,11 +515,13 @@
                                 }
 
                                 $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
-                                $withholdingAmount = (float) ($sale->withholding_tax_amount ?? 0);
+                                $withholdingAmount = $sale->withholding_tax_amount === null
+                                    ? null
+                                    : (float) $sale->withholding_tax_amount;
                                 $withholdingTax = (float) ($sale->wholesale_withholding_tax ?? 0);
-                                $withholdingCredit = $withholdingAmount > 0 ? $withholdingAmount : $withholdingTax;
+                                $monthlySubtotal = $withholdingAmount ?? ($withholdingTax > 0 ? $withholdingTax : $orderValue);
 
-                                return max(0, $orderValue - max(0, $withholdingCredit));
+                                return max(0, $monthlySubtotal);
                             });
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
