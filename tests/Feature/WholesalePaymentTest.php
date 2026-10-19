@@ -596,10 +596,11 @@ class WholesalePaymentTest extends TestCase
         $user = User::factory()->create(['role' => 'admin']);
 
         foreach ([
-            ['PAID-ORDER', 'paid', 100, 100],
-            ['PARTIAL-ORDER', 'partial', 200, 50],
-            ['UNPAID-ORDER', 'unpaid', 300, 25],
-        ] as [$orderNumber, $paymentStatus, $orderTotal, $amountPaid]) {
+            ['PAID-ORDER', 'paid', 100, 100, 20, null],
+            ['PARTIAL-ORDER', 'partial', 200, 50, 30, null],
+            ['UNPAID-ORDER', 'unpaid', 300, 0, 40, null],
+            ['REPLACEMENT-ORDER', 'paid', 330, 330, 30, 300],
+        ] as [$orderNumber, $paymentStatus, $orderTotal, $amountPaid, $shippingFee, $subTotal]) {
             SalesTransaction::create([
                 'user_id' => $user->id,
                 'store_hub_id' => $hub->id,
@@ -608,6 +609,8 @@ class WholesalePaymentTest extends TestCase
                 'order_number' => $orderNumber,
                 'order_date' => '2026-10-06',
                 'grand_total' => $orderTotal,
+                'sub_total' => $subTotal ?? $orderTotal,
+                'shipping_fee_amount' => $shippingFee,
                 'amount_paid' => $amountPaid,
                 'status' => 'confirmed',
                 'payment_status' => $paymentStatus,
@@ -624,7 +627,23 @@ class WholesalePaymentTest extends TestCase
             ->assertSee('Collected from paid and partially paid orders; unpaid orders are excluded.')
             ->assertDontSee('Gross Sales')
             ->assertDontSee('>Reset</a>');
-        $this->assertSame(150.0, $response->viewData('wholesaleCollectedSales'));
+        $this->assertSame(450.0, $response->viewData('wholesaleCollectedSales'));
+        $this->assertSame(120.0, $response->viewData('metrics')['shipping_fees']);
+
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $paidRow = $xpath->query('//tr[@data-order-number="PAID-ORDER"]')->item(0);
+        $partialRow = $xpath->query('//tr[@data-order-number="PARTIAL-ORDER"]')->item(0);
+        $replacementRow = $xpath->query('//tr[@data-order-number="REPLACEMENT-ORDER"]')->item(0);
+        $this->assertEquals(100.0, (float) $paidRow->getAttribute('data-order-value'));
+        $this->assertEquals(100.0, (float) $paidRow->getAttribute('data-collected'));
+        $this->assertEquals(200.0, (float) $partialRow->getAttribute('data-order-value'));
+        $this->assertEquals(50.0, (float) $partialRow->getAttribute('data-collected'));
+        $this->assertEquals(330.0, (float) $replacementRow->getAttribute('data-order-value'));
+        $this->assertEquals(330.0, (float) $replacementRow->getAttribute('data-collected'));
+        $this->assertSame('₱200.00', trim($xpath->query('./td[4]', $partialRow)->item(0)->textContent));
+        $this->assertSame('₱50.00', trim($xpath->query('./td[5]', $partialRow)->item(0)->textContent));
 
         $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'online']))
             ->assertOk()

@@ -216,7 +216,7 @@
                         // Collected is always the amount actually paid by the customer.
                         // It must not be replaced or capped by the withholding breakdown.
                         $collected = $isRefunded ? 0 : min($paymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
-                        $total = $isRefunded ? 0 : ($withholdingTax ?? $collected);
+                        $total = $isRefunded ? 0 : $invoiceTotal;
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
@@ -452,8 +452,8 @@
                                         <input id="wholesale-wholesale-tax-{{ $transaction->id }}" type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Tax">
                                     </div>
                                     <div class="wholesale-status-note">
-                                        <i class="fa-solid fa-circle-info me-1" data-bs-toggle="tooltip" title="This affects displayed Order Value and monthly subtotals only; it does not change customer payment or Collected."></i>
-                                        Withholding tax changes the displayed Order Value and monthly subtotal, not Collected.
+                                        <i class="fa-solid fa-circle-info me-1" data-bs-toggle="tooltip" title="This is a reporting reference only; it does not change the customer order value or amount collected."></i>
+                                        Withholding tax is a reporting reference and does not change the customer order value or Collected.
                                     </div>
                                     <div class="wholesale-status-help">
                                         @if($paymentLocked)
@@ -512,26 +512,19 @@
                             $monthTransactions = $pagedTransactions->filter(
                                 fn ($sale) => (optional($sale->order_date)->format('Y-m') ?? 'undated') === $monthKey
                             );
-                            $monthCustomerPayable = $monthTransactions->sum(function ($sale) {
+                            $monthOrderValue = $monthTransactions->sum(function ($sale) {
                                 if ($sale->status === 'refunded') {
                                     return 0;
                                 }
 
-                                $invoiceTotal = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
-
-                                $paymentTotal = max(0, $invoiceTotal);
-                                $withholdingTax = (float) ($sale->wholesale_withholding_tax ?? 0);
-
-                                return $withholdingTax > 0
-                                    ? $withholdingTax
-                                    : min($paymentTotal, max(0, (float) ($sale->amount_paid ?? 0)));
+                                return max(0, (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total')));
                             });
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
                         <tr class="table-primary-subtle fw-semibold wholesale-month-subtotal">
                             <td colspan="2"></td>
                             <td class="text-end">
-                                {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal: ₱{{ number_format($monthCustomerPayable, 2) }}
+                                {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal: ₱{{ number_format($monthOrderValue, 2) }}
                             </td>
                             <td colspan="14"></td>
                         </tr>
@@ -679,21 +672,16 @@
 @endcan
     <div class="sales-report-print-only" id="wholesaleReportImageSource">
             @php
-                $wholesaleSalesValue = function ($transaction): float {
+                $wholesaleOrderValue = function ($transaction): float {
                     if ($transaction->status === 'refunded') {
                         return 0;
                     }
 
                     $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
 
-                    $paymentTotal = max(0, $invoiceTotal);
-                    $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0);
-
-                    return $withholdingTax > 0
-                        ? $withholdingTax
-                        : min($paymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                    return max(0, $invoiceTotal);
                 };
-                $kpiOrderValue = $allTransactions->sum($wholesaleSalesValue);
+                $kpiOrderValue = $allTransactions->sum($wholesaleOrderValue);
                 $kpiCollected = $wholesaleCollectedSales;
                 $kpiShippingFees = $allTransactions->sum('shipping_fee_amount');
                 $kpiOutstanding = max(0, $kpiOrderValue - $kpiCollected);
@@ -1178,7 +1166,7 @@
                     const bannerIcon = document.createElement('i');
                     bannerIcon.className = `fa-solid ${paymentStatus === 'paid' ? 'fa-lock' : 'fa-circle-info'} me-1`;
                     bannerIcon.dataset.bsToggle = 'tooltip';
-                    bannerIcon.title = 'Withholding tax affects displayed Order Value and monthly subtotals only; it does not change customer payment or Collected.';
+                    bannerIcon.title = 'Withholding tax is a reporting reference only; it does not change the customer order value or amount collected.';
                     statusBanner.append(bannerIcon);
                     const bannerText = document.createElement('span');
                     const paymentHelpText = cleanValue(statusHelp?.querySelector('.payment-balance-help')?.textContent);
@@ -1186,7 +1174,7 @@
                         paymentStatus === 'paid'
                             ? 'Payment is fully paid and locked. Delivery remains editable.'
                             : paymentHelpText,
-                        'Withholding tax changes the displayed Order Value and monthly subtotal, not Collected.',
+                        'Withholding tax is a reporting reference and does not change the customer order value or Collected.',
                     ].filter(Boolean).join(' ');
                     statusBanner.append(bannerText);
                     const amountError = statusHelp?.querySelector('.payment-amount-error');
