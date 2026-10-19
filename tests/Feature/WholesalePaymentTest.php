@@ -666,4 +666,37 @@ class WholesalePaymentTest extends TestCase
             ->assertOk()
             ->assertDontSee('>Reset</a>');
     }
+
+    public function test_wholesale_monthly_subtotal_deducts_withholding_amount_once(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-MONTHLY-TAX', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+
+        foreach ([
+            ['ORDER-BOTH-1', 500, 200, 50],
+            ['ORDER-BOTH-2', 500, 300, 30],
+            ['ORDER-AMOUNT-ONLY', 410, null, 30],
+        ] as [$orderNumber, $orderTotal, $withholdingTax, $withholdingAmount]) {
+            SalesTransaction::create([
+                'user_id' => $user->id,
+                'store_hub_id' => $hub->id,
+                'channel_type' => 'wholesale',
+                'customer_name' => 'Customer',
+                'order_number' => $orderNumber,
+                'order_date' => '2026-10-06',
+                'grand_total' => $orderTotal,
+                'sub_total' => $orderTotal,
+                'wholesale_withholding_tax' => $withholdingTax,
+                'withholding_tax_amount' => $withholdingAmount,
+                'amount_paid' => 0,
+                'status' => 'confirmed',
+                'payment_status' => 'unpaid',
+            ]);
+        }
+
+        $this->actingAs($user)->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'wholesale',
+        ]))->assertOk()->assertSee('October 2026 subtotal: ₱1,300.00');
+    }
 }

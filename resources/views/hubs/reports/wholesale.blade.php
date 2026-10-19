@@ -450,7 +450,7 @@
                                     </div>
                                     <div class="wholesale-status-note">
                                         <i class="fa-solid fa-circle-info me-1" data-bs-toggle="tooltip" title="Withholding is credited once against the balance; Withholding Tax Amount takes priority when both fields are entered."></i>
-                                        Withholding is credited once against the balance. If both fields are entered, Withholding Tax Amount is used; Order Value and Collected remain unchanged.
+                                        Withholding is credited once against the balance and deducted from the monthly subtotal. If both fields are entered, Withholding Tax Amount is used.
                                     </div>
                                     <div class="wholesale-status-help">
                                         @if($paymentLocked)
@@ -514,7 +514,12 @@
                                     return 0;
                                 }
 
-                                return max(0, (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total')));
+                                $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
+                                $withholdingAmount = (float) ($sale->withholding_tax_amount ?? 0);
+                                $withholdingTax = (float) ($sale->wholesale_withholding_tax ?? 0);
+                                $withholdingCredit = $withholdingAmount > 0 ? $withholdingAmount : $withholdingTax;
+
+                                return max(0, $orderValue - max(0, $withholdingCredit));
                             });
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
@@ -1172,7 +1177,7 @@
                         paymentStatus === 'paid'
                             ? 'Payment is fully paid and locked. Delivery remains editable.'
                             : paymentHelpText,
-                        'Withholding is credited once against the balance. If both fields are entered, Withholding Tax Amount is used; Order Value and Collected remain unchanged.',
+                        'Withholding is credited once against the balance and deducted from the monthly subtotal. If both fields are entered, Withholding Tax Amount is used.',
                     ].filter(Boolean).join(' ');
                     statusBanner.append(bannerText);
                     const amountError = statusHelp?.querySelector('.payment-amount-error');
