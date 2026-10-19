@@ -66,11 +66,15 @@ class WholesalePaymentTest extends TestCase
         ]);
         $this->assertSame('unpaid', $sale->fresh()->payment_status);
         $this->assertSame('0.00', $sale->fresh()->amount_paid);
-        $this->from($report)->patch(route('sales.status.update', $sale->id), [
+        $this->from($report)->followingRedirects()->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'partial', 'amount_paid' => '500.00', 'delivery_status' => 'pending',
             'withholding_tax_amount' => '5.47', 'wholesale_withholding_tax' => '12.34',
             'payment_proof' => UploadedFile::fake()->create('receipt.pdf', 100, 'application/pdf'),
-        ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionMissing('success');
+        ])->assertOk()
+            ->assertSessionHasNoErrors()
+            ->assertSee('Wholesale order changes saved successfully.')
+            ->assertSee('window.AppAlert.show(message.text', false)
+            ->assertDontSee('toast-container');
         $this->assertSame('partial', $sale->fresh()->payment_status);
         $this->assertSame('500.00', $sale->fresh()->amount_paid);
         $this->assertSame('5.47', $sale->fresh()->withholding_tax_amount);
@@ -83,7 +87,7 @@ class WholesalePaymentTest extends TestCase
 
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'paid', 'amount_paid' => '47.20', 'delivery_status' => 'pending',
-        ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionMissing('success');
+        ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionHas('success', 'Wholesale order changes saved successfully.');
         $this->assertSame('paid', $sale->fresh()->payment_status);
         $this->assertSame('547.20', $sale->fresh()->amount_paid);
     }

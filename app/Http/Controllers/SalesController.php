@@ -1049,7 +1049,7 @@ class SalesController extends Controller
         $sale->update($statusUpdate);
 
         if ($channel === 'wholesale') {
-            return back();
+            return back()->with('success', 'Wholesale order changes saved successfully.');
         }
 
         return back()->with('success', 'Walk-In payment status updated.');
