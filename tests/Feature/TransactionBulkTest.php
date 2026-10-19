@@ -604,7 +604,9 @@ class TransactionBulkTest extends TestCase
 
         $formResponse = $this->get(route('inventory-transactions.sponsor.create', ['hub_id' => $inactiveHub->id]))
             ->assertOk()
-            ->assertSee('class="transaction-page-heading mb-4"', false)
+            ->assertSee('<title>Event / Fully Booked</title>', false)
+            ->assertSee('<h1 class="topbar-title">Event / Fully Booked</h1>', false)
+            ->assertSee('class="page-hero mb-3"', false)
             ->assertSee('Reference Document No.')
             ->assertSee('id="sponsorItemsHeader"', false)
             ->assertSee('aria-label="Product"', false)

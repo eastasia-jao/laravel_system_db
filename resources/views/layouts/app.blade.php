@@ -15,7 +15,7 @@
             'inventory-transactions.branch-transfer.create' => 'Branch Transfer',
             'inventory-transactions.fully-booked.index' => 'Fully Booked Orders',
             'inventory-transactions.restock.create' => 'Restock Inventory',
-            'inventory-transactions.sponsor.create' => 'Event Pull-Out',
+            'inventory-transactions.sponsor.create' => 'Event / Fully Booked',
             'inventory-transactions.transfer.create' => 'Stock Transfer',
             'national-pullouts.create' => 'National Bookstore Pull-Out',
             'product-file-requests.index' => 'Stock Transfer Review Requests',
