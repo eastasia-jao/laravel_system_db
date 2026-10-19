@@ -686,6 +686,19 @@
                     return max(0, $invoiceTotal);
                 };
                 $kpiOrderValue = $allTransactions->sum($wholesaleOrderValue);
+                $kpiCollected = $wholesaleCollectedSales;
+                $kpiWithholding = $allTransactions->sum(function ($transaction) use ($wholesaleOrderValue): float {
+                    if ($wholesaleOrderValue($transaction) <= 0) {
+                        return 0;
+                    }
+
+                    $withholdingAmount = $transaction->withholding_tax_amount === null
+                        ? null
+                        : (float) $transaction->withholding_tax_amount;
+                    $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0);
+
+                    return max(0, $withholdingTax > 0 ? $withholdingTax : ($withholdingAmount ?? 0));
+                });
                 $kpiSettledValue = $allTransactions->sum(function ($transaction) use ($wholesaleOrderValue): float {
                     $orderValue = $wholesaleOrderValue($transaction);
                     if ($orderValue <= 0) {
@@ -754,9 +767,20 @@
                         <div class="progress" style="height: 18px;">
                             <div class="progress-bar bg-success" style="width: {{ min(100, $kpiCollectionRate) }}%;"></div>
                         </div>
-                        <div class="d-flex justify-content-between small text-muted mt-2">
-                            <span>Settled (collected + withholding): ₱{{ number_format($kpiSettledValue, 2) }}</span>
-                            <span>Order value: ₱{{ number_format($kpiOrderValue, 2) }}</span>
+                        <div class="row g-2 mt-2 text-center small">
+                            <div class="col-4">
+                                <div class="text-muted">Total Collected</div>
+                                <div class="fw-semibold text-success">₱{{ number_format($kpiCollected, 2) }}</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted">Withholding Tax / Amount</div>
+                                <div class="fw-semibold text-primary">₱{{ number_format($kpiWithholding, 2) }}</div>
+                                <div class="text-muted">Tax field takes priority</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted">Order Value</div>
+                                <div class="fw-semibold">₱{{ number_format($kpiOrderValue, 2) }}</div>
+                            </div>
                         </div>
                     </div>
                 </div>

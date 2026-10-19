@@ -739,8 +739,12 @@ class WholesalePaymentTest extends TestCase
         $scorecard = $xpath->query('//*[@id="wholesaleReportImageSource"]')->item(0)->textContent;
 
         $this->assertStringContainsString('100.0%', $scorecard);
-        $this->assertStringContainsString('Settled (collected + withholding): ₱1,342.80', $scorecard);
-        $this->assertStringContainsString('Order value: ₱1,342.80', $scorecard);
+        $this->assertStringContainsString('Total Collected', $scorecard);
+        $this->assertStringContainsString('₱1,042.80', $scorecard);
+        $this->assertStringContainsString('Withholding Tax', $scorecard);
+        $this->assertStringContainsString('₱300.00', $scorecard);
+        $this->assertStringContainsString('Order Value', $scorecard);
+        $this->assertStringContainsString('₱1,342.80', $scorecard);
         $this->assertStringContainsString('₱0.00', $scorecard);
     }
 }
