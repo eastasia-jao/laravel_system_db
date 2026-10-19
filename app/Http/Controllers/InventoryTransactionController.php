@@ -1277,7 +1277,7 @@ class InventoryTransactionController extends Controller
                 403
             );
         }
-        $hubId = $request->integer('hub_id') ?: $user?->store_hub_id;
+        $hubId = $request->integer('hub_id') ?: $request->old('store_hub_id') ?: $user?->store_hub_id;
         if ($type === 'return' && ! in_array($user?->role, ['admin', 'inventory_staff'], true)) {
             abort_unless(
                 $hubId && in_array((int) $hubId, $user?->accessibleStoreHubIds() ?? [], true),

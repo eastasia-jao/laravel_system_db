@@ -11,6 +11,7 @@
         && $selectedHub && ! $selectedHub->is_head_office;
     $channelSelectionLocked = $currentUser?->role === 'sales_associate'
         || ($selectedHub && ! $selectedHub->is_head_office && ! $staffCanSelectEventReturn);
+    $selectedReturnChannel = old('channel', request('channel', $channelSelectionLocked ? 'walk_in' : ''));
 @endphp
 <style>
     .transaction-form-card { border:1px solid #e2e8f0 !important; }
@@ -60,9 +61,9 @@
                 @if($channelSelectionLocked)
                     <option value="walk_in" selected>Walk-In</option>
                 @elseif($staffCanSelectEventReturn)
-                    <option value="walk_in" selected>Walk-in</option><option value="event">Event</option>
+                    <option value="walk_in"{{ $selectedReturnChannel === 'walk_in' ? ' selected' : '' }}>Walk-in</option><option value="event"{{ $selectedReturnChannel === 'event' ? ' selected' : '' }}>Event</option>
                 @else
-                    <option value="">Select return source</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok</option><option value="online">Online</option><option value="walk_in">Walk-in</option><option value="wholesale">Wholesale</option><option value="fully_booked">Fully Booked</option><option value="national_bookstore">National Bookstore</option><option value="event">Event</option>
+                    <option value="" @selected($selectedReturnChannel === '')>Select return source</option><option value="shopee" @selected($selectedReturnChannel === 'shopee')>Shopee</option><option value="lazada" @selected($selectedReturnChannel === 'lazada')>Lazada</option><option value="tiktok" @selected($selectedReturnChannel === 'tiktok')>TikTok</option><option value="online" @selected($selectedReturnChannel === 'online')>Online</option><option value="walk_in" @selected($selectedReturnChannel === 'walk_in')>Walk-in</option><option value="wholesale" @selected($selectedReturnChannel === 'wholesale')>Wholesale</option><option value="fully_booked" @selected($selectedReturnChannel === 'fully_booked')>Fully Booked</option><option value="national_bookstore" @selected($selectedReturnChannel === 'national_bookstore')>National Bookstore</option><option value="event" @selected($selectedReturnChannel === 'event')>Event</option>
                 @endif
             </select>
             @if($channelSelectionLocked)
@@ -83,7 +84,7 @@
         </div>
         <div class="return-entry-layout">
             <div id="returnItems"><div class="text-muted p-3">Select a return source and reference to load its products.</div></div>
-            <div class="return-notes-panel"><label class="form-label" for="returnNotes">Notes</label><textarea id="returnNotes" name="notes" class="form-control" rows="6" maxlength="120" placeholder="Add notes about the returned items"></textarea><div class="form-text text-end"><span id="returnNotesCount">0</span>/120</div></div>
+            <div class="return-notes-panel"><label class="form-label" for="returnNotes">Notes</label><textarea id="returnNotes" name="notes" class="form-control" rows="6" maxlength="120" placeholder="Add notes about the returned items">{{ old('notes') }}</textarea><div class="form-text text-end"><span id="returnNotesCount">0</span>/120</div></div>
             <div class="return-actions"><button class="btn btn-primary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Return Items</button><a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a></div>
         </div>
     </form>
@@ -110,8 +111,18 @@
     const notesCount = document.getElementById('returnNotesCount');
     const itemSearchWrap = document.getElementById('returnItemSearchWrap');
     const itemSearch = document.getElementById('returnItemSearch');
-    const presetChannel = @json(request('channel'));
-    const presetReference = @json(request('event_reference'));
+    const restoreState = {
+        channel: @json(old('channel', request('channel'))),
+        source: @json(old('source')),
+        reference: @json(old('reference')),
+        transactionId: @json(old('sales_transaction_id')),
+        nationalPulloutId: @json(old('national_pullout_id')),
+        eventReference: @json(old('event_reference')),
+        items: @json(old('items', [])),
+    };
+    const presetChannel = restoreState.channel;
+    let restoreSelection = Boolean(restoreState.channel);
+    let restoreReference = false;
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' })[character]);
     const resetItemSearch = () => {
         itemSearch.value = '';
@@ -176,6 +187,27 @@
         }
         attachmentPreview.append(heading, link, preview);
     };
+    const restoreItemValues = () => {
+        const unusedItems = [...restoreState.items];
+        container.querySelectorAll('.return-item').forEach(row => {
+            const productId = row.querySelector('[name$="[product_id]"]')?.value;
+            const transactionItemId = row.querySelector('[name$="[transaction_item_id]"]')?.value;
+            const replacementId = row.querySelector('[name$="[replacement_id]"]')?.value;
+            const nationalItemId = row.querySelector('[name$="[national_pullout_item_id]"]')?.value;
+            const savedIndex = unusedItems.findIndex(item => item.national_pullout_item_id
+                ? String(item.national_pullout_item_id) === String(nationalItemId)
+                : item.product_id
+                    && String(item.product_id) === String(productId)
+                    && (!item.transaction_item_id || String(item.transaction_item_id) === String(transactionItemId))
+                    && (!item.replacement_id || String(item.replacement_id) === String(replacementId)));
+            if (savedIndex < 0) return;
+            const [saved] = unusedItems.splice(savedIndex, 1);
+            const good = row.querySelector('[name$="[good_quantity]"]');
+            const damaged = row.querySelector('[name$="[damaged_quantity]"]');
+            if (good && saved.good_quantity !== undefined) good.value = saved.good_quantity;
+            if (damaged && saved.damaged_quantity !== undefined) damaged.value = saved.damaged_quantity;
+        });
+    };
     const load = async params => {
         const url = new URL(endpoint, window.location.origin);
         Object.entries({ hub_id: hubId, channel: channel.value, date: returnDate.value, ...params }).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -184,6 +216,8 @@
         return response.json();
     };
     channel.addEventListener('change', async () => {
+        const shouldRestoreSelection = restoreSelection && channel.value === restoreState.channel;
+        restoreSelection = false;
         customer.disabled = true; resetOrder('Loading references...'); resetItemSearch(); container.innerHTML = '<div class="text-muted p-3">Loading return sources...</div>';
         try {
             updateCustomerState();
@@ -195,8 +229,16 @@
                 container.innerHTML = data.orders?.length
                     ? `<div class="text-muted p-3">Select ${isNational ? 'a P.O. number' : isEvent ? 'an Event reference' : 'an order number'} to load its ${isEvent ? 'pulled-out' : 'ordered'} products.</div>`
                     : `<div class="alert alert-warning mb-0">No ${isNational ? 'returnable National Bookstore records' : isEvent ? 'returnable Event pullouts' : 'Fully Booked orders'} were found${isNational ? '.' : ' on the selected date.'}</div>`;
-                if (isEvent && presetReference && [...order.options].some(option => option.value === presetReference)) {
-                    order.value = presetReference;
+                const referenceToRestore = isEvent
+                    ? (restoreState.eventReference || restoreState.reference)
+                    : isNational
+                        ? (restoreState.nationalPulloutId || restoreState.reference)
+                        : (restoreState.transactionId || restoreState.reference);
+                if (shouldRestoreSelection && referenceToRestore && [...order.options].some(option => option.value === String(referenceToRestore))) {
+                    order.value = String(referenceToRestore);
+                    order.dispatchEvent(new Event('change'));
+                } else if (isEvent && presetChannel === 'event' && restoreState.eventReference && [...order.options].some(option => option.value === restoreState.eventReference)) {
+                    order.value = restoreState.eventReference;
                     order.dispatchEvent(new Event('change'));
                 }
                 return;
@@ -206,9 +248,16 @@
             container.innerHTML = data.customers?.length
                 ? '<div class="text-muted p-3">Select a customer to load sales references.</div>'
                 : '<div class="alert alert-warning mb-0">No customers have sales on the selected date.</div>';
+            if (shouldRestoreSelection && restoreState.source && [...customer.options].some(option => option.value === restoreState.source)) {
+                customer.value = restoreState.source;
+                restoreReference = true;
+                customer.dispatchEvent(new Event('change'));
+            }
         } catch { window.AppAlert?.show('Could not load sales for this channel.', 'error'); }
     });
     customer.addEventListener('change', async () => {
+        const shouldRestoreReference = restoreReference;
+        restoreReference = false;
         document.getElementById('returnSource').value = customer.value;
         resetItemSearch();
         order.disabled = true; transactionId.value = ''; container.innerHTML = '<div class="text-muted p-3">Loading orders...</div>';
@@ -216,6 +265,10 @@
             const data = await load({ customer: customer.value });
             setOptions(order, data.orders || [], 'Select sales reference', value => `${value.order_number} (${value.order_date || 'undated'})`);
             container.innerHTML = '<div class="text-muted p-3">Select a sales reference to load its purchased products.</div>';
+            if (shouldRestoreReference && restoreState.transactionId && [...order.options].some(option => option.value === String(restoreState.transactionId))) {
+                order.value = String(restoreState.transactionId);
+                order.dispatchEvent(new Event('change'));
+            }
         } catch { window.AppAlert?.show('Could not load orders for this customer.', 'error'); }
     });
     order.addEventListener('change', async () => {
@@ -254,6 +307,7 @@
                 </div>`;
             }).join('') : '<div class="alert alert-warning">This order has no products.</div>';
             itemSearchWrap.hidden = !items.length;
+            restoreItemValues();
             if (partialWholesaleReturn && items.length) {
                 container.insertAdjacentHTML('afterbegin', '<div class="alert alert-info small mb-3">This is a partially paid wholesale order. The item can be returned to stock, but no automatic cash refund is recorded. Its existing partial payment remains on the order.</div>');
             }

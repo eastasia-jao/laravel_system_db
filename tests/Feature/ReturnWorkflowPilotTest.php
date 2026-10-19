@@ -16,6 +16,42 @@ class ReturnWorkflowPilotTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_return_form_restores_channel_and_reference_selection_after_validation_redirect(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Return Recovery Hub',
+            'code' => 'RETURN-RECOVERY',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->withSession(['_old_input' => [
+                'store_hub_id' => $hub->id,
+                'occurred_on' => '2026-10-18',
+                'channel' => 'wholesale',
+                'source' => 'Recovery Customer',
+                'reference' => 'WHOLESALE-RECOVERY-001',
+                'sales_transaction_id' => 123,
+                'notes' => 'Check this return',
+                'items' => [[
+                    'product_id' => 456,
+                    'transaction_item_id' => 789,
+                    'good_quantity' => 1,
+                    'damaged_quantity' => 0,
+                ]],
+            ]])
+            ->get(route('inventory-transactions.return.create', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('<option value="wholesale" selected>Wholesale</option>', false)
+            ->assertSee('value="2026-10-18"', false)
+            ->assertSee('Check this return')
+            ->assertSee('source: "Recovery Customer"', false)
+            ->assertSee('transactionId: 123', false)
+            ->assertSee('"good_quantity":1', false);
+    }
+
     public function test_walk_in_sale_can_be_verified_then_returned_and_excess_returns_are_rejected(): void
     {
         $branch = StoreHub::create([
