@@ -130,7 +130,7 @@
 
             <div class="p-3 border-top d-flex flex-wrap gap-2">
                 @if($event->status === 'open')
-                    <form method="POST" action="{{ route('event-inventory.close', $event) }}" class="ms-lg-auto" onsubmit="return confirm('Close this event? Any remaining quantity will be recorded as missing and no further sales or returns will be allowed.');">
+                    <form method="POST" action="{{ route('event-inventory.close', $event) }}" class="ms-lg-auto" data-event-close-form>
                         @csrf
                         @method('PATCH')
                         <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-lock me-1"></i>Reconcile & Close</button>
@@ -146,6 +146,31 @@
             <div><a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId]) }}" class="btn btn-primary">Create Event Pull-Out</a></div>
         </div>
     @endforelse
+
+    <div class="modal fade" id="closeEventConfirmModal" tabindex="-1" aria-labelledby="closeEventConfirmTitle" aria-describedby="closeEventConfirmDescription" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="d-flex align-items-center justify-content-center rounded-circle bg-danger-subtle text-danger" style="width: 44px; height: 44px;">
+                            <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                        </span>
+                        <h5 class="modal-title fw-bold mb-0" id="closeEventConfirmTitle">Close this event?</h5>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel"></button>
+                </div>
+                <div class="modal-body text-secondary pt-3" id="closeEventConfirmDescription">
+                    Any remaining quantity will be recorded as missing. After closing, no further sales or returns will be allowed.
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmCloseEventButton">
+                        <i class="fa-solid fa-lock me-1" aria-hidden="true"></i>Close Event
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="mt-3">{{ $events->links() }}</div>
     @else
@@ -173,5 +198,28 @@ document.querySelectorAll('.event-ledger-product-search-input').forEach(input =>
         card.querySelector('.event-ledger-no-match').hidden = visibleCount > 0;
     });
 });
+
+const closeEventModal = document.getElementById('closeEventConfirmModal');
+if (closeEventModal && window.bootstrap) {
+    let pendingCloseForm = null;
+    const modal = bootstrap.Modal.getOrCreateInstance(closeEventModal);
+
+    document.querySelectorAll('[data-event-close-form]').forEach(form => {
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            pendingCloseForm = form;
+            modal.show();
+        });
+    });
+
+    document.getElementById('confirmCloseEventButton').addEventListener('click', () => {
+        if (!pendingCloseForm) return;
+        pendingCloseForm.submit();
+    });
+
+    closeEventModal.addEventListener('hidden.bs.modal', () => {
+        pendingCloseForm = null;
+    });
+}
 </script>
 @endpush
