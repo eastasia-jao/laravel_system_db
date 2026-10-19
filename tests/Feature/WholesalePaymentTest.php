@@ -596,11 +596,14 @@ class WholesalePaymentTest extends TestCase
         $user = User::factory()->create(['role' => 'admin']);
 
         foreach ([
-            ['PAID-ORDER', 'paid', 100, 100, 20, null],
-            ['PARTIAL-ORDER', 'partial', 200, 50, 30, null],
-            ['UNPAID-ORDER', 'unpaid', 300, 0, 40, null],
-            ['REPLACEMENT-ORDER', 'paid', 330, 330, 30, 300],
-        ] as [$orderNumber, $paymentStatus, $orderTotal, $amountPaid, $shippingFee, $subTotal]) {
+            ['PAID-ORDER', 'paid', 100, 100, 20, null, null, null],
+            ['PARTIAL-ORDER', 'partial', 200, 50, 30, null, null, null],
+            ['UNPAID-ORDER', 'unpaid', 300, 0, 40, null, null, null],
+            ['REPLACEMENT-ORDER', 'paid', 330, 330, 30, 300, null, null],
+            ['WITHHOLDING-BOTH', 'unpaid', 1000, 0, 0, 1000, 25, 20],
+            ['WITHHOLDING-AMOUNT', 'unpaid', 1000, 0, 0, 1000, null, 20],
+            ['WITHHOLDING-TAX', 'unpaid', 1000, 0, 0, 1000, 20, null],
+        ] as [$orderNumber, $paymentStatus, $orderTotal, $amountPaid, $shippingFee, $subTotal, $withholdingTax, $withholdingAmount]) {
             SalesTransaction::create([
                 'user_id' => $user->id,
                 'store_hub_id' => $hub->id,
@@ -611,6 +614,8 @@ class WholesalePaymentTest extends TestCase
                 'grand_total' => $orderTotal,
                 'sub_total' => $subTotal ?? $orderTotal,
                 'shipping_fee_amount' => $shippingFee,
+                'wholesale_withholding_tax' => $withholdingTax,
+                'withholding_tax_amount' => $withholdingAmount,
                 'amount_paid' => $amountPaid,
                 'status' => 'confirmed',
                 'payment_status' => $paymentStatus,
@@ -636,12 +641,21 @@ class WholesalePaymentTest extends TestCase
         $paidRow = $xpath->query('//tr[@data-order-number="PAID-ORDER"]')->item(0);
         $partialRow = $xpath->query('//tr[@data-order-number="PARTIAL-ORDER"]')->item(0);
         $replacementRow = $xpath->query('//tr[@data-order-number="REPLACEMENT-ORDER"]')->item(0);
+        $bothWithholdingRow = $xpath->query('//tr[@data-order-number="WITHHOLDING-BOTH"]')->item(0);
+        $amountWithholdingRow = $xpath->query('//tr[@data-order-number="WITHHOLDING-AMOUNT"]')->item(0);
+        $taxWithholdingRow = $xpath->query('//tr[@data-order-number="WITHHOLDING-TAX"]')->item(0);
         $this->assertEquals(100.0, (float) $paidRow->getAttribute('data-order-value'));
         $this->assertEquals(100.0, (float) $paidRow->getAttribute('data-collected'));
         $this->assertEquals(200.0, (float) $partialRow->getAttribute('data-order-value'));
         $this->assertEquals(50.0, (float) $partialRow->getAttribute('data-collected'));
         $this->assertEquals(330.0, (float) $replacementRow->getAttribute('data-order-value'));
         $this->assertEquals(330.0, (float) $replacementRow->getAttribute('data-collected'));
+        $this->assertEquals(1000.0, (float) $bothWithholdingRow->getAttribute('data-order-value'));
+        $this->assertEquals(980.0, (float) $bothWithholdingRow->getAttribute('data-balance'));
+        $this->assertEquals(1000.0, (float) $bothWithholdingRow->getAttribute('data-subtotal'));
+        $this->assertEquals(1000.0, (float) $amountWithholdingRow->getAttribute('data-order-value'));
+        $this->assertEquals(980.0, (float) $amountWithholdingRow->getAttribute('data-balance'));
+        $this->assertEquals(980.0, (float) $taxWithholdingRow->getAttribute('data-balance'));
         $this->assertSame('₱200.00', trim($xpath->query('./td[4]', $partialRow)->item(0)->textContent));
         $this->assertSame('₱50.00', trim($xpath->query('./td[5]', $partialRow)->item(0)->textContent));
 

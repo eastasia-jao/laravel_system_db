@@ -210,11 +210,8 @@
                         $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0) > 0
                             ? (float) $transaction->wholesale_withholding_tax
                             : null;
-                        // Withholding Tax is a reporting reference. Payment balance uses
-                        // the full order total and does not deduct the separate shipping fee.
+                        $withholdingCredit = max(0, $withholdingAmount > 0 ? $withholdingAmount : ($withholdingTax ?? 0));
                         $paymentTotal = max(0, $invoiceTotal);
-                        // Collected is always the amount actually paid by the customer.
-                        // It must not be replaced or capped by the withholding breakdown.
                         $collected = $isRefunded ? 0 : min($paymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
                         $total = $isRefunded ? 0 : $invoiceTotal;
                         $approvedReplacementShipping = (float) $transaction->replacements
@@ -238,7 +235,7 @@
                         data-delivery-status="{{ $deliveryStatus }}"
                         data-order-value="{{ $total }}"
                         data-collected="{{ $collected }}"
-                        data-balance="{{ max(0, $paymentTotal - $collected) }}"
+                        data-balance="{{ max(0, $paymentTotal - $collected - $withholdingCredit) }}"
                         data-shipping-fee="{{ $shippingFee }}"
                         data-withholding-amount="{{ $withholdingAmount ?? '' }}"
                         data-withholding-tax="{{ $withholdingTax ?? '' }}"
@@ -452,8 +449,8 @@
                                         <input id="wholesale-wholesale-tax-{{ $transaction->id }}" type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Tax">
                                     </div>
                                     <div class="wholesale-status-note">
-                                        <i class="fa-solid fa-circle-info me-1" data-bs-toggle="tooltip" title="This is a reporting reference only; it does not change the customer order value or amount collected."></i>
-                                        Withholding tax is a reporting reference and does not change the customer order value or Collected.
+                                        <i class="fa-solid fa-circle-info me-1" data-bs-toggle="tooltip" title="Withholding is credited once against the balance; Withholding Tax Amount takes priority when both fields are entered."></i>
+                                        Withholding is credited once against the balance. If both fields are entered, Withholding Tax Amount is used; Order Value and Collected remain unchanged.
                                     </div>
                                     <div class="wholesale-status-help">
                                         @if($paymentLocked)
@@ -897,15 +894,16 @@
                 const financial = createPanel('Financial Summary', 'fa-chart-line', 'wholesale-financial-panel');
                 const withholdingAmount = Number(row.dataset.withholdingAmount || 0);
                 const withholdingTax = Number(row.dataset.withholdingTax || 0);
-                const noWithholding = withholdingAmount <= 0 && withholdingTax <= 0;
+                const withholdingCredit = withholdingAmount > 0 ? withholdingAmount : withholdingTax;
+                const noWithholding = withholdingCredit <= 0;
                 financial.body.append(
                     makeKpi('Order Value', money(orderValue), '', '#2563eb'),
                     makeKpi('Collected', money(amountCollected), '', '#16a34a'),
                     makeKpi('Shipping Fee', shippingFee > 0 ? money(shippingFee) : 'Free shipping', '', '#d97706'),
                     makeKpi(
                         'Withholding Tax',
-                        noWithholding ? 'No withholding tax' : money(withholdingAmount || withholdingTax),
-                        noWithholding ? '' : `Tax reference ${money(withholdingTax)}`,
+                        noWithholding ? 'No withholding tax' : money(withholdingCredit),
+                        noWithholding ? '' : 'Credited toward balance',
                         '#64748b'
                     )
                 );
@@ -923,7 +921,7 @@
                 const track = document.createElement('div');
                 track.className = 'wholesale-balance-track';
                 const progress = document.createElement('span');
-                progress.style.width = `${paidInFull ? 100 : Math.min(100, orderValue > 0 ? (amountCollected / orderValue) * 100 : 0)}%`;
+                progress.style.width = `${paidInFull ? 100 : Math.min(100, orderValue > 0 ? ((amountCollected + withholdingCredit) / orderValue) * 100 : 0)}%`;
                 track.append(progress);
                 financial.panel.append(balanceLine, track);
                 content.append(financial.panel);
@@ -1166,7 +1164,7 @@
                     const bannerIcon = document.createElement('i');
                     bannerIcon.className = `fa-solid ${paymentStatus === 'paid' ? 'fa-lock' : 'fa-circle-info'} me-1`;
                     bannerIcon.dataset.bsToggle = 'tooltip';
-                    bannerIcon.title = 'Withholding tax is a reporting reference only; it does not change the customer order value or amount collected.';
+                    bannerIcon.title = 'Withholding is credited once against the balance; Withholding Tax Amount takes priority when both fields are entered.';
                     statusBanner.append(bannerIcon);
                     const bannerText = document.createElement('span');
                     const paymentHelpText = cleanValue(statusHelp?.querySelector('.payment-balance-help')?.textContent);
@@ -1174,7 +1172,7 @@
                         paymentStatus === 'paid'
                             ? 'Payment is fully paid and locked. Delivery remains editable.'
                             : paymentHelpText,
-                        'Withholding tax is a reporting reference and does not change the customer order value or Collected.',
+                        'Withholding is credited once against the balance. If both fields are entered, Withholding Tax Amount is used; Order Value and Collected remain unchanged.',
                     ].filter(Boolean).join(' ');
                     statusBanner.append(bannerText);
                     const amountError = statusHelp?.querySelector('.payment-amount-error');
