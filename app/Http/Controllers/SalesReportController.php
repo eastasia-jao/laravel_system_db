@@ -357,11 +357,16 @@ class SalesReportController extends Controller
             ->reject(fn ($return) => $matchedReturnIds->contains($return->id))
             ->sum('refund_amount');
         $totalSales = $allTransactions->sum($currentNet);
-        $wholesaleCollectedBreakdown = ['paid' => 0.0, 'partial' => 0.0];
+        $wholesaleCollectionBreakdown = [
+            'cash' => ['paid' => 0.0, 'partial' => 0.0],
+            'withholding' => ['paid' => 0.0, 'partial' => 0.0],
+            'total' => ['paid' => 0.0, 'partial' => 0.0],
+        ];
         if ($channel === 'wholesale') {
             foreach ($allTransactions as $transaction) {
                 $paymentStatus = strtolower((string) $transaction->payment_status);
-                if (! array_key_exists($paymentStatus, $wholesaleCollectedBreakdown)) {
+                if (! array_key_exists($paymentStatus, $wholesaleCollectionBreakdown['cash'])
+                    || $transaction->status === 'refunded') {
                     continue;
                 }
                 $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
@@ -370,11 +375,22 @@ class SalesReportController extends Controller
                 $salesTotal = $subTotal > 0
                     ? max(0, $subTotal - $discountAmount)
                     : max(0, $invoiceTotal);
+                $cashCollected = min($salesTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                $withholdingAmount = $transaction->withholding_tax_amount === null
+                    ? null
+                    : (float) $transaction->withholding_tax_amount;
+                $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0);
+                $withholdingCollected = min(
+                    max(0, $salesTotal - $cashCollected),
+                    max(0, $withholdingTax > 0 ? $withholdingTax : ($withholdingAmount ?? 0))
+                );
 
-                $wholesaleCollectedBreakdown[$paymentStatus] += min($salesTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                $wholesaleCollectionBreakdown['cash'][$paymentStatus] += $cashCollected;
+                $wholesaleCollectionBreakdown['withholding'][$paymentStatus] += $withholdingCollected;
+                $wholesaleCollectionBreakdown['total'][$paymentStatus] += $cashCollected + $withholdingCollected;
             }
         }
-        $wholesaleCollectedSales = array_sum($wholesaleCollectedBreakdown);
+        $wholesaleCollectedSales = array_sum($wholesaleCollectionBreakdown['total']);
         $totalTransactions = $allTransactions->count();
         $totalPurchasedItems = $allTransactions->sum(fn ($transaction) => $transaction->items->sum(
             function ($item) {
@@ -653,7 +669,7 @@ class SalesReportController extends Controller
             'allTransactions',
             'totalSales',
             'wholesaleCollectedSales',
-            'wholesaleCollectedBreakdown',
+            'wholesaleCollectionBreakdown',
             'totalTransactions',
             'totalPurchasedItems',
             'metrics',
