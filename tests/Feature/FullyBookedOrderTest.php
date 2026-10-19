@@ -817,7 +817,8 @@ class FullyBookedOrderTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('FB-REJECT-001')
-            ->assertSee('REJECTED')
+            ->assertSee('Order rejected')
+            ->assertDontSee('<span class="badge mt-1 d-table text-bg-danger">REJECTED</span>', false)
             ->assertSee('The attachment is missing the requested quantities.');
 
         $rejectedUrl = route('hub.fully-booked-rejected', ['hub' => $hub->id]);
