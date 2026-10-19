@@ -651,7 +651,7 @@ class WholesalePaymentTest extends TestCase
         $this->assertEquals(330.0, (float) $replacementRow->getAttribute('data-order-value'));
         $this->assertEquals(330.0, (float) $replacementRow->getAttribute('data-collected'));
         $this->assertEquals(1000.0, (float) $bothWithholdingRow->getAttribute('data-order-value'));
-        $this->assertEquals(980.0, (float) $bothWithholdingRow->getAttribute('data-balance'));
+        $this->assertEquals(975.0, (float) $bothWithholdingRow->getAttribute('data-balance'));
         $this->assertEquals(1000.0, (float) $bothWithholdingRow->getAttribute('data-subtotal'));
         $this->assertEquals(1000.0, (float) $amountWithholdingRow->getAttribute('data-order-value'));
         $this->assertEquals(980.0, (float) $amountWithholdingRow->getAttribute('data-balance'));
@@ -667,7 +667,7 @@ class WholesalePaymentTest extends TestCase
             ->assertDontSee('>Reset</a>');
     }
 
-    public function test_wholesale_monthly_subtotal_uses_withholding_amount_as_order_subtotal(): void
+    public function test_wholesale_monthly_subtotal_prefers_withholding_tax_over_amount(): void
     {
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-MONTHLY-TAX', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
@@ -697,6 +697,6 @@ class WholesalePaymentTest extends TestCase
         $this->actingAs($user)->get(route('hub.report', [
             'hub' => $hub->id,
             'channel' => 'wholesale',
-        ]))->assertOk()->assertSee('October 2026 subtotal: ₱788.60');
+        ]))->assertOk()->assertSee('October 2026 subtotal: ₱644.30');
     }
 }

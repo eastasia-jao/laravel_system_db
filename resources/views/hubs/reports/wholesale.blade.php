@@ -210,7 +210,7 @@
                         $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0) > 0
                             ? (float) $transaction->wholesale_withholding_tax
                             : null;
-                        $withholdingCredit = max(0, $withholdingAmount > 0 ? $withholdingAmount : ($withholdingTax ?? 0));
+                        $withholdingCredit = max(0, $withholdingTax ?? $withholdingAmount ?? 0);
                         $paymentTotal = max(0, $invoiceTotal);
                         $collected = $isRefunded ? 0 : min($paymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
                         $total = $isRefunded ? 0 : $invoiceTotal;
@@ -449,8 +449,8 @@
                                         <input id="wholesale-wholesale-tax-{{ $transaction->id }}" type="number" name="wholesale_withholding_tax" class="form-control form-control-sm" min="0" step="0.01" value="{{ $withholdingTax === null ? '' : number_format($withholdingTax, 2, '.', '') }}" placeholder="Tax">
                                     </div>
                                     <div class="wholesale-status-note">
-                                        <i class="fa-solid fa-circle-info me-1" data-bs-toggle="tooltip" title="Withholding is credited once against the balance; Withholding Tax Amount takes priority when both fields are entered."></i>
-                                        Withholding is credited once against the balance and deducted from the monthly subtotal. If both fields are entered, Withholding Tax Amount is used.
+                                        <i class="fa-solid fa-circle-info me-1" data-bs-toggle="tooltip" title="Withholding is credited once against the balance; Withholding Tax takes priority when both fields are entered."></i>
+                                        Withholding is credited once against the balance and used for the monthly subtotal. If both fields are entered, Withholding Tax is used.
                                     </div>
                                     <div class="wholesale-status-help">
                                         @if($paymentLocked)
@@ -519,7 +519,7 @@
                                     ? null
                                     : (float) $sale->withholding_tax_amount;
                                 $withholdingTax = (float) ($sale->wholesale_withholding_tax ?? 0);
-                                $monthlySubtotal = $withholdingAmount ?? ($withholdingTax > 0 ? $withholdingTax : $orderValue);
+                                $monthlySubtotal = $withholdingTax > 0 ? $withholdingTax : ($withholdingAmount ?? $orderValue);
 
                                 return max(0, $monthlySubtotal);
                             });
@@ -901,7 +901,7 @@
                 const financial = createPanel('Financial Summary', 'fa-chart-line', 'wholesale-financial-panel');
                 const withholdingAmount = Number(row.dataset.withholdingAmount || 0);
                 const withholdingTax = Number(row.dataset.withholdingTax || 0);
-                const withholdingCredit = withholdingAmount > 0 ? withholdingAmount : withholdingTax;
+                const withholdingCredit = withholdingTax > 0 ? withholdingTax : withholdingAmount;
                 const noWithholding = withholdingCredit <= 0;
                 financial.body.append(
                     makeKpi('Order Value', money(orderValue), '', '#2563eb'),
@@ -1171,7 +1171,7 @@
                     const bannerIcon = document.createElement('i');
                     bannerIcon.className = `fa-solid ${paymentStatus === 'paid' ? 'fa-lock' : 'fa-circle-info'} me-1`;
                     bannerIcon.dataset.bsToggle = 'tooltip';
-                    bannerIcon.title = 'Withholding is credited once against the balance; Withholding Tax Amount takes priority when both fields are entered.';
+                    bannerIcon.title = 'Withholding is credited once against the balance; Withholding Tax takes priority when both fields are entered.';
                     statusBanner.append(bannerIcon);
                     const bannerText = document.createElement('span');
                     const paymentHelpText = cleanValue(statusHelp?.querySelector('.payment-balance-help')?.textContent);
@@ -1179,7 +1179,7 @@
                         paymentStatus === 'paid'
                             ? 'Payment is fully paid and locked. Delivery remains editable.'
                             : paymentHelpText,
-                        'Withholding is credited once against the balance and deducted from the monthly subtotal. If both fields are entered, Withholding Tax Amount is used.',
+                        'Withholding is credited once against the balance and used for the monthly subtotal. If both fields are entered, Withholding Tax is used.',
                     ].filter(Boolean).join(' ');
                     statusBanner.append(bannerText);
                     const amountError = statusHelp?.querySelector('.payment-amount-error');
