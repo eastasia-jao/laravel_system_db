@@ -268,8 +268,7 @@ class EventInventoryTest extends TestCase
             ]);
         $this->get($returnFormUrl)
             ->assertDontSee('<div class="alert alert-danger"', false)
-            ->assertSee('window.AppAlert?.show', false)
-            ->assertSee('Return items were not saved.')
+            ->assertSee('window.AppAlert.show(message.text', false)
             ->assertSee('Only 0 Good item(s) can be returned.');
         $this->assertSame($stockAfterPullout, (int) $product->fresh()->stock);
         $this->assertSame($damagedStockAfterPullout, (int) $product->fresh()->damaged_stock);

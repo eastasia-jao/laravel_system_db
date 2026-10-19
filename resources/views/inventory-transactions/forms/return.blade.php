@@ -94,14 +94,6 @@
 @push('scripts')
 <script>
 (() => {
-    @if($errors->any())
-        document.addEventListener('DOMContentLoaded', () => {
-            window.AppAlert?.show(@json($errors->all()->implode("\n")), 'error', {
-                title: 'Return items were not saved.',
-            });
-        });
-    @endif
-
     const endpoint = @json(route('inventory-transactions.return.sales'));
     const hubId = @json($hubId);
     const channel = document.getElementById('returnChannel');
