@@ -28,8 +28,9 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
 
         $response = $this->actingAs($admin)->get(route('stock-allocation.index', ['hub_id' => $headOffice->id]));
-
         $response->assertOk()
+            ->assertSee('<th>Online</th>', false)
+            ->assertDontSee('Online / Event / Restock')
             ->assertSee('Total Physical Stocks')
             ->assertSee('<span class="total-physical-stock">47</span>', false)
             ->assertDontSee('Good Stock:')

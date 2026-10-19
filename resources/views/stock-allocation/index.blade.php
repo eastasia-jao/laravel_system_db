@@ -124,7 +124,7 @@
                         <tr>
                             <th>Product</th>
                             <th>Total Physical Stocks</th>
-                            <th>Online / Event / Restock</th>
+                            <th>Online</th>
                             <th>Wholesale</th>
                             <th>Shopee</th>
                             <th>Lazada</th>
