@@ -173,7 +173,8 @@
                     ['route' => 'inventory-transactions.transfer.create', 'icon' => 'fa-truck-ramp-box', 'title' => 'HO ↔ Branch Transfer', 'text' => 'Move stock between Head Office and a branch'],
                 ]],
                 ['label' => 'Event operations', 'actions' => [
-                    ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-people-group', 'title' => 'Event / Fully Booked', 'text' => 'Create pull-outs and process orders', 'pending' => $fullyBookedPulloutCount],
+                    ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-tents', 'title' => 'Event', 'text' => 'Record event inventory pull-outs', 'activity_type' => 'event'],
+                    ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-book-open', 'title' => 'Fully Booked', 'text' => 'Review and process Fully Booked orders', 'activity_type' => 'fully_booked', 'pending' => $fullyBookedPulloutCount],
                 ]],
                 ['label' => 'Inventory updates', 'actions' => [
                     ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock from Warehouse', 'text' => 'Record stock added from a request'],
@@ -189,12 +190,6 @@
                     'hub_id' => $nationalHeadOfficeId,
                 ];
             }
-            $inventoryActionGroups[1]['actions'][] = [
-                'route' => 'event-inventory.index',
-                'icon' => 'fa-tents',
-                'title' => 'Event Inventory',
-                'text' => 'Track sales, returns, logs, and closeout',
-            ];
             if (auth()->user()->can('manage-inventory') || auth()->user()->can('submit-branch-transfers')) {
                 $inventoryActionGroups[0]['actions'][] = [
                     'route' => 'inventory-transactions.branch-transfer.create',
@@ -211,7 +206,7 @@
                         <h2 class="inventory-action-group-title">{{ $group['label'] }}</h2>
                         <div class="inventory-action-links">
                             @foreach($group['actions'] as $action)
-                                <a href="{{ route($action['route'], ['hub_id' => $action['hub_id'] ?? $hubId]) }}" class="inventory-action-link position-relative">
+                                <a href="{{ route($action['route'], ['hub_id' => $action['hub_id'] ?? $hubId, 'activity_type' => $action['activity_type'] ?? null]) }}" class="inventory-action-link position-relative">
                                     <span class="inventory-action-icon"><i class="fa-solid {{ $action['icon'] }}"></i></span>
                                     <span class="inventory-action-copy"><strong>{{ $action['title'] }}</strong><small>{{ $action['text'] }}</small></span>
                                     @if(($action['pending'] ?? 0) > 0)<span class="badge rounded-pill text-bg-danger ms-auto" aria-label="{{ $action['pending'] }} Fully Booked {{ $action['pending'] === 1 ? 'order' : 'orders' }} not yet processed">{{ $action['pending'] }}</span>@endif

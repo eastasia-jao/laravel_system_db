@@ -64,16 +64,23 @@ class NationalPulloutTest extends TestCase
             ->assertSee('Inventory updates');
         $transactionLogContent = $transactionLogs->getContent();
         $eventOperationsPosition = strpos($transactionLogContent, 'Event operations');
-        $eventFullyBookedPosition = strpos($transactionLogContent, 'Event / Fully Booked', $eventOperationsPosition);
-        $nationalPulloutPosition = strpos($transactionLogContent, 'National Bookstore Pullout', $eventFullyBookedPosition);
         $inventoryUpdatesPosition = strpos($transactionLogContent, 'Inventory updates');
         $this->assertNotFalse($eventOperationsPosition);
-        $this->assertNotFalse($eventFullyBookedPosition);
-        $this->assertNotFalse($nationalPulloutPosition);
         $this->assertNotFalse($inventoryUpdatesPosition);
-        $this->assertTrue($eventOperationsPosition < $eventFullyBookedPosition);
-        $this->assertTrue($eventFullyBookedPosition < $nationalPulloutPosition);
-        $this->assertTrue($nationalPulloutPosition < $inventoryUpdatesPosition);
+        $document = new \DOMDocument;
+        @$document->loadHTML($transactionLogContent);
+        $xpath = new \DOMXPath($document);
+        $eventOperations = $xpath->query('//section[.//h2[normalize-space()="Event operations"]]');
+        $this->assertSame(1, $eventOperations->length);
+        $eventActionTitles = array_map(
+            static fn (\DOMElement $title) => $title->textContent,
+            iterator_to_array($xpath->query('.//a[contains(@class,"inventory-action-link")]//strong', $eventOperations->item(0)))
+        );
+        $this->assertSame(['Event', 'Fully Booked', 'National Bookstore Pullout'], $eventActionTitles);
+        $this->assertStringNotContainsString('Event Inventory', $eventOperations->item(0)->textContent);
+        $this->assertStringContainsString('activity_type=event', $transactionLogContent);
+        $this->assertStringContainsString('activity_type=fully_booked', $transactionLogContent);
+        $this->assertTrue($eventOperationsPosition < $inventoryUpdatesPosition);
         $this->actingAs($branchStaff)
             ->get(route('inventory-transactions.index', ['hub_id' => $branch->id]))
             ->assertOk()
