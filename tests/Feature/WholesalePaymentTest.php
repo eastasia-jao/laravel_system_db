@@ -712,10 +712,10 @@ class WholesalePaymentTest extends TestCase
         $user = User::factory()->create(['role' => 'admin']);
 
         foreach ([
-            ['PAID-CASH', 721.40, 721.40, null, 'paid', 'confirmed'],
-            ['PAID-WITHHOLDING', 621.40, 321.40, 300, 'paid', 'confirmed'],
-            ['REFUNDED-ORDER', 344.30, 0, null, 'refunded', 'refunded'],
-        ] as [$orderNumber, $orderTotal, $amountPaid, $withholdingTax, $paymentStatus, $status]) {
+            ['PAID-CASH', 721.40, 721.40, null, null, 'paid', 'confirmed'],
+            ['PAID-WITHHOLDING', 621.40, 321.40, 300, 44.30, 'paid', 'confirmed'],
+            ['REFUNDED-ORDER', 344.30, 0, null, null, 'refunded', 'refunded'],
+        ] as [$orderNumber, $orderTotal, $amountPaid, $withholdingTax, $withholdingAmount, $paymentStatus, $status]) {
             SalesTransaction::create([
                 'user_id' => $user->id,
                 'store_hub_id' => $hub->id,
@@ -727,6 +727,7 @@ class WholesalePaymentTest extends TestCase
                 'sub_total' => $orderTotal,
                 'amount_paid' => $amountPaid,
                 'wholesale_withholding_tax' => $withholdingTax,
+                'withholding_tax_amount' => $withholdingAmount,
                 'status' => $status,
                 'payment_status' => $paymentStatus,
             ]);
@@ -744,13 +745,14 @@ class WholesalePaymentTest extends TestCase
         $refundedOrders = $xpath->query('//*[@id="wholesaleReportImageSource"]//div[contains(@class, "col-3")][.//div[normalize-space()="Refunded Orders"]]');
 
         $this->assertStringContainsString('100.0%', $scorecard);
-        $this->assertStringContainsString('Total Collected', $scorecard);
-        $this->assertStringContainsString('₱1,042.80', $scorecard);
-        $this->assertStringContainsString('Cash only · Paid: ₱1,042.80', $scorecard);
-        $this->assertStringContainsString('Withholding (separate)', $scorecard);
+        $this->assertStringContainsString('Subtotal', $scorecard);
+        $this->assertStringContainsString('₱1,021.40', $scorecard);
+        $this->assertStringContainsString('Withholding Tax', $scorecard);
         $this->assertStringContainsString('₱300.00', $scorecard);
-        $this->assertStringContainsString('Paid: ₱300.00', $scorecard);
-        $this->assertStringContainsString('Partial: ₱0.00', $scorecard);
+        $this->assertStringContainsString('Withholding Tax Amount', $scorecard);
+        $this->assertStringContainsString('₱44.30', $scorecard);
+        $this->assertStringNotContainsString('Total Collected', $scorecard);
+        $this->assertStringNotContainsString('Withholding (separate)', $scorecard);
         $this->assertStringContainsString('Order Value', $scorecard);
         $this->assertStringContainsString('₱1,342.80', $scorecard);
         $this->assertStringContainsString('₱0.00', $scorecard);
