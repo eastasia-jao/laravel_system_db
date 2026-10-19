@@ -723,6 +723,10 @@
                 $kpiPaidOrders = $allTransactions->where('payment_status', 'paid')->count();
                 $kpiPartialOrders = $allTransactions->where('payment_status', 'partial')->count();
                 $kpiUnpaidOrders = $allTransactions->whereIn('payment_status', [null, 'unpaid'])->count();
+                $kpiRefundedOrders = $allTransactions->filter(
+                    fn ($transaction) => $transaction->status === 'refunded'
+                        || $transaction->payment_status === 'refunded'
+                )->count();
             @endphp
             <div class="d-flex justify-content-between align-items-end border-bottom border-3 border-primary pb-3 mb-4">
                 <div>
@@ -788,9 +792,10 @@
                     <div class="border rounded-3 p-4 h-100">
                         <div class="text-uppercase text-muted small fw-bold mb-3">Payment Status</div>
                         <div class="row text-center g-2">
-                            <div class="col-4"><div class="text-success fw-bold fs-3">{{ $kpiPaidOrders }}</div><div class="small text-muted">Paid</div></div>
-                            <div class="col-4"><div class="text-warning fw-bold fs-3">{{ $kpiPartialOrders }}</div><div class="small text-muted">Partial</div></div>
-                            <div class="col-4"><div class="text-danger fw-bold fs-3">{{ $kpiUnpaidOrders }}</div><div class="small text-muted">Unpaid</div></div>
+                            <div class="col-3"><div class="text-success fw-bold fs-3">{{ $kpiPaidOrders }}</div><div class="small text-muted">Paid</div></div>
+                            <div class="col-3"><div class="text-warning fw-bold fs-3">{{ $kpiPartialOrders }}</div><div class="small text-muted">Partial</div></div>
+                            <div class="col-3"><div class="text-danger fw-bold fs-3">{{ $kpiUnpaidOrders }}</div><div class="small text-muted">Unpaid</div></div>
+                            <div class="col-3"><div class="text-secondary fw-bold fs-3">{{ $kpiRefundedOrders }}</div><div class="small text-muted">Refunded Orders</div></div>
                         </div>
                         <div class="border-top mt-3 pt-3 small text-muted">{{ number_format($totalTransactions) }} wholesale transaction(s) recorded in this reporting period.</div>
                     </div>

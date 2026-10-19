@@ -737,6 +737,7 @@ class WholesalePaymentTest extends TestCase
         @$document->loadHTML($response->getContent());
         $xpath = new \DOMXPath($document);
         $scorecard = $xpath->query('//*[@id="wholesaleReportImageSource"]')->item(0)->textContent;
+        $refundedOrders = $xpath->query('//*[@id="wholesaleReportImageSource"]//div[contains(@class, "col-3")][.//div[normalize-space()="Refunded Orders"]]');
 
         $this->assertStringContainsString('100.0%', $scorecard);
         $this->assertStringContainsString('Total Collected', $scorecard);
@@ -746,5 +747,7 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('Order Value', $scorecard);
         $this->assertStringContainsString('₱1,342.80', $scorecard);
         $this->assertStringContainsString('₱0.00', $scorecard);
+        $this->assertSame(1, $refundedOrders->length);
+        $this->assertStringContainsString('1', $refundedOrders->item(0)->textContent);
     }
 }
