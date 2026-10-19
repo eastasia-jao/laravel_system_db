@@ -41,6 +41,8 @@ class EventInventoryTest extends TestCase
 
         $inventoryResponse = $this->get(route('event-inventory.index', ['hub_id' => $hub->id]))
             ->assertOk()
+            ->assertSee('<title>Event Inventory</title>', false)
+            ->assertSee('<h1 class="topbar-title">Event Inventory</h1>', false)
             ->assertSee('Event Inventory')
             ->assertSee('October Art Fair')
             ->assertSee($event->reference)
