@@ -174,7 +174,6 @@
                 ]],
                 ['label' => 'Event operations', 'actions' => [
                     ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-people-group', 'title' => 'Event / Fully Booked', 'text' => 'Create pull-outs and process orders', 'pending' => $fullyBookedPulloutCount],
-                    ['route' => 'event-inventory.index', 'icon' => 'fa-tents', 'title' => 'Event Inventory', 'text' => 'Track sales, returns, logs, and closeout'],
                 ]],
                 ['label' => 'Inventory updates', 'actions' => [
                     ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock from Warehouse', 'text' => 'Record stock added from a request'],
@@ -182,7 +181,7 @@
                 ]],
             ];
             if ($canUseNationalPullout) {
-                $inventoryActionGroups[2]['actions'][] = [
+                $inventoryActionGroups[1]['actions'][] = [
                     'route' => 'national-pullouts.create',
                     'icon' => 'fa-book-open',
                     'title' => 'National Bookstore Pullout',
@@ -190,6 +189,12 @@
                     'hub_id' => $nationalHeadOfficeId,
                 ];
             }
+            $inventoryActionGroups[1]['actions'][] = [
+                'route' => 'event-inventory.index',
+                'icon' => 'fa-tents',
+                'title' => 'Event Inventory',
+                'text' => 'Track sales, returns, logs, and closeout',
+            ];
             if (auth()->user()->can('manage-inventory') || auth()->user()->can('submit-branch-transfers')) {
                 $inventoryActionGroups[0]['actions'][] = [
                     'route' => 'inventory-transactions.branch-transfer.create',

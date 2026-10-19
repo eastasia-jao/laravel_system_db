@@ -56,10 +56,24 @@ class NationalPulloutTest extends TestCase
             ->assertForbidden();
 
         $headOfficeStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $headOffice->id]);
-        $this->actingAs($headOfficeStaff)
+        $transactionLogs = $this->actingAs($headOfficeStaff)
             ->get(route('inventory-transactions.index', ['hub_id' => $headOffice->id]))
             ->assertOk()
-            ->assertSee('National Bookstore Pullout');
+            ->assertSee('Event operations')
+            ->assertSee('National Bookstore Pullout')
+            ->assertSee('Inventory updates');
+        $transactionLogContent = $transactionLogs->getContent();
+        $eventOperationsPosition = strpos($transactionLogContent, 'Event operations');
+        $eventFullyBookedPosition = strpos($transactionLogContent, 'Event / Fully Booked', $eventOperationsPosition);
+        $nationalPulloutPosition = strpos($transactionLogContent, 'National Bookstore Pullout', $eventFullyBookedPosition);
+        $inventoryUpdatesPosition = strpos($transactionLogContent, 'Inventory updates');
+        $this->assertNotFalse($eventOperationsPosition);
+        $this->assertNotFalse($eventFullyBookedPosition);
+        $this->assertNotFalse($nationalPulloutPosition);
+        $this->assertNotFalse($inventoryUpdatesPosition);
+        $this->assertTrue($eventOperationsPosition < $eventFullyBookedPosition);
+        $this->assertTrue($eventFullyBookedPosition < $nationalPulloutPosition);
+        $this->assertTrue($nationalPulloutPosition < $inventoryUpdatesPosition);
         $this->actingAs($branchStaff)
             ->get(route('inventory-transactions.index', ['hub_id' => $branch->id]))
             ->assertOk()
