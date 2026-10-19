@@ -634,6 +634,7 @@ class WholesalePaymentTest extends TestCase
             ->assertDontSee('Gross Sales')
             ->assertDontSee('>Reset</a>');
         $this->assertSame(450.0, $response->viewData('wholesaleCollectedSales'));
+        $this->assertSame(['paid' => 400.0, 'partial' => 50.0], $response->viewData('wholesaleCollectedBreakdown'));
         $this->assertSame(120.0, $response->viewData('metrics')['shipping_fees']);
 
         $document = new \DOMDocument;
@@ -742,6 +743,8 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('100.0%', $scorecard);
         $this->assertStringContainsString('Total Collected', $scorecard);
         $this->assertStringContainsString('₱1,042.80', $scorecard);
+        $this->assertStringContainsString('Paid: ₱1,042.80', $scorecard);
+        $this->assertStringContainsString('Partial: ₱0.00', $scorecard);
         $this->assertStringContainsString('Withholding Tax', $scorecard);
         $this->assertStringContainsString('₱300.00', $scorecard);
         $this->assertStringContainsString('Order Value', $scorecard);

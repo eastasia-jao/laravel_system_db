@@ -357,12 +357,13 @@ class SalesReportController extends Controller
             ->reject(fn ($return) => $matchedReturnIds->contains($return->id))
             ->sum('refund_amount');
         $totalSales = $allTransactions->sum($currentNet);
-        $wholesaleCollectedSales = $channel === 'wholesale'
-            ? $allTransactions->sum(function ($transaction) {
-                if (! in_array(strtolower((string) $transaction->payment_status), ['paid', 'partial'], true)) {
-                    return 0;
+        $wholesaleCollectedBreakdown = ['paid' => 0.0, 'partial' => 0.0];
+        if ($channel === 'wholesale') {
+            foreach ($allTransactions as $transaction) {
+                $paymentStatus = strtolower((string) $transaction->payment_status);
+                if (! array_key_exists($paymentStatus, $wholesaleCollectedBreakdown)) {
+                    continue;
                 }
-
                 $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
                 $subTotal = (float) ($transaction->sub_total ?? 0);
                 $discountAmount = $subTotal * ((float) ($transaction->additional_discount_percentage ?? 0) / 100);
@@ -370,9 +371,10 @@ class SalesReportController extends Controller
                     ? max(0, $subTotal - $discountAmount)
                     : max(0, $invoiceTotal);
 
-                return min($salesTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
-            })
-            : 0;
+                $wholesaleCollectedBreakdown[$paymentStatus] += min($salesTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+            }
+        }
+        $wholesaleCollectedSales = array_sum($wholesaleCollectedBreakdown);
         $totalTransactions = $allTransactions->count();
         $totalPurchasedItems = $allTransactions->sum(fn ($transaction) => $transaction->items->sum(
             function ($item) {
@@ -651,6 +653,7 @@ class SalesReportController extends Controller
             'allTransactions',
             'totalSales',
             'wholesaleCollectedSales',
+            'wholesaleCollectedBreakdown',
             'totalTransactions',
             'totalPurchasedItems',
             'metrics',

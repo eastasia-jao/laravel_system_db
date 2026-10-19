@@ -775,6 +775,8 @@
                             <div class="col-4">
                                 <div class="text-muted">Total Collected</div>
                                 <div class="fw-semibold text-success">₱{{ number_format($kpiCollected, 2) }}</div>
+                                <div class="text-muted">Paid: ₱{{ number_format($wholesaleCollectedBreakdown['paid'], 2) }}</div>
+                                <div class="text-muted">Partial: ₱{{ number_format($wholesaleCollectedBreakdown['partial'], 2) }}</div>
                             </div>
                             <div class="col-4">
                                 <div class="text-muted">Withholding Tax / Amount</div>
