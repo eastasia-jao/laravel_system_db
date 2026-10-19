@@ -1050,10 +1050,12 @@ class SalesController extends Controller
         }
         $sale->update($statusUpdate);
 
+        if ($channel === 'wholesale' && $validated['payment_status'] === 'paid') {
+            return back();
+        }
+
         $successMessage = $channel === 'wholesale'
-            ? ($validated['payment_status'] === 'paid'
-                ? 'Customer payment has been marked as fully paid.'
-                : 'Wholesale payment and delivery statuses updated.')
+            ? 'Wholesale payment and delivery statuses updated.'
             : 'Walk-In payment status updated.';
 
         return back()->with('success', $successMessage);
