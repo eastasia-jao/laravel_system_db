@@ -206,6 +206,18 @@ class ReturnWorkflowPilotTest extends TestCase
                 'created_by' => $staff->id,
             ]);
         }
+        InventoryTransaction::create([
+            'type' => 'sponsor_workshop',
+            'reference' => 'FB-000002',
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'channel' => 'fully_booked',
+            'source' => 'Fully Booked Order',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-10-01',
+            'created_by' => $staff->id,
+        ]);
 
         $this->actingAs($staff)
             ->getJson(route('inventory-transactions.return.sales', [
@@ -215,7 +227,14 @@ class ReturnWorkflowPilotTest extends TestCase
             ]))
             ->assertOk()
             ->assertJsonPath('orders.0.id', 'SW-EVENT-RETURN-001')
-            ->assertJsonPath('orders.0.source', 'Community Event');
+            ->assertJsonPath('orders.0.source', 'Community Event')
+            ->assertJsonMissingPath('orders.1');
+
+        $this->getJson(route('inventory-transactions.return.sales', [
+            'hub_id' => $hub->id,
+            'channel' => 'event',
+            'event_reference' => 'FB-000002',
+        ]))->assertNotFound();
 
         $this->getJson(route('inventory-transactions.return.sales', [
             'hub_id' => $hub->id,

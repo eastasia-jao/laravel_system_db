@@ -605,6 +605,10 @@ class InventoryTransactionController extends Controller
             $eventQuery = InventoryTransaction::query()
                 ->where('store_hub_id', $validated['hub_id'])
                 ->where('type', 'sponsor_workshop')
+                ->where(function ($query) {
+                    $query->whereNull('channel')
+                        ->orWhere('channel', '!=', 'fully_booked');
+                })
                 ->whereNotNull('reference');
 
             if ($request->filled('event_reference')) {
