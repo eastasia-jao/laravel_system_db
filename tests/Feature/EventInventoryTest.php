@@ -266,7 +266,10 @@ class EventInventoryTest extends TestCase
             ->assertSessionHasErrors([
                 'items' => 'Good return quantity for Event Artwork exceeds the remaining Good Event stock. Only 0 Good item(s) can be returned.',
             ]);
-        $this->get($returnFormUrl)->assertSee('Return items were not saved.')
+        $this->get($returnFormUrl)
+            ->assertDontSee('<div class="alert alert-danger"', false)
+            ->assertSee('window.AppAlert?.show', false)
+            ->assertSee('Return items were not saved.')
             ->assertSee('Only 0 Good item(s) can be returned.');
         $this->assertSame($stockAfterPullout, (int) $product->fresh()->stock);
         $this->assertSame($damagedStockAfterPullout, (int) $product->fresh()->damaged_stock);

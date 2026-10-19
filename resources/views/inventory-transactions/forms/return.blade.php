@@ -39,13 +39,6 @@
 <div class="workspace-page inventory-entry-page">
     <x-page-header class="mb-3" eyebrow="Inventory adjustment" title="Return Items" description="Record returned products and classify each item as good or damaged." icon="fa-rotate-left" />
 
-    @if($errors->any())
-        <div class="alert alert-danger" role="alert">
-            <strong>Return items were not saved.</strong>
-            <ul class="mb-0 mt-1">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
-        </div>
-    @endif
-
     <form method="POST" action="{{ route('inventory-transactions.return.store') }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf
         <input type="hidden" name="type" value="return">
@@ -101,6 +94,14 @@
 @push('scripts')
 <script>
 (() => {
+    @if($errors->any())
+        document.addEventListener('DOMContentLoaded', () => {
+            window.AppAlert?.show(@json($errors->all()->implode("\n")), 'error', {
+                title: 'Return items were not saved.',
+            });
+        });
+    @endif
+
     const endpoint = @json(route('inventory-transactions.return.sales'));
     const hubId = @json($hubId);
     const channel = document.getElementById('returnChannel');
