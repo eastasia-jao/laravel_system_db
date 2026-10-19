@@ -100,25 +100,6 @@
     </div>
 </div>
 
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 2000;">
-    <div id="exportSuccessToast" class="toast text-bg-success border-0 shadow-lg" role="status" aria-live="polite" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body fw-semibold">
-                <i class="fa-solid fa-circle-check me-2"></i>Export completed successfully. Your file has been downloaded.
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-    </div>
-    <div id="exportErrorToast" class="toast text-bg-danger border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body fw-semibold">
-                <i class="fa-solid fa-triangle-exclamation me-2"></i><span id="exportErrorMessage">The export could not be completed.</span>
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-    </div>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const searchFieldSelect = document.getElementById('searchFieldSelect');
@@ -274,8 +255,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const selectedItems = exportForm.querySelectorAll('input[name="product_ids[]"]:checked');
         if (!exportAll.checked && selectedItems.length === 0) {
-            document.getElementById('exportErrorMessage').textContent = 'Select at least one product before exporting.';
-            AppAlert.show(document.getElementById('exportErrorMessage').textContent, 'error');
+            AppAlert.show('Select at least one product before exporting.', 'error');
             return;
         }
 
@@ -322,8 +302,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const fileLabel = requestedFormat === 'xlsx' ? 'Excel file' : 'CSV file';
             AppAlert.show(`Your selected products have been exported. The ${fileLabel} is ready in your downloads.`, 'success', { title: 'Your export is ready', buttonLabel: 'Done' });
         } catch (error) {
-            document.getElementById('exportErrorMessage').textContent = error.message || 'The export could not be completed.';
-            AppAlert.show(document.getElementById('exportErrorMessage').textContent, 'error');
+            AppAlert.show(error.message || 'The export could not be completed.', 'error');
         } finally {
             exportSubmitBtn.disabled = false;
             exportCsvBtn.disabled = false;

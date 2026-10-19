@@ -111,7 +111,9 @@ class ProductFileRequestTest extends TestCase
                 ->assertSee('Review the results, then click &times; to close.', false)
                 ->assertDontSee('setTimeout(() => window.location.reload()', false)
                 ->assertSee('id="importProductModal"', false)
-                ->assertSee('id="exportProductModal"', false);
+                ->assertSee('id="exportProductModal"', false)
+                ->assertDontSee('toast-container')
+                ->assertSee('AppAlert.show(`Your selected products have been exported.', false);
         }
 
         $associate = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $hub->id]);

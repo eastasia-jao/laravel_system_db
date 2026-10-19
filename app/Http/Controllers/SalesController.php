@@ -999,9 +999,7 @@ class SalesController extends Controller
         }
 
         $grandTotal = (float) ($sale->grand_total ?? $sale->total_amount ?? $sale->total ?? 0);
-        $paymentTotal = $channel === 'wholesale'
-            ? max(0, $grandTotal - (float) ($sale->shipping_fee_amount ?? 0))
-            : $grandTotal;
+        $paymentTotal = $grandTotal;
         $amountPaid = (float) ($validated['amount_paid'] ?? 0);
         $wholesaleWithholding = [];
         if ($channel === 'wholesale') {
@@ -1027,7 +1025,7 @@ class SalesController extends Controller
             $amountPaid = 0;
         } elseif ($amountPaid <= 0 || $amountPaid >= $paymentTotal) {
             return back()->withErrors([
-                'amount_paid' => 'For a partially paid order, the amount paid must be greater than zero and less than the product total.',
+                'amount_paid' => 'For a partially paid order, the amount paid must be greater than zero and less than the order total.',
             ]);
         }
 

@@ -364,7 +364,7 @@ class SalesReportController extends Controller
                 }
 
                 $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
-                $salesTotal = max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0));
+                $salesTotal = max(0, $invoiceTotal);
 
                 return min($salesTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
             })

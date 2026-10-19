@@ -26,16 +26,19 @@ class WholesalePaymentTest extends TestCase
         $sale = SalesTransaction::create([
             'user_id' => $user->id, 'store_hub_id' => $hub->id, 'channel_type' => 'wholesale',
             'customer_name' => 'Customer', 'order_number' => 'PARTIAL-1', 'order_date' => '2026-09-08',
-            'grand_total' => 547.20, 'status' => 'confirmed', 'payment_status' => 'unpaid',
+            'grand_total' => 547.20, 'shipping_fee_amount' => 100, 'status' => 'confirmed', 'payment_status' => 'unpaid',
             'amount_paid' => 0, 'delivery_status' => 'pending',
         ]);
         $report = route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']);
         $html = $this->actingAs($user)->get($report)->assertOk()->getContent();
+        $this->assertStringNotContainsString('toast-container', $html);
+        $this->assertStringContainsString('window.AppAlert.show(message.text', $html);
         $document = new \DOMDocument;
         @$document->loadHTML($html);
         $xpath = new \DOMXPath($document);
         $this->assertSame(1, $xpath->query('//form[contains(@class,"status-update-form")]//select[@name="payment_status" and not(@disabled)]')->length);
         $this->assertSame('547.2', $xpath->query('//form[contains(@class,"status-update-form")]//input[@name="amount_paid"]')->item(0)->getAttribute('max'));
+        $this->assertSame('547.2', $xpath->query('//tr[@data-wholesale-order-row="'.$sale->id.'"]')->item(0)->getAttribute('data-balance'));
         $this->assertStringContainsString('amountInput.value = Number(amountInput.dataset.orderTotal || 0).toFixed(2);', $html);
         $this->assertStringContainsString('data-wholesale-replacement-shipping-type', $html);
         $this->assertStringContainsString('Preview / Save PNG', $html);
@@ -64,19 +67,19 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame('unpaid', $sale->fresh()->payment_status);
         $this->assertSame('0.00', $sale->fresh()->amount_paid);
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
-            'payment_status' => 'partial', 'amount_paid' => '47.20', 'delivery_status' => 'pending',
+            'payment_status' => 'partial', 'amount_paid' => '500.00', 'delivery_status' => 'pending',
             'withholding_tax_amount' => '5.47', 'wholesale_withholding_tax' => '12.34',
             'payment_proof' => UploadedFile::fake()->create('receipt.pdf', 100, 'application/pdf'),
         ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionMissing('success');
         $this->assertSame('partial', $sale->fresh()->payment_status);
-        $this->assertSame('47.20', $sale->fresh()->amount_paid);
+        $this->assertSame('500.00', $sale->fresh()->amount_paid);
         $this->assertSame('5.47', $sale->fresh()->withholding_tax_amount);
         $this->assertSame('12.34', $sale->fresh()->wholesale_withholding_tax);
         $this->assertNotNull($sale->fresh()->proof_of_payment);
         $this->assertStringEndsWith('.pdf', $sale->fresh()->proof_of_payment);
         Storage::disk('public')->assertExists($sale->fresh()->proof_of_payment);
         $this->assertSame($user->id, $sale->fresh()->last_updated_by);
-        $this->get($report)->assertOk()->assertSee('PARTIAL')->assertViewHas('totalSales', 47.20);
+        $this->get($report)->assertOk()->assertSee('PARTIAL')->assertViewHas('totalSales', 500.00);
 
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'paid', 'amount_paid' => '47.20', 'delivery_status' => 'pending',

@@ -210,12 +210,12 @@
                         $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0) > 0
                             ? (float) $transaction->wholesale_withholding_tax
                             : null;
-                        // Withholding Tax is a reporting reference. When supplied, it is
-                        // the displayed Order Value; payment always uses the product total.
-                        $productPaymentTotal = max(0, $invoiceTotal - $shippingFee);
+                        // Withholding Tax is a reporting reference. Payment balance uses
+                        // the full order total and does not deduct the separate shipping fee.
+                        $paymentTotal = max(0, $invoiceTotal);
                         // Collected is always the amount actually paid by the customer.
                         // It must not be replaced or capped by the withholding breakdown.
-                        $collected = $isRefunded ? 0 : min($productPaymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                        $collected = $isRefunded ? 0 : min($paymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
                         $total = $isRefunded ? 0 : ($withholdingTax ?? $collected);
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
@@ -238,7 +238,7 @@
                         data-delivery-status="{{ $deliveryStatus }}"
                         data-order-value="{{ $total }}"
                         data-collected="{{ $collected }}"
-                        data-balance="{{ max(0, $productPaymentTotal - $collected) }}"
+                        data-balance="{{ max(0, $paymentTotal - $collected) }}"
                         data-shipping-fee="{{ $shippingFee }}"
                         data-withholding-amount="{{ $withholdingAmount ?? '' }}"
                         data-withholding-tax="{{ $withholdingTax ?? '' }}"
@@ -433,7 +433,7 @@
                                         <label for="wholesale-amount-paid-{{ $transaction->id }}">Amount Collected @if($paymentLocked)<i class="fa-solid fa-lock ms-1 text-muted" title="Amount is locked because this order is fully paid." aria-label="Locked"></i>@endif</label>
                                         <div class="input-group input-group-sm">
                                             <span class="input-group-text">₱</span>
-                                            <input id="wholesale-amount-paid-{{ $transaction->id }}" type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $productPaymentTotal }}" step="0.01" value="{{ number_format($collected, 2, '.', '') }}" placeholder="Amount paid" data-order-total="{{ $productPaymentTotal }}" title="{{ $paymentLocked ? 'Amount is locked because this order is fully paid.' : '' }}" @disabled($paymentLocked)>
+                                            <input id="wholesale-amount-paid-{{ $transaction->id }}" type="number" name="amount_paid" class="form-control amount-paid-input" min="0" max="{{ $paymentTotal }}" step="0.01" value="{{ number_format($collected, 2, '.', '') }}" placeholder="Amount paid" data-order-total="{{ $paymentTotal }}" title="{{ $paymentLocked ? 'Amount is locked because this order is fully paid.' : '' }}" @disabled($paymentLocked)>
                                             @if($paymentLocked)
                                                 <input type="hidden" name="amount_paid" value="{{ number_format($collected, 2, '.', '') }}">
                                             @endif
@@ -459,7 +459,7 @@
                                         @if($paymentLocked)
                                             <div class="alert alert-info py-2 px-3 mb-0"><i class="fa-solid fa-lock me-1"></i>Payment is fully paid and locked. Delivery status remains editable.</div>
                                         @else
-                                            <small class="text-muted payment-balance-help">{{ $paymentStatus === 'partial' ? 'For Partial, enter an amount below ₱'.number_format($productPaymentTotal, 2).'.' : 'Enter the amount collected. Set payment status to Paid to collect the full order value.' }}</small>
+                                            <small class="text-muted payment-balance-help">{{ $paymentStatus === 'partial' ? 'For Partial, enter an amount below ₱'.number_format($paymentTotal, 2).'.' : 'Enter the amount collected. Set payment status to Paid to collect the full order value.' }}</small>
                                         @endif
                                         <small class="text-danger d-none payment-amount-error">An unpaid order cannot have an amount paid. Enter 0.00 or select Partial.</small>
                                     </div>
@@ -519,12 +519,12 @@
 
                                 $invoiceTotal = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
 
-                                $productPaymentTotal = max(0, $invoiceTotal - (float) ($sale->shipping_fee_amount ?? 0));
+                                $paymentTotal = max(0, $invoiceTotal);
                                 $withholdingTax = (float) ($sale->wholesale_withholding_tax ?? 0);
 
                                 return $withholdingTax > 0
                                     ? $withholdingTax
-                                    : min($productPaymentTotal, max(0, (float) ($sale->amount_paid ?? 0)));
+                                    : min($paymentTotal, max(0, (float) ($sale->amount_paid ?? 0)));
                             });
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
@@ -565,18 +565,6 @@
             </div>
         </div>
     </div>
-</div>
-<div class="toast-container position-fixed bottom-0 end-0 p-3 wholesale-toast">
-    @if(session('success'))
-        <div class="toast align-items-center text-bg-success border-0" role="status" aria-live="polite" aria-atomic="true" data-bs-delay="5000">
-            <div class="d-flex"><div class="toast-body"><i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>
-        </div>
-    @endif
-    @if($errors->any())
-        <div class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="8000">
-            <div class="d-flex"><div class="toast-body"><i class="fa-solid fa-circle-exclamation me-2"></i>{{ $errors->first() }}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>
-        </div>
-    @endif
 </div>
 @can('manage-sales-status')
 <div class="modal fade" id="wholesaleRefundConfirmModal" tabindex="-1" aria-labelledby="wholesaleRefundConfirmTitle" aria-hidden="true">
@@ -698,12 +686,12 @@
 
                     $invoiceTotal = (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'));
 
-                    $productPaymentTotal = max(0, $invoiceTotal - (float) ($transaction->shipping_fee_amount ?? 0));
+                    $paymentTotal = max(0, $invoiceTotal);
                     $withholdingTax = (float) ($transaction->wholesale_withholding_tax ?? 0);
 
                     return $withholdingTax > 0
                         ? $withholdingTax
-                        : min($productPaymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                        : min($paymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
                 };
                 $kpiOrderValue = $allTransactions->sum($wholesaleSalesValue);
                 $kpiCollected = $wholesaleCollectedSales;
@@ -1426,10 +1414,6 @@
             if (refundConfirmButton) refundConfirmButton.disabled = false;
         });
         document.querySelectorAll('.status-update-form').forEach(updatePaymentAmountState);
-        document.querySelectorAll('.toast-container .toast').forEach(element => {
-            if (window.bootstrap?.Toast) bootstrap.Toast.getOrCreateInstance(element).show();
-        });
-
         (() => {
             const modal = document.getElementById('wholesaleReplacementModal');
             if (!modal) return;
