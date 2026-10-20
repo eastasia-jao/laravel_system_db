@@ -15,6 +15,51 @@ class TransactionBulkTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_transaction_log_centers_channel_source_and_displays_channel_icon(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Channel Icon Hub',
+            'code' => 'CHANNEL-ICON',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $product = Product::create([
+            'name' => 'TikTok Product',
+            'item_id' => 'TIKTOK-ICON-1',
+            'store_hub_id' => $hub->id,
+            'stock' => 4,
+            'status' => 'active',
+        ]);
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'tiktok',
+            'order_date' => '2026-10-20',
+            'order_number' => 'TIKTOK-ICON-ORDER',
+            'customer_name' => 'TikTok Customer',
+        ]);
+        InventoryTransaction::create([
+            'type' => 'sold',
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'reference' => $sale->order_number,
+            'channel' => 'tiktok',
+            'quantity' => 1,
+            'occurred_on' => '2026-10-20',
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('<th class="channel-source-column">Channel / Source</th>', false)
+            ->assertSee('channel-source-icon tiktok', false)
+            ->assertSee('fa-brands fa-tiktok', false)
+            ->assertSee('TikTok');
+    }
+
     public function test_transaction_worksheets_download_as_csv_with_excel_safe_identifiers(): void
     {
         foreach ([true, false] as $isHeadOffice) {

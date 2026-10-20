@@ -42,6 +42,19 @@
     .log-type-badge.rejected { color: #b91c1c; background: #fee2e2; }
     .log-type-badge.transfer { width: 14.5rem; justify-content: center; color: #6b21a8; background: #f3e8ff; }
     .log-type-badge.other { color: #475569; background: #e2e8f0; }
+    .channel-source-column { text-align: center; }
+    .channel-source { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-width: 7rem; font-weight: 600; }
+    .channel-source-icon { display: inline-grid; width: 1.65rem; height: 1.65rem; flex: 0 0 1.65rem; place-items: center; border-radius: .5rem; color: #475569; background: #f1f5f9; }
+    .channel-source-icon.tiktok { color: #fff; background: #111827; }
+    .channel-source-icon.shopee { color: #fff; background: #ee4d2d; }
+    .channel-source-icon.lazada { color: #fff; background: linear-gradient(135deg, #3211a8, #f51b73); }
+    .channel-source-icon.wholesale { color: #1d4ed8; background: #dbeafe; }
+    .channel-source-icon.walk-in { color: #047857; background: #d1fae5; }
+    .channel-source-icon.online { color: #0369a1; background: #e0f2fe; }
+    .channel-source-icon.fully-booked { color: #92400e; background: #fef3c7; }
+    .channel-source-icon.event { color: #7e22ce; background: #f3e8ff; }
+    .channel-source-icon.national-bookstore { color: #b91c1c; background: #fee2e2; }
+    .channel-source-icon.warehouse { color: #475569; background: #e2e8f0; }
     .log-detail-title { max-width: 360px; }
     .log-detail-title strong { display: block; overflow: hidden; text-overflow: ellipsis; }
     .log-view-button { border-radius: 999px; }
@@ -282,7 +295,7 @@
 
     <div class="card log-table-card shadow-sm rounded-4 overflow-hidden">
         <div class="table-responsive"><table class="table table-hover align-middle mb-0 inventory-log-table">
-            <thead class="table-light small text-uppercase"><tr><th>Date / Time</th><th>Type</th><th>Transaction Details</th><th>Hub</th><th>Channel / Source</th><th class="text-end">Qty</th><th>Transfer</th><th>User</th><th>Actions</th></tr></thead>
+            <thead class="table-light small text-uppercase"><tr><th>Date / Time</th><th>Type</th><th>Transaction Details</th><th>Hub</th><th class="channel-source-column">Channel / Source</th><th class="text-end">Qty</th><th>Transfer</th><th>User</th><th>Actions</th></tr></thead>
             <tbody>
             @forelse($transactions as $groupKey => $group)
                 @php
@@ -345,6 +358,46 @@
                     $replacementReviews = $sale?->items
                         ? $sale->items->flatMap->replacements->filter(fn ($replacement) => $replacement->status !== 'pending')
                         : collect();
+                    $channelSourceLabel = $transaction->channel
+                        ? ucwords(str_replace('_', ' ', $transaction->channel))
+                        : ($transaction->source ?: '—');
+                    $channelSourceValue = strtolower(str_replace(['-', ' '], '_', (string) ($transaction->channel ?: $transaction->source)));
+                    $channelSourceKey = match (true) {
+                        str_contains($channelSourceValue, 'tiktok') => 'tiktok',
+                        str_contains($channelSourceValue, 'shopee') => 'shopee',
+                        str_contains($channelSourceValue, 'lazada') => 'lazada',
+                        str_contains($channelSourceValue, 'wholesale') => 'wholesale',
+                        str_contains($channelSourceValue, 'walk_in') => 'walk-in',
+                        str_contains($channelSourceValue, 'online') => 'online',
+                        str_contains($channelSourceValue, 'fully_booked') => 'fully-booked',
+                        str_contains($channelSourceValue, 'national_bookstore') => 'national-bookstore',
+                        str_contains($channelSourceValue, 'event') => 'event',
+                        str_contains($channelSourceValue, 'warehouse') || str_contains($channelSourceValue, 'restock') => 'warehouse',
+                        default => 'other',
+                    };
+                    if ($transaction->channel) {
+                        $channelSourceLabel = match ($channelSourceKey) {
+                            'tiktok' => 'TikTok',
+                            'shopee' => 'Shopee',
+                            'lazada' => 'Lazada',
+                            'walk-in' => 'Walk-In',
+                            'fully-booked' => 'Fully Booked',
+                            'national-bookstore' => 'National Bookstore',
+                            default => $channelSourceLabel,
+                        };
+                    }
+                    [$channelIconFamily, $channelIcon] = match ($channelSourceKey) {
+                        'tiktok' => ['fa-brands', 'fa-tiktok'],
+                        'shopee' => ['fa-solid', 'fa-bag-shopping'],
+                        'lazada' => ['fa-solid', 'fa-heart'],
+                        'wholesale' => ['fa-solid', 'fa-boxes-stacked'],
+                        'walk-in' => ['fa-solid', 'fa-store'],
+                        'online' => ['fa-solid', 'fa-globe'],
+                        'fully-booked', 'national-bookstore' => ['fa-solid', 'fa-book-open'],
+                        'event' => ['fa-solid', 'fa-calendar-days'],
+                        'warehouse' => ['fa-solid', 'fa-warehouse'],
+                        default => ['fa-solid', 'fa-tag'],
+                    };
                 @endphp
                 <tr>
                     <td>
@@ -415,7 +468,12 @@
                         @endif
                     </td>
                     <td>{{ $transaction->storeHub?->name ?? '—' }}</td>
-                    <td>{{ $transaction->channel ? ucwords(str_replace('_', ' ', $transaction->channel)) : ($transaction->source ?: '—') }}</td>
+                    <td class="channel-source-column">
+                        <span class="channel-source">
+                            <span class="channel-source-icon {{ $channelSourceKey }}" aria-hidden="true"><i class="{{ $channelIconFamily }} {{ $channelIcon }}"></i></span>
+                            <span>{{ $channelSourceLabel }}</span>
+                        </span>
+                    </td>
                     <td class="text-end fw-bold">{{ ($isFullyBookedGroup && ! $fullyBookedOrder->pulled_out_at) || $isRejectedSaleGroup ? '—' : $group->sum('quantity') }}</td>
                     <td>{{ $transaction->sourceHub?->name }}{{ $transaction->targetHub ? ' → '.$transaction->targetHub->name : '' }}</td>
                     <td>{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</td>
