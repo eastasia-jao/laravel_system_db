@@ -2,28 +2,29 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\KeywordSearch;
+use App\Models\InventoryTransaction;
 use App\Models\PendingSale;
 use App\Models\Product;
 use App\Models\ProductReplacement;
+use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StaffActivityLog;
 use App\Models\StaffActivityLogItem;
 use App\Models\StoreHub;
 use App\Models\TransactionItem;
-use App\Models\InventoryTransaction;
-use App\Models\ProductStockAllocation;
 use App\Models\User;
-use App\Notifications\SalesWorkflowNotification;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Notifications\SalesWorkflowNotification;
+use App\Support\KeywordSearch;
+use App\Support\S3ErrorDiagnostics;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class SalesController extends Controller
@@ -193,7 +194,7 @@ class SalesController extends Controller
 
             return back()->with('success', $successMessage);
 
-        } catch (ModelNotFoundException | HttpExceptionInterface $e) {
+        } catch (ModelNotFoundException|HttpExceptionInterface $e) {
             throw $e;
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to record sale: '.$e->getMessage());
@@ -509,7 +510,7 @@ class SalesController extends Controller
                 'note' => $isTiktok ? null : ($request->input('note') ?? $request->input('walkin_remarks')),
                 'submitted_by' => auth()->id(),
             ]);
-            $recipients = User::where(function ($query) use ($request) {
+            $recipients = User::where(function ($query) {
                 $query->where('role', 'admin')
                     ->orWhere('role', 'inventory_staff');
             })->where('id', '<>', auth()->id())->get();
@@ -522,7 +523,7 @@ class SalesController extends Controller
                 : 'Order submitted for inventory verification. Stock has not been deducted yet.';
 
             return back()->with('success', $successMessage);
-        } catch (ModelNotFoundException | HttpExceptionInterface $e) {
+        } catch (ModelNotFoundException|HttpExceptionInterface $e) {
             if ($orderSlipPath) {
                 Storage::disk('local')->delete($orderSlipPath);
             }
@@ -536,6 +537,7 @@ class SalesController extends Controller
                 'hub_id' => $request->input('store_hub_id'),
                 'channel' => $channelForValidation,
                 'exception' => $e,
+                'storage_response' => S3ErrorDiagnostics::from($e),
             ]);
 
             return back()->with('error', 'Failed to submit multi-channel sale: '.$e->getMessage());
@@ -1105,6 +1107,7 @@ class SalesController extends Controller
             ->map(function ($lines) {
                 $primary = $lines->first();
                 $primary->setAttribute('exchange_lines', $lines->values());
+
                 return $primary;
             })->values();
         $replacementRequests->each(function (ProductReplacement $replacement) {

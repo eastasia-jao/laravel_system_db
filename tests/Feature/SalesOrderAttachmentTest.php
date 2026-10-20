@@ -6,6 +6,10 @@ use App\Models\PendingSale;
 use App\Models\Product;
 use App\Models\StoreHub;
 use App\Models\User;
+use App\Support\S3ErrorDiagnostics;
+use Aws\Command;
+use Aws\S3\Exception\S3Exception;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
@@ -54,6 +58,26 @@ class SalesOrderAttachmentTest extends TestCase
                 && $context['channel'] === 'wholesale'
                 && $context['exception'] instanceof \RuntimeException;
         });
+    }
+
+    public function test_s3_error_diagnostics_extract_only_safe_response_details(): void
+    {
+        $exception = new S3Exception('PutObject failed', new Command('PutObject'), [
+            'response' => new Response(400, [
+                'Content-Type' => 'text/plain',
+                'x-request-id' => 'supabase-request-123',
+            ], 'Project not specified.'),
+        ]);
+
+        $this->assertSame([
+            'http_status' => 400,
+            'content_type' => 'text/plain',
+            'request_id' => 'supabase-request-123',
+            'aws_request_id' => null,
+            'response_body' => 'Project not specified.',
+        ], S3ErrorDiagnostics::from($exception));
+
+        $this->assertSame([], S3ErrorDiagnostics::from(new \RuntimeException('Not an AWS error.')));
     }
 
     public function test_wholesale_and_online_orders_can_attach_documents_for_inventory_preview(): void
