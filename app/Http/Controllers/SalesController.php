@@ -305,7 +305,7 @@ class SalesController extends Controller
                 'string',
                 'max:255',
             ],
-            'proof_of_payment' => [Rule::requiredIf($needsPaymentProof && $channelForValidation !== 'walk_in'), 'nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'min:1', 'max:2048'],
+            'proof_of_payment' => [Rule::requiredIf($needsPaymentProof && $channelForValidation !== 'walk_in'), 'nullable', 'file', 'mimes:jpeg,png,jpg,webp,pdf', 'min:1', 'max:2048'],
             'quotation_proofs' => 'nullable|array|max:4',
             'quotation_proofs.*' => 'file|mimes:jpeg,png,jpg,webp,pdf|max:2048',
             'walkin_payment_proofs' => [Rule::requiredIf($needsPaymentProof && $channelForValidation === 'walk_in'), 'nullable', 'array', 'max:4', 'min:1'],
@@ -361,7 +361,10 @@ class SalesController extends Controller
         try {
             $proofPath = null;
             if ($request->hasFile('proof_of_payment')) {
-                $proofPath = $request->file('proof_of_payment')->store('proofs_of_payment', 'public');
+                $proofPath = $request->file('proof_of_payment')->store(
+                    'proofs_of_payment',
+                    $this->paymentProofDisk($channel)
+                );
             }
 
             $quotationProofs = $channel === 'walk_in'
@@ -1043,7 +1046,10 @@ class SalesController extends Controller
         if ($channel === 'wholesale') {
             $statusUpdate['last_updated_by'] = auth()->id();
             if ($request->hasFile('payment_proof')) {
-                $statusUpdate['proof_of_payment'] = $request->file('payment_proof')->store('proofs_of_payment', 'public');
+                $statusUpdate['proof_of_payment'] = $request->file('payment_proof')->store(
+                    'proofs_of_payment',
+                    $this->paymentProofDisk($channel)
+                );
             }
         }
         $sale->update($statusUpdate);
@@ -1281,6 +1287,13 @@ class SalesController extends Controller
     private function normalizeSalesChannel(?string $channel): string
     {
         return str_replace(['-', ' '], '_', strtolower(trim((string) $channel)));
+    }
+
+    private function paymentProofDisk(?string $channel): string
+    {
+        return $this->normalizeSalesChannel($channel) === 'wholesale'
+            ? (string) config('filesystems.attachments', 'public')
+            : 'public';
     }
 
     private function formatBranchWalkInCustomerName(?string $name): ?string

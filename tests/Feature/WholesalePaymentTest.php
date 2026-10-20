@@ -20,7 +20,8 @@ class WholesalePaymentTest extends TestCase
 
     public function test_report_submits_partial_payment_status_and_amount(): void
     {
-        Storage::fake('public');
+        config(['filesystems.attachments' => 'wholesale-attachments']);
+        Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
         $sale = SalesTransaction::create([
@@ -81,7 +82,7 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame('12.34', $sale->fresh()->wholesale_withholding_tax);
         $this->assertNotNull($sale->fresh()->proof_of_payment);
         $this->assertStringEndsWith('.pdf', $sale->fresh()->proof_of_payment);
-        Storage::disk('public')->assertExists($sale->fresh()->proof_of_payment);
+        Storage::disk('wholesale-attachments')->assertExists($sale->fresh()->proof_of_payment);
         $this->assertSame($user->id, $sale->fresh()->last_updated_by);
         $this->get($report)->assertOk()->assertSee('PARTIAL')->assertViewHas('totalSales', 500.00);
 
@@ -391,6 +392,8 @@ class WholesalePaymentTest extends TestCase
 
     public function test_partial_wholesale_replacement_charges_only_the_revised_balance_including_shipping(): void
     {
+        config(['filesystems.attachments' => 'wholesale-attachments']);
+        Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Exchange', 'code' => 'WH-EX', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
         $original = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ORIGINAL', 'name' => 'Original item', 'stock' => 3, 'status' => 'active', 'wholesale_price' => 100]);
@@ -413,13 +416,17 @@ class WholesalePaymentTest extends TestCase
         $this->actingAs($user)->post($url, [
             'replacement_product_id' => $replacement->id, 'quantity' => 1, 'replacement_quantity' => 1,
             'replacement_shipping_fee_type' => 'Custom Amount', 'replacement_shipping_fee_amount' => 20,
-            'exchange_payment_amount' => 140, 'exchange_payment_method' => 'CASH',
+            'exchange_payment_amount' => 140, 'exchange_payment_method' => 'BANK_TRANSFER',
+            'exchange_bank_name' => 'BDO',
+            'exchange_payment_proofs' => [UploadedFile::fake()->create('replacement-proof.pdf', 10, 'application/pdf')],
         ])->assertSessionHasNoErrors();
 
         $request = ProductReplacement::sole();
         $this->assertSame('0.00', $request->exchange_credit);
         $this->assertFalse($request->uses_exchange_credit);
         $this->assertSame('140.00', $request->additional_payment_due);
+        $this->assertCount(1, $request->exchange_payment_proofs);
+        Storage::disk('wholesale-attachments')->assertExists($request->exchange_payment_proofs[0]);
 
         $this->actingAs($user)->post(route('wholesale-replacements.approve', $request))->assertSessionHasNoErrors();
         $this->assertSame('240.00', $sale->fresh()->grand_total);
@@ -517,9 +524,10 @@ class WholesalePaymentTest extends TestCase
         $this->assertSame(1, InventoryTransaction::where('type', 'replacement_out')->count());
     }
 
-    public function test_replacement_payment_proof_is_served_from_the_public_storage_disk(): void
+    public function test_replacement_payment_proof_is_served_from_the_configured_attachment_disk(): void
     {
-        Storage::fake('public');
+        config(['filesystems.attachments' => 'wholesale-attachments']);
+        Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
         $original = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'ATTACH-ORIG', 'name' => 'Original Item', 'stock' => 1, 'status' => 'active']);
@@ -536,7 +544,7 @@ class WholesalePaymentTest extends TestCase
         ]);
         $item = $sale->items()->create(['product_id' => $original->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100]);
         $path = 'exchange_payment_proofs/payment-proof.pdf';
-        Storage::disk('public')->put($path, 'replacement payment proof');
+        Storage::disk('wholesale-attachments')->put($path, 'replacement payment proof');
         $replacement = ProductReplacement::create([
             'transaction_id' => $sale->id,
             'transaction_item_id' => $item->id,
@@ -559,11 +567,12 @@ class WholesalePaymentTest extends TestCase
 
     public function test_recorded_wholesale_payment_proof_is_served_through_the_protected_route(): void
     {
-        Storage::fake('public');
+        config(['filesystems.attachments' => 'wholesale-attachments']);
+        Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-ORIGINAL-PROOF', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
         $path = 'proofs_of_payment/original-proof.png';
-        Storage::disk('public')->put($path, 'original payment proof');
+        Storage::disk('wholesale-attachments')->put($path, 'original payment proof');
         $sale = SalesTransaction::create([
             'user_id' => $admin->id,
             'store_hub_id' => $hub->id,
@@ -618,15 +627,16 @@ class WholesalePaymentTest extends TestCase
 
     public function test_wholesale_report_combines_recorded_sale_and_replacement_mop_attachments_in_inline_preview(): void
     {
-        Storage::fake('public');
+        config(['filesystems.attachments' => 'wholesale-attachments']);
+        Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-PREVIEW', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
         $original = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'PREVIEW-ORIG', 'name' => 'Original Item', 'stock' => 1, 'status' => 'active']);
         $replacementProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'PREVIEW-REPL', 'name' => 'Replacement Item', 'stock' => 1, 'status' => 'active']);
         $recordedProof = 'proofs_of_payment/recorded-sale.png';
         $replacementProof = 'exchange_payment_proofs/replacement.png';
-        Storage::disk('public')->put($recordedProof, 'recorded sale proof');
-        Storage::disk('public')->put($replacementProof, 'replacement proof');
+        Storage::disk('wholesale-attachments')->put($recordedProof, 'recorded sale proof');
+        Storage::disk('wholesale-attachments')->put($replacementProof, 'replacement proof');
         $sale = SalesTransaction::create([
             'user_id' => $admin->id,
             'store_hub_id' => $hub->id,

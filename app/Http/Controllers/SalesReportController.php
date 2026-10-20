@@ -900,7 +900,10 @@ class SalesReportController extends Controller
         };
         abort_unless(is_string($path) && $path !== '', 404);
 
-        $disk = Storage::disk('public');
+        $diskName = $type === 'payment-proof' && $this->normalizeChannel($sale->channel_type) === 'wholesale'
+            ? (string) config('filesystems.attachments', 'public')
+            : 'public';
+        $disk = Storage::disk($diskName);
         abort_unless($disk->exists($path) && $disk->size($path) > 0, 404, 'Replacement attachment is missing or empty.');
 
         return $disk->response(
@@ -924,7 +927,7 @@ class SalesReportController extends Controller
         $path = $transaction->proof_of_payment ?: $transaction->payment_proof;
         abort_unless(is_string($path) && $path !== '', 404);
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk((string) config('filesystems.attachments', 'public'));
         abort_unless($disk->exists($path) && $disk->size($path) > 0, 404, 'Payment attachment is missing or empty.');
 
         return $disk->response(
@@ -1097,8 +1100,11 @@ class SalesReportController extends Controller
             if ($additionalPaymentDue > 0 && $paymentMethod !== 'CASH' && ! $request->hasFile('exchange_payment_proofs')) {
                 throw ValidationException::withMessages(['exchange_payment_proofs' => 'Upload proof for a non-cash additional payment.']);
             }
+            $paymentProofDisk = $channel === 'wholesale'
+                ? (string) config('filesystems.attachments', 'public')
+                : 'public';
             $paymentProofs = array_map(
-                fn ($file) => $file->store('exchange_payment_proofs', 'public'),
+                fn ($file) => $file->store('exchange_payment_proofs', $paymentProofDisk),
                 $request->file('exchange_payment_proofs', [])
             );
             $replacementOrderSlip = $request->file('replacement_order_slip')?->store('replacement_order_slips', 'public');

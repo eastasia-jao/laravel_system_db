@@ -16,6 +16,34 @@ class HeadOfficeWalkInProofTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_wholesale_record_sale_saves_payment_proof_to_the_configured_attachment_disk(): void
+    {
+        config(['filesystems.attachments' => 'wholesale-attachments']);
+        Storage::fake('public');
+        Storage::fake('wholesale-attachments');
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-WH-PROOF', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
+        $product = Product::create([
+            'item_id' => 'WHOLESALE-PROOF-001', 'name' => 'Wholesale Brush', 'sales_price' => 100,
+            'stock' => 5, 'status' => 'active', 'store_hub_id' => $hub->id,
+        ]);
+
+        $this->actingAs($user)->post(route('sales.storeMultiChannelSale'), [
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'order_date' => '2026-10-20',
+            'customer_name' => 'Wholesale Proof Customer',
+            'mode_of_payment' => 'BANK_TRANSFER',
+            'proof_of_payment' => UploadedFile::fake()->create('wholesale-proof.pdf', 10, 'application/pdf'),
+            'items' => [['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100]],
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $pendingSale = PendingSale::where('sales_channel', 'wholesale')->sole();
+        $this->assertNotNull($pendingSale->payment_proof);
+        Storage::disk('wholesale-attachments')->assertExists($pendingSale->payment_proof);
+        Storage::disk('public')->assertMissing($pendingSale->payment_proof);
+    }
+
     public function test_walk_in_and_online_check_payments_require_and_save_check_details(): void
     {
         $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-CHECK', 'status' => 'active', 'is_head_office' => true]);

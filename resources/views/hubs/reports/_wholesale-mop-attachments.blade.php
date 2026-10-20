@@ -8,7 +8,9 @@
     $mopAttachments = collect();
     $recordedProofUnavailable = false;
     $replacementProofUnavailable = false;
-    $proofDisk = \Illuminate\Support\Facades\Storage::disk('public');
+    $proofDisk = \Illuminate\Support\Facades\Storage::disk(
+        (string) config('filesystems.attachments', 'public')
+    );
     $replacementRecords = $paymentRecord?->items
         ? $paymentRecord->items
             ->flatMap(fn ($item) => $item->replacements)
