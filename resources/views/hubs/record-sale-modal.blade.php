@@ -70,6 +70,15 @@
     #recordSaleModal .marketplace-mop-dropdown { position: relative; z-index: 10; }
     #recordSaleModal .marketplace-mop-dropdown.show { z-index: 20; }
     #recordSaleModal .marketplace-mop-dropdown .marketplace-mop-menu { z-index: 1085; }
+    body > .marketplace-mop-menu.marketplace-mop-menu-portal {
+        position: fixed !important;
+        z-index: 1090 !important;
+        max-height: 210px;
+        overflow-y: auto;
+        transform: none !important;
+        scrollbar-gutter: stable;
+    }
+    body > .marketplace-mop-menu.marketplace-mop-menu-portal .dropdown-item { font-size: .85rem; padding: .55rem .75rem; }
     @media (max-width: 767.98px) {
         #recordSaleModal .modal-dialog { max-width: none; min-height: 100dvh; margin: 0; }
         #recordSaleModal .modal-content { min-height: 100dvh; border-radius: 0; }
@@ -606,7 +615,7 @@
                                             <option value="OTHERS">Others</option>
                                         </select>
                                         <div class="dropdown marketplace-mop-dropdown">
-                                            <button type="button" class="btn btn-outline-secondary bg-white text-dark dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-boundary="clippingParents" aria-expanded="false">-- Select MOP --</button>
+                                            <button type="button" class="btn btn-outline-secondary bg-white text-dark dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">-- Select MOP --</button>
                                             <div class="dropdown-menu marketplace-mop-menu w-100" aria-labelledby="marketplaceMopButton">
                                                 <button type="button" class="dropdown-item marketplace-mop-option" data-value="COD">COD</button>
                                                 <button type="button" class="dropdown-item marketplace-mop-option" data-value="SPAYLATER" data-market-channel="shopee">SPayLater</button>
@@ -1422,6 +1431,56 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Remove Row functionality via Event Delegation
+    const marketplaceMopDropdown = document.querySelector('#recordSaleModal .marketplace-mop-dropdown');
+    const marketplaceMopButton = document.getElementById('marketplaceMopButton');
+    const marketplaceMopMenu = marketplaceMopDropdown?.querySelector('.marketplace-mop-menu');
+    const marketplaceMopMenuHome = marketplaceMopMenu?.parentElement;
+
+    function positionMarketplaceMopMenu() {
+        if (!marketplaceMopButton || !marketplaceMopMenu?.classList.contains('marketplace-mop-menu-portal')) return;
+
+        const buttonRect = marketplaceMopButton.getBoundingClientRect();
+        const menuTop = buttonRect.bottom + 4;
+        const availableHeight = Math.max(120, window.innerHeight - menuTop - 12);
+        marketplaceMopMenu.style.setProperty('top', `${menuTop}px`, 'important');
+        marketplaceMopMenu.style.setProperty('right', 'auto', 'important');
+        marketplaceMopMenu.style.setProperty('bottom', 'auto', 'important');
+        marketplaceMopMenu.style.setProperty('left', `${buttonRect.left}px`, 'important');
+        marketplaceMopMenu.style.setProperty('width', `${buttonRect.width}px`, 'important');
+        marketplaceMopMenu.style.setProperty('min-width', `${buttonRect.width}px`, 'important');
+        marketplaceMopMenu.style.setProperty('max-height', `${Math.min(210, availableHeight)}px`, 'important');
+    }
+
+    function restoreMarketplaceMopMenu() {
+        if (!marketplaceMopMenu || !marketplaceMopMenuHome) return;
+
+        marketplaceMopMenu.classList.remove('marketplace-mop-menu-portal');
+        ['top', 'right', 'bottom', 'left', 'width', 'min-width', 'max-height'].forEach(property => {
+            marketplaceMopMenu.style.removeProperty(property);
+        });
+        marketplaceMopMenuHome.appendChild(marketplaceMopMenu);
+    }
+
+    marketplaceMopDropdown?.addEventListener('show.bs.dropdown', function () {
+        if (!marketplaceMopMenu) return;
+
+        document.body.appendChild(marketplaceMopMenu);
+        marketplaceMopMenu.classList.add('marketplace-mop-menu-portal');
+        positionMarketplaceMopMenu();
+    });
+    marketplaceMopDropdown?.addEventListener('shown.bs.dropdown', positionMarketplaceMopMenu);
+    marketplaceMopDropdown?.addEventListener('hidden.bs.dropdown', restoreMarketplaceMopMenu);
+    document.querySelector('#recordSaleModal .modal-body')?.addEventListener('scroll', positionMarketplaceMopMenu);
+    window.addEventListener('resize', positionMarketplaceMopMenu);
+    document.getElementById('recordSaleModal')?.addEventListener('hidden.bs.modal', function () {
+        const dropdown = window.bootstrap?.Dropdown.getInstance(marketplaceMopButton);
+        if (dropdown && marketplaceMopButton?.getAttribute('aria-expanded') === 'true') {
+            dropdown.hide();
+        } else {
+            restoreMarketplaceMopMenu();
+        }
+    });
+
     document.addEventListener('click', function(e) {
         if (e.target.closest('.remove-row-btn')) {
             const row = e.target.closest('.product-row');

@@ -570,8 +570,9 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('QRph')
             ->assertSee('Specify MOP')
             ->assertSee('marketplace-mop-menu', false)
-            ->assertSee('id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-boundary="clippingParents"', false)
-            ->assertDontSee('id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-display="static"', false);
+            ->assertSee('id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-display="static"', false)
+            ->assertSee('document.body.appendChild(marketplaceMopMenu)', false)
+            ->assertSee("const menuTop = buttonRect.bottom + 4", false);
 
         $channelMopOrder = [
             'store_hub_id' => $hub->id,
