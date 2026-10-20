@@ -781,10 +781,23 @@ class SalesWorkflowTest extends TestCase
         $this->assertSame($user->id, $transaction->user_id);
         $this->assertSame('ORDER-001', $transaction->order_number);
         $this->assertSame('confirmed', $transaction->status);
+        $this->assertSame($user->id, $transaction->confirmed_by);
+        $this->assertSame($user->id, $transaction->confirmedBy->id);
+        $this->assertNotNull($transaction->confirmed_at);
         $this->assertSame('partial', $transaction->payment_status);
         $this->assertSame('50.00', $transaction->amount_paid);
         $this->assertSame('shipped', $transaction->delivery_status);
         $this->assertCount(1, $transaction->items);
+        $this->actingAs($user)
+            ->get(route('inventory-transactions.index', [
+                'hub_id' => $hub->id,
+                'type' => 'sold',
+                'month' => '2026-08',
+            ]))
+            ->assertOk()
+            ->assertSee('APPROVED')
+            ->assertSee($user->name)
+            ->assertDontSee('NOT REVIEWED');
 
         $this->actingAs($user)->patch(route('sales.status.update', $transaction->id), [
             'payment_status' => 'paid',

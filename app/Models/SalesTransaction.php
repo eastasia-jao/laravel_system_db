@@ -37,6 +37,7 @@ class SalesTransaction extends Model
         'refund_original_collected' => 'decimal:2',
         'refund_original_withholding_tax' => 'decimal:2',
         'refunded_at' => 'datetime',
+        'confirmed_at' => 'datetime',
         'refund_shipping_fee' => 'decimal:2',
         'proof_amount' => 'decimal:2',
         'drop_off_date' => 'date',

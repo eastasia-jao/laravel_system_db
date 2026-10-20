@@ -694,6 +694,7 @@ class SalesController extends Controller
                 $deliveryStatus = in_array($channel, ['wholesale', 'online', 'tiktok'], true)
                     ? ($pendingSale->delivery_status ?? 'pending')
                     : 'not_applicable';
+                $confirmedAt = now();
 
                 $transaction = SalesTransaction::create([
                     'user_id' => $pendingSale->submitted_by,
@@ -738,6 +739,8 @@ class SalesController extends Controller
                     'total_amount' => $pendingSale->total ?? $pendingSale->sub_total ?? 0,
                     'grand_total' => $pendingSale->grand_total ?? 0,
                     'status' => 'confirmed',
+                    'confirmed_by' => auth()->id(),
+                    'confirmed_at' => $confirmedAt,
                     'payment_status' => $paymentStatus,
                     'amount_paid' => $pendingSale->amount_paid ?? 0,
                     'delivery_status' => $deliveryStatus,
@@ -826,7 +829,7 @@ class SalesController extends Controller
                     'status' => 'confirmed',
                     'inventory_status' => 'verified',
                     'confirmed_by' => auth()->id(),
-                    'confirmed_at' => now(),
+                    'confirmed_at' => $confirmedAt,
                 ]);
                 if ($pendingSale->submitted_by && $pendingSale->submitted_by !== auth()->id()) {
                     User::find($pendingSale->submitted_by)?->notify(

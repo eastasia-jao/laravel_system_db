@@ -64,6 +64,8 @@ class WalkInOrderSlipTest extends TestCase
         $this->assertSame($sale->order_slip, SalesTransaction::sole()->order_slip);
         $this->assertSame('WALK-IN'.str_pad((string) $sale->id, 3, '0', STR_PAD_LEFT), SalesTransaction::sole()->order_number);
         $confirmedSale = SalesTransaction::sole();
+        $this->assertSame($inventory->id, $confirmedSale->confirmed_by);
+        $this->assertSame($inventory->id, $confirmedSale->confirmedBy->id);
         $orderSlipUrl = route('inventory-transactions.sales-order-slip', $confirmedSale->id);
         $this->actingAs($inventory)->get(route('inventory-transactions.index', [
             'hub_id' => $hub->id,
@@ -73,7 +75,10 @@ class WalkInOrderSlipTest extends TestCase
             ->assertSee('Walk-In Order Slip')
             ->assertSee($orderSlipUrl, false)
             ->assertSee('sold-order-image-preview', false)
-            ->assertSee('inventory-order-image-viewer', false);
+            ->assertSee('inventory-order-image-viewer', false)
+            ->assertSee('APPROVED')
+            ->assertSee($inventory->name)
+            ->assertDontSee('NOT REVIEWED');
         $this->get($orderSlipUrl)->assertOk()->assertHeader('Content-Type', 'image/png');
         $this->actingAs($admin)->get($orderSlipUrl)->assertOk();
         $salesUser = User::factory()->create(['role' => 'sales_marketing_staff', 'hub_id' => $hub->id]);
