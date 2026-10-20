@@ -109,8 +109,12 @@
     .wholesale-mop-caption strong { color: #1e3a8a; }
     .wholesale-mop-lightbox { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .88); }
     .wholesale-mop-lightbox[hidden] { display: none; }
-    .wholesale-mop-lightbox-content { position: relative; display: grid; max-width: min(1100px, 96vw); max-height: 94vh; gap: .65rem; padding: 1rem; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
-    .wholesale-mop-lightbox-image { display: block; max-width: calc(96vw - 2rem); max-height: calc(94vh - 5rem); object-fit: contain; }
+    .wholesale-mop-lightbox-content { position: relative; display: flex; width: fit-content; max-width: min(1100px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); flex-direction: column; align-items: center; gap: .65rem; padding: 1rem; box-sizing: border-box; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+    .wholesale-mop-lightbox-image { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 7rem); object-fit: contain; }
+    @supports (height: 100dvh) {
+        .wholesale-mop-lightbox-content { max-height: calc(100dvh - 2rem); }
+        .wholesale-mop-lightbox-image { max-height: calc(100dvh - 7rem); }
+    }
     .wholesale-mop-lightbox-caption { color: #1e3a8a; font-size: .82rem; font-weight: 700; text-align: center; }
     .wholesale-mop-lightbox-close { position: absolute; top: .55rem; right: .55rem; z-index: 1; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .8); }
     .wholesale-mop-lightbox-close:hover { background: #2563eb; }
@@ -575,16 +579,16 @@
                     <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
-            <div class="wholesale-mop-lightbox" id="wholesaleMopLightbox" role="dialog" aria-modal="true" aria-labelledby="wholesaleMopLightboxCaption" hidden>
-                <div class="wholesale-mop-lightbox-content">
-                    <button type="button" class="wholesale-mop-lightbox-close" aria-label="Close enlarged MOP attachment">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                    <img class="wholesale-mop-lightbox-image" alt="">
-                    <div class="wholesale-mop-lightbox-caption" id="wholesaleMopLightboxCaption"></div>
-                </div>
-            </div>
         </div>
+    </div>
+</div>
+<div class="wholesale-mop-lightbox" id="wholesaleMopLightbox" role="dialog" aria-modal="true" aria-labelledby="wholesaleMopLightboxCaption" hidden>
+    <div class="wholesale-mop-lightbox-content">
+        <button type="button" class="wholesale-mop-lightbox-close" aria-label="Close enlarged MOP attachment">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <img class="wholesale-mop-lightbox-image" alt="">
+        <div class="wholesale-mop-lightbox-caption" id="wholesaleMopLightboxCaption"></div>
     </div>
 </div>
 @can('manage-sales-status')
