@@ -9,8 +9,8 @@ use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\UnableToCheckFileExistence;
@@ -19,6 +19,12 @@ use Tests\TestCase;
 class WholesalePaymentTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_supabase_s3_disk_disables_optional_sdk_checksums(): void
+    {
+        $this->assertSame('when_required', config('filesystems.disks.supabase.request_checksum_calculation'));
+        $this->assertSame('when_required', config('filesystems.disks.supabase.response_checksum_validation'));
+    }
 
     public function test_report_submits_partial_payment_status_and_amount(): void
     {

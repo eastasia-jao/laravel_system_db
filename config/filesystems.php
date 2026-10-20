@@ -69,6 +69,8 @@ return [
             'bucket' => env('SUPABASE_STORAGE_BUCKET', 'sales-attachments'),
             'endpoint' => env('SUPABASE_S3_ENDPOINT'),
             'use_path_style_endpoint' => true,
+            'request_checksum_calculation' => 'when_required',
+            'response_checksum_validation' => 'when_required',
             'visibility' => 'private',
             'stream_reads' => true,
             'throw' => true,
