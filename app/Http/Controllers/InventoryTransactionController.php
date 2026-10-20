@@ -7,6 +7,7 @@ use App\Models\FullyBookedOrder;
 use App\Models\InventoryTransaction;
 use App\Models\NationalProduct;
 use App\Models\NationalPullout;
+use App\Models\PendingSale;
 use App\Models\Product;
 use App\Models\ProductReplacement;
 use App\Models\ProductStockAllocation;
@@ -1068,6 +1069,56 @@ class InventoryTransactionController extends Controller
             });
         }
 
+        $rejectedSales = in_array($user?->role, ['admin', 'inventory_staff'], true)
+            && (! $request->filled('type') || $request->input('type') === 'rejected_sale')
+            && (! $request->filled('status') || $request->input('status') === 'rejected')
+            ? PendingSale::with(['storeHub', 'submittedBy', 'rejectedBy'])
+                ->where('status', 'rejected')
+                ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
+                ->when($request->filled('month'), function ($query) use ($request) {
+                    $start = $request->input('month').'-01 00:00:00';
+                    $end = now()->parse($request->input('month').'-01')->endOfMonth()->toDateString().' 23:59:59';
+                    $query->whereBetween('rejected_at', [$start, $end]);
+                })
+                ->latest('rejected_at')
+                ->get()
+            : collect();
+        $rejectedProductIds = $rejectedSales
+            ->flatMap(fn ($sale) => collect($sale->items)->pluck('product_id'))
+            ->filter()
+            ->unique();
+        $rejectedProducts = $rejectedProductIds->isNotEmpty()
+            ? Product::whereIn('id', $rejectedProductIds)->get()->keyBy('id')
+            : collect();
+        $rejectedSaleGroups = $rejectedSales->mapWithKeys(function ($sale) use ($rejectedProducts) {
+            $entries = collect($sale->items)->map(function ($item, $index) use ($sale, $rejectedProducts) {
+                $rejectedAt = $sale->rejected_at ?? $sale->updated_at ?? $sale->created_at;
+                $transaction = new InventoryTransaction;
+                $transaction->setRawAttributes([
+                    'id' => 'rejected-sale-'.$sale->id.'-'.$index,
+                    'type' => 'rejected_sale',
+                    'reference' => $sale->invoice_number ?: ($sale->order_number ?? 'ORDER-'.$sale->id),
+                    'store_hub_id' => $sale->store_hub_id,
+                    'channel' => $sale->sales_channel,
+                    'quantity' => (int) ($item['quantity'] ?? 0),
+                    'occurred_on' => $rejectedAt?->toDateString(),
+                    'created_at' => $rejectedAt,
+                    'created_by' => $sale->submitted_by,
+                    'status' => 'rejected',
+                ], true);
+                $transaction->setRelation('storeHub', $sale->storeHub);
+                $transaction->setRelation('creator', $sale->submittedBy);
+                $transaction->setRelation('rejectedSale', $sale);
+                $transaction->setRelation('product', $rejectedProducts->get($item['product_id'] ?? null));
+                $transaction->setAttribute('unit_price', (float) ($item['unit_price'] ?? $item['price'] ?? 0));
+                $transaction->setAttribute('line_total', (float) ($item['line_total'] ?? 0));
+
+                return $transaction;
+            });
+
+            return ['rejected-sale-'.$sale->id => $entries];
+        });
+
         $transactionGroups = $transactions->groupBy(function (InventoryTransaction $transaction) {
             if ($transaction->type === 'return' && $transaction->national_pullout_id) {
                 return 'national-return-'.($transaction->transfer_batch_id ?: $transaction->id);
@@ -1182,6 +1233,7 @@ class InventoryTransactionController extends Controller
         $transactionGroups = collect($transactionGroups->all())
             ->merge($fullyBookedGroups)
             ->merge($nationalPulloutGroups)
+            ->merge($rejectedSaleGroups)
             ->map(function ($group) {
                 return $group->sortBy(function (InventoryTransaction $transaction) {
                     $itemId = $transaction->nationalPulloutItem?->item_id

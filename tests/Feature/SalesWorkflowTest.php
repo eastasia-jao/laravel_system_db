@@ -870,6 +870,37 @@ class SalesWorkflowTest extends TestCase
         $this->assertSame(5, $product->fresh()->stock);
         $this->assertSame(0, SalesTransaction::count());
 
+        foreach (['Lazada', 'TikTok', 'Online Orders', 'Wholesale', 'Walk-In', 'Event'] as $index => $channel) {
+            PendingSale::create([
+                'store_hub_id' => $hub->id,
+                'sales_channel' => $channel,
+                'placed_order_date' => '2026-08-28',
+                'customer_name' => $channel.' Customer',
+                'invoice_number' => 'REJECT-CHANNEL-'.str_pad((string) $index, 3, '0', STR_PAD_LEFT),
+                'items' => [['product_id' => $product->id, 'quantity' => $index + 1]],
+                'status' => 'rejected',
+                'submitted_by' => $salesStaff->id,
+                'rejected_by' => $inventoryStaff->id,
+                'rejected_at' => now()->subMinutes($index),
+                'rejection_reason' => 'Rejected from the inventory queue.',
+            ]);
+        }
+
+        $this->actingAs($inventoryStaff)
+            ->get(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'rejected_sale']))
+            ->assertOk()
+            ->assertSee('Rejected Orders')
+            ->assertSee('REJECT-ORDER-001')
+            ->assertSee('The requested quantity could not be verified.')
+            ->assertSee('Rejected from the inventory queue.')
+            ->assertSee('No stock was deducted')
+            ->assertSee('Wholesale')
+            ->assertSee('Walk-In')
+            ->assertSee('Lazada')
+            ->assertSee('TikTok')
+            ->assertSee('Online Orders')
+            ->assertSee('Event');
+
         $this->actingAs($salesStaff)
             ->get(route('sales.rejected', ['hub_id' => $hub->id]))
             ->assertOk()

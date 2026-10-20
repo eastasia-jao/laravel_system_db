@@ -39,6 +39,7 @@
     .log-type-badge.replacement { color: #1d4ed8; background: #dbeafe; }
     .log-type-badge.return { color: #92400e; background: #fef3c7; }
     .log-type-badge.sold { color: #166534; background: #dcfce7; }
+    .log-type-badge.rejected { color: #b91c1c; background: #fee2e2; }
     .log-type-badge.transfer { width: 14.5rem; justify-content: center; color: #6b21a8; background: #f3e8ff; }
     .log-type-badge.other { color: #475569; background: #e2e8f0; }
     .log-detail-title { max-width: 360px; }
@@ -254,14 +255,14 @@
                     @php
                         $logTypes = auth()->user()?->role === 'sales_associate'
                             ? []
-                            : ['sold'=>'Sold Items','stock_transfer'=>'Stock Transfer (HO ↔ Branch)','branch_transfer'=>'Stock Transfer (BRANCH to BRANCH)','sponsor_workshop'=>'Event','fully_booked'=>'Fully Booked Orders','restock'=>'Restock / Added from Request (Warehouse HO)','return'=>'Return Items','replacement'=>'Replacement','national_bookstore_pullout'=>'National Bookstore Pullout'];
+                            : ['sold'=>'Sold Items','rejected_sale'=>'Rejected Orders','stock_transfer'=>'Stock Transfer (HO ↔ Branch)','branch_transfer'=>'Stock Transfer (BRANCH to BRANCH)','sponsor_workshop'=>'Event','fully_booked'=>'Fully Booked Orders','restock'=>'Restock / Added from Request (Warehouse HO)','return'=>'Return Items','replacement'=>'Replacement','national_bookstore_pullout'=>'National Bookstore Pullout'];
                     @endphp
                     @foreach($logTypes as $value => $label)
                         <option value="{{ $value }}" @selected(request('type') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2"><label class="small fw-bold text-muted">TRANSFER STATUS</label>
+            <div class="col-md-2"><label class="small fw-bold text-muted">STATUS</label>
                 <select name="status" class="form-select">
                     <option value="">All statuses</option>
                     @foreach(['pending' => 'Pending review', 'approved' => 'Approved', 'rejected' => 'Rejected', 'reviewed' => 'Reviewed'] as $value => $label)
@@ -301,6 +302,8 @@
                                 || (int) $fullyBookedReturnOrder->sales_staff_id === (int) auth()->id()))
                     );
                     $isSoldOrder = $transaction->type === 'sold' && $transaction->salesTransaction;
+                    $isRejectedSaleGroup = $transaction->type === 'rejected_sale';
+                    $rejectedSale = $isRejectedSaleGroup ? $transaction->getRelation('rejectedSale') : null;
                     $isTransferGroup = in_array($transaction->type, ['stock_transfer', 'branch_transfer'], true);
                     $isSponsorGroup = $transaction->type === 'sponsor_workshop';
                     $isRestockGroup = $transaction->type === 'restock';
@@ -310,6 +313,7 @@
                         : null;
                     $isReplacementGroup = $transaction->productReplacement !== null && ! $isReturnGroup;
                     $typeLabel = match (true) {
+                        $isRejectedSaleGroup => 'Rejected Order',
                         $isFullyBookedGroup => 'Fully Booked',
                         $isReturnGroup => 'Return',
                         $isReplacementGroup => 'Replacement',
@@ -321,7 +325,9 @@
                         default => ucwords(str_replace('_', ' ', $transaction->type)),
                     };
                     $modalId = 'transactionModal'.str_replace(['-', ' '], '', $groupKey);
-                    $displayUser = $isSoldOrder ? $transaction->salesTransaction?->user : $transaction->creator;
+                    $displayUser = $isRejectedSaleGroup
+                        ? $rejectedSale?->rejectedBy
+                        : ($isSoldOrder ? $transaction->salesTransaction?->user : $transaction->creator);
                     $sale = $transaction->salesTransaction;
                     $saleChannel = strtolower(str_replace(['-', ' '], '_', (string) $sale?->channel_type));
                     $orderSlipPath = $saleChannel === 'event'
@@ -341,8 +347,9 @@
                         <small class="text-muted">{{ $transaction->created_at?->format('h:i A') ?? 'Time unavailable' }}</small>
                     </td>
                     @php
-                        $typeClass = $isReplacementGroup ? 'replacement' : ($isReturnGroup ? 'return' : ($isSoldOrder ? 'sold' : ($isTransferGroup ? 'transfer' : 'other')));
+                        $typeClass = $isRejectedSaleGroup ? 'rejected' : ($isReplacementGroup ? 'replacement' : ($isReturnGroup ? 'return' : ($isSoldOrder ? 'sold' : ($isTransferGroup ? 'transfer' : 'other'))));
                         $typeIcon = match (true) {
+                            $isRejectedSaleGroup => 'fa-ban',
                             $isNationalPulloutGroup => 'fa-book-open',
                             $isFullyBookedGroup => 'fa-file-circle-check',
                             $isReplacementGroup => 'fa-arrow-right-arrow-left',
@@ -352,6 +359,7 @@
                             default => 'fa-box',
                         };
                         $modalTitle = match (true) {
+                            $isRejectedSaleGroup => 'Rejected Order Details',
                             $isNationalPulloutGroup => 'National Bookstore Pullout Details',
                             $isFullyBookedGroup => 'Fully Booked Order Details',
                             $isReplacementGroup => 'Replacement Details',
@@ -361,12 +369,18 @@
                         };
                     @endphp
                     <td><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
+                        @if($isRejectedSaleGroup)
+                            <span class="badge mt-1 d-table text-bg-danger">REJECTED</span>
+                        @endif
                         @if($transaction->type === 'branch_transfer' && $transaction->status !== 'approved')
                             <span class="badge mt-1 d-table {{ $transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning' }}">{{ strtoupper($transaction->status ?? 'pending') }}</span>
                         @endif
                     </td>
                     <td class="log-detail-title">
-                        @if($isFullyBookedGroup)
+                        @if($isRejectedSaleGroup)
+                            <strong>{{ $rejectedSale?->invoice_number ?: ($rejectedSale?->order_number ?? $transaction->reference) }}</strong>
+                            <small class="d-block text-muted">{{ $rejectedSale?->customer_name ?: 'Customer not specified' }} · {{ $group->count() }} item line(s) rejected</small>
+                        @elseif($isFullyBookedGroup)
                             <strong>{{ $fullyBookedOrder->order_number }}</strong>
                             <small class="d-block text-muted">{{ $fullyBookedOrder->salesStaff?->name ?? 'Deleted staff' }} · {{ $fullyBookedOrder->status === 'rejected' ? 'Order rejected' : ($fullyBookedOrder->pulled_out_at ? $group->count().' item line(s) · '.$group->sum('quantity').' total pulled out' : 'Attachment submitted for review') }}</small>
                         @elseif($isReplacementGroup)
@@ -400,7 +414,7 @@
                     </td>
                     <td>{{ $transaction->storeHub?->name ?? '—' }}</td>
                     <td>{{ $transaction->channel ? ucwords(str_replace('_', ' ', $transaction->channel)) : ($transaction->source ?: '—') }}</td>
-                    <td class="text-end fw-bold">{{ $isFullyBookedGroup && ! $fullyBookedOrder->pulled_out_at ? '—' : $group->sum('quantity') }}</td>
+                    <td class="text-end fw-bold">{{ ($isFullyBookedGroup && ! $fullyBookedOrder->pulled_out_at) || $isRejectedSaleGroup ? '—' : $group->sum('quantity') }}</td>
                     <td>{{ $transaction->sourceHub?->name }}{{ $transaction->targetHub ? ' → '.$transaction->targetHub->name : '' }}</td>
                     <td>{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</td>
                     <td><button type="button" class="btn btn-sm btn-outline-primary log-view-button" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}"><i class="fa-solid fa-eye me-1"></i>View details</button></td>
@@ -409,7 +423,65 @@
                     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content inventory-log-modal">
                         <div class="modal-header"><h5 class="modal-title">{{ $modalTitle }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                         <div class="modal-body"><div class="row g-3">
-                            @if($isNationalPulloutGroup)
+                            @if($isRejectedSaleGroup)
+                                <div class="col-12">
+                                    <div class="fully-booked-detail">
+                                        <section class="fully-booked-detail-summary">
+                                            <span class="fully-booked-detail-icon text-danger bg-danger-subtle"><i class="fa-solid fa-ban"></i></span>
+                                            <div>
+                                                <div class="fully-booked-detail-eyebrow">Rejected sales order · {{ ucwords(str_replace('_', ' ', $rejectedSale?->sales_channel ?? '')) }}</div>
+                                                <h4 class="fully-booked-detail-order">{{ $rejectedSale?->invoice_number ?: ($rejectedSale?->order_number ?? $transaction->reference) }}</h4>
+                                            </div>
+                                            <span class="badge rounded-pill text-bg-danger fully-booked-detail-status">Rejected</span>
+                                        </section>
+                                        <section class="fully-booked-detail-meta" aria-label="Rejected sales order information">
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Customer</div>
+                                                <div class="fully-booked-detail-value">{{ $rejectedSale?->customer_name ?: 'Not specified' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Store Hub</div>
+                                                <div class="fully-booked-detail-value">{{ $rejectedSale?->storeHub?->name ?? '—' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Submitted By</div>
+                                                <div class="fully-booked-detail-value">{{ $rejectedSale?->submittedBy?->name ?? $rejectedSale?->submittedBy?->username ?? 'Deleted user' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Rejected By</div>
+                                                <div class="fully-booked-detail-value">{{ $rejectedSale?->rejectedBy?->name ?? $rejectedSale?->rejectedBy?->username ?? 'Deleted user' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Rejected At</div>
+                                                <div class="fully-booked-detail-value">{{ $rejectedSale?->rejected_at?->format('M d, Y h:i A') ?? '—' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Stock Impact</div>
+                                                <div class="fully-booked-detail-value">No stock was deducted</div>
+                                            </div>
+                                        </section>
+                                        <section class="fully-booked-detail-note danger">
+                                            <div class="fully-booked-detail-label">Rejection Reason</div>
+                                            <p>{{ $rejectedSale?->rejection_reason ?: 'No reason was recorded.' }}</p>
+                                        </section>
+                                        <section class="fully-booked-detail-section">
+                                            <div class="fully-booked-detail-section-header">
+                                                <span class="fully-booked-detail-section-title"><i class="fa-solid fa-box-open me-2 text-danger"></i>Rejected order items</span>
+                                                <span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} requested</span>
+                                            </div>
+                                            @foreach($group as $entry)
+                                                <div class="transfer-detail-item align-items-start">
+                                                    <div>
+                                                        <div class="transfer-detail-item-name">{{ $entry->product?->name ?? 'Unknown product' }}</div>
+                                                        <div class="transfer-detail-item-id">Item ID: {{ $entry->product?->item_id ?? '—' }}</div>
+                                                    </div>
+                                                    <div class="transfer-detail-qty">Requested {{ $entry->quantity }}</div>
+                                                </div>
+                                            @endforeach
+                                        </section>
+                                    </div>
+                                </div>
+                            @elseif($isNationalPulloutGroup)
                                 <div class="col-12">
                                     <div class="transfer-detail-hero">
                                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
