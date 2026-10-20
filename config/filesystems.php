@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\SupabaseS3UploadOptions;
+
 return [
 
     /*
@@ -71,6 +73,9 @@ return [
             'use_path_style_endpoint' => true,
             'request_checksum_calculation' => 'when_required',
             'response_checksum_validation' => 'when_required',
+            'options' => [
+                'before_upload' => [SupabaseS3UploadOptions::class, 'removeUnsupportedAcl'],
+            ],
             'visibility' => 'private',
             'stream_reads' => true,
             'throw' => true,

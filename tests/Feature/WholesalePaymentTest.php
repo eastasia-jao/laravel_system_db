@@ -9,6 +9,7 @@ use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
+use Aws\Command;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -24,6 +25,16 @@ class WholesalePaymentTest extends TestCase
     {
         $this->assertSame('when_required', config('filesystems.disks.supabase.request_checksum_calculation'));
         $this->assertSame('when_required', config('filesystems.disks.supabase.response_checksum_validation'));
+    }
+
+    public function test_supabase_s3_upload_removes_the_unsupported_acl_parameter(): void
+    {
+        $command = new Command('PutObject', ['ACL' => 'private']);
+        $callback = config('filesystems.disks.supabase.options.before_upload');
+
+        $this->assertIsCallable($callback);
+        $callback($command);
+        $this->assertArrayNotHasKey('ACL', $command->toArray());
     }
 
     public function test_report_submits_partial_payment_status_and_amount(): void
