@@ -669,12 +669,11 @@
     @endif
 
     @if($channel === 'wholesale')
-        <div class="modal fade" id="wholesaleReportPreviewModal" tabindex="-1" aria-labelledby="wholesaleReportPreviewLabel" aria-hidden="true">
+        <div class="modal fade" id="wholesaleReportPreviewModal" tabindex="-1" aria-labelledby="wholesaleReportPreviewLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
             <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header">
                         <div><h5 class="modal-title" id="wholesaleReportPreviewLabel">Wholesale Report Preview</h5><small class="text-muted">This is the image that will be saved.</small></div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body overflow-hidden bg-secondary-subtle">
                         <div id="wholesalePreviewCanvas" class="wholesale-preview-canvas shadow-sm mx-auto p-4"></div>

@@ -556,7 +556,7 @@
         </table>
     </div>
 </div>
-<div class="modal fade" id="wholesaleDetailsModal" tabindex="-1" aria-labelledby="wholesaleDetailsLabel" aria-hidden="true">
+<div class="modal fade" id="wholesaleDetailsModal" tabindex="-1" aria-labelledby="wholesaleDetailsLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
@@ -565,7 +565,6 @@
                     <div class="wholesale-modal-subtitle" id="wholesaleDetailsSubtitle"></div>
                 </div>
                 <div class="wholesale-modal-header-statuses" id="wholesaleDetailsStatusChips" aria-label="Order status"></div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body bg-light">
                 <div class="wholesale-detail-grid" id="wholesaleDetailsContent"></div>
