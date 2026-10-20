@@ -657,8 +657,10 @@ class WholesalePaymentTest extends TestCase
             ->assertSeeText('Replacement MOP Attachment')
             ->assertSee('Previous MOP attachment')
             ->assertSee('Next MOP attachment')
-            ->assertSee('Zoom out MOP attachment')
-            ->assertSee('Zoom in MOP attachment')
+            ->assertSee('Click image to enlarge')
+            ->assertSee('Close enlarged MOP attachment')
+            ->assertDontSee('Zoom out MOP attachment')
+            ->assertDontSee('Zoom in MOP attachment')
             ->assertDontSee('Open attachment 1')
             ->getContent();
 

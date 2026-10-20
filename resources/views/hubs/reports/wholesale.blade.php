@@ -97,9 +97,9 @@
     .wholesale-proof-document { color: var(--wholesale-blue); font-size: 2rem; }
     .wholesale-mop-browser { display: grid; width: 100%; min-width: 0; gap: .55rem; }
     .wholesale-mop-stage { position: relative; display: grid; min-height: 230px; place-items: center; overflow: hidden; border: 1px solid #dbe3ee; border-radius: 8px; background: #eef2f7; }
-    .wholesale-mop-preview-wrap { display: grid; width: 100%; height: 230px; place-items: center; overflow: auto; }
+    .wholesale-mop-preview-wrap { display: grid; width: 100%; height: 230px; place-items: center; overflow: hidden; }
     .wholesale-mop-preview-image, .wholesale-mop-preview-document { display: block; width: 100%; height: 230px; border: 0; background: #fff; }
-    .wholesale-mop-preview-image { object-fit: contain; transform-origin: center; transition: transform .16s ease; }
+    .wholesale-mop-preview-image { object-fit: contain; cursor: zoom-in; }
     .wholesale-mop-arrow { position: absolute; top: 50%; z-index: 2; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .72); transform: translateY(-50%); }
     .wholesale-mop-arrow:hover:not(:disabled) { background: rgba(37, 99, 235, .92); }
     .wholesale-mop-arrow:disabled { display: none; }
@@ -107,8 +107,13 @@
     .wholesale-mop-arrow.is-next { right: .55rem; }
     .wholesale-mop-caption { display: flex; align-items: center; justify-content: space-between; gap: .65rem; color: #334155; font-size: .75rem; }
     .wholesale-mop-caption strong { color: #1e3a8a; }
-    .wholesale-mop-toolbar { display: flex; align-items: center; justify-content: center; gap: .4rem; }
-    .wholesale-mop-zoom-level { min-width: 46px; color: #475569; font-size: .72rem; font-weight: 700; text-align: center; }
+    .wholesale-mop-lightbox { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .88); }
+    .wholesale-mop-lightbox[hidden] { display: none; }
+    .wholesale-mop-lightbox-content { position: relative; display: grid; max-width: min(1100px, 96vw); max-height: 94vh; gap: .65rem; padding: 1rem; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+    .wholesale-mop-lightbox-image { display: block; max-width: calc(96vw - 2rem); max-height: calc(94vh - 5rem); object-fit: contain; }
+    .wholesale-mop-lightbox-caption { color: #1e3a8a; font-size: .82rem; font-weight: 700; text-align: center; }
+    .wholesale-mop-lightbox-close { position: absolute; top: .55rem; right: .55rem; z-index: 1; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .8); }
+    .wholesale-mop-lightbox-close:hover { background: #2563eb; }
     .wholesale-mop-attachment-data { display: none; }
     .wholesale-payment-proof-slot .wholesale-proof-upload { width: 100%; }
     .wholesale-payment-proof-slot .wholesale-proof-dropzone { min-height: 80px; }
@@ -571,6 +576,15 @@
                     <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
+            <div class="wholesale-mop-lightbox" id="wholesaleMopLightbox" role="dialog" aria-modal="true" aria-labelledby="wholesaleMopLightboxCaption" hidden>
+                <div class="wholesale-mop-lightbox-content">
+                    <button type="button" class="wholesale-mop-lightbox-close" aria-label="Close enlarged MOP attachment">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <img class="wholesale-mop-lightbox-image" alt="">
+                    <div class="wholesale-mop-lightbox-caption" id="wholesaleMopLightboxCaption"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -838,7 +852,41 @@
             const title = document.getElementById('wholesaleModalOrderNumber');
             const statusChips = document.getElementById('wholesaleDetailsStatusChips');
             const updated = document.getElementById('wholesaleDetailsUpdated');
+            const mopLightbox = document.getElementById('wholesaleMopLightbox');
+            const mopLightboxImage = mopLightbox?.querySelector('.wholesale-mop-lightbox-image');
+            const mopLightboxCaption = mopLightbox?.querySelector('.wholesale-mop-lightbox-caption');
+            const mopLightboxClose = mopLightbox?.querySelector('.wholesale-mop-lightbox-close');
+            let mopLightboxTrigger = null;
             if (!modalElement || !content) return;
+
+            const closeMopLightbox = () => {
+                if (!mopLightbox || mopLightbox.hidden) return;
+                mopLightbox.hidden = true;
+                mopLightboxImage.removeAttribute('src');
+                mopLightboxTrigger?.focus();
+                mopLightboxTrigger = null;
+            };
+            const openMopLightbox = (trigger, attachment) => {
+                if (!mopLightbox || !mopLightboxImage || !mopLightboxCaption) return;
+                mopLightboxTrigger = trigger;
+                mopLightboxImage.src = attachment.url;
+                mopLightboxImage.alt = attachment.label;
+                mopLightboxCaption.textContent = attachment.label;
+                mopLightbox.hidden = false;
+                mopLightboxClose?.focus();
+            };
+            mopLightboxClose?.addEventListener('click', closeMopLightbox);
+            mopLightbox?.addEventListener('click', event => {
+                if (event.target === mopLightbox) closeMopLightbox();
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && mopLightbox && !mopLightbox.hidden) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    closeMopLightbox();
+                }
+            }, true);
+            modalElement.addEventListener('hidden.bs.modal', closeMopLightbox);
 
             const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             const cleanValue = value => (value || '').replace(/\s+/g, ' ').trim();
@@ -1221,33 +1269,7 @@
                     const captionLabel = document.createElement('strong');
                     const captionCount = document.createElement('span');
                     caption.append(captionLabel, captionCount);
-                    const toolbar = document.createElement('div');
-                    toolbar.className = 'wholesale-mop-toolbar';
-                    const zoomOut = document.createElement('button');
-                    zoomOut.type = 'button';
-                    zoomOut.className = 'btn btn-sm btn-outline-secondary';
-                    zoomOut.setAttribute('aria-label', 'Zoom out MOP attachment');
-                    zoomOut.innerHTML = '<i class="fa-solid fa-magnifying-glass-minus"></i>';
-                    const zoomLevel = document.createElement('span');
-                    zoomLevel.className = 'wholesale-mop-zoom-level';
-                    const zoomIn = document.createElement('button');
-                    zoomIn.type = 'button';
-                    zoomIn.className = 'btn btn-sm btn-outline-secondary';
-                    zoomIn.setAttribute('aria-label', 'Zoom in MOP attachment');
-                    zoomIn.innerHTML = '<i class="fa-solid fa-magnifying-glass-plus"></i>';
-                    toolbar.append(zoomOut, zoomLevel, zoomIn);
                     let activeAttachment = 0;
-                    let activeMedia = null;
-                    let zoom = 1;
-                    const updateZoom = () => {
-                        const isImage = mopAttachments[activeAttachment]?.kind === 'image';
-                        toolbar.classList.toggle('d-none', !isImage);
-                        if (!isImage || !activeMedia) return;
-                        activeMedia.style.transform = `scale(${zoom})`;
-                        zoomLevel.textContent = `${Math.round(zoom * 100)}%`;
-                        zoomOut.disabled = zoom <= 1;
-                        zoomIn.disabled = zoom >= 3;
-                    };
                     const showAttachment = index => {
                         activeAttachment = (index + mopAttachments.length) % mopAttachments.length;
                         const attachment = mopAttachments[activeAttachment];
@@ -1257,28 +1279,29 @@
                             : 'wholesale-mop-preview-document';
                         media.src = attachment.url;
                         media.title = attachment.label;
-                        if (attachment.kind === 'image') media.alt = attachment.label;
+                        if (attachment.kind === 'image') {
+                            media.alt = attachment.label;
+                            media.tabIndex = 0;
+                            media.setAttribute('role', 'button');
+                            media.setAttribute('aria-label', `Enlarge ${attachment.label}`);
+                            media.addEventListener('click', () => openMopLightbox(media, attachment));
+                            media.addEventListener('keydown', event => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    openMopLightbox(media, attachment);
+                                }
+                            });
+                        }
                         preview.replaceChildren(media);
-                        activeMedia = media;
-                        zoom = 1;
-                        updateZoom();
                         captionLabel.textContent = attachment.label;
-                        captionCount.textContent = `${activeAttachment + 1} of ${mopAttachments.length}`;
+                        captionCount.textContent = `${activeAttachment + 1} of ${mopAttachments.length}${attachment.kind === 'image' ? ' · Click image to enlarge' : ''}`;
                         previous.disabled = mopAttachments.length < 2;
                         next.disabled = mopAttachments.length < 2;
                     };
                     previous.addEventListener('click', () => showAttachment(activeAttachment - 1));
                     next.addEventListener('click', () => showAttachment(activeAttachment + 1));
-                    zoomOut.addEventListener('click', () => {
-                        zoom = Math.max(1, zoom - .25);
-                        updateZoom();
-                    });
-                    zoomIn.addEventListener('click', () => {
-                        zoom = Math.min(3, zoom + .25);
-                        updateZoom();
-                    });
                     stage.append(preview, previous, next);
-                    browser.append(stage, toolbar, caption);
+                    browser.append(stage, caption);
                     proofSlot.append(browser);
                     showAttachment(0);
                 } else {
