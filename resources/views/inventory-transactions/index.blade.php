@@ -91,6 +91,11 @@
     .fully-booked-detail-items::-webkit-scrollbar-track { background: #f1f5f9; }
     .fully-booked-detail-items::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
     .fully-booked-detail-items::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    .rejected-order-items-list { max-height: min(38vh, 320px); overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #94a3b8 #f1f5f9; }
+    .rejected-order-items-list::-webkit-scrollbar { width: 8px; }
+    .rejected-order-items-list::-webkit-scrollbar-track { background: #f1f5f9; }
+    .rejected-order-items-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
+    .rejected-order-items-list::-webkit-scrollbar-thumb:hover { background: #64748b; }
     .fully-booked-detail-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
     .fully-booked-detail-item + .fully-booked-detail-item { border-top: 1px solid #eef2f7; }
     .fully-booked-detail-item-name { color: #1e293b; font-weight: 700; }
@@ -369,9 +374,6 @@
                         };
                     @endphp
                     <td><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
-                        @if($isRejectedSaleGroup)
-                            <span class="badge mt-1 d-table text-bg-danger">REJECTED</span>
-                        @endif
                         @if($transaction->type === 'branch_transfer' && $transaction->status !== 'approved')
                             <span class="badge mt-1 d-table {{ $transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning' }}">{{ strtoupper($transaction->status ?? 'pending') }}</span>
                         @endif
@@ -432,7 +434,6 @@
                                                 <div class="fully-booked-detail-eyebrow">Rejected sales order · {{ ucwords(str_replace('_', ' ', $rejectedSale?->sales_channel ?? '')) }}</div>
                                                 <h4 class="fully-booked-detail-order">{{ $rejectedSale?->invoice_number ?: ($rejectedSale?->order_number ?? $transaction->reference) }}</h4>
                                             </div>
-                                            <span class="badge rounded-pill text-bg-danger fully-booked-detail-status">Rejected</span>
                                         </section>
                                         <section class="fully-booked-detail-meta" aria-label="Rejected sales order information">
                                             <div class="fully-booked-detail-meta-item">
@@ -469,15 +470,17 @@
                                                 <span class="fully-booked-detail-section-title"><i class="fa-solid fa-box-open me-2 text-danger"></i>Rejected order items</span>
                                                 <span class="small text-muted">{{ $group->count() }} line(s) · {{ $group->sum('quantity') }} requested</span>
                                             </div>
-                                            @foreach($group as $entry)
-                                                <div class="transfer-detail-item align-items-start">
-                                                    <div>
-                                                        <div class="transfer-detail-item-name">{{ $entry->product?->name ?? 'Unknown product' }}</div>
-                                                        <div class="transfer-detail-item-id">Item ID: {{ $entry->product?->item_id ?? '—' }}</div>
+                                            <div class="rejected-order-items-list" aria-label="Rejected order items">
+                                                @foreach($group as $entry)
+                                                    <div class="transfer-detail-item align-items-start">
+                                                        <div>
+                                                            <div class="transfer-detail-item-name">{{ $entry->product?->name ?? 'Unknown product' }}</div>
+                                                            <div class="transfer-detail-item-id">Item ID: {{ $entry->product?->item_id ?? '—' }}</div>
+                                                        </div>
+                                                        <div class="transfer-detail-qty">Requested {{ $entry->quantity }}</div>
                                                     </div>
-                                                    <div class="transfer-detail-qty">Requested {{ $entry->quantity }}</div>
-                                                </div>
-                                            @endforeach
+                                                @endforeach
+                                            </div>
                                         </section>
                                     </div>
                                 </div>
@@ -909,7 +912,7 @@
                                 <div class="col-md-6"><strong>Product</strong><div>{{ $transaction->product?->name ?? 'Unknown product' }} ({{ $transaction->product?->item_id ?? '—' }})</div></div>
                                 <div class="col-md-3"><strong>Quantity</strong><div>{{ $transaction->quantity }}</div></div>
                             @endif
-                            @if(!$isReplacementGroup && !$isFullyBookedGroup && !$isNationalPulloutGroup)
+                            @if(!$isReplacementGroup && !$isFullyBookedGroup && !$isNationalPulloutGroup && !$isRejectedSaleGroup)
                                 @if($isSponsorGroup)
                                     <div class="col-12">
                                         <div class="row g-2">
