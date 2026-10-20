@@ -767,6 +767,39 @@ class WholesalePaymentTest extends TestCase
         ]))->assertOk()->assertSee('October 2026 subtotal: ₱644.30');
     }
 
+    public function test_wholesale_monthly_subtotal_uses_order_value_when_withholding_values_are_zero(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-ZERO-TAX', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+
+        foreach ([
+            ['EXISTING-ORDER-1', 721.40, 700, null],
+            ['EXISTING-ORDER-2', 621.40, 600, null],
+            ['NEW-PAID-ORDER', 344.30, 0, 0],
+        ] as [$orderNumber, $orderTotal, $withholdingTax, $withholdingAmount]) {
+            SalesTransaction::create([
+                'user_id' => $user->id,
+                'store_hub_id' => $hub->id,
+                'channel_type' => 'wholesale',
+                'customer_name' => 'Customer',
+                'order_number' => $orderNumber,
+                'order_date' => '2026-10-20',
+                'grand_total' => $orderTotal,
+                'sub_total' => $orderTotal,
+                'wholesale_withholding_tax' => $withholdingTax,
+                'withholding_tax_amount' => $withholdingAmount,
+                'amount_paid' => $orderTotal,
+                'status' => 'confirmed',
+                'payment_status' => 'paid',
+            ]);
+        }
+
+        $this->actingAs($user)->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'wholesale',
+        ]))->assertOk()->assertSee('October 2026 subtotal: ₱1,644.30');
+    }
+
     public function test_wholesale_revenue_overview_counts_withholding_toward_settled_order_value(): void
     {
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-SETTLED', 'status' => 'active', 'is_head_office' => true]);

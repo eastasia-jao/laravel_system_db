@@ -528,7 +528,9 @@
                                     ? null
                                     : (float) $sale->withholding_tax_amount;
                                 $withholdingTax = (float) ($sale->wholesale_withholding_tax ?? 0);
-                                $monthlySubtotal = $withholdingTax > 0 ? $withholdingTax : ($withholdingAmount ?? $orderValue);
+                                $monthlySubtotal = $withholdingTax > 0
+                                    ? $withholdingTax
+                                    : (($withholdingAmount ?? 0) > 0 ? $withholdingAmount : $orderValue);
 
                                 return max(0, $monthlySubtotal);
                             });
@@ -707,7 +709,7 @@
                     $invoiceSubtotal = (float) ($transaction->sub_total ?: $wholesaleOrderValue($transaction));
                     $subtotal = $withholdingTax > 0
                         ? $withholdingTax
-                        : ($withholdingAmount ?? $invoiceSubtotal);
+                        : (($withholdingAmount ?? 0) > 0 ? $withholdingAmount : $invoiceSubtotal);
 
                     return max(0, $subtotal);
                 });
