@@ -6,6 +6,9 @@
         ? ($orderDate && $checkDate->gt($orderDate) ? 'Post-dated check' : 'Dated check')
         : null;
     $mopAttachments = collect();
+    $recordedProofUnavailable = false;
+    $replacementProofUnavailable = false;
+    $proofDisk = \Illuminate\Support\Facades\Storage::disk('public');
     $replacementRecords = $paymentRecord?->items
         ? $paymentRecord->items
             ->flatMap(fn ($item) => $item->replacements)
@@ -14,15 +17,28 @@
         : collect();
 
     if ($recordedProofPath) {
-        $mopAttachments->push([
-            'url' => \Illuminate\Support\Facades\Storage::disk('public')->url($recordedProofPath),
-            'label' => 'Record Sales MOP Attachment',
-            'is_image' => \Illuminate\Support\Str::endsWith(strtolower((string) $recordedProofPath), ['.jpg', '.jpeg', '.png', '.gif', '.webp']),
-        ]);
+        $recordedProofUnavailable = ! $proofDisk->exists($recordedProofPath) || $proofDisk->size($recordedProofPath) === 0;
+
+        if (! $recordedProofUnavailable) {
+            $mopAttachments->push([
+                'url' => route('hub.report.wholesale.payment-attachment', [
+                    'hub' => $hub->id,
+                    'transaction' => $paymentRecord->id,
+                ]),
+                'label' => 'Record Sales MOP Attachment',
+                'is_image' => \Illuminate\Support\Str::endsWith(strtolower((string) $recordedProofPath), ['.jpg', '.jpeg', '.png', '.gif', '.webp']),
+            ]);
+        }
     }
 
     foreach ($replacementRecords as $replacement) {
         foreach ($replacement->exchange_payment_proofs ?? [] as $proofIndex => $proofPath) {
+            if (! is_string($proofPath) || $proofPath === '' || ! $proofDisk->exists($proofPath) || $proofDisk->size($proofPath) === 0) {
+                $replacementProofUnavailable = true;
+
+                continue;
+            }
+
             $mopAttachments->push([
                 'url' => route('hub.report.replacement-attachment', [
                     'hub' => $hub->id,
@@ -55,6 +71,12 @@
     </div>
 
     <div class="wholesale-mop-attachment-data" data-wholesale-mop-attachments>
+        @if($recordedProofUnavailable)
+            <div class="small text-danger mb-2" role="alert">Record Sales MOP attachment is missing or empty. Please upload it again.</div>
+        @endif
+        @if($replacementProofUnavailable)
+            <div class="small text-danger mb-2" role="alert">A Replacement MOP attachment is missing or empty. Please upload it again.</div>
+        @endif
         @forelse($mopAttachments as $attachmentIndex => $attachment)
             <span
                 data-wholesale-mop-attachment

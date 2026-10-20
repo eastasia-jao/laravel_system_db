@@ -528,6 +528,9 @@
 
                                 return $sale->wholesaleSubtotalAmount();
                             });
+                            $monthCollected = $monthTransactions->sum(
+                                fn ($sale) => $sale->wholesaleCollectedAmount()
+                            );
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
                         <tr class="table-primary-subtle fw-semibold wholesale-month-subtotal">
@@ -535,7 +538,10 @@
                             <td class="text-end">
                                 {{ $monthKey === 'undated' ? 'Undated' : \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('F Y') }} subtotal: ₱{{ number_format($monthOrderValue, 2) }}
                             </td>
-                            <td colspan="14"></td>
+                            <td class="text-end text-success">
+                                Total sales collected: ₱{{ number_format($monthCollected, 2) }}
+                            </td>
+                            <td colspan="13"></td>
                         </tr>
                     @endif
                 @empty

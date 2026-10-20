@@ -325,6 +325,9 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
                 ->whereNumber('index')
                 ->middleware('can:view-sales-reports')
                 ->name('report.replacement-attachment');
+            Route::get('/report/wholesale/{transaction}/payment-proof', [SalesReportController::class, 'wholesalePaymentAttachment'])
+                ->middleware('can:view-sales-reports')
+                ->name('report.wholesale.payment-attachment');
             Route::patch('/report/tiktok/{transaction}', [SalesReportController::class, 'updateTikTokFields'])->middleware('can:view-sales-reports')->name('report.tiktok.update');
             Route::patch('/report/tiktok/{transaction}/returns/{item}', [SalesReportController::class, 'updateTikTokReturn'])->middleware('can:view-sales-reports')->name('report.tiktok.return.update');
             Route::post('/report/tiktok/{transaction}/replacements/{item}', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:manage-sales-status')->name('report.tiktok.replacement.store');

@@ -557,6 +557,65 @@ class WholesalePaymentTest extends TestCase
             ->assertStreamedContent('replacement payment proof');
     }
 
+    public function test_recorded_wholesale_payment_proof_is_served_through_the_protected_route(): void
+    {
+        Storage::fake('public');
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-ORIGINAL-PROOF', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $path = 'proofs_of_payment/original-proof.png';
+        Storage::disk('public')->put($path, 'original payment proof');
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'customer_name' => 'Customer',
+            'order_number' => 'ORIGINAL-PROOF-1',
+            'order_date' => '2026-10-20',
+            'grand_total' => 100,
+            'status' => 'confirmed',
+            'proof_of_payment' => $path,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('hub.report.wholesale.payment-attachment', [
+                'hub' => $hub->id,
+                'transaction' => $sale->id,
+            ]))
+            ->assertOk()
+            ->assertStreamedContent('original payment proof');
+    }
+
+    public function test_empty_recorded_wholesale_payment_proof_shows_reupload_message_instead_of_broken_preview(): void
+    {
+        Storage::fake('public');
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-EMPTY-PROOF', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $path = 'proofs_of_payment/empty-proof.png';
+        Storage::disk('public')->put($path, '');
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'customer_name' => 'Customer',
+            'order_number' => 'EMPTY-PROOF-1',
+            'order_date' => '2026-10-20',
+            'grand_total' => 100,
+            'status' => 'confirmed',
+            'proof_of_payment' => $path,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']))
+            ->assertOk()
+            ->assertSeeText('Record Sales MOP attachment is missing or empty. Please upload it again.')
+            ->assertDontSee('data-proof-label="Record Sales MOP Attachment"', false);
+
+        $this->get(route('hub.report.wholesale.payment-attachment', [
+            'hub' => $hub->id,
+            'transaction' => $sale->id,
+        ]))->assertNotFound();
+    }
+
     public function test_wholesale_report_combines_recorded_sale_and_replacement_mop_attachments_in_inline_preview(): void
     {
         Storage::fake('public');
@@ -610,7 +669,10 @@ class WholesalePaymentTest extends TestCase
 
         $this->assertSame(2, $attachments->length);
         $this->assertSame('Record Sales MOP Attachment', $attachments->item(0)->getAttribute('data-proof-label'));
-        $this->assertSame(Storage::disk('public')->url($recordedProof), $attachments->item(0)->getAttribute('data-proof-url'));
+        $this->assertSame(route('hub.report.wholesale.payment-attachment', [
+            'hub' => $hub->id,
+            'transaction' => $sale->id,
+        ]), $attachments->item(0)->getAttribute('data-proof-url'));
         $this->assertSame('Replacement MOP Attachment', $attachments->item(1)->getAttribute('data-proof-label'));
         $this->assertSame(route('hub.report.replacement-attachment', [
             'hub' => $hub->id,
@@ -803,7 +865,9 @@ class WholesalePaymentTest extends TestCase
         $this->actingAs($user)->get(route('hub.report', [
             'hub' => $hub->id,
             'channel' => 'wholesale',
-        ]))->assertOk()->assertSee('October 2026 subtotal: ₱1,644.30');
+        ]))->assertOk()
+            ->assertSee('October 2026 subtotal: ₱1,644.30')
+            ->assertSee('Total sales collected: ₱1,687.10');
     }
 
     public function test_wholesale_revenue_overview_counts_withholding_toward_settled_order_value(): void

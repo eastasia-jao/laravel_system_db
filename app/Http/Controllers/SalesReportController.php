@@ -901,7 +901,31 @@ class SalesReportController extends Controller
         abort_unless(is_string($path) && $path !== '', 404);
 
         $disk = Storage::disk('public');
-        abort_unless($disk->exists($path), 404, 'Replacement attachment is no longer available.');
+        abort_unless($disk->exists($path) && $disk->size($path) > 0, 404, 'Replacement attachment is missing or empty.');
+
+        return $disk->response(
+            $path,
+            basename($path),
+            ['Content-Type' => $disk->mimeType($path) ?: 'application/octet-stream'],
+            'inline'
+        );
+    }
+
+    public function wholesalePaymentAttachment(int $hub, SalesTransaction $transaction)
+    {
+        $storeHub = StoreHub::findOrFail($hub);
+        abort_unless(auth()->user()?->canAccessHub($storeHub->id), 403);
+        abort_unless(
+            (int) $transaction->store_hub_id === (int) $storeHub->id
+            && $this->normalizeChannel($transaction->channel_type) === 'wholesale',
+            404
+        );
+
+        $path = $transaction->proof_of_payment ?: $transaction->payment_proof;
+        abort_unless(is_string($path) && $path !== '', 404);
+
+        $disk = Storage::disk('public');
+        abort_unless($disk->exists($path) && $disk->size($path) > 0, 404, 'Payment attachment is missing or empty.');
 
         return $disk->response(
             $path,
@@ -940,7 +964,7 @@ class SalesReportController extends Controller
             'exchange_check_date' => ['required_if:exchange_payment_method,DATED_CHECK,POST_DATED_CHECK', 'nullable', 'date'],
             'exchange_payment_reference' => ['nullable', 'string', 'max:255'],
             'exchange_payment_proofs' => ['nullable', 'array', 'max:4'],
-            'exchange_payment_proofs.*' => ['file', 'mimes:jpeg,png,jpg,webp,pdf', 'max:2048'],
+            'exchange_payment_proofs.*' => ['file', 'mimes:jpeg,png,jpg,webp,pdf', 'min:1', 'max:2048'],
             'replacement_order_slip' => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp,pdf', 'max:2048'],
             'reason' => ['nullable', 'string', 'max:2000'],
         ]);

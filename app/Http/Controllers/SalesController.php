@@ -305,7 +305,7 @@ class SalesController extends Controller
                 'string',
                 'max:255',
             ],
-            'proof_of_payment' => [Rule::requiredIf($needsPaymentProof && $channelForValidation !== 'walk_in'), 'nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:2048'],
+            'proof_of_payment' => [Rule::requiredIf($needsPaymentProof && $channelForValidation !== 'walk_in'), 'nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'min:1', 'max:2048'],
             'quotation_proofs' => 'nullable|array|max:4',
             'quotation_proofs.*' => 'file|mimes:jpeg,png,jpg,webp,pdf|max:2048',
             'walkin_payment_proofs' => [Rule::requiredIf($needsPaymentProof && $channelForValidation === 'walk_in'), 'nullable', 'array', 'max:4', 'min:1'],
@@ -983,7 +983,7 @@ class SalesController extends Controller
             'withholding_tax_amount' => ['nullable', 'numeric', 'min:0'],
             'wholesale_withholding_tax' => ['nullable', 'numeric', 'min:0'],
             'invoice_number' => ['nullable', 'string', 'max:100'],
-            'payment_proof' => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp,pdf', 'max:2048'],
+            'payment_proof' => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp,pdf', 'min:1', 'max:2048'],
         ]);
 
         if ($channel === 'online') {
