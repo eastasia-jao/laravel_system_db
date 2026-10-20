@@ -8,12 +8,53 @@ use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class SalesOrderAttachmentTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_failed_payment_proof_upload_is_written_to_application_logs(): void
+    {
+        config(['filesystems.attachments' => 'supabase']);
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-LOG', 'status' => 'active', 'is_head_office' => true]);
+        $product = Product::create([
+            'item_id' => 'ATTACH-LOG',
+            'name' => 'Attachment Product',
+            'store_hub_id' => $hub->id,
+            'sales_price' => 100,
+            'stock' => 20,
+            'status' => 'active',
+        ]);
+        $salesUser = User::factory()->create(['role' => 'admin', 'hub_id' => $hub->id]);
+        Storage::shouldReceive('disk')
+            ->with('supabase')
+            ->andThrow(new \RuntimeException('Simulated Supabase PutObject rejection.'));
+        Log::spy();
+
+        $this->actingAs($salesUser)->from(route('hub.dashboard', $hub))
+            ->post(route('sales.storeMultiChannelSale'), [
+                'store_hub_id' => $hub->id,
+                'sales_channel' => 'wholesale',
+                'customer_name' => 'Attachment Customer',
+                'order_date' => '2026-10-20',
+                'mode_of_payment' => 'GCASH',
+                'proof_of_payment' => UploadedFile::fake()->create('payment-proof.pdf', 10, 'application/pdf'),
+                'items' => [['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 100]],
+            ])
+            ->assertRedirect(route('hub.dashboard', $hub))
+            ->assertSessionHas('error', 'Failed to submit multi-channel sale: Simulated Supabase PutObject rejection.');
+
+        Log::shouldHaveReceived('error')->once()->withArgs(function ($message, $context) use ($hub, $salesUser) {
+            return $message === 'Failed to submit multi-channel sale.'
+                && $context['user_id'] === $salesUser->id
+                && (int) $context['hub_id'] === $hub->id
+                && $context['channel'] === 'wholesale'
+                && $context['exception'] instanceof \RuntimeException;
+        });
+    }
 
     public function test_wholesale_and_online_orders_can_attach_documents_for_inventory_preview(): void
     {

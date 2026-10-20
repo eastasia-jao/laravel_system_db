@@ -18,6 +18,7 @@ use App\Notifications\SalesWorkflowNotification;
 use App\Notifications\InventoryWorkflowNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -530,6 +531,13 @@ class SalesController extends Controller
             if ($orderSlipPath) {
                 Storage::disk('local')->delete($orderSlipPath);
             }
+            Log::error('Failed to submit multi-channel sale.', [
+                'user_id' => auth()->id(),
+                'hub_id' => $request->input('store_hub_id'),
+                'channel' => $channelForValidation,
+                'exception' => $e,
+            ]);
+
             return back()->with('error', 'Failed to submit multi-channel sale: '.$e->getMessage());
         }
     }
