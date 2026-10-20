@@ -166,17 +166,22 @@ class HubController extends Controller
             if ($channel === 'tiktok') {
                 return $sale->effectiveTikTokPayout();
             }
-            if ($channel === 'wholesale' && $sale->payment_status === 'partial') {
-                $resolvedTotal = min((float) ($sale->amount_paid ?? 0), $resolvedTotal);
+            if ($channel === 'wholesale') {
+                return $sale->wholesaleSubtotalAmount();
             }
 
             // Online collection is the amount received for the order.  Returns/refunds
             // remain visible as their own metric instead of silently reducing this figure.
-            // Walk-In keeps its established net-sales calculation, while wholesale above
-            // remains limited to the amount actually paid for partial orders.
+            // Walk-In keeps its established net-sales calculation. Wholesale uses the
+            // report subtotal here and is separated from collected cash below.
             return $channel === 'online'
                 ? $resolvedTotal
                 : $sale->netOrderTotal($resolvedTotal);
+        };
+        $collectedAmount = static function (SalesTransaction $sale) use ($normalizeChannel, $reportedAmount): float {
+            return $normalizeChannel($sale->channel_type) === 'wholesale'
+                ? $sale->wholesaleCollectedAmount()
+                : $reportedAmount($sale);
         };
         $dashboardRelations = ['items.inventoryReturns', 'items.replacements.inventoryReturns', 'inventoryReturns'];
         $salesTotals = collect($periods)->map(fn ($start) => (float) (clone $salesQuery)
@@ -213,9 +218,10 @@ class HubController extends Controller
         $monthlySales = $monthlyTransactions
             ->reject(fn ($sale) => $normalizeChannel($sale->channel_type) === 'tiktok'
                 && ($sale->sales_after_transaction_fee === null || $sale->isTikTokFullyReturned()))
-            ->each(function ($sale) use ($reportedAmount) {
+            ->each(function ($sale) use ($reportedAmount, $collectedAmount) {
                 $sale->setAttribute('transaction_count', 1);
                 $sale->setAttribute('reported_total', $reportedAmount($sale));
+                $sale->setAttribute('collected_total', $collectedAmount($sale));
             })->values();
         if ($user?->role === 'sales_marketing_staff') {
             $monthlySales = $monthlySales->filter(function ($sale) use ($assignedChannels) {
@@ -301,13 +307,13 @@ class HubController extends Controller
                 'total_customers' => count($firstCustomerOrders),
                 'new_customers' => collect($firstCustomerOrders)->filter(fn ($firstOrder) => $firstOrder >= $periodStart && $firstOrder <= $monthEnd)->count(),
                 'completed_transactions' => $channel === 'wholesale'
-                    ? $channelSales->filter(fn ($sale) => $sale->payment_status === 'paid' && $sale->delivery_status === 'delivered')->sum('transaction_count')
+                    ? $channelSales->filter(fn ($sale) => $sale->payment_status === 'paid' && in_array($sale->delivery_status, ['delivered', 'picked_up'], true))->sum('transaction_count')
                     : $channelSales->sum('transaction_count'),
                 'partial_transactions' => $channel === 'wholesale'
                     ? $channelSales->where('payment_status', 'partial')->sum('transaction_count')
                     : 0,
                 'open_transactions' => $channel === 'wholesale'
-                    ? $channelSales->reject(fn ($sale) => $sale->payment_status === 'paid' && $sale->delivery_status === 'delivered')->sum('transaction_count')
+                    ? $channelSales->reject(fn ($sale) => $sale->payment_status === 'paid' && in_array($sale->delivery_status, ['delivered', 'picked_up'], true))->sum('transaction_count')
                     : 0,
             ]);
         });
@@ -344,7 +350,7 @@ class HubController extends Controller
                 if (! array_key_exists($key, $amounts)) {
                     $key = 'Other';
                 }
-                $amounts[$key] += (float) $sale->reported_total;
+                $amounts[$key] += (float) ($sale->collected_total ?? $sale->reported_total);
                 $counts[$key]++;
             }
 

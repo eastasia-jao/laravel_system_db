@@ -183,8 +183,6 @@
     #recordSaleModal .sale-channel-badge[data-channel="shopee"] { border-color: #fed7aa; background: #fff7ed; color: #c2410c; }
     #recordSaleModal .sale-channel-badge[data-channel="lazada"] { border-color: #c4b5fd; background: #f5f3ff; color: #6d28d9; }
     #recordSaleModal .sale-channel-badge[data-channel="tiktok"] { border-color: #cbd5e1; background: #f8fafc; color: #0f172a; }
-    #recordSaleModal .btn-close { margin: 0; padding: .72rem; border-radius: 10px; transition: background-color .15s ease, transform .15s ease; }
-    #recordSaleModal .btn-close:hover { background-color: #eef2f7; transform: scale(1.04); }
     #recordSaleModal .modal-body {
         flex: 1 1 auto;
         min-height: 0;
@@ -448,7 +446,6 @@
                             </div>
                         </div>
                     </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 
                 <div class="modal-body">
@@ -810,6 +807,7 @@
                                     <option value="preparing">Preparing</option>
                                     <option value="shipped">Shipped</option>
                                     <option value="delivered">Delivered</option>
+                                    <option value="picked_up">Picked Up</option>
                                     <option value="cancelled">Cancelled</option>
                                 </select>
                             </div>

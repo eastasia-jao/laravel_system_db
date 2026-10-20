@@ -256,7 +256,7 @@ class SalesReportController extends Controller
             $completedScope = fn ($builder) => $builder
                 ->where(fn ($status) => $status->whereNull('status')->orWhere('status', '<>', 'refunded'))
                 ->where('payment_status', 'paid')
-                ->where('delivery_status', 'delivered');
+                ->whereIn('delivery_status', ['delivered', 'picked_up']);
             $stateCounts['all'] = (clone $query)->count();
             $stateCounts['refunded'] = (clone $query)->where('status', 'refunded')->count();
             $stateCounts['completed'] = (clone $query)->where($completedScope)->count();
@@ -273,7 +273,7 @@ class SalesReportController extends Controller
                             $status->whereNull('payment_status')
                                 ->orWhere('payment_status', '<>', 'paid')
                                 ->orWhereNull('delivery_status')
-                                ->orWhere('delivery_status', '<>', 'delivered');
+                                ->orWhereNotIn('delivery_status', ['delivered', 'picked_up']);
                         });
                 });
             }

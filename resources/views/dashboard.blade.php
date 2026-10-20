@@ -315,6 +315,9 @@
                             <span class="fw-semibold">{{ $summary['label'] }}</span>
                             <span class="channel-icon"><i class="fa-solid {{ $summary['icon'] }}"></i></span>
                         </div>
+                        @if($summary['key'] === 'wholesale')
+                            <div class="small text-uppercase text-muted fw-bold">Subtotal</div>
+                        @endif
                         <div class="fs-5 fw-bold text-primary">₱{{ number_format($summary['total'], 2) }}</div>
                         @if($summary['key'] === 'wholesale')
                             <div class="small text-muted">

@@ -103,6 +103,32 @@ class SalesTransaction extends Model
         return max(0, $baseAmount - $returnedAmount);
     }
 
+    public function wholesaleSubtotalAmount(): float
+    {
+        if ($this->status === 'refunded') {
+            return 0.0;
+        }
+
+        $orderValue = (float) ($this->grand_total ?: $this->total_amount ?: $this->items->sum('line_total'));
+        $withholdingTax = (float) ($this->wholesale_withholding_tax ?? 0);
+        $withholdingAmount = (float) ($this->withholding_tax_amount ?? 0);
+
+        return max(0, $withholdingTax > 0
+            ? $withholdingTax
+            : ($withholdingAmount > 0 ? $withholdingAmount : $orderValue));
+    }
+
+    public function wholesaleCollectedAmount(): float
+    {
+        if ($this->status === 'refunded') {
+            return 0.0;
+        }
+
+        $orderValue = (float) ($this->grand_total ?: $this->total_amount ?: $this->items->sum('line_total'));
+
+        return min(max(0, $orderValue), max(0, (float) ($this->amount_paid ?? 0)));
+    }
+
     public function netTikTokPayout(): ?float
     {
         if ($this->sales_after_transaction_fee === null) {

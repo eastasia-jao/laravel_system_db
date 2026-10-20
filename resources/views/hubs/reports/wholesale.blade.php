@@ -97,8 +97,9 @@
     .wholesale-proof-document { color: var(--wholesale-blue); font-size: 2rem; }
     .wholesale-mop-browser { display: grid; width: 100%; min-width: 0; gap: .55rem; }
     .wholesale-mop-stage { position: relative; display: grid; min-height: 230px; place-items: center; overflow: hidden; border: 1px solid #dbe3ee; border-radius: 8px; background: #eef2f7; }
+    .wholesale-mop-preview-wrap { display: grid; width: 100%; height: 230px; place-items: center; overflow: auto; }
     .wholesale-mop-preview-image, .wholesale-mop-preview-document { display: block; width: 100%; height: 230px; border: 0; background: #fff; }
-    .wholesale-mop-preview-image { object-fit: contain; }
+    .wholesale-mop-preview-image { object-fit: contain; transform-origin: center; transition: transform .16s ease; }
     .wholesale-mop-arrow { position: absolute; top: 50%; z-index: 2; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .72); transform: translateY(-50%); }
     .wholesale-mop-arrow:hover:not(:disabled) { background: rgba(37, 99, 235, .92); }
     .wholesale-mop-arrow:disabled { display: none; }
@@ -106,6 +107,8 @@
     .wholesale-mop-arrow.is-next { right: .55rem; }
     .wholesale-mop-caption { display: flex; align-items: center; justify-content: space-between; gap: .65rem; color: #334155; font-size: .75rem; }
     .wholesale-mop-caption strong { color: #1e3a8a; }
+    .wholesale-mop-toolbar { display: flex; align-items: center; justify-content: center; gap: .4rem; }
+    .wholesale-mop-zoom-level { min-width: 46px; color: #475569; font-size: .72rem; font-weight: 700; text-align: center; }
     .wholesale-mop-attachment-data { display: none; }
     .wholesale-payment-proof-slot .wholesale-proof-upload { width: 100%; }
     .wholesale-payment-proof-slot .wholesale-proof-dropzone { min-height: 80px; }
@@ -200,12 +203,12 @@
                 </a>
             @endforeach
         </div>
-        <div class="small text-muted mb-3"><strong>Completed</strong> means fully paid and delivered. Refunded orders are shown separately and locked.</div>
+        <div class="small text-muted mb-3"><strong>Completed</strong> means fully paid and delivered or picked up. Refunded orders are shown separately and locked.</div>
     </div>
     <div class="table-responsive">
         <table class="table table-bordered table-sm align-middle mb-0">
             <thead class="table-success">
-                <tr><th>Company/Customer</th><th>Purchase Date</th><th>MOP</th><th class="text-end">Order Value</th><th class="text-end">Collected</th><th class="text-end">Shipping Fee</th><th>Type of Delivery</th><th>Invoice #</th><th>Payment</th><th>Order</th><th>Delivery</th><th>Delivery/Pickup Date</th><th>Type</th><th>Courier</th><th>Check Date</th><th class="text-end">Withholding Tax</th><th>Update Status</th></tr>
+                <tr><th>Company/Customer</th><th>Purchase Date</th><th>MOP</th><th class="text-end">Total Order Value</th><th class="text-end">Collected</th><th class="text-end">Shipping Fee</th><th>Type of Delivery</th><th>Invoice #</th><th>Payment</th><th>Order</th><th>Delivery</th><th>Delivery/Pickup Date</th><th>Type</th><th>Courier</th><th>Check Date</th><th class="text-end">Withholding Tax</th><th>Update Status</th></tr>
             </thead>
             <tbody>
                 @php
@@ -224,7 +227,7 @@
                             : null;
                         $withholdingCredit = max(0, $withholdingTax ?? $withholdingAmount ?? 0);
                         $paymentTotal = max(0, $invoiceTotal);
-                        $collected = $isRefunded ? 0 : min($paymentTotal, max(0, (float) ($transaction->amount_paid ?? 0)));
+                        $collected = $transaction->wholesaleCollectedAmount();
                         $total = $isRefunded ? 0 : $invoiceTotal;
                         $approvedReplacementShipping = (float) $transaction->replacements
                             ->where('status', 'approved')
@@ -396,7 +399,7 @@
                         <td>{{ $transaction->invoice_number ?: '—' }}</td>
                         <td class="text-center"><span class="wholesale-table-status {{ $paymentStatus === 'paid' ? 'bg-success-subtle text-success' : ($paymentStatus === 'partial' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-secondary-subtle text-secondary-emphasis') }}">{{ strtoupper($paymentStatus) }}</span></td>
                         <td>{{ strtoupper($transaction->status ?? 'confirmed') }}</td>
-                        <td class="text-center"><span class="wholesale-table-status {{ $deliveryStatus === 'delivered' ? 'bg-success-subtle text-success' : ($deliveryStatus === 'cancelled' ? 'bg-danger-subtle text-danger' : 'bg-info-subtle text-info-emphasis') }}">{{ strtoupper($deliveryStatus) }}</span></td>
+                        <td class="text-center"><span class="wholesale-table-status {{ in_array($deliveryStatus, ['delivered', 'picked_up'], true) ? 'bg-success-subtle text-success' : ($deliveryStatus === 'cancelled' ? 'bg-danger-subtle text-danger' : 'bg-info-subtle text-info-emphasis') }}">{{ strtoupper(str_replace('_', ' ', $deliveryStatus)) }}</span></td>
                         <td>{{ optional($transaction->delivery_date ?? $transaction->date_of_arrangement)->format('F d, Y') ?? '—' }}</td>
                         <td>{{ strtoupper($transaction->shipping_fee_type ?: '—') }}</td>
                         <td>{{ $transaction->courier ?: '—' }}</td>
@@ -430,8 +433,8 @@
                                     <div class="wholesale-status-field">
                                         <label for="wholesale-delivery-status-{{ $transaction->id }}">Delivery Status</label>
                                         <select id="wholesale-delivery-status-{{ $transaction->id }}" name="delivery_status" class="form-select form-select-sm" aria-label="Delivery status">
-                                            @foreach(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'] as $status)
-                                                <option value="{{ $status }}" @selected($deliveryStatus === $status)>{{ ucfirst($status) }}</option>
+                                            @foreach(['pending', 'preparing', 'shipped', 'delivered', 'picked_up', 'cancelled'] as $status)
+                                                <option value="{{ $status }}" @selected($deliveryStatus === $status)>{{ ucwords(str_replace('_', ' ', $status)) }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -523,16 +526,7 @@
                                     return 0;
                                 }
 
-                                $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items->sum('line_total'));
-                                $withholdingAmount = $sale->withholding_tax_amount === null
-                                    ? null
-                                    : (float) $sale->withholding_tax_amount;
-                                $withholdingTax = (float) ($sale->wholesale_withholding_tax ?? 0);
-                                $monthlySubtotal = $withholdingTax > 0
-                                    ? $withholdingTax
-                                    : (($withholdingAmount ?? 0) > 0 ? $withholdingAmount : $orderValue);
-
-                                return max(0, $monthlySubtotal);
+                                return $sale->wholesaleSubtotalAmount();
                             });
                             $monthShippingFees = $monthTransactions->sum('shipping_fee_amount');
                         @endphp
@@ -595,7 +589,7 @@
                     <dt class="col-6 text-muted mb-0">Refund amount</dt>
                     <dd class="col-6 text-end fw-bold text-danger mb-0" id="wholesaleRefundAmount"></dd>
                 </dl>
-                <div class="small text-muted mt-3">Order Value and Collected will both be set to ₱0.00. This cannot be undone.</div>
+                <div class="small text-muted mt-3">Total Order Value and Collected will both be set to ₱0.00. This cannot be undone.</div>
             </div>
             <div class="modal-footer border-0 pt-0">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
@@ -806,7 +800,7 @@
                                 <div class="fw-semibold text-primary">₱{{ number_format($kpiWithholdingAmount, 2) }}</div>
                             </div>
                             <div class="col-3">
-                                <div class="text-muted">Order Value</div>
+                                <div class="text-muted">Total Order Value</div>
                                 <div class="fw-semibold">₱{{ number_format($kpiOrderValue, 2) }}</div>
                             </div>
                         </div>
@@ -857,11 +851,16 @@
                 panel.append(heading, body);
                 return { panel, body };
             };
+            const humanizeStatus = status => (status || '')
+                .toLowerCase()
+                .split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
             const chipClass = (status, type) => {
-                const value = (status || '').toLowerCase();
+                const value = (status || '').toLowerCase().replace(/\s+/g, '_');
                 if (value === 'refunded' || value === 'cancelled' || value === 'rejected') return 'is-danger';
                 if (type === 'payment' && value === 'paid') return 'is-success';
-                if (type === 'delivery' && value === 'delivered') return 'is-success';
+                if (type === 'delivery' && ['delivered', 'picked_up'].includes(value)) return 'is-success';
                 if (value === 'pending' || value === 'unpaid' || value === 'partial' || value === 'preparing') return 'is-pending';
                 return '';
             };
@@ -869,7 +868,8 @@
                 const chip = document.createElement('span');
                 chip.className = `wholesale-modal-chip ${chipClass(label, type)}`;
                 const icon = document.createElement('i');
-                icon.className = `fa-solid ${label.toLowerCase() === 'paid' || label.toLowerCase() === 'delivered' ? 'fa-circle-check' : label.toLowerCase() === 'refunded' ? 'fa-circle-xmark' : 'fa-circle-info'}`;
+                const normalizedLabel = label.toLowerCase().replace(/\s+/g, '_');
+                icon.className = `fa-solid ${['paid', 'delivered', 'picked_up'].includes(normalizedLabel) ? 'fa-circle-check' : normalizedLabel === 'refunded' ? 'fa-circle-xmark' : 'fa-circle-info'}`;
                 const text = document.createElement('span');
                 text.textContent = label;
                 chip.append(icon, text);
@@ -962,9 +962,9 @@
                     subtitle.append(newTag);
                 }
                 statusChips.replaceChildren();
-                addStatusChip(paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1), 'payment');
-                addStatusChip(orderStatus.charAt(0).toUpperCase() + orderStatus.slice(1), 'order');
-                addStatusChip(deliveryStatus.charAt(0).toUpperCase() + deliveryStatus.slice(1), 'delivery');
+                addStatusChip(humanizeStatus(paymentStatus), 'payment');
+                addStatusChip(humanizeStatus(orderStatus), 'order');
+                addStatusChip(humanizeStatus(deliveryStatus), 'delivery');
                 updated.textContent = `Last updated by ${row.dataset.updatedBy || '—'} · ${row.dataset.updatedAt || 'Date unavailable'}`;
 
                 const financial = createPanel('Financial Summary', 'fa-chart-line', 'wholesale-financial-panel');
@@ -973,7 +973,7 @@
                 const withholdingCredit = withholdingTax > 0 ? withholdingTax : withholdingAmount;
                 const noWithholding = withholdingCredit <= 0;
                 financial.body.append(
-                    makeKpi('Order Value', money(orderValue), '', '#2563eb'),
+                    makeKpi('Total Order Value', money(orderValue), '', '#2563eb'),
                     makeKpi('Collected', money(amountCollected), '', '#16a34a'),
                     makeKpi('Shipping Fee', shippingFee > 0 ? money(shippingFee) : 'Free shipping', '', '#d97706'),
                     makeKpi(
@@ -1113,9 +1113,9 @@
                 const statusValue = text => {
                     const label = cleanValue(text);
                     const chip = document.createElement('span');
-                    const normalized = label.toLowerCase();
-                    const displayLabel = normalized.charAt(0).toUpperCase() + normalized.slice(1);
-                    const tone = ['paid', 'confirmed', 'delivered'].includes(normalized)
+                    const normalized = label.toLowerCase().replace(/\s+/g, '_');
+                    const displayLabel = humanizeStatus(normalized);
+                    const tone = ['paid', 'confirmed', 'delivered', 'picked_up'].includes(normalized)
                         ? 'is-success'
                         : ['unpaid', 'partial', 'pending', 'preparing', 'shipped'].includes(normalized)
                             ? 'is-pending'
@@ -1199,7 +1199,7 @@
                     const stage = document.createElement('div');
                     stage.className = 'wholesale-mop-stage';
                     const preview = document.createElement('div');
-                    preview.className = 'w-100';
+                    preview.className = 'wholesale-mop-preview-wrap';
                     const previous = document.createElement('button');
                     previous.type = 'button';
                     previous.className = 'wholesale-mop-arrow is-previous';
@@ -1215,7 +1215,33 @@
                     const captionLabel = document.createElement('strong');
                     const captionCount = document.createElement('span');
                     caption.append(captionLabel, captionCount);
+                    const toolbar = document.createElement('div');
+                    toolbar.className = 'wholesale-mop-toolbar';
+                    const zoomOut = document.createElement('button');
+                    zoomOut.type = 'button';
+                    zoomOut.className = 'btn btn-sm btn-outline-secondary';
+                    zoomOut.setAttribute('aria-label', 'Zoom out MOP attachment');
+                    zoomOut.innerHTML = '<i class="fa-solid fa-magnifying-glass-minus"></i>';
+                    const zoomLevel = document.createElement('span');
+                    zoomLevel.className = 'wholesale-mop-zoom-level';
+                    const zoomIn = document.createElement('button');
+                    zoomIn.type = 'button';
+                    zoomIn.className = 'btn btn-sm btn-outline-secondary';
+                    zoomIn.setAttribute('aria-label', 'Zoom in MOP attachment');
+                    zoomIn.innerHTML = '<i class="fa-solid fa-magnifying-glass-plus"></i>';
+                    toolbar.append(zoomOut, zoomLevel, zoomIn);
                     let activeAttachment = 0;
+                    let activeMedia = null;
+                    let zoom = 1;
+                    const updateZoom = () => {
+                        const isImage = mopAttachments[activeAttachment]?.kind === 'image';
+                        toolbar.classList.toggle('d-none', !isImage);
+                        if (!isImage || !activeMedia) return;
+                        activeMedia.style.transform = `scale(${zoom})`;
+                        zoomLevel.textContent = `${Math.round(zoom * 100)}%`;
+                        zoomOut.disabled = zoom <= 1;
+                        zoomIn.disabled = zoom >= 3;
+                    };
                     const showAttachment = index => {
                         activeAttachment = (index + mopAttachments.length) % mopAttachments.length;
                         const attachment = mopAttachments[activeAttachment];
@@ -1227,6 +1253,9 @@
                         media.title = attachment.label;
                         if (attachment.kind === 'image') media.alt = attachment.label;
                         preview.replaceChildren(media);
+                        activeMedia = media;
+                        zoom = 1;
+                        updateZoom();
                         captionLabel.textContent = attachment.label;
                         captionCount.textContent = `${activeAttachment + 1} of ${mopAttachments.length}`;
                         previous.disabled = mopAttachments.length < 2;
@@ -1234,8 +1263,16 @@
                     };
                     previous.addEventListener('click', () => showAttachment(activeAttachment - 1));
                     next.addEventListener('click', () => showAttachment(activeAttachment + 1));
+                    zoomOut.addEventListener('click', () => {
+                        zoom = Math.max(1, zoom - .25);
+                        updateZoom();
+                    });
+                    zoomIn.addEventListener('click', () => {
+                        zoom = Math.min(3, zoom + .25);
+                        updateZoom();
+                    });
                     stage.append(preview, previous, next);
-                    browser.append(stage, caption);
+                    browser.append(stage, toolbar, caption);
                     proofSlot.append(browser);
                     showAttachment(0);
                 } else {

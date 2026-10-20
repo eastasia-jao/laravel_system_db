@@ -993,7 +993,7 @@ class DashboardTest extends TestCase
         foreach ([
             ['UNPAID-1', 500, 'unpaid', 0, 'pending'],
             ['PARTIAL-1', 600, 'partial', 150, 'shipped'],
-            ['PAID-1', 700, 'paid', 700, 'delivered'],
+            ['PAID-1', 700, 'paid', 700, 'picked_up'],
         ] as [$number, $total, $paymentStatus, $amountPaid, $deliveryStatus]) {
             $sale = SalesTransaction::create([
                 'user_id' => $user->id, 'store_hub_id' => $hub->id, 'customer_name' => 'Wholesale Customer',
@@ -1007,13 +1007,13 @@ class DashboardTest extends TestCase
 
         $response = $this->actingAs($user)->get(route('dashboard', ['hub_id' => $hub->id, 'date' => '2026-09-18']));
         $response->assertOk();
-        $this->assertEquals(850, $response->viewData('salesTotals')['Daily']);
+        $this->assertEquals(1300, $response->viewData('salesTotals')['Daily']);
         $this->assertEquals(850, $response->viewData('matrix')->first()['amounts']['Cash']);
         $wholesale = $response->viewData('channelSummaries')->firstWhere('key', 'wholesale');
         $this->assertSame(2, (int) $wholesale['transactions']);
         $this->assertSame(1, (int) $wholesale['completed_transactions']);
         $this->assertSame(1, (int) $wholesale['partial_transactions']);
-        $this->assertEquals(850, $wholesale['total']);
+        $this->assertEquals(1300, $wholesale['total']);
         $this->assertSame(2, $response->viewData('topProducts')->first()['units']);
 
         $wholesaleStaff = User::factory()->create([
@@ -1026,10 +1026,21 @@ class DashboardTest extends TestCase
             ->assertOk()
             ->assertSee('<h3 class="mb-1">Sales Channels</h3>', false)
             ->assertSee('Wholesale Sales Overview')
+            ->assertSee('Subtotal')
             ->assertSee('Total collected')
             ->assertSee('850.00')
             ->assertDontSee('Branch Transaction Matrix')
             ->assertDontSee('TikTok Settlement Overview');
+        $this->assertEquals(1300, $wholesaleDashboard->viewData('channelSummaries')->firstWhere('key', 'wholesale')['total']);
+        $this->assertEquals(850, $wholesaleDashboard->viewData('channelPaymentOverview')['total']);
+
+        $report = $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']))->assertOk();
+        $document = new \DOMDocument;
+        @$document->loadHTML($report->getContent());
+        $xpath = new \DOMXPath($document);
+        $reportCollected = collect($xpath->query('//tr[@data-wholesale-order-row]'))
+            ->sum(fn (\DOMElement $row) => (float) $row->getAttribute('data-collected'));
+        $this->assertEquals($reportCollected, $wholesaleDashboard->viewData('channelPaymentOverview')['total']);
     }
 
     public function test_dashboard_excludes_tiktok_sales_from_totals_and_widgets(): void

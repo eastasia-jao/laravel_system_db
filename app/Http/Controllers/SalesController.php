@@ -51,7 +51,7 @@ class SalesController extends Controller
             'channel_type' => 'nullable|string',
             'status' => 'nullable|string|in:completed,pending',
             'payment_status' => ['nullable', Rule::in(['unpaid', 'partial', 'paid'])],
-            'delivery_status' => ['nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'])],
+            'delivery_status' => ['nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'picked_up', 'cancelled'])],
             'amount_paid' => 'nullable|numeric|min:0',
             'sales_after_transaction_fee' => 'nullable|numeric|min:0',
             'refund_shipping_fee' => 'nullable|numeric|min:0',
@@ -273,7 +273,7 @@ class SalesController extends Controller
             'withholding_tax' => 'nullable|numeric|between:0,100',
             'withholding_tax_amount' => 'nullable|numeric|min:0',
             'payment_status' => ['nullable', Rule::in(['unpaid', 'partial', 'paid'])],
-            'delivery_status' => ['nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'])],
+            'delivery_status' => ['nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'picked_up', 'cancelled'])],
             'amount_paid' => 'nullable|numeric|min:0',
             'sales_after_transaction_fee' => 'nullable|numeric|min:0',
             'refund_shipping_fee' => 'nullable|numeric|min:0',
@@ -978,7 +978,7 @@ class SalesController extends Controller
 
         $validated = $request->validate([
             'payment_status' => [Rule::requiredIf($channel !== 'online'), 'nullable', Rule::in(['unpaid', 'partial', 'paid'])],
-            'delivery_status' => [Rule::requiredIf(in_array($channel, ['wholesale', 'online'], true)), 'nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'cancelled'])],
+            'delivery_status' => [Rule::requiredIf(in_array($channel, ['wholesale', 'online'], true)), 'nullable', Rule::in(['pending', 'preparing', 'shipped', 'delivered', 'picked_up', 'cancelled'])],
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
             'withholding_tax_amount' => ['nullable', 'numeric', 'min:0'],
             'wholesale_withholding_tax' => ['nullable', 'numeric', 'min:0'],

@@ -86,10 +86,11 @@ class WholesalePaymentTest extends TestCase
         $this->get($report)->assertOk()->assertSee('PARTIAL')->assertViewHas('totalSales', 500.00);
 
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
-            'payment_status' => 'paid', 'amount_paid' => '47.20', 'delivery_status' => 'pending',
+            'payment_status' => 'paid', 'amount_paid' => '47.20', 'delivery_status' => 'picked_up',
         ])->assertRedirect($report)->assertSessionHasNoErrors()->assertSessionHas('success', 'Wholesale order changes saved successfully.');
         $this->assertSame('paid', $sale->fresh()->payment_status);
         $this->assertSame('547.20', $sale->fresh()->amount_paid);
+        $this->assertSame('picked_up', $sale->fresh()->delivery_status);
     }
 
     public function test_wholesale_refund_requires_all_items_returned_and_zeroes_sales_while_locking_order(): void
@@ -597,6 +598,8 @@ class WholesalePaymentTest extends TestCase
             ->assertSeeText('Replacement MOP Attachment')
             ->assertSee('Previous MOP attachment')
             ->assertSee('Next MOP attachment')
+            ->assertSee('Zoom out MOP attachment')
+            ->assertSee('Zoom in MOP attachment')
             ->assertDontSee('Open attachment 1')
             ->getContent();
 
@@ -624,6 +627,7 @@ class WholesalePaymentTest extends TestCase
         foreach ([
             ['OPEN-ORDER', 'partial', 50, 'shipped'],
             ['COMPLETED-ORDER', 'paid', 100, 'delivered'],
+            ['PICKED-UP-ORDER', 'paid', 100, 'picked_up'],
         ] as [$number, $paymentStatus, $amountPaid, $deliveryStatus]) {
             SalesTransaction::create([
                 'user_id' => $user->id,
@@ -643,13 +647,15 @@ class WholesalePaymentTest extends TestCase
         $base = ['hub' => $hub->id, 'channel' => 'wholesale'];
         $all = $this->actingAs($user)->get(route('hub.report', $base));
         $all->assertOk()->assertSee('Open Transactions')->assertSee('Completed Transactions')
-            ->assertSee('OPEN-ORDER')->assertSee('COMPLETED-ORDER')
-            ->assertViewHas('stateCounts', ['all' => 2, 'open' => 1, 'completed' => 1, 'refunded' => 0]);
+            ->assertSee('OPEN-ORDER')->assertSee('COMPLETED-ORDER')->assertSee('PICKED-UP-ORDER')
+            ->assertSee('Picked Up')
+            ->assertSee('Total Order Value')
+            ->assertViewHas('stateCounts', ['all' => 3, 'open' => 1, 'completed' => 2, 'refunded' => 0]);
 
         $this->get(route('hub.report', $base + ['transaction_state' => 'open']))
-            ->assertOk()->assertSee('OPEN-ORDER')->assertDontSee('COMPLETED-ORDER');
+            ->assertOk()->assertSee('OPEN-ORDER')->assertDontSee('COMPLETED-ORDER')->assertDontSee('PICKED-UP-ORDER');
         $this->get(route('hub.report', $base + ['transaction_state' => 'completed']))
-            ->assertOk()->assertSee('COMPLETED-ORDER')->assertDontSee('OPEN-ORDER');
+            ->assertOk()->assertSee('COMPLETED-ORDER')->assertSee('PICKED-UP-ORDER')->assertDontSee('OPEN-ORDER');
     }
 
     public function test_wholesale_report_hides_total_sales_and_preserves_collected_values(): void
@@ -847,7 +853,7 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('₱44.30', $scorecard);
         $this->assertStringNotContainsString('Total Collected', $scorecard);
         $this->assertStringNotContainsString('Withholding (separate)', $scorecard);
-        $this->assertStringContainsString('Order Value', $scorecard);
+        $this->assertStringContainsString('Total Order Value', $scorecard);
         $this->assertStringContainsString('₱1,342.80', $scorecard);
         $this->assertStringContainsString('₱0.00', $scorecard);
         $this->assertSame(1, $refundedOrders->length);
