@@ -95,6 +95,18 @@
     .wholesale-proof-empty-note { color: var(--wholesale-muted); font-size: .76rem; text-align: center; }
     .wholesale-proof-thumbnail { display: block; width: 88px; height: 64px; border-radius: 5px; object-fit: cover; }
     .wholesale-proof-document { color: var(--wholesale-blue); font-size: 2rem; }
+    .wholesale-mop-browser { display: grid; width: 100%; min-width: 0; gap: .55rem; }
+    .wholesale-mop-stage { position: relative; display: grid; min-height: 230px; place-items: center; overflow: hidden; border: 1px solid #dbe3ee; border-radius: 8px; background: #eef2f7; }
+    .wholesale-mop-preview-image, .wholesale-mop-preview-document { display: block; width: 100%; height: 230px; border: 0; background: #fff; }
+    .wholesale-mop-preview-image { object-fit: contain; }
+    .wholesale-mop-arrow { position: absolute; top: 50%; z-index: 2; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .72); transform: translateY(-50%); }
+    .wholesale-mop-arrow:hover:not(:disabled) { background: rgba(37, 99, 235, .92); }
+    .wholesale-mop-arrow:disabled { display: none; }
+    .wholesale-mop-arrow.is-previous { left: .55rem; }
+    .wholesale-mop-arrow.is-next { right: .55rem; }
+    .wholesale-mop-caption { display: flex; align-items: center; justify-content: space-between; gap: .65rem; color: #334155; font-size: .75rem; }
+    .wholesale-mop-caption strong { color: #1e3a8a; }
+    .wholesale-mop-attachment-data { display: none; }
     .wholesale-payment-proof-slot .wholesale-proof-upload { width: 100%; }
     .wholesale-payment-proof-slot .wholesale-proof-dropzone { min-height: 80px; }
     .wholesale-detail-payment .payment-proof-empty { display: none; }
@@ -321,10 +333,7 @@
                                                             <span class="d-block text-muted">Payment reference: {{ $replacement->exchange_payment_reference }}</span>
                                                         @endif
                                                         @if($replacement->exchange_payment_proofs)
-                                                            <span class="d-block text-muted">Payment proof attachments:</span>
-                                                            @foreach($replacement->exchange_payment_proofs as $proofIndex => $proof)
-                                                                <a href="{{ route('hub.report.replacement-attachment', ['hub' => $hub->id, 'replacement' => $replacement->id, 'type' => 'payment-proof', 'index' => $proofIndex]) }}" target="_blank" rel="noopener" class="d-block">Open attachment {{ $proofIndex + 1 }}</a>
-                                                            @endforeach
+                                                            <span class="d-block text-muted"><i class="fa-regular fa-images me-1"></i>Replacement MOP attachment included in the Payment preview.</span>
                                                         @endif
                                                         @if($replacement->replacement_order_slip)
                                                             <a href="{{ route('hub.report.replacement-attachment', ['hub' => $hub->id, 'replacement' => $replacement->id, 'type' => 'replacement-slip', 'index' => 0]) }}" target="_blank" rel="noopener" class="d-block">Open replacement order slip</a>
@@ -377,7 +386,7 @@
                             {{ $transaction->mode_of_payment ?: '—' }}
                             <details class="mt-1">
                                 <summary class="small text-primary" style="cursor: pointer;">Payment proof</summary>
-                                <div class="mt-2" style="min-width: 260px;">@include('hubs.reports._payment-proof', ['paymentRecord' => $transaction])</div>
+                                <div class="mt-2" style="min-width: 260px;">@include('hubs.reports._wholesale-mop-attachments', ['paymentRecord' => $transaction])</div>
                             </details>
                         </td>
                         <td class="text-end fw-bold">₱{{ number_format($total, 2) }}</td>
@@ -1168,35 +1177,69 @@
                 paymentMethodLabel.className = 'wholesale-detail-label';
                 paymentMethodLabel.textContent = 'Mode of Payment';
                 const paymentMethodValue = document.createElement('strong');
-                paymentMethodValue.textContent = cleanValue([...paymentValue.childNodes]
+                paymentMethodValue.textContent = cleanValue([...cells[2].childNodes]
                     .filter(node => node.nodeType === Node.TEXT_NODE)
                     .map(node => node.textContent).join(' ')).toUpperCase() || 'NOT SPECIFIED';
                 paymentMethod.append(paymentMethodLabel, paymentMethodValue);
                 const proofSlot = document.createElement('div');
                 proofSlot.className = 'wholesale-payment-proof-slot';
-                const proofLink = proofDetails?.querySelector('a[href]');
-                if (proofLink) {
-                    const image = proofLink.querySelector('img');
-                    if (image) {
-                        const thumbnail = image.cloneNode(true);
-                        thumbnail.className = 'wholesale-proof-thumbnail';
-                        proofSlot.append(thumbnail);
-                    } else {
-                        const documentIcon = document.createElement('i');
-                        documentIcon.className = 'fa-solid fa-file-lines wholesale-proof-document';
-                        proofSlot.append(documentIcon);
-                    }
-                    const viewProof = document.createElement('a');
-                    viewProof.className = 'btn btn-sm btn-outline-primary';
-                    viewProof.href = proofLink.href;
-                    viewProof.target = '_blank';
-                    viewProof.rel = 'noopener';
-                    viewProof.innerHTML = '<i class="fa-solid fa-eye me-1"></i>View';
-                    proofSlot.append(viewProof);
+                const mopAttachments = [...(proofDetails?.querySelectorAll('[data-wholesale-mop-attachment]') || [])]
+                    .map(attachment => ({
+                        url: attachment.dataset.proofUrl,
+                        label: attachment.dataset.proofLabel,
+                        kind: attachment.dataset.proofKind,
+                    }))
+                    .filter(attachment => attachment.url);
+                const hasProofAttachments = mopAttachments.length > 0;
+                if (hasProofAttachments) {
+                    const browser = document.createElement('div');
+                    browser.className = 'wholesale-mop-browser';
+                    const stage = document.createElement('div');
+                    stage.className = 'wholesale-mop-stage';
+                    const preview = document.createElement('div');
+                    preview.className = 'w-100';
+                    const previous = document.createElement('button');
+                    previous.type = 'button';
+                    previous.className = 'wholesale-mop-arrow is-previous';
+                    previous.setAttribute('aria-label', 'Previous MOP attachment');
+                    previous.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                    const next = document.createElement('button');
+                    next.type = 'button';
+                    next.className = 'wholesale-mop-arrow is-next';
+                    next.setAttribute('aria-label', 'Next MOP attachment');
+                    next.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                    const caption = document.createElement('div');
+                    caption.className = 'wholesale-mop-caption';
+                    const captionLabel = document.createElement('strong');
+                    const captionCount = document.createElement('span');
+                    caption.append(captionLabel, captionCount);
+                    let activeAttachment = 0;
+                    const showAttachment = index => {
+                        activeAttachment = (index + mopAttachments.length) % mopAttachments.length;
+                        const attachment = mopAttachments[activeAttachment];
+                        const media = document.createElement(attachment.kind === 'image' ? 'img' : 'iframe');
+                        media.className = attachment.kind === 'image'
+                            ? 'wholesale-mop-preview-image'
+                            : 'wholesale-mop-preview-document';
+                        media.src = attachment.url;
+                        media.title = attachment.label;
+                        if (attachment.kind === 'image') media.alt = attachment.label;
+                        preview.replaceChildren(media);
+                        captionLabel.textContent = attachment.label;
+                        captionCount.textContent = `${activeAttachment + 1} of ${mopAttachments.length}`;
+                        previous.disabled = mopAttachments.length < 2;
+                        next.disabled = mopAttachments.length < 2;
+                    };
+                    previous.addEventListener('click', () => showAttachment(activeAttachment - 1));
+                    next.addEventListener('click', () => showAttachment(activeAttachment + 1));
+                    stage.append(preview, previous, next);
+                    browser.append(stage, caption);
+                    proofSlot.append(browser);
+                    showAttachment(0);
                 } else {
                     const proofNote = document.createElement('span');
                     proofNote.className = 'wholesale-proof-empty-note';
-                    proofNote.innerHTML = '<i class="fa-regular fa-circle-xmark me-1"></i>No payment proof attached';
+                    proofNote.innerHTML = '<i class="fa-regular fa-circle-xmark me-1"></i>No MOP attachment recorded';
                     paymentMethod.append(proofNote);
                 }
                 paymentLayout.append(paymentMethod, proofSlot);
@@ -1262,7 +1305,7 @@
                     proofDetails.open = true;
                     proofDetails.classList.add('d-block');
                 }
-                if (uploadPanel && !proofLink) {
+                if (uploadPanel && !hasProofAttachments) {
                     uploadPanel.classList.remove('d-none');
                     uploadPanel.querySelector('.wholesale-proof-input')?.setAttribute('form', statusForm.id);
                     proofSlot.replaceChildren(uploadPanel);

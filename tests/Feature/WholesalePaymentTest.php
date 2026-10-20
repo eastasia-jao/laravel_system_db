@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\SalesTransaction;
+use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\ProductReplacement;
 use App\Models\ProductStockAllocation;
-use App\Models\InventoryTransaction;
+use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -57,7 +57,7 @@ class WholesalePaymentTest extends TestCase
         $this->assertStringContainsString('Upload payment proof', $html);
         $this->assertStringNotContainsString('Print Invoice', $html);
         $this->assertStringContainsString('wholesaleDetailsFooterActions', $html);
-        $this->assertStringContainsString("footerActions?.prepend(refundForm)", $html);
+        $this->assertStringContainsString('footerActions?.prepend(refundForm)', $html);
         $this->assertStringContainsString('wholesale-save-button', $html);
         $this->from($report)->patch(route('sales.status.update', $sale->id), [
             'payment_status' => 'unpaid', 'amount_paid' => '10.00', 'delivery_status' => 'pending',
@@ -554,6 +554,67 @@ class WholesalePaymentTest extends TestCase
             ]))
             ->assertOk()
             ->assertStreamedContent('replacement payment proof');
+    }
+
+    public function test_wholesale_report_combines_recorded_sale_and_replacement_mop_attachments_in_inline_preview(): void
+    {
+        Storage::fake('public');
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-PREVIEW', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $original = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'PREVIEW-ORIG', 'name' => 'Original Item', 'stock' => 1, 'status' => 'active']);
+        $replacementProduct = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'PREVIEW-REPL', 'name' => 'Replacement Item', 'stock' => 1, 'status' => 'active']);
+        $recordedProof = 'proofs_of_payment/recorded-sale.png';
+        $replacementProof = 'exchange_payment_proofs/replacement.png';
+        Storage::disk('public')->put($recordedProof, 'recorded sale proof');
+        Storage::disk('public')->put($replacementProof, 'replacement proof');
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'customer_name' => 'Preview Customer',
+            'order_number' => 'PREVIEW-1',
+            'order_date' => '2026-10-20',
+            'grand_total' => 100,
+            'status' => 'confirmed',
+            'proof_of_payment' => $recordedProof,
+        ]);
+        $item = $sale->items()->create(['product_id' => $original->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100]);
+        $replacement = ProductReplacement::create([
+            'transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'original_product_id' => $original->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'exchange_payment_amount' => 10,
+            'exchange_payment_proofs' => [$replacementProof],
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']))
+            ->assertOk()
+            ->assertSeeText('Record Sales MOP Attachment')
+            ->assertSeeText('Replacement MOP Attachment')
+            ->assertSee('Previous MOP attachment')
+            ->assertSee('Next MOP attachment')
+            ->assertDontSee('Open attachment 1')
+            ->getContent();
+
+        $document = new \DOMDocument;
+        @$document->loadHTML($html);
+        $xpath = new \DOMXPath($document);
+        $attachments = $xpath->query('//tr[@data-wholesale-order-row="'.$sale->id.'"]//*[@data-wholesale-mop-attachment]');
+
+        $this->assertSame(2, $attachments->length);
+        $this->assertSame('Record Sales MOP Attachment', $attachments->item(0)->getAttribute('data-proof-label'));
+        $this->assertSame(Storage::disk('public')->url($recordedProof), $attachments->item(0)->getAttribute('data-proof-url'));
+        $this->assertSame('Replacement MOP Attachment', $attachments->item(1)->getAttribute('data-proof-label'));
+        $this->assertSame(route('hub.report.replacement-attachment', [
+            'hub' => $hub->id,
+            'replacement' => $replacement->id,
+            'type' => 'payment-proof',
+            'index' => 0,
+        ]), $attachments->item(1)->getAttribute('data-proof-url'));
     }
 
     public function test_wholesale_report_filters_open_and_completed_transactions(): void
