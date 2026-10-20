@@ -35,9 +35,24 @@
     .review-items-modal .modal-body { padding: 1.25rem; background: #f8fafc; }
     .review-items-modal .order-slip-panel,
     .review-items-modal .order-summary-panel { height: 100%; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; padding: 1rem; }
-    .review-items-modal .order-slip-preview { display: flex; width: 100%; min-height: 300px; height: clamp(300px, 55vh, 600px); align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: #f1f5f9; }
+    .review-items-modal .order-slip-content { display: flex; align-items: center; gap: 1rem; }
+    .review-items-modal .order-slip-preview { display: flex; width: 190px; height: 132px; flex: 0 0 190px; align-items: center; justify-content: center; overflow: hidden; padding: .35rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f1f5f9; cursor: zoom-in; }
     .review-items-modal .order-slip-image { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
-    .review-items-modal .order-slip-pdf { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+    .review-items-modal .order-slip-pdf-placeholder { display: grid; width: 100%; height: 100%; place-items: center; color: #dc3545; font-size: 2.5rem; }
+    .review-items-modal .order-slip-action { min-width: 0; }
+    .pending-attachment-viewer { position: relative; width: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); padding: 1rem; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+    .pending-attachment-viewer::backdrop { background: rgba(15, 23, 42, .88); }
+    .pending-attachment-viewer img[hidden],
+    .pending-attachment-viewer iframe[hidden] { display: none; }
+    .pending-attachment-viewer img { display: block; max-width: calc(100vw - 4rem); max-height: calc(100vh - 6rem); object-fit: contain; }
+    .pending-attachment-viewer iframe { display: block; width: min(1000px, calc(100vw - 4rem)); height: min(800px, calc(100vh - 6rem)); border: 0; background: #fff; }
+    .pending-attachment-viewer-close { position: absolute; top: .45rem; right: .45rem; z-index: 1; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .8); }
+    .pending-attachment-viewer-close:hover { background: #2563eb; }
+    @supports (height: 100dvh) {
+        .pending-attachment-viewer { max-height: calc(100dvh - 2rem); }
+        .pending-attachment-viewer img { max-height: calc(100dvh - 6rem); }
+        .pending-attachment-viewer iframe { height: min(800px, calc(100dvh - 6rem)); }
+    }
     .review-items-modal .order-summary-panel { background: linear-gradient(145deg, #fff, #f8fbff); }
     .review-items-modal .order-summary-title { color: #64748b; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     .review-items-modal .order-summary-line { display: flex; justify-content: space-between; gap: 1rem; padding: .45rem 0; border-bottom: 1px solid #edf2f7; font-size: .84rem; }
@@ -56,6 +71,9 @@
         .review-items-modal .modal-dialog { max-width: calc(100vw - 1rem); margin: .5rem auto; }
         .review-items-modal .modal-body { padding: .75rem; }
         .review-items-modal .order-slip-panel, .review-items-modal .order-summary-panel { padding: .8rem; }
+        .review-items-modal .order-slip-content { align-items: flex-start; }
+        .review-items-modal .order-slip-preview { width: min(38vw, 160px); height: 112px; flex-basis: min(38vw, 160px); }
+        .pending-attachment-viewer iframe { width: calc(100vw - 4rem); }
     }
 </style>
 
@@ -377,16 +395,20 @@
                         @if($sale->order_slip)
                             @php $orderSlipIsPdf = strtolower(pathinfo($sale->order_slip, PATHINFO_EXTENSION)) === 'pdf'; @endphp
                             <div class="order-slip-panel mb-3">
-                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                                    <h6 class="fw-bold mb-0">Order Attachment</h6>
-                                    <a href="{{ route('sales.order-slip', $sale->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">Open full size</a>
-                                </div>
-                                <div class="order-slip-preview">
-                                    @if($orderSlipIsPdf)
-                                        <iframe src="{{ route('sales.order-slip', $sale->id) }}" class="order-slip-pdf" title="Order attachment for {{ $sale->invoice_number ?: 'Order #'.$sale->id }}"></iframe>
-                                    @else
-                                        <img src="{{ route('sales.order-slip', $sale->id) }}" class="order-slip-image" alt="Order attachment for {{ $sale->invoice_number ?: 'Order #'.$sale->id }}" loading="lazy">
-                                    @endif
+                                <h6 class="fw-bold mb-3"><i class="fa-solid fa-paperclip me-2 text-primary"></i>Order Attachment</h6>
+                                <div class="order-slip-content">
+                                    <button type="button" class="order-slip-preview" data-order-attachment-preview data-attachment-type="{{ $orderSlipIsPdf ? 'pdf' : 'image' }}" data-attachment-url="{{ route('sales.order-slip', $sale->id) }}" data-attachment-title="Order attachment for {{ $sale->invoice_number ?: 'Order #'.$sale->id }}" aria-label="Preview order attachment for {{ $sale->invoice_number ?: 'Order #'.$sale->id }}">
+                                        @if($orderSlipIsPdf)
+                                            <span class="order-slip-pdf-placeholder"><i class="fa-solid fa-file-pdf"></i></span>
+                                        @else
+                                            <img src="{{ route('sales.order-slip', $sale->id) }}" class="order-slip-image" alt="" loading="lazy">
+                                        @endif
+                                    </button>
+                                    <div class="order-slip-action">
+                                        <div class="fw-semibold mb-1">{{ $orderSlipIsPdf ? 'PDF order attachment' : 'Order image' }}</div>
+                                        <div class="small text-muted mb-2">Preview the attachment without leaving this page.</div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-order-attachment-preview data-attachment-type="{{ $orderSlipIsPdf ? 'pdf' : 'image' }}" data-attachment-url="{{ route('sales.order-slip', $sale->id) }}" data-attachment-title="Order attachment for {{ $sale->invoice_number ?: 'Order #'.$sale->id }}"><i class="fa-solid fa-magnifying-glass-plus me-1"></i>Preview attachment</button>
+                                    </div>
                                 </div>
                             </div>
                         @endif
@@ -609,6 +631,14 @@
     @endforeach
 @endif
 
+<dialog class="pending-attachment-viewer" id="pendingAttachmentViewer" aria-label="Order attachment preview">
+    <button type="button" class="pending-attachment-viewer-close" aria-label="Close attachment preview">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <img alt="" hidden>
+    <iframe title="Order attachment preview" hidden></iframe>
+</dialog>
+
 <!-- Custom Confirmation Modal matching JS reference IDs -->
 <div class="modal fade" id="customConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -636,6 +666,38 @@
                 row.classList.add('custom-table-row');
             }
         });
+
+        const attachmentViewer = document.getElementById('pendingAttachmentViewer');
+        const attachmentImage = attachmentViewer?.querySelector('img');
+        const attachmentFrame = attachmentViewer?.querySelector('iframe');
+        const attachmentClose = attachmentViewer?.querySelector('.pending-attachment-viewer-close');
+        if (attachmentViewer && attachmentImage && attachmentFrame && attachmentClose) {
+            document.addEventListener('click', event => {
+                const trigger = event.target.closest('[data-order-attachment-preview]');
+                if (!trigger) return;
+
+                const isPdf = trigger.dataset.attachmentType === 'pdf';
+                const attachmentUrl = trigger.dataset.attachmentUrl;
+                attachmentImage.hidden = isPdf;
+                attachmentFrame.hidden = !isPdf;
+                if (isPdf) {
+                    attachmentFrame.src = attachmentUrl;
+                } else {
+                    attachmentImage.src = attachmentUrl;
+                    attachmentImage.alt = trigger.dataset.attachmentTitle || 'Order attachment preview';
+                }
+                attachmentViewer.showModal();
+            });
+            attachmentClose.addEventListener('click', () => attachmentViewer.close());
+            attachmentViewer.addEventListener('click', event => {
+                if (event.target === attachmentViewer) attachmentViewer.close();
+            });
+            attachmentViewer.addEventListener('close', () => {
+                attachmentImage.removeAttribute('src');
+                attachmentImage.alt = '';
+                attachmentFrame.removeAttribute('src');
+            });
+        }
 
         // Intercept confirm forms to use the custom confirmation modal
         document.querySelectorAll('.confirm-form').forEach(form => {

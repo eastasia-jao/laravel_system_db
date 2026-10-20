@@ -143,8 +143,11 @@ class SalesOrderAttachmentTest extends TestCase
             ->assertOk()
             ->assertDontSee('Preview Order Attachment')
             ->assertSee('class="order-slip-preview"', false)
-            ->assertSee('class="order-slip-pdf"', false)
-            ->assertSee('class="order-slip-image"', false);
+            ->assertSee('class="order-slip-pdf-placeholder"', false)
+            ->assertSee('class="order-slip-image"', false)
+            ->assertSee('data-attachment-type="pdf"', false)
+            ->assertSee('id="pendingAttachmentViewer"', false)
+            ->assertDontSee('Open full size');
 
         $this->get(route('sales.order-slip', $sales[0]->id))->assertOk();
         $this->get(route('sales.order-slip', $sales[1]->id))

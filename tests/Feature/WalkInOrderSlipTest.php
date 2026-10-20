@@ -48,7 +48,10 @@ class WalkInOrderSlipTest extends TestCase
         $this->assertEquals(10, $product->fresh()->stock);
         $inventory = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
         $this->actingAs($inventory)->get(route('sales.pending'))->assertOk()
-            ->assertSee('Open full size')
+            ->assertSee('Preview attachment')
+            ->assertDontSee('Open full size')
+            ->assertSee('data-order-attachment-preview', false)
+            ->assertSee('pending-attachment-viewer', false)
             ->assertDontSee('Preview Order Attachment')
             ->assertSee('Awaiting Inventory Verification')
             ->assertSee('review-items-modal', false)
