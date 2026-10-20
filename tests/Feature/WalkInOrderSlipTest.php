@@ -18,7 +18,8 @@ class WalkInOrderSlipTest extends TestCase
 
     public function test_walk_in_order_slip_is_available_during_verification_and_preserved(): void
     {
-        Storage::fake('local');
+        config(['filesystems.attachment_disks.sales' => 'sales-attachments']);
+        Storage::fake('sales-attachments');
         $hub = StoreHub::create(['name' => 'Branch', 'code' => 'BR', 'status' => 'active', 'is_head_office' => false]);
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $hub->id]);
         $product = Product::create(['item_id' => 'SLIP-1', 'name' => 'Slip Product', 'store_hub_id' => $hub->id, 'sales_price' => 100, 'stock' => 10, 'status' => 'active']);
@@ -43,7 +44,7 @@ class WalkInOrderSlipTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
         $sale = PendingSale::sole();
         $this->assertSame('WALK-IN001', $sale->invoice_number);
-        Storage::disk('local')->assertExists($sale->order_slip);
+        Storage::disk('sales-attachments')->assertExists($sale->order_slip);
         $this->assertEquals(10, $product->fresh()->stock);
         $inventory = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
         $this->actingAs($inventory)->get(route('sales.pending'))->assertOk()

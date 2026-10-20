@@ -39,7 +39,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_report_submits_partial_payment_status_and_amount(): void
     {
-        config(['filesystems.attachments' => 'wholesale-attachments']);
+        config(['filesystems.attachment_disks.sales' => 'wholesale-attachments']);
         Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
@@ -411,7 +411,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_partial_wholesale_replacement_charges_only_the_revised_balance_including_shipping(): void
     {
-        config(['filesystems.attachments' => 'wholesale-attachments']);
+        config(['filesystems.attachment_disks.sales' => 'wholesale-attachments']);
         Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Exchange', 'code' => 'WH-EX', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['role' => 'admin']);
@@ -545,7 +545,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_replacement_payment_proof_is_served_from_the_configured_attachment_disk(): void
     {
-        config(['filesystems.attachments' => 'wholesale-attachments']);
+        config(['filesystems.attachment_disks.sales' => 'wholesale-attachments']);
         Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -586,7 +586,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_recorded_wholesale_payment_proof_is_served_through_the_protected_route(): void
     {
-        config(['filesystems.attachments' => 'wholesale-attachments']);
+        config(['filesystems.attachment_disks.sales' => 'wholesale-attachments']);
         Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-ORIGINAL-PROOF', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -615,7 +615,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_empty_recorded_wholesale_payment_proof_shows_reupload_message_instead_of_broken_preview(): void
     {
-        config(['filesystems.attachments' => 'public']);
+        config(['filesystems.attachment_disks.sales' => 'public']);
         Storage::fake('public');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-EMPTY-PROOF', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -647,7 +647,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_wholesale_report_displays_saved_s3_proofs_without_head_requests(): void
     {
-        config(['filesystems.attachments' => 'wholesale-attachments']);
+        config(['filesystems.attachment_disks.sales' => 'wholesale-attachments']);
         config(['filesystems.disks.wholesale-attachments.driver' => 's3']);
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-HEAD-ERROR', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -720,7 +720,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_wholesale_report_combines_recorded_sale_and_replacement_mop_attachments_in_inline_preview(): void
     {
-        config(['filesystems.attachments' => 'wholesale-attachments']);
+        config(['filesystems.attachment_disks.sales' => 'wholesale-attachments']);
         Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-PREVIEW', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);

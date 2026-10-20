@@ -11,8 +11,31 @@ use Symfony\Component\Mime\MimeTypes;
 
 final class AttachmentResponse
 {
-    public static function inline(FilesystemAdapter $disk, string $path): StreamedResponse
-    {
+    public static function inline(
+        FilesystemAdapter $disk,
+        string $path,
+        ?string $filename = null,
+        array $headers = []
+    ): StreamedResponse {
+        return self::stream($disk, $path, HeaderUtils::DISPOSITION_INLINE, $filename, $headers);
+    }
+
+    public static function download(
+        FilesystemAdapter $disk,
+        string $path,
+        ?string $filename = null,
+        array $headers = []
+    ): StreamedResponse {
+        return self::stream($disk, $path, HeaderUtils::DISPOSITION_ATTACHMENT, $filename, $headers);
+    }
+
+    private static function stream(
+        FilesystemAdapter $disk,
+        string $path,
+        string $disposition,
+        ?string $filename,
+        array $headers
+    ): StreamedResponse {
         try {
             $stream = $disk->readStream($path);
         } catch (FilesystemException|S3Exception $exception) {
@@ -25,7 +48,7 @@ final class AttachmentResponse
             abort(503, 'Attachment storage did not return a readable file stream.');
         }
 
-        $filename = basename($path);
+        $filename = $filename ?: basename($path);
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         $contentType = MimeTypes::getDefault()->getMimeTypes($extension)[0] ?? 'application/octet-stream';
 
@@ -35,14 +58,14 @@ final class AttachmentResponse
                 fclose($stream);
             },
             200,
-            [
+            array_merge([
                 'Content-Type' => $contentType,
                 'Content-Disposition' => HeaderUtils::makeDisposition(
-                    HeaderUtils::DISPOSITION_INLINE,
+                    $disposition,
                     $filename,
                     $filename
                 ),
-            ]
+            ], $headers)
         );
     }
 }

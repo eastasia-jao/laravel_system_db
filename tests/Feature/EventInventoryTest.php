@@ -116,7 +116,8 @@ class EventInventoryTest extends TestCase
 
     public function test_event_sale_reduces_only_event_stock_and_return_limit_accounts_for_sold_items(): void
     {
-        Storage::fake('public');
+        config(['filesystems.attachment_disks.events' => 'event-attachments']);
+        Storage::fake('event-attachments');
         [$admin, $hub, $product] = $this->eventFixture();
         $event = $this->createEvent($admin, $hub, $product, 5);
         $line = $event->items()->sole();
@@ -166,7 +167,7 @@ class EventInventoryTest extends TestCase
         $this->assertCount(3, $sale->event_attachments['item_images']);
         $this->assertNotEmpty($sale->event_attachments['proof_of_payment']);
         foreach (collect($sale->event_attachments)->flatten() as $attachment) {
-            Storage::disk('public')->assertExists($attachment);
+            Storage::disk('event-attachments')->assertExists($attachment);
         }
         $this->assertEquals(10.00, $sale->items()->sole()->discount_percentage);
         $this->assertEquals(150.00, $sale->items()->sole()->unit_price);
@@ -189,6 +190,11 @@ class EventInventoryTest extends TestCase
             ->assertSee('Order Slip Image')
             ->assertSee('Item Images')
             ->assertSee('Proof of Payment');
+        $this->get(route('event-inventory.sales.attachment', [
+            'transaction' => $sale->id,
+            'type' => 'order-slip',
+            'index' => 0,
+        ]))->assertOk();
 
         $this->getJson(route('inventory-transactions.return.sales', [
             'hub_id' => $hub->id,

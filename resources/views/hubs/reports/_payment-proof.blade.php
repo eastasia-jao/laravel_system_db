@@ -1,7 +1,12 @@
 @php
     $paymentRecord = $paymentRecord ?? null;
     $proofPath = $paymentRecord?->proof_of_payment ?? $paymentRecord?->payment_proof;
-    $proofUrl = $proofPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($proofPath) : null;
+    $proofUrl = $proofPath ? route('hub.report.sales-attachment', [
+        'hub' => $hub->id,
+        'transaction' => $paymentRecord->id,
+        'type' => 'payment-proof',
+        'index' => 0,
+    ]) : null;
     $checkDate = $paymentRecord?->check_date;
     $orderDate = $paymentRecord?->order_date ?? $paymentRecord?->placed_order_date;
     $checkType = null;
@@ -46,7 +51,12 @@
             @if($paymentRecord->{$proofField})
                 <div class="mt-3 fw-semibold">{{ $proofLabel }}</div>
                 @foreach($paymentRecord->{$proofField} as $proofIndex => $attachment)
-                    <a class="d-inline-block me-2 mt-1" href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($attachment) }}" target="_blank" rel="noopener">Open attachment {{ $proofIndex + 1 }}</a>
+                    <a class="d-inline-block me-2 mt-1" href="{{ route('hub.report.sales-attachment', [
+                        'hub' => $hub->id,
+                        'transaction' => $paymentRecord->id,
+                        'type' => $proofField === 'quotation_proofs' ? 'quotation-proof' : 'walkin-payment-proof',
+                        'index' => $proofIndex,
+                    ]) }}" target="_blank" rel="noopener">Open attachment {{ $proofIndex + 1 }}</a>
                 @endforeach
             @endif
         @endforeach

@@ -8,6 +8,9 @@ use App\Models\InventoryTransaction;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\TransactionItem;
+use App\Support\AttachmentAvailability;
+use App\Support\AttachmentResponse;
+use App\Support\AttachmentStorage;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -156,17 +159,17 @@ class EventInventoryController extends Controller
         try {
             if ($request->hasFile('order_slip_image')) {
                 $attachmentPaths['order_slip'] = $request->file('order_slip_image')
-                    ->store('event_sale_attachments/order_slips', 'public');
+                    ->store('event_sale_attachments/order_slips', AttachmentStorage::diskName(AttachmentStorage::EVENTS));
                 $storedAttachmentPaths[] = $attachmentPaths['order_slip'];
             }
             foreach ($request->file('item_images', []) as $attachment) {
-                $path = $attachment->store('event_sale_attachments/items', 'public');
+                $path = $attachment->store('event_sale_attachments/items', AttachmentStorage::diskName(AttachmentStorage::EVENTS));
                 $attachmentPaths['item_images'][] = $path;
                 $storedAttachmentPaths[] = $path;
             }
             if ($request->hasFile('proof_of_payment_image')) {
                 $attachmentPaths['proof_of_payment'] = $request->file('proof_of_payment_image')
-                    ->store('event_sale_attachments/payment_proofs', 'public');
+                    ->store('event_sale_attachments/payment_proofs', AttachmentStorage::diskName(AttachmentStorage::EVENTS));
                 $storedAttachmentPaths[] = $attachmentPaths['proof_of_payment'];
             }
 
@@ -328,7 +331,7 @@ class EventInventoryController extends Controller
             });
         } catch (\Throwable $exception) {
             foreach ($storedAttachmentPaths as $attachmentPath) {
-                Storage::disk('public')->delete($attachmentPath);
+                AttachmentStorage::disk(AttachmentStorage::EVENTS)->delete($attachmentPath);
             }
 
             throw $exception;
@@ -338,6 +341,32 @@ class EventInventoryController extends Controller
             'hub_id' => $eventPullout->store_hub_id,
             'status' => 'open',
         ])->with('success', "Event sale {$sale->order_number} recorded successfully.");
+    }
+
+    public function saleAttachment(SalesTransaction $transaction, string $type, int $index = 0)
+    {
+        abort_unless($transaction->channel_type === 'event', 404);
+        abort_unless(auth()->user()?->canAccessHub((int) $transaction->store_hub_id), 403);
+
+        $attachments = $transaction->event_attachments ?? [];
+        $path = match ($type) {
+            'order-slip' => $index === 0 ? ($attachments['order_slip'] ?? null) : null,
+            'item-image' => $attachments['item_images'][$index] ?? null,
+            'payment-proof' => $index === 0 ? ($attachments['proof_of_payment'] ?? null) : null,
+            'image' => $attachments[$index] ?? null,
+            default => null,
+        };
+        abort_unless(is_string($path) && $path !== '', 404);
+
+        $diskName = AttachmentStorage::diskName(AttachmentStorage::EVENTS);
+        $disk = Storage::disk($diskName);
+        $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
+            ? true
+            : AttachmentAvailability::check($disk, $path);
+        abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
+        abort_unless($availability, 404, 'The Event attachment is missing or empty.');
+
+        return AttachmentResponse::inline($disk, $path);
     }
 
     public function close(Request $request, EventPullout $eventPullout)

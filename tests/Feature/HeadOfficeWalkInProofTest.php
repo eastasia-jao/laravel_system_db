@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\PendingSale;
 use App\Models\Product;
+use App\Models\SalesPaymentRecord;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -18,7 +19,7 @@ class HeadOfficeWalkInProofTest extends TestCase
 
     public function test_wholesale_record_sale_saves_payment_proof_to_the_configured_attachment_disk(): void
     {
-        config(['filesystems.attachments' => 'wholesale-attachments']);
+        config(['filesystems.attachment_disks.sales' => 'wholesale-attachments']);
         Storage::fake('public');
         Storage::fake('wholesale-attachments');
         $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-WH-PROOF', 'status' => 'active', 'is_head_office' => true]);
@@ -42,6 +43,38 @@ class HeadOfficeWalkInProofTest extends TestCase
         $this->assertNotNull($pendingSale->payment_proof);
         Storage::disk('wholesale-attachments')->assertExists($pendingSale->payment_proof);
         Storage::disk('public')->assertMissing($pendingSale->payment_proof);
+    }
+
+    public function test_walk_in_payment_record_proof_is_served_from_the_configured_attachment_disk(): void
+    {
+        config(['filesystems.attachment_disks.sales' => 'sales-attachments']);
+        Storage::fake('sales-attachments');
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-WALKIN-PROOF', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
+        $sale = SalesTransaction::create([
+            'user_id' => $user->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'walk_in',
+            'order_number' => 'WALK-IN-PROOF-1',
+            'customer_name' => 'Walk-In Proof Customer',
+            'order_date' => '2026-10-20',
+            'grand_total' => 100,
+        ]);
+        $path = 'proofs_of_payment/walk-in-payment.pdf';
+        Storage::disk('sales-attachments')->put($path, "%PDF-1.4\nPayment\n%%EOF");
+        $paymentRecord = SalesPaymentRecord::create([
+            'sales_transaction_id' => $sale->id,
+            'amount' => 100,
+            'mode_of_payment' => 'BANK_TRANSFER',
+            'walkin_payment_proofs' => [$path],
+            'recorded_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)->get(route('hub.report.payment-record-attachment', [
+            'hub' => $hub->id,
+            'paymentRecord' => $paymentRecord->id,
+            'index' => 0,
+        ]))->assertOk()->assertStreamedContent("%PDF-1.4\nPayment\n%%EOF");
     }
 
     public function test_walk_in_and_online_check_payments_require_and_save_check_details(): void
@@ -121,7 +154,8 @@ class HeadOfficeWalkInProofTest extends TestCase
 
     public function test_walk_in_product_description_search_and_proofs_survive_verification(): void
     {
-        Storage::fake('public');
+        config(['filesystems.attachment_disks.sales' => 'sales-attachments']);
+        Storage::fake('sales-attachments');
         $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-PROOF', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
         $product = Product::create([
@@ -147,8 +181,8 @@ class HeadOfficeWalkInProofTest extends TestCase
         ])->assertSessionHasErrors('quotation_proofs');
 
         $this->post(route('sales.storeMultiChannelSale'), $payload + [
-            'quotation_proofs' => [UploadedFile::fake()->create('quote.pdf', 10, 'application/pdf')],
-            'walkin_payment_proofs' => [UploadedFile::fake()->create('payment.pdf', 10, 'application/pdf')],
+            'quotation_proofs' => [UploadedFile::fake()->createWithContent('quote.pdf', "%PDF-1.4\nQuotation\n%%EOF")],
+            'walkin_payment_proofs' => [UploadedFile::fake()->createWithContent('payment.pdf', "%PDF-1.4\nPayment\n%%EOF")],
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $pending = PendingSale::sole();
@@ -157,13 +191,25 @@ class HeadOfficeWalkInProofTest extends TestCase
         $this->assertSame('123 Sample Street', $pending->delivery_address);
         $this->assertCount(1, $pending->quotation_proofs);
         $this->assertCount(1, $pending->walkin_payment_proofs);
-        Storage::disk('public')->assertExists($pending->quotation_proofs[0]);
-        Storage::disk('public')->assertExists($pending->walkin_payment_proofs[0]);
+        Storage::disk('sales-attachments')->assertExists($pending->quotation_proofs[0]);
+        Storage::disk('sales-attachments')->assertExists($pending->walkin_payment_proofs[0]);
+        $this->get(route('sales.pending-attachment', [
+            'id' => $pending->id, 'type' => 'quotation-proof', 'index' => 0,
+        ]))->assertOk();
+        $this->get(route('sales.pending-attachment', [
+            'id' => $pending->id, 'type' => 'walkin-payment-proof', 'index' => 0,
+        ]))->assertOk();
 
         $this->post(route('sales.confirmPending', $pending))->assertSessionHas('success');
         $sale = SalesTransaction::sole();
         $this->assertSame('123 Sample Street', $sale->address);
         $this->assertSame($pending->quotation_proofs, $sale->quotation_proofs);
         $this->assertSame($pending->walkin_payment_proofs, $sale->walkin_payment_proofs);
+        $this->get(route('hub.report.sales-attachment', [
+            'hub' => $hub->id, 'transaction' => $sale->id, 'type' => 'quotation-proof', 'index' => 0,
+        ]))->assertOk();
+        $this->get(route('hub.report.sales-attachment', [
+            'hub' => $hub->id, 'transaction' => $sale->id, 'type' => 'walkin-payment-proof', 'index' => 0,
+        ]))->assertOk();
     }
 }

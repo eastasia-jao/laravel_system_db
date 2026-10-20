@@ -228,6 +228,10 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::get('/event-inventory/transactions', [EventInventoryController::class, 'transactions'])->name('event-inventory.transactions');
         Route::get('/event-inventory/{eventPullout}/sales/create', [EventInventoryController::class, 'createSale'])->name('event-inventory.sales.create');
         Route::post('/event-inventory/{eventPullout}/sales', [EventInventoryController::class, 'storeSale'])->name('event-inventory.sales.store');
+        Route::get('/event-inventory/sales/{transaction}/attachments/{type}/{index}', [EventInventoryController::class, 'saleAttachment'])
+            ->whereIn('type', ['order-slip', 'item-image', 'payment-proof', 'image'])
+            ->whereNumber('index')
+            ->name('event-inventory.sales.attachment');
         Route::patch('/event-inventory/{eventPullout}/close', [EventInventoryController::class, 'close'])->name('event-inventory.close');
         Route::get('/products/national', [NationalInventoryController::class, 'index'])->name('national-inventory.index');
         Route::post('/products/national/import', [NationalInventoryController::class, 'import'])->name('national-inventory.import');
@@ -328,6 +332,15 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             Route::get('/report/wholesale/{transaction}/payment-proof', [SalesReportController::class, 'wholesalePaymentAttachment'])
                 ->middleware('can:view-sales-reports')
                 ->name('report.wholesale.payment-attachment');
+            Route::get('/report/sales/{transaction}/attachments/{type}/{index}', [SalesReportController::class, 'salesAttachment'])
+                ->whereIn('type', ['payment-proof', 'quotation-proof', 'walkin-payment-proof'])
+                ->whereNumber('index')
+                ->middleware('can:view-sales-reports')
+                ->name('report.sales-attachment');
+            Route::get('/report/payment-records/{paymentRecord}/attachments/{index}', [SalesReportController::class, 'paymentRecordAttachment'])
+                ->whereNumber('index')
+                ->middleware('can:view-sales-reports')
+                ->name('report.payment-record-attachment');
             Route::patch('/report/tiktok/{transaction}', [SalesReportController::class, 'updateTikTokFields'])->middleware('can:view-sales-reports')->name('report.tiktok.update');
             Route::patch('/report/tiktok/{transaction}/returns/{item}', [SalesReportController::class, 'updateTikTokReturn'])->middleware('can:view-sales-reports')->name('report.tiktok.return.update');
             Route::post('/report/tiktok/{transaction}/replacements/{item}', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:manage-sales-status')->name('report.tiktok.replacement.store');
@@ -363,6 +376,14 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
     Route::middleware(['can:verify-inventory'])->group(function () {
         Route::get('/pending-sales', [SalesController::class, 'pendingSalesIndex'])->name('sales.pending');
         Route::get('/pending-sales/{id}/order-slip', [SalesController::class, 'orderSlip'])->name('sales.order-slip');
+        Route::get('/pending-sales/{id}/attachments/{type}/{index}', [SalesController::class, 'pendingAttachment'])
+            ->whereIn('type', ['payment-proof', 'quotation-proof', 'walkin-payment-proof'])
+            ->whereNumber('index')
+            ->name('sales.pending-attachment');
+        Route::get('/pending-sales/{hub}/replacements/{replacement}/attachments/{type}/{index}', [SalesReportController::class, 'replacementAttachment'])
+            ->whereIn('type', ['payment-proof', 'replacement-slip'])
+            ->whereNumber('index')
+            ->name('sales.pending-replacement-attachment');
         Route::post('/pending-sales/{id}/confirm', [SalesController::class, 'confirmPendingSale'])->name('sales.confirmPending');
         Route::post('/pending-sales/{id}/reject', [SalesController::class, 'rejectPendingSale'])->name('sales.rejectPending');
         Route::post('/wholesale-replacements/{replacement}/approve', [SalesReportController::class, 'approveWholesaleReplacement'])->name('wholesale-replacements.approve');

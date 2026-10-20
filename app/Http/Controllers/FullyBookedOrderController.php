@@ -10,6 +10,9 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Support\AttachmentAvailability;
+use App\Support\AttachmentResponse;
+use App\Support\AttachmentStorage;
 use App\Support\NationalPulloutWorkbook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,7 +81,10 @@ class FullyBookedOrderController extends Controller
         $salesStaff = $user;
 
         $file = $validated['attachment'];
-        $path = $file->store('fully-booked-orders', 'local');
+        $path = $file->store(
+            'fully-booked-orders',
+            AttachmentStorage::diskName(AttachmentStorage::INVENTORY)
+        );
         if (! $path) {
             throw new \RuntimeException('The Fully Booked attachment could not be stored.');
         }
@@ -102,7 +108,7 @@ class FullyBookedOrderController extends Controller
                 return $order;
             });
         } catch (\Throwable $exception) {
-            Storage::disk('local')->delete($path);
+            AttachmentStorage::disk(AttachmentStorage::INVENTORY)->delete($path);
             throw $exception;
         }
 
@@ -144,17 +150,30 @@ class FullyBookedOrderController extends Controller
     {
         abort_unless($this->canViewOrder($request->user(), $fullyBookedOrder), 403);
 
-        $path = Storage::disk('local')->path($fullyBookedOrder->attachment_path);
-        abort_unless(is_file($path), 404, 'The Fully Booked attachment is no longer available.');
+        $diskName = AttachmentStorage::diskName(AttachmentStorage::INVENTORY);
+        $disk = Storage::disk($diskName);
+        $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
+            ? true
+            : AttachmentAvailability::check($disk, $fullyBookedOrder->attachment_path);
+        abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
+        abort_unless($availability, 404, 'The Fully Booked attachment is no longer available.');
 
         $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', $fullyBookedOrder->original_filename) ?: 'fully-booked-attachment';
 
-        return response()->file($path, [
-            'Content-Type' => $fullyBookedOrder->mime_type,
-            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline').'; filename="'.$filename.'"',
+        $headers = [
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'private, no-store',
-        ]);
+        ];
+
+        $response = $request->boolean('download')
+            ? AttachmentResponse::download($disk, $fullyBookedOrder->attachment_path, $filename, $headers)
+            : AttachmentResponse::inline($disk, $fullyBookedOrder->attachment_path, $filename, $headers);
+
+        if ($request->boolean('download')) {
+            $response->headers->set('Content-Disposition', 'attachment; filename="'.$filename.'"');
+        }
+
+        return $response;
     }
 
     public function exportWorksheet(Request $request, FullyBookedOrder $fullyBookedOrder)

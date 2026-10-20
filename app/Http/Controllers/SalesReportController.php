@@ -11,6 +11,7 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Support\AttachmentStorage;
 use App\Support\AttachmentAvailability;
 use App\Support\AttachmentResponse;
 use App\Support\KeywordSearch;
@@ -902,9 +903,7 @@ class SalesReportController extends Controller
         };
         abort_unless(is_string($path) && $path !== '', 404);
 
-        $diskName = $type === 'payment-proof' && $this->normalizeChannel($sale->channel_type) === 'wholesale'
-            ? (string) config('filesystems.attachments', 'public')
-            : 'public';
+        $diskName = AttachmentStorage::diskName(AttachmentStorage::SALES);
         $disk = Storage::disk($diskName);
         $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
             ? true
@@ -928,7 +927,7 @@ class SalesReportController extends Controller
         $path = $transaction->proof_of_payment ?: $transaction->payment_proof;
         abort_unless(is_string($path) && $path !== '', 404);
 
-        $diskName = (string) config('filesystems.attachments', 'public');
+        $diskName = AttachmentStorage::diskName(AttachmentStorage::SALES);
         $disk = Storage::disk($diskName);
         $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
             ? true
@@ -937,6 +936,35 @@ class SalesReportController extends Controller
         abort_unless($availability, 404, 'Payment attachment is missing or empty.');
 
         return AttachmentResponse::inline($disk, $path);
+    }
+
+    public function salesAttachment(int $hub, SalesTransaction $transaction, string $type, int $index = 0)
+    {
+        $storeHub = StoreHub::findOrFail($hub);
+        abort_unless(auth()->user()?->canAccessHub($storeHub->id), 403);
+        abort_unless((int) $transaction->store_hub_id === (int) $storeHub->id, 404);
+
+        $path = match ($type) {
+            'payment-proof' => $index === 0 ? ($transaction->proof_of_payment ?: $transaction->payment_proof) : null,
+            'quotation-proof' => $transaction->quotation_proofs[$index] ?? null,
+            'walkin-payment-proof' => $transaction->walkin_payment_proofs[$index] ?? null,
+            default => null,
+        };
+        abort_unless(is_string($path) && $path !== '', 404);
+
+        return $this->salesAttachmentResponse($path);
+    }
+
+    public function paymentRecordAttachment(int $hub, SalesPaymentRecord $paymentRecord, int $index)
+    {
+        $storeHub = StoreHub::findOrFail($hub);
+        abort_unless(auth()->user()?->canAccessHub($storeHub->id), 403);
+        abort_unless((int) $paymentRecord->transaction?->store_hub_id === (int) $storeHub->id, 404);
+
+        $path = $paymentRecord->walkin_payment_proofs[$index] ?? null;
+        abort_unless(is_string($path) && $path !== '', 404);
+
+        return $this->salesAttachmentResponse($path);
     }
 
     public function replaceWholesaleItem(Request $request, int $hub, int $transaction, int $item)
@@ -1102,14 +1130,15 @@ class SalesReportController extends Controller
             if ($additionalPaymentDue > 0 && $paymentMethod !== 'CASH' && ! $request->hasFile('exchange_payment_proofs')) {
                 throw ValidationException::withMessages(['exchange_payment_proofs' => 'Upload proof for a non-cash additional payment.']);
             }
-            $paymentProofDisk = $channel === 'wholesale'
-                ? (string) config('filesystems.attachments', 'public')
-                : 'public';
+            $paymentProofDisk = AttachmentStorage::diskName(AttachmentStorage::SALES);
             $paymentProofs = array_map(
                 fn ($file) => $file->store('exchange_payment_proofs', $paymentProofDisk),
                 $request->file('exchange_payment_proofs', [])
             );
-            $replacementOrderSlip = $request->file('replacement_order_slip')?->store('replacement_order_slips', 'public');
+            $replacementOrderSlip = $request->file('replacement_order_slip')?->store(
+                'replacement_order_slips',
+                AttachmentStorage::diskName(AttachmentStorage::SALES)
+            );
 
             $exchangeReference = (string) Str::uuid();
             $created = $pricedLines->map(function ($line, $index) use ($sale, $transactionItem, $originalProduct, $quantity, $originalUnitPrice, $usesExchangeCredit, $credit, $remainingStoreCredit, $exchangeTotal, $additionalPaymentDue, $replacementShippingFeeType, $replacementShippingFee, $paymentAmount, $paymentMethod, $paymentProofs, $replacementOrderSlip, $exchangeReference, $validated) {
@@ -1260,7 +1289,10 @@ class SalesReportController extends Controller
             'walkin_payment_proofs.*' => ['file', 'mimes:jpeg,png,jpg,webp,pdf', 'max:2048'],
         ]);
 
-        $proofs = array_map(fn ($file) => $file->store('proofs_of_payment', 'public'), $request->file('walkin_payment_proofs', []));
+        $proofs = array_map(
+            fn ($file) => $file->store('proofs_of_payment', AttachmentStorage::diskName(AttachmentStorage::SALES)),
+            $request->file('walkin_payment_proofs', [])
+        );
         DB::transaction(function () use ($validated, $proofs, $storeHub, $transaction) {
             $sale = SalesTransaction::whereKey($transaction)
                 ->where('store_hub_id', $storeHub->id)
@@ -1538,6 +1570,19 @@ class SalesReportController extends Controller
         }
 
         return back()->with('success', 'Replacement request rejected. Inventory and totals were not changed.');
+    }
+
+    private function salesAttachmentResponse(string $path)
+    {
+        $diskName = AttachmentStorage::diskName(AttachmentStorage::SALES);
+        $disk = Storage::disk($diskName);
+        $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
+            ? true
+            : AttachmentAvailability::check($disk, $path);
+        abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
+        abort_unless($availability, 404, 'The attachment is missing or empty.');
+
+        return AttachmentResponse::inline($disk, $path);
     }
 
     private function normalizeChannel(?string $channel): string

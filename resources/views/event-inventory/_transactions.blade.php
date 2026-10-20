@@ -182,12 +182,21 @@
                             <div class="event-log-attachment-groups">
                                 @foreach($attachmentGroups as $attachmentLabel => $attachments)
                                     @if(!empty($attachments))
+                                        @php
+                                            $attachmentRouteType = match ($attachmentLabel) {
+                                                'Order Slip Image' => 'order-slip',
+                                                'Item Images' => 'item-image',
+                                                'Proof of Payment' => 'payment-proof',
+                                                default => 'image',
+                                            };
+                                        @endphp
                                         <div class="event-log-attachment-group">
                                             <div class="small fw-semibold text-muted mb-2">{{ $attachmentLabel }}</div>
                                             <div class="event-log-attachment-grid">
-                                                @foreach($attachments as $attachment)
-                                                    <a class="event-log-attachment-card" href="{{ asset('storage/'.$attachment) }}" target="_blank" rel="noopener" aria-label="Open {{ $attachmentLabel }} {{ $loop->iteration }}">
-                                                        <img src="{{ asset('storage/'.$attachment) }}" class="event-log-attachment" alt="{{ $attachmentLabel }} {{ $loop->iteration }}" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                                @foreach(array_values($attachments) as $attachmentIndex => $attachment)
+                                                    @php($attachmentUrl = route('event-inventory.sales.attachment', ['transaction' => $group['sale']->id, 'type' => $attachmentRouteType, 'index' => $attachmentIndex]))
+                                                    <a class="event-log-attachment-card" href="{{ $attachmentUrl }}" target="_blank" rel="noopener" aria-label="Open {{ $attachmentLabel }} {{ $loop->iteration }}">
+                                                        <img src="{{ $attachmentUrl }}" class="event-log-attachment" alt="{{ $attachmentLabel }} {{ $loop->iteration }}" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
                                                         <span class="event-log-attachment-fallback" hidden>Image unavailable</span>
                                                     </a>
                                                 @endforeach

@@ -19,6 +19,12 @@ return [
 
     'attachments' => env('ATTACHMENT_DISK', 'public'),
 
+    'attachment_disks' => [
+        'sales' => env('SALES_ATTACHMENT_DISK') ?: env('ATTACHMENT_DISK', 'public'),
+        'events' => env('EVENT_ATTACHMENT_DISK') ?: env('ATTACHMENT_DISK', 'public'),
+        'inventory' => env('INVENTORY_ATTACHMENT_DISK') ?: env('ATTACHMENT_DISK', 'local'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks

@@ -144,7 +144,7 @@
                         @endif
                         @if($replacement->replacement_order_slip)
                             <div class="mt-3">
-                                <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($replacement->replacement_order_slip) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                                <a href="{{ route('sales.pending-replacement-attachment', ['hub' => $replacement->transaction->store_hub_id, 'replacement' => $replacement->id, 'type' => 'replacement-slip', 'index' => 0]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
                                     <i class="fa-solid fa-file-arrow-up me-1"></i> Open replacement order slip
                                 </a>
                             </div>
@@ -357,7 +357,11 @@
                                     @if($sale->{$proofField})
                                         <div class="fw-semibold">{{ $proofLabel }}</div>
                                         @foreach($sale->{$proofField} as $proofIndex => $attachment)
-                                            <a class="d-inline-block me-2 mb-2" href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($attachment) }}" target="_blank" rel="noopener">Open attachment {{ $proofIndex + 1 }}</a>
+                                            <a class="d-inline-block me-2 mb-2" href="{{ route('sales.pending-attachment', [
+                                                'id' => $sale->id,
+                                                'type' => $proofField === 'quotation_proofs' ? 'quotation-proof' : 'walkin-payment-proof',
+                                                'index' => $proofIndex,
+                                            ]) }}" target="_blank" rel="noopener">Open attachment {{ $proofIndex + 1 }}</a>
                                         @endforeach
                                     @endif
                                 @endforeach

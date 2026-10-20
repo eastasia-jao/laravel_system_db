@@ -26,6 +26,10 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
+        <env name="ATTACHMENT_DISK" value="public" force="true"/>
+        <env name="SALES_ATTACHMENT_DISK" value="public" force="true"/>
+        <env name="EVENT_ATTACHMENT_DISK" value="public" force="true"/>
+        <env name="INVENTORY_ATTACHMENT_DISK" value="local" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

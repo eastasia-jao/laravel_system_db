@@ -16,6 +16,9 @@ use App\Models\StoreHub;
 use App\Models\TransactionItem;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Support\AttachmentAvailability;
+use App\Support\AttachmentResponse;
+use App\Support\AttachmentStorage;
 use App\Support\CsvIdentifier;
 use App\Support\EventPulloutWorkbook;
 use Illuminate\Http\Request;
@@ -1255,11 +1258,18 @@ class InventoryTransactionController extends Controller
                 && $this->normalizeChannel($sale->channel_type) === 'walk_in',
             404
         );
-        abort_unless($sale->order_slip && Storage::disk('local')->exists($sale->order_slip), 404);
+        abort_unless(is_string($sale->order_slip) && $sale->order_slip !== '', 404);
+        $diskName = AttachmentStorage::diskName(AttachmentStorage::SALES);
+        $disk = Storage::disk($diskName);
+        $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
+            ? true
+            : AttachmentAvailability::check($disk, $sale->order_slip);
+        abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
+        abort_unless($availability, 404, 'The order attachment is missing or empty.');
 
-        return Storage::disk('local')->response($sale->order_slip, null, [
+        return AttachmentResponse::inline($disk, $sale->order_slip, headers: [
             'X-Content-Type-Options' => 'nosniff',
-        ], 'inline');
+        ]);
     }
 
     public function create(Request $request)

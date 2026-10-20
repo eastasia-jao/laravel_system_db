@@ -15,6 +15,9 @@ use App\Models\TransactionItem;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
 use App\Notifications\SalesWorkflowNotification;
+use App\Support\AttachmentAvailability;
+use App\Support\AttachmentResponse;
+use App\Support\AttachmentStorage;
 use App\Support\KeywordSearch;
 use App\Support\S3ErrorDiagnostics;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -365,15 +368,15 @@ class SalesController extends Controller
             if ($request->hasFile('proof_of_payment')) {
                 $proofPath = $request->file('proof_of_payment')->store(
                     'proofs_of_payment',
-                    $this->paymentProofDisk($channel)
+                    AttachmentStorage::diskName(AttachmentStorage::SALES)
                 );
             }
 
             $quotationProofs = $channel === 'walk_in'
-                ? array_map(fn ($file) => $file->store('quotation_proofs', 'public'), $request->file('quotation_proofs', []))
+                ? array_map(fn ($file) => $file->store('quotation_proofs', AttachmentStorage::diskName(AttachmentStorage::SALES)), $request->file('quotation_proofs', []))
                 : [];
             $walkinPaymentProofs = $channel === 'walk_in'
-                ? array_map(fn ($file) => $file->store('proofs_of_payment', 'public'), $request->file('walkin_payment_proofs', []))
+                ? array_map(fn ($file) => $file->store('proofs_of_payment', AttachmentStorage::diskName(AttachmentStorage::SALES)), $request->file('walkin_payment_proofs', []))
                 : [];
 
             $mop = $request->input('mode_of_payment') ?? $request->input('online_mop') ?? $request->input('walkin_mop');
@@ -459,7 +462,10 @@ class SalesController extends Controller
             $courier = $request->input('courier') ?? $request->input('courier_name') ?? $request->input('shipping_courier');
 
             if ($request->hasFile('order_slip')) {
-                $orderSlipPath = $request->file('order_slip')->store('order_slips', 'local');
+                $orderSlipPath = $request->file('order_slip')->store(
+                    'order_slips',
+                    AttachmentStorage::diskName(AttachmentStorage::SALES)
+                );
                 if (! $orderSlipPath) {
                     throw new \RuntimeException('Could not save the order slip. Please try again.');
                 }
@@ -525,12 +531,12 @@ class SalesController extends Controller
             return back()->with('success', $successMessage);
         } catch (ModelNotFoundException|HttpExceptionInterface $e) {
             if ($orderSlipPath) {
-                Storage::disk('local')->delete($orderSlipPath);
+                AttachmentStorage::disk(AttachmentStorage::SALES)->delete($orderSlipPath);
             }
             throw $e;
         } catch (\Exception $e) {
             if ($orderSlipPath) {
-                Storage::disk('local')->delete($orderSlipPath);
+                AttachmentStorage::disk(AttachmentStorage::SALES)->delete($orderSlipPath);
             }
             Log::error('Failed to submit multi-channel sale.', [
                 'user_id' => auth()->id(),
@@ -596,9 +602,25 @@ class SalesController extends Controller
     {
         $sale = PendingSale::findOrFail($id);
         $this->ensureHubAccess((int) $sale->store_hub_id);
-        abort_unless($sale->order_slip && Storage::disk('local')->exists($sale->order_slip), 404);
+        abort_unless(is_string($sale->order_slip) && $sale->order_slip !== '', 404);
 
-        return Storage::disk('local')->response($sale->order_slip, null, ['X-Content-Type-Options' => 'nosniff']);
+        return $this->salesAttachmentResponse($sale->order_slip);
+    }
+
+    public function pendingAttachment(int $id, string $type, int $index = 0)
+    {
+        $sale = PendingSale::findOrFail($id);
+        $this->ensureHubAccess((int) $sale->store_hub_id);
+
+        $path = match ($type) {
+            'payment-proof' => $index === 0 ? ($sale->payment_proof ?? null) : null,
+            'quotation-proof' => $sale->quotation_proofs[$index] ?? null,
+            'walkin-payment-proof' => $sale->walkin_payment_proofs[$index] ?? null,
+            default => null,
+        };
+        abort_unless(is_string($path) && $path !== '', 404);
+
+        return $this->salesAttachmentResponse($path);
     }
 
     public function rejectedOrderSlip($id)
@@ -609,9 +631,9 @@ class SalesController extends Controller
         }
         $sale = $query->firstOrFail();
 
-        abort_unless($sale->order_slip && Storage::disk('local')->exists($sale->order_slip), 404);
+        abort_unless(is_string($sale->order_slip) && $sale->order_slip !== '', 404);
 
-        return Storage::disk('local')->response($sale->order_slip, null, ['X-Content-Type-Options' => 'nosniff']);
+        return $this->salesAttachmentResponse($sale->order_slip);
     }
 
     public function confirmPendingSale($id)
@@ -1058,7 +1080,7 @@ class SalesController extends Controller
             if ($request->hasFile('payment_proof')) {
                 $statusUpdate['proof_of_payment'] = $request->file('payment_proof')->store(
                     'proofs_of_payment',
-                    $this->paymentProofDisk($channel)
+                    AttachmentStorage::diskName(AttachmentStorage::SALES)
                 );
             }
         }
@@ -1295,16 +1317,22 @@ class SalesController extends Controller
         }
     }
 
+    private function salesAttachmentResponse(string $path)
+    {
+        $diskName = AttachmentStorage::diskName(AttachmentStorage::SALES);
+        $disk = Storage::disk($diskName);
+        $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
+            ? true
+            : AttachmentAvailability::check($disk, $path);
+        abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
+        abort_unless($availability, 404, 'The attachment is missing or empty.');
+
+        return AttachmentResponse::inline($disk, $path);
+    }
+
     private function normalizeSalesChannel(?string $channel): string
     {
         return str_replace(['-', ' '], '_', strtolower(trim((string) $channel)));
-    }
-
-    private function paymentProofDisk(?string $channel): string
-    {
-        return $this->normalizeSalesChannel($channel) === 'wholesale'
-            ? (string) config('filesystems.attachments', 'public')
-            : 'public';
     }
 
     private function formatBranchWalkInCustomerName(?string $name): ?string

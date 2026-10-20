@@ -22,7 +22,7 @@ class SalesOrderAttachmentTest extends TestCase
 
     public function test_failed_payment_proof_upload_is_written_to_application_logs(): void
     {
-        config(['filesystems.attachments' => 'supabase']);
+        config(['filesystems.attachment_disks.sales' => 'supabase']);
         $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-LOG', 'status' => 'active', 'is_head_office' => true]);
         $product = Product::create([
             'item_id' => 'ATTACH-LOG',
@@ -82,7 +82,8 @@ class SalesOrderAttachmentTest extends TestCase
 
     public function test_wholesale_and_online_orders_can_attach_documents_for_inventory_preview(): void
     {
-        Storage::fake('local');
+        config(['filesystems.attachment_disks.sales' => 'sales-attachments']);
+        Storage::fake('sales-attachments');
         $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true]);
         $product = Product::create([
             'item_id' => 'ATTACH-1',
@@ -133,7 +134,7 @@ class SalesOrderAttachmentTest extends TestCase
         $this->assertCount(2, $sales);
         foreach ($sales as $sale) {
             $this->assertNotEmpty($sale->order_slip);
-            Storage::disk('local')->assertExists($sale->order_slip);
+            Storage::disk('sales-attachments')->assertExists($sale->order_slip);
         }
         $this->assertSame(12, (int) $sales[1]->delivery_fee);
         $this->assertSame(112, (int) $sales[1]->proof_amount);

@@ -886,7 +886,8 @@ class FullyBookedOrderTest extends TestCase
 
     public function test_designated_staff_can_submit_an_attachment_for_private_inventory_review(): void
     {
-        Storage::fake('local');
+        config(['filesystems.attachment_disks.inventory' => 'inventory-attachments']);
+        Storage::fake('inventory-attachments');
         $hub = StoreHub::create([
             'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
         ]);
@@ -923,7 +924,7 @@ class FullyBookedOrderTest extends TestCase
         $order = FullyBookedOrder::sole();
         $orderNumber = 'FB-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
         $this->assertSame($orderNumber, $order->order_number);
-        Storage::disk('local')->assertExists($order->attachment_path);
+        Storage::disk('inventory-attachments')->assertExists($order->attachment_path);
         $this->assertSame($staff->id, $order->sales_staff_id);
         $this->assertSame($staff->id, $order->submitted_by);
         $this->assertSame('HEAD OFFICE', $order->store_name);

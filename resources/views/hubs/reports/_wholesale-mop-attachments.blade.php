@@ -18,7 +18,7 @@
             ->unique('id')
             ->sortBy('created_at')
         : collect();
-    $attachmentDiskName = (string) config('filesystems.attachments', 'public');
+    $attachmentDiskName = \App\Support\AttachmentStorage::diskName(\App\Support\AttachmentStorage::SALES);
     $attachmentDisk = \Illuminate\Support\Facades\Storage::disk($attachmentDiskName);
     $canCheckAttachmentAvailability = config("filesystems.disks.{$attachmentDiskName}.driver") !== 's3';
 
