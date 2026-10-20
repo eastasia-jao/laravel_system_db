@@ -67,11 +67,9 @@
     #productRowsContainer .item-price-display { color: #475569 !important; font-weight: 500 !important; }
     #recordSaleModal .marketplace-mop-menu { max-height: 210px; overflow-y: auto; min-width: 100%; scrollbar-gutter: stable; }
     #recordSaleModal .marketplace-mop-menu .dropdown-item { font-size: .85rem; padding: .55rem .75rem; }
-    #recordSaleModal .marketplace-mop-dropdown .marketplace-mop-menu {
-        top: calc(100% + 4px) !important;
-        bottom: auto !important;
-        transform: none !important;
-    }
+    #recordSaleModal .marketplace-mop-dropdown { position: relative; z-index: 10; }
+    #recordSaleModal .marketplace-mop-dropdown.show { z-index: 20; }
+    #recordSaleModal .marketplace-mop-dropdown .marketplace-mop-menu { z-index: 1085; }
     @media (max-width: 767.98px) {
         #recordSaleModal .modal-dialog { max-width: none; min-height: 100dvh; margin: 0; }
         #recordSaleModal .modal-content { min-height: 100dvh; border-radius: 0; }
@@ -608,7 +606,7 @@
                                             <option value="OTHERS">Others</option>
                                         </select>
                                         <div class="dropdown marketplace-mop-dropdown">
-                                            <button type="button" class="btn btn-outline-secondary bg-white text-dark dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">-- Select MOP --</button>
+                                            <button type="button" class="btn btn-outline-secondary bg-white text-dark dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-boundary="clippingParents" aria-expanded="false">-- Select MOP --</button>
                                             <div class="dropdown-menu marketplace-mop-menu w-100" aria-labelledby="marketplaceMopButton">
                                                 <button type="button" class="dropdown-item marketplace-mop-option" data-value="COD">COD</button>
                                                 <button type="button" class="dropdown-item marketplace-mop-option" data-value="SPAYLATER" data-market-channel="shopee">SPayLater</button>

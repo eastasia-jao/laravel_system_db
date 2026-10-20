@@ -569,7 +569,9 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('Online/Offline Payment')
             ->assertSee('QRph')
             ->assertSee('Specify MOP')
-            ->assertSee('marketplace-mop-menu', false);
+            ->assertSee('marketplace-mop-menu', false)
+            ->assertSee('id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-boundary="clippingParents"', false)
+            ->assertDontSee('id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-display="static"', false);
 
         $channelMopOrder = [
             'store_hub_id' => $hub->id,
