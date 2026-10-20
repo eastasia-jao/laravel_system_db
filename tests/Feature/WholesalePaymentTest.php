@@ -10,8 +10,10 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\UnableToCheckFileExistence;
 use Tests\TestCase;
 
 class WholesalePaymentTest extends TestCase
@@ -596,6 +598,7 @@ class WholesalePaymentTest extends TestCase
 
     public function test_empty_recorded_wholesale_payment_proof_shows_reupload_message_instead_of_broken_preview(): void
     {
+        config(['filesystems.attachments' => 'public']);
         Storage::fake('public');
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-EMPTY-PROOF', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -623,6 +626,41 @@ class WholesalePaymentTest extends TestCase
             'hub' => $hub->id,
             'transaction' => $sale->id,
         ]))->assertNotFound();
+    }
+
+    public function test_wholesale_report_survives_attachment_storage_head_errors(): void
+    {
+        config(['filesystems.attachments' => 'wholesale-attachments']);
+        $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-HEAD-ERROR', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $path = 'proofs_of_payment/unavailable-proof.png';
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'wholesale',
+            'customer_name' => 'Customer',
+            'order_number' => 'HEAD-ERROR-1',
+            'order_date' => '2026-10-20',
+            'grand_total' => 100,
+            'status' => 'confirmed',
+            'proof_of_payment' => $path,
+        ]);
+        $disk = \Mockery::mock(FilesystemAdapter::class);
+        $disk->shouldReceive('exists')
+            ->with($path)
+            ->andThrow(UnableToCheckFileExistence::forLocation($path, new \RuntimeException('Simulated storage HEAD failure.')));
+        Storage::shouldReceive('disk')->with('wholesale-attachments')->andReturn($disk);
+
+        $this->actingAs($admin)
+            ->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'wholesale']))
+            ->assertOk()
+            ->assertSeeText('Record Sales MOP attachment could not be verified because storage is unavailable. Please try again later.')
+            ->assertDontSee('data-proof-label="Record Sales MOP Attachment"', false);
+
+        $this->get(route('hub.report.wholesale.payment-attachment', [
+            'hub' => $hub->id,
+            'transaction' => $sale->id,
+        ]))->assertServiceUnavailable();
     }
 
     public function test_wholesale_report_combines_recorded_sale_and_replacement_mop_attachments_in_inline_preview(): void

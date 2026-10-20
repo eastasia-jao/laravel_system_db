@@ -7,7 +7,11 @@
         : null;
     $mopAttachments = collect();
     $recordedProofUnavailable = false;
+    $recordedProofUnverified = false;
     $replacementProofUnavailable = false;
+    $replacementProofUnverified = false;
+    $hasRecordedAttachmentPath = (bool) $recordedProofPath;
+    $hasReplacementAttachmentPath = false;
     $proofDisk = \Illuminate\Support\Facades\Storage::disk(
         (string) config('filesystems.attachments', 'public')
     );
@@ -19,9 +23,11 @@
         : collect();
 
     if ($recordedProofPath) {
-        $recordedProofUnavailable = ! $proofDisk->exists($recordedProofPath) || $proofDisk->size($recordedProofPath) === 0;
+        $availability = \App\Support\AttachmentAvailability::check($proofDisk, $recordedProofPath);
+        $recordedProofUnavailable = $availability === false;
+        $recordedProofUnverified = $availability === null;
 
-        if (! $recordedProofUnavailable) {
+        if ($availability === true) {
             $mopAttachments->push([
                 'url' => route('hub.report.wholesale.payment-attachment', [
                     'hub' => $hub->id,
@@ -35,8 +41,19 @@
 
     foreach ($replacementRecords as $replacement) {
         foreach ($replacement->exchange_payment_proofs ?? [] as $proofIndex => $proofPath) {
-            if (! is_string($proofPath) || $proofPath === '' || ! $proofDisk->exists($proofPath) || $proofDisk->size($proofPath) === 0) {
+            if (! is_string($proofPath) || $proofPath === '') {
+                continue;
+            }
+
+            $hasReplacementAttachmentPath = true;
+            $availability = \App\Support\AttachmentAvailability::check($proofDisk, $proofPath);
+            if ($availability === false) {
                 $replacementProofUnavailable = true;
+
+                continue;
+            }
+            if ($availability === null) {
+                $replacementProofUnverified = true;
 
                 continue;
             }
@@ -76,8 +93,14 @@
         @if($recordedProofUnavailable)
             <div class="small text-danger mb-2" role="alert">Record Sales MOP attachment is missing or empty. Please upload it again.</div>
         @endif
+        @if($recordedProofUnverified)
+            <div class="small text-warning mb-2" role="alert">Record Sales MOP attachment could not be verified because storage is unavailable. Please try again later.</div>
+        @endif
         @if($replacementProofUnavailable)
             <div class="small text-danger mb-2" role="alert">A Replacement MOP attachment is missing or empty. Please upload it again.</div>
+        @endif
+        @if($replacementProofUnverified)
+            <div class="small text-warning mb-2" role="alert">A Replacement MOP attachment could not be verified because storage is unavailable. Please try again later.</div>
         @endif
         @forelse($mopAttachments as $attachmentIndex => $attachment)
             <span
@@ -88,7 +111,9 @@
                 data-proof-position="{{ $attachmentIndex + 1 }}"
             >{{ $attachment['label'] }}</span>
         @empty
-            <span class="small text-muted payment-proof-empty">No MOP attachment recorded.</span>
+            @if(! $hasRecordedAttachmentPath && ! $hasReplacementAttachmentPath)
+                <span class="small text-muted payment-proof-empty">No MOP attachment recorded.</span>
+            @endif
         @endforelse
     </div>
 </div>

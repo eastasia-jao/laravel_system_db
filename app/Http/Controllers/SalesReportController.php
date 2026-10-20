@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\KeywordSearch;
 use App\Models\SalesTransaction;
 use App\Models\SalesPaymentRecord;
 use App\Models\StoreHub;
@@ -12,6 +11,8 @@ use App\Models\ProductReplacement;
 use App\Models\ProductStockAllocation;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
+use App\Support\AttachmentAvailability;
+use App\Support\KeywordSearch;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -904,7 +905,9 @@ class SalesReportController extends Controller
             ? (string) config('filesystems.attachments', 'public')
             : 'public';
         $disk = Storage::disk($diskName);
-        abort_unless($disk->exists($path) && $disk->size($path) > 0, 404, 'Replacement attachment is missing or empty.');
+        $availability = AttachmentAvailability::check($disk, $path);
+        abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
+        abort_unless($availability, 404, 'Replacement attachment is missing or empty.');
 
         return $disk->response(
             $path,
@@ -928,7 +931,9 @@ class SalesReportController extends Controller
         abort_unless(is_string($path) && $path !== '', 404);
 
         $disk = Storage::disk((string) config('filesystems.attachments', 'public'));
-        abort_unless($disk->exists($path) && $disk->size($path) > 0, 404, 'Payment attachment is missing or empty.');
+        $availability = AttachmentAvailability::check($disk, $path);
+        abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
+        abort_unless($availability, 404, 'Payment attachment is missing or empty.');
 
         return $disk->response(
             $path,
