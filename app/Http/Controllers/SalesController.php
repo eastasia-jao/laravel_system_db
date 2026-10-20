@@ -284,7 +284,7 @@ class SalesController extends Controller
             'refund_shipping_fee' => 'nullable|numeric|min:0',
             'proof_amount' => 'nullable|numeric|min:0',
             'drop_off_date' => 'nullable|date',
-            'note' => 'nullable|string|max:2000',
+            'note' => 'nullable|string|max:'.($channelForValidation === 'online' ? 150 : 2000),
             'walkin_remarks' => 'nullable|string|max:2000',
             'mode_of_payment' => [
                 'nullable',

@@ -45,7 +45,7 @@
     #recordSaleModal .online-reconciliation-grid .sale-summary-card .form-control { min-height: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
     #recordSaleModal .online-reconciliation-grid .sale-summary-card-highlight .form-control { font-size: 1.3rem; }
     #recordSaleModal .online-remarks-panel { padding: .9rem 1rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
-    #recordSaleModal .online-remarks-panel .form-control { min-height: 72px; resize: vertical; }
+    #recordSaleModal .online-remarks-panel .form-control { min-height: 72px; resize: none; }
     #recordSaleModal .sale-attachment-field { padding: .85rem; border: 1px dashed #cbd5e1; border-radius: 11px; background: #fff; }
     #recordSaleModal .sale-attachment-field .form-text { max-width: 58ch; }
     #recordSaleModal #wholesaleExtraFields > .border { padding: 0 !important; border: 0 !important; background: transparent !important; }
@@ -843,7 +843,11 @@
                                 <input type="date" name="check_date" class="form-control online-input" disabled>
                             </div>
                             <div class="col-12 sale-field-heading">Delivery destination</div>
-                            <div class="col-md-12">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold" for="onlineContactNumber">Contact #</label>
+                                <input type="tel" name="contact_number" id="onlineContactNumber" class="form-control online-input" maxlength="17" inputmode="tel" autocomplete="tel" placeholder="09XXXXXXXXX" disabled>
+                            </div>
+                            <div class="col-md-8">
                                 <label class="form-label fw-bold">Delivery Address</label>
                                 <textarea name="address" class="form-control online-input" rows="2" placeholder="Complete delivery address" disabled></textarea>
                             </div>
@@ -893,7 +897,8 @@
                             <div class="col-12">
                                 <div class="online-remarks-panel">
                                     <label class="form-label fw-semibold" for="onlineOrderRemarks">Reconciliation note <span class="text-muted fw-normal">(optional)</span></label>
-                                    <textarea id="onlineOrderRemarks" name="note" class="form-control online-input" rows="2" maxlength="2000" placeholder="Add a note about payment received, any difference, or follow-up needed." disabled></textarea>
+                                    <textarea id="onlineOrderRemarks" name="note" class="form-control online-input" rows="2" maxlength="150" placeholder="Add a note about payment received, any difference, or follow-up needed." aria-describedby="onlineOrderRemarksHelp" disabled></textarea>
+                                    <div class="form-text" id="onlineOrderRemarksHelp">Maximum 150 characters.</div>
                                 </div>
                             </div>
                         </div>
@@ -1037,6 +1042,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let shippingContainer = document.getElementById('wholesaleShippingFeeContainer');
     const customerInput = document.getElementById('saleCustomerName');
     const customerOptions = document.getElementById('existingSaleCustomers');
+    const onlineContactInput = document.getElementById('onlineContactNumber');
     let customerLookupTimeout;
     let customerLookupSequence = 0;
     const walkInProofInputs = [...document.querySelectorAll('#walkInExtraFields input[type="file"]')];
@@ -1188,6 +1194,7 @@ document.addEventListener('DOMContentLoaded', function () {
         };
         channelSelect.addEventListener('change', () => {
             customerInput.value = '';
+            if (onlineContactInput) onlineContactInput.value = '';
             loadCustomerOptions();
         });
         customerInput.addEventListener('input', () => {
@@ -1199,6 +1206,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         customerInput.addEventListener('change', () => {
             const selected = [...customerOptions.options].find(option => option.value === customerInput.value);
+            if (onlineContactInput) onlineContactInput.value = selected?.dataset.contactNumber || '';
         });
         if (channelSelect.value) {
             handleChannelChange();

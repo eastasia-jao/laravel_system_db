@@ -1087,6 +1087,27 @@ class SalesWorkflowTest extends TestCase
         ]);
         ProductStockAllocation::create(['product_id' => $product->id, 'tiktok' => 20, 'online' => 20]);
 
+        $this->actingAs($admin)
+            ->get(route('hub.dashboard', $hub))
+            ->assertOk()
+            ->assertSee('name="contact_number" id="onlineContactNumber"', false)
+            ->assertSee('id="onlineOrderRemarks" name="note"', false)
+            ->assertSee('maxlength="150"', false)
+            ->assertSee('Maximum 150 characters.');
+
+        $this->post(route('sales.storeMultiChannelSale'), [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'online',
+            'placed_order_date' => '2026-09-03',
+            'customer_name' => 'Long Note Customer',
+            'note' => str_repeat('A', 151),
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+            ]],
+        ])->assertSessionHasErrors('note');
+
         $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
             'store_hub_id' => $hub->id,
             'sales_channel' => 'tiktok',
@@ -1132,6 +1153,7 @@ class SalesWorkflowTest extends TestCase
             'sales_channel' => 'online',
             'placed_order_date' => '2026-09-03',
             'customer_name' => 'Online Customer',
+            'contact_number' => '09171234567',
             'order_number' => 'ONLINE-REPORT-001',
             'online_mop' => 'GCASH',
             'proof_of_payment' => UploadedFile::fake()->create('online-proof.pdf', 10, 'application/pdf'),
@@ -1146,6 +1168,8 @@ class SalesWorkflowTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $onlinePending = PendingSale::where('invoice_number', 'ONLINE-REPORT-001')->sole();
+        $this->assertSame('+639171234567', $onlinePending->contact_number);
+        $this->assertSame('Reconciled payment', $onlinePending->note);
         $this->actingAs($admin)
             ->post(route('sales.confirmPending', $onlinePending))
             ->assertSessionHas('success');
