@@ -2,23 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SalesTransaction;
-use App\Models\SalesPaymentRecord;
-use App\Models\StoreHub;
 use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\ProductReplacement;
 use App\Models\ProductStockAllocation;
+use App\Models\SalesPaymentRecord;
+use App\Models\SalesTransaction;
+use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
 use App\Support\AttachmentAvailability;
+use App\Support\AttachmentResponse;
 use App\Support\KeywordSearch;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class SalesReportController extends Controller
 {
@@ -905,16 +906,13 @@ class SalesReportController extends Controller
             ? (string) config('filesystems.attachments', 'public')
             : 'public';
         $disk = Storage::disk($diskName);
-        $availability = AttachmentAvailability::check($disk, $path);
+        $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
+            ? true
+            : AttachmentAvailability::check($disk, $path);
         abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
         abort_unless($availability, 404, 'Replacement attachment is missing or empty.');
 
-        return $disk->response(
-            $path,
-            basename($path),
-            ['Content-Type' => $disk->mimeType($path) ?: 'application/octet-stream'],
-            'inline'
-        );
+        return AttachmentResponse::inline($disk, $path);
     }
 
     public function wholesalePaymentAttachment(int $hub, SalesTransaction $transaction)
@@ -930,17 +928,15 @@ class SalesReportController extends Controller
         $path = $transaction->proof_of_payment ?: $transaction->payment_proof;
         abort_unless(is_string($path) && $path !== '', 404);
 
-        $disk = Storage::disk((string) config('filesystems.attachments', 'public'));
-        $availability = AttachmentAvailability::check($disk, $path);
+        $diskName = (string) config('filesystems.attachments', 'public');
+        $disk = Storage::disk($diskName);
+        $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
+            ? true
+            : AttachmentAvailability::check($disk, $path);
         abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
         abort_unless($availability, 404, 'Payment attachment is missing or empty.');
 
-        return $disk->response(
-            $path,
-            basename($path),
-            ['Content-Type' => $disk->mimeType($path) ?: 'application/octet-stream'],
-            'inline'
-        );
+        return AttachmentResponse::inline($disk, $path);
     }
 
     public function replaceWholesaleItem(Request $request, int $hub, int $transaction, int $item)
@@ -1054,6 +1050,7 @@ class SalesReportController extends Controller
                     : ($product->sales_price ?? 0));
                 $line['unit_price'] = $unitPrice;
                 $line['total'] = round($unitPrice * (1 - ($line['discount_percentage'] / 100)) * $line['quantity'], 2);
+
                 return $line;
             });
             $supportsReplacementShipping = in_array($channel, ['online', 'wholesale'], true)

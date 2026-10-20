@@ -12,20 +12,20 @@
     $replacementProofUnverified = false;
     $hasRecordedAttachmentPath = (bool) $recordedProofPath;
     $hasReplacementAttachmentPath = false;
-    $proofDisk = \Illuminate\Support\Facades\Storage::disk(
-        (string) config('filesystems.attachments', 'public')
-    );
     $replacementRecords = $paymentRecord?->items
         ? $paymentRecord->items
             ->flatMap(fn ($item) => $item->replacements)
             ->unique('id')
             ->sortBy('created_at')
         : collect();
+    $attachmentDiskName = (string) config('filesystems.attachments', 'public');
+    $attachmentDisk = \Illuminate\Support\Facades\Storage::disk($attachmentDiskName);
+    $canCheckAttachmentAvailability = config("filesystems.disks.{$attachmentDiskName}.driver") !== 's3';
 
     if ($recordedProofPath) {
-        $availability = \App\Support\AttachmentAvailability::check($proofDisk, $recordedProofPath);
-        $recordedProofUnavailable = $availability === false;
-        $recordedProofUnverified = $availability === null;
+        $availability = $canCheckAttachmentAvailability
+            ? \App\Support\AttachmentAvailability::check($attachmentDisk, $recordedProofPath)
+            : true;
 
         if ($availability === true) {
             $mopAttachments->push([
@@ -36,6 +36,9 @@
                 'label' => 'Record Sales MOP Attachment',
                 'is_image' => \Illuminate\Support\Str::endsWith(strtolower((string) $recordedProofPath), ['.jpg', '.jpeg', '.png', '.gif', '.webp']),
             ]);
+        } else {
+            $recordedProofUnavailable = $availability === false;
+            $recordedProofUnverified = $availability === null;
         }
     }
 
@@ -46,14 +49,12 @@
             }
 
             $hasReplacementAttachmentPath = true;
-            $availability = \App\Support\AttachmentAvailability::check($proofDisk, $proofPath);
-            if ($availability === false) {
-                $replacementProofUnavailable = true;
-
-                continue;
-            }
-            if ($availability === null) {
-                $replacementProofUnverified = true;
+            $availability = $canCheckAttachmentAvailability
+                ? \App\Support\AttachmentAvailability::check($attachmentDisk, $proofPath)
+                : true;
+            if ($availability !== true) {
+                $replacementProofUnavailable = $replacementProofUnavailable || $availability === false;
+                $replacementProofUnverified = $replacementProofUnverified || $availability === null;
 
                 continue;
             }
