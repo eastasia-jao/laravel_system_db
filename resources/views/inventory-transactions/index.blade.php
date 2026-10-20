@@ -51,6 +51,18 @@
     .inventory-log-modal .modal-body > .row { background: transparent; }
     .inventory-log-modal .modal-body > .row > [class*="col-"] > strong { display: block; color: #64748b; font-size: .7rem; letter-spacing: .05em; text-transform: uppercase; }
     .inventory-log-modal .modal-body > .row > [class*="col-"] > strong + div { margin-top: .2rem; font-weight: 600; }
+    .sold-order-image-preview { display: block; width: 100%; max-width: 680px; padding: .5rem; border: 1px solid #dbe3ee; border-radius: .75rem; background: #f8fafc; cursor: zoom-in; }
+    .sold-order-image-preview img { display: block; width: 100%; max-height: 280px; object-fit: contain; }
+    .inventory-order-image-viewer { position: relative; width: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); padding: 1rem; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+    .inventory-order-image-viewer::backdrop { background: rgba(15, 23, 42, .88); }
+    .inventory-order-image-viewer img { display: block; max-width: calc(100vw - 4rem); max-height: calc(100vh - 7rem); object-fit: contain; }
+    .inventory-order-image-viewer-caption { margin-top: .65rem; color: #1e3a8a; font-size: .85rem; font-weight: 700; text-align: center; }
+    .inventory-order-image-viewer-close { position: absolute; top: .45rem; right: .45rem; z-index: 1; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .8); }
+    .inventory-order-image-viewer-close:hover { background: #2563eb; }
+    @supports (height: 100dvh) {
+        .inventory-order-image-viewer { max-height: calc(100dvh - 2rem); }
+        .inventory-order-image-viewer img { max-height: calc(100dvh - 7rem); }
+    }
     .fully-booked-detail { display: grid; gap: 1rem; }
     .fully-booked-detail-summary { display: flex; align-items: center; gap: .9rem; padding: 1rem; border: 1px solid #dbeafe; border-radius: 14px; background: #fff; }
     .fully-booked-detail-icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 12px; color: #2563eb; background: #eff6ff; }
@@ -289,10 +301,6 @@
                                 || (int) $fullyBookedReturnOrder->sales_staff_id === (int) auth()->id()))
                     );
                     $isSoldOrder = $transaction->type === 'sold' && $transaction->salesTransaction;
-                    $hasBranchWalkInOrderSlip = $isSoldOrder
-                        && ! $transaction->storeHub?->is_head_office
-                        && strtolower(str_replace(['-', ' '], '_', (string) ($transaction->salesTransaction?->channel_type ?? ''))) === 'walk_in'
-                        && $transaction->salesTransaction?->order_slip;
                     $isTransferGroup = in_array($transaction->type, ['stock_transfer', 'branch_transfer'], true);
                     $isSponsorGroup = $transaction->type === 'sponsor_workshop';
                     $isRestockGroup = $transaction->type === 'restock';
@@ -315,6 +323,14 @@
                     $modalId = 'transactionModal'.str_replace(['-', ' '], '', $groupKey);
                     $displayUser = $isSoldOrder ? $transaction->salesTransaction?->user : $transaction->creator;
                     $sale = $transaction->salesTransaction;
+                    $saleChannel = strtolower(str_replace(['-', ' '], '_', (string) $sale?->channel_type));
+                    $orderSlipPath = $saleChannel === 'event'
+                        ? ($sale?->event_attachments['order_slip'] ?? null)
+                        : $sale?->order_slip;
+                    $hasOrderSlip = $isSoldOrder && is_string($orderSlipPath) && $orderSlipPath !== '';
+                    $orderSlipIsImage = $hasOrderSlip && in_array(strtolower(pathinfo($orderSlipPath, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp'], true);
+                    $orderSlipLabel = $saleChannel === 'walk_in' ? 'Walk-In Order Slip' : 'Order Attachment';
+                    $orderSlipUrl = $hasOrderSlip ? route('inventory-transactions.sales-order-slip', $sale->id) : null;
                     $replacementReviews = $sale?->items
                         ? $sale->items->flatMap->replacements->filter(fn ($replacement) => $replacement->status !== 'pending')
                         : collect();
@@ -841,13 +857,18 @@
                                             <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Submitted by</div><strong>{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</strong></div></div>
                                             <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Store Hub</div><strong>{{ $transaction->storeHub?->name ?? '—' }}</strong></div></div>
                                             <div class="col-md-6"><div class="transfer-detail-section p-3 h-100"><div class="small text-muted mb-1">Sales Channel</div><strong>{{ ucwords(str_replace('_', ' ', $transaction->channel ?: $transaction->source ?: '—')) }}</strong></div></div>
-                                            @if($hasBranchWalkInOrderSlip)
-                                                @php($orderSlipUrl = route('inventory-transactions.sales-order-slip', $transaction->salesTransaction->id))
+                                            @if($hasOrderSlip)
                                                 <div class="col-12">
                                                     <div class="transfer-detail-section p-3">
-                                                        <div class="small text-muted mb-2">Walk-In Order Slip</div>
-                                                        <a href="{{ $orderSlipUrl }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary mb-2"><i class="fa-solid fa-up-right-from-square me-1"></i>Open full size</a>
-                                                        <img src="{{ $orderSlipUrl }}" alt="Order slip for {{ $transaction->salesTransaction->order_number }}" class="fully-booked-preview">
+                                                        <div class="small text-muted mb-2">{{ $orderSlipLabel }}</div>
+                                                        @if($orderSlipIsImage)
+                                                            <button type="button" class="sold-order-image-preview" data-image-url="{{ $orderSlipUrl }}" data-image-alt="{{ $orderSlipLabel }} for {{ $sale->order_number }}">
+                                                                <img src="{{ $orderSlipUrl }}" alt="{{ $orderSlipLabel }} for {{ $sale->order_number }}" loading="lazy">
+                                                                <span class="d-block small text-primary mt-2"><i class="fa-solid fa-magnifying-glass-plus me-1"></i>Click to preview</span>
+                                                            </button>
+                                                        @else
+                                                            <a href="{{ $orderSlipUrl }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-up-right-from-square me-1"></i>Open attachment</a>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             @endif
@@ -922,8 +943,43 @@
         <div class="p-3">{{ $transactions->links() }}</div>
     </div>
 </div>
+<dialog class="inventory-order-image-viewer" id="inventoryOrderImageViewer" aria-label="Order attachment preview">
+    <button type="button" class="inventory-order-image-viewer-close" aria-label="Close image preview">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <img alt="">
+    <div class="inventory-order-image-viewer-caption"></div>
+</dialog>
 @endsection
 
 @push('scripts')
 <script src="{{ asset('js/fully-booked-pullout.js') }}?v={{ filemtime(public_path('js/fully-booked-pullout.js')) }}"></script>
+<script>
+    (() => {
+        const viewer = document.getElementById('inventoryOrderImageViewer');
+        const image = viewer?.querySelector('img');
+        const caption = viewer?.querySelector('.inventory-order-image-viewer-caption');
+        const closeButton = viewer?.querySelector('.inventory-order-image-viewer-close');
+        if (!viewer || !image || !caption || !closeButton) return;
+
+        document.addEventListener('click', event => {
+            const trigger = event.target.closest('.sold-order-image-preview');
+            if (!trigger) return;
+
+            image.src = trigger.dataset.imageUrl;
+            image.alt = trigger.dataset.imageAlt;
+            caption.textContent = trigger.dataset.imageAlt;
+            viewer.showModal();
+        });
+        closeButton.addEventListener('click', () => viewer.close());
+        viewer.addEventListener('click', event => {
+            if (event.target === viewer) viewer.close();
+        });
+        viewer.addEventListener('close', () => {
+            image.removeAttribute('src');
+            image.alt = '';
+            caption.textContent = '';
+        });
+    })();
+</script>
 @endpush

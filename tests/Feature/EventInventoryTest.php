@@ -181,6 +181,18 @@ class EventInventoryTest extends TestCase
             'quantity' => 2,
         ]);
 
+        $inventoryOrderSlipUrl = route('inventory-transactions.sales-order-slip', $sale->id);
+        $this->get(route('inventory-transactions.index', [
+            'hub_id' => $hub->id,
+            'type' => 'sold',
+            'month' => '2026-10',
+        ]))->assertOk()
+            ->assertSee('Order Attachment')
+            ->assertSee($inventoryOrderSlipUrl, false)
+            ->assertSee('sold-order-image-preview', false)
+            ->assertSee('inventory-order-image-viewer', false);
+        $this->get($inventoryOrderSlipUrl)->assertOk()->assertHeader('Content-Type', 'image/png');
+
         $this->get(route('event-inventory.index', [
             'hub_id' => $hub->id,
             'event_id' => $event->id,

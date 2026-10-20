@@ -1249,25 +1249,31 @@ class InventoryTransactionController extends Controller
         ));
     }
 
-    public function branchWalkInOrderSlip(int $salesTransaction)
+    public function salesOrderSlip(int $salesTransaction)
     {
         $sale = SalesTransaction::with('storeHub')->findOrFail($salesTransaction);
         abort_unless(
-            $sale->storeHub
-                && ! $sale->storeHub->is_head_office
-                && $this->normalizeChannel($sale->channel_type) === 'walk_in',
-            404
+            $sale->storeHub && auth()->user()?->canAccessHub((int) $sale->store_hub_id),
+            403
         );
-        abort_unless(is_string($sale->order_slip) && $sale->order_slip !== '', 404);
-        $diskName = AttachmentStorage::diskName(AttachmentStorage::SALES);
+
+        $isEventSale = str_replace(['-', ' '], '_', strtolower(trim((string) $sale->channel_type))) === 'event';
+        $path = $isEventSale
+            ? ($sale->event_attachments['order_slip'] ?? null)
+            : $sale->order_slip;
+        abort_unless(is_string($path) && $path !== '', 404);
+
+        $diskName = AttachmentStorage::diskName(
+            $isEventSale ? AttachmentStorage::EVENTS : AttachmentStorage::SALES
+        );
         $disk = Storage::disk($diskName);
         $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
             ? true
-            : AttachmentAvailability::check($disk, $sale->order_slip);
+            : AttachmentAvailability::check($disk, $path);
         abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
         abort_unless($availability, 404, 'The order attachment is missing or empty.');
 
-        return AttachmentResponse::inline($disk, $sale->order_slip, headers: [
+        return AttachmentResponse::inline($disk, $path, headers: [
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

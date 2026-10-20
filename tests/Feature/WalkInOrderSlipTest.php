@@ -68,7 +68,9 @@ class WalkInOrderSlipTest extends TestCase
             'month' => '2026-09',
         ]))->assertOk()
             ->assertSee('Walk-In Order Slip')
-            ->assertSee($orderSlipUrl, false);
+            ->assertSee($orderSlipUrl, false)
+            ->assertSee('sold-order-image-preview', false)
+            ->assertSee('inventory-order-image-viewer', false);
         $this->get($orderSlipUrl)->assertOk()->assertHeader('Content-Type', 'image/png');
         $this->actingAs($admin)->get($orderSlipUrl)->assertOk();
         $salesUser = User::factory()->create(['role' => 'sales_marketing_staff', 'hub_id' => $hub->id]);
