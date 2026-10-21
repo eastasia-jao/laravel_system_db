@@ -597,7 +597,8 @@
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">Address</label>
-                                        <input type="text" name="address" class="form-control bg-white market-input" placeholder="Enter delivery address" disabled>
+                                        <input type="text" name="address" id="marketplaceDeliveryAddress" class="form-control bg-white market-input" maxlength="150" data-character-count placeholder="Enter delivery address" disabled>
+                                        <div class="form-text text-end"><span data-character-count-current>0</span>/150</div>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">MOP</label>
@@ -713,7 +714,8 @@
                                 <!-- Address -->
                                 <div class="col-md-8">
                                     <label class="form-label fw-bold">Address / Delivery Location</label>
-                                    <input type="text" name="address" class="form-control" placeholder="Complete delivery address">
+                                    <input type="text" name="address" id="wholesaleDeliveryAddress" class="form-control" maxlength="150" data-character-count placeholder="Complete delivery address">
+                                    <div class="form-text text-end"><span data-character-count-current>0</span>/150</div>
                                 </div>
 
                                 <!-- Delivery Date -->
@@ -849,7 +851,8 @@
                             </div>
                             <div class="col-md-8">
                                 <label class="form-label fw-bold">Delivery Address</label>
-                                <textarea name="address" class="form-control online-input" rows="2" placeholder="Complete delivery address" disabled></textarea>
+                                <textarea name="address" id="onlineDeliveryAddress" class="form-control online-input" rows="2" maxlength="150" data-character-count placeholder="Complete delivery address" disabled></textarea>
+                                <div class="form-text text-end"><span data-character-count-current>0</span>/150</div>
                             </div>
 
                             <div class="col-12 sale-field-heading">Order documents</div>

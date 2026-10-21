@@ -70,7 +70,8 @@
                         </script>
                         <div class="col-md-3">
                             <label class="form-label small">Address</label>
-                            <input type="text" name="address" id="walkInCustomerAddress" class="form-control" placeholder="Customer address" autocomplete="street-address">
+                            <input type="text" name="address" id="walkInCustomerAddress" class="form-control" maxlength="150" data-character-count placeholder="Customer address" autocomplete="street-address">
+                            <div class="form-text text-end"><span data-character-count-current>0</span>/150</div>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small">Branch / Location</label>

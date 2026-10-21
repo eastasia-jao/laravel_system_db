@@ -133,7 +133,7 @@ class EventInventoryController extends Controller
             'order_number' => ['required', 'string', 'max:100'],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'contact_number' => ['nullable', 'regex:/^\+639\d{9}$/'],
-            'address' => ['nullable', 'string', 'max:1000'],
+            'address' => ['nullable', 'string', 'max:150'],
             'mode_of_payment' => ['required', Rule::in(['CASH', 'GCASH', 'BDO', 'BPI', 'PAYMAYA', 'OTHERS'])],
             'custom_mop' => ['nullable', 'required_if:mode_of_payment,OTHERS', 'string', 'max:100'],
             'additional_discount_percentage' => ['nullable', 'numeric', 'between:0,100'],

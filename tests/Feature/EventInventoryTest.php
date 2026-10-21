@@ -74,6 +74,8 @@ class EventInventoryTest extends TestCase
             ->assertSee('PayMaya')
             ->assertSee('Specify Payment Method')
             ->assertSee('eventSaleImageViewer')
+            ->assertSee('id="popupAddress"', false)
+            ->assertSee('data-character-count', false)
             ->assertSee('maxlength="150"', false)
             ->assertSee('event-sale-remarks')
             ->assertSee('popup-event-price-display')

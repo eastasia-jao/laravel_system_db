@@ -770,6 +770,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('.online-proof-stage { position: relative; display: grid; height: 180px;', false)
             ->assertSee('.online-proof-image { width: 100%; height: 100%; object-fit: contain;', false)
             ->assertSee('.online-proof-caption { display: flex; height: 3.25rem;', false)
+            ->assertSee('.online-order-card { height: 240px;', false)
+            ->assertSee('online-order-remarks', false)
             ->assertSee('data-online-proof-lightbox', false)
             ->getContent();
 

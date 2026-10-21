@@ -91,7 +91,7 @@
                             <div class="col-lg-3 col-md-4"><label class="form-label fw-semibold" for="popupOrderNumber">Order Number</label><input id="popupOrderNumber" class="form-control bg-light" value="{{ old('order_number') }}" placeholder="Select an event" readonly></div>
                             <div class="col-md-4"><label class="form-label fw-semibold" for="popupCustomerName">Customer Name</label><input name="customer_name" id="popupCustomerName" value="{{ old('customer_name') }}" class="form-control" placeholder="Customer name" autocomplete="name"></div>
                             <div class="col-md-3"><label class="form-label fw-semibold" for="popupContactNumber">Contact Number</label><input type="tel" name="contact_number" id="popupContactNumber" value="{{ old('contact_number') }}" class="form-control" placeholder="+639XXXXXXXXX" inputmode="numeric" maxlength="13" pattern="\+639[0-9]{9}" title="Enter a Philippine mobile number such as +639171234567"></div>
-                            <div class="col-md-5"><label class="form-label fw-semibold" for="popupAddress">Address</label><input name="address" id="popupAddress" value="{{ old('address') }}" class="form-control" placeholder="Optional customer address"></div>
+                            <div class="col-md-5"><label class="form-label fw-semibold" for="popupAddress">Address</label><input name="address" id="popupAddress" value="{{ old('address') }}" class="form-control" maxlength="150" data-character-count placeholder="Optional customer address"><div class="form-text text-end"><span data-character-count-current>{{ strlen((string) old('address')) }}</span>/150</div></div>
                         </div>
                     </section>
 

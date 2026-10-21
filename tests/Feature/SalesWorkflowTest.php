@@ -572,7 +572,7 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('marketplace-mop-menu', false)
             ->assertSee('id="marketplaceMopButton" data-bs-toggle="dropdown" data-bs-display="static"', false)
             ->assertSee('document.body.appendChild(marketplaceMopMenu)', false)
-            ->assertSee("const menuTop = buttonRect.bottom + 4", false);
+            ->assertSee('const menuTop = buttonRect.bottom + 4', false);
 
         $channelMopOrder = [
             'store_hub_id' => $hub->id,
@@ -677,7 +677,6 @@ class SalesWorkflowTest extends TestCase
             'invoice_number' => 'COVER-ORDER-001',
         ]);
     }
-
 
     public function test_pending_sale_can_be_recorded_and_confirmed(): void
     {
@@ -1091,6 +1090,11 @@ class SalesWorkflowTest extends TestCase
             ->get(route('hub.dashboard', $hub))
             ->assertOk()
             ->assertSee('name="contact_number" id="onlineContactNumber"', false)
+            ->assertSee('id="marketplaceDeliveryAddress"', false)
+            ->assertSee('id="wholesaleDeliveryAddress"', false)
+            ->assertSee('id="onlineDeliveryAddress"', false)
+            ->assertSee('data-character-count', false)
+            ->assertSee('data-character-count-current', false)
             ->assertSee('id="onlineOrderRemarks" name="note"', false)
             ->assertSee('maxlength="150"', false)
             ->assertSee('Maximum 150 characters.');
@@ -1101,12 +1105,13 @@ class SalesWorkflowTest extends TestCase
             'placed_order_date' => '2026-09-03',
             'customer_name' => 'Long Note Customer',
             'note' => str_repeat('A', 151),
+            'address' => str_repeat('B', 151),
             'items' => [[
                 'product_id' => $product->id,
                 'quantity' => 1,
                 'unit_price' => 100,
             ]],
-        ])->assertSessionHasErrors('note');
+        ])->assertSessionHasErrors(['note', 'address']);
 
         $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
             'store_hub_id' => $hub->id,

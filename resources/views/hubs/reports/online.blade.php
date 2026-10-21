@@ -1,5 +1,5 @@
 <style>
-    .online-order-card { width: 100%; border: 0; box-shadow: 0 4px 14px rgba(15, 23, 42, .07); font-size: .86rem; }
+    .online-order-card { display: flex; width: 100%; flex-direction: column; border: 0; box-shadow: 0 4px 14px rgba(15, 23, 42, .07); font-size: .86rem; }
     .online-order-card .order-heading { background: linear-gradient(135deg, #ecfeff, #eff6ff); padding: .75rem 1rem !important; }
     .online-order-card .order-label { color: #64748b; font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; }
     .online-order-card .order-value { font-weight: 600; }
@@ -8,6 +8,12 @@
     .online-order-card .fs-5 { font-size: 1rem !important; }
     .online-order-card .row { --bs-gutter-y: .55rem; }
     .online-order-card [data-online-delivery-form] { max-width: 260px; }
+    .online-order-remarks { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+    @media (min-width: 768px) {
+        .online-order-card { height: 240px; }
+        .online-order-card .order-heading { flex: 0 0 100px; min-height: 100px; overflow: hidden; }
+        .online-order-card .card-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    }
     .online-proof-gallery { display: grid; gap: .55rem; }
     .online-proof-stage { position: relative; display: grid; height: 180px; place-items: center; overflow: hidden; padding: .5rem 3rem; border: 1px solid #dbe3ee; border-radius: .6rem; background: #eef2f7; }
     .online-proof-slide { display: grid; width: 100%; height: 100%; min-width: 0; place-items: center; overflow: hidden; }
@@ -131,7 +137,7 @@
                                         <div class="order-label">Difference</div>
                                         <div class="order-value {{ $difference !== null && abs($difference) >= 0.01 ? 'text-danger' : 'text-success' }}">{{ $difference !== null ? '₱'.number_format($difference, 2) : '—' }}</div>
                                     </div>
-                                    <div class="col-12 col-md-2"><div class="order-label">Remarks</div><div class="order-value">{{ $transaction->note ?: '—' }}</div></div>
+                                    <div class="col-12 col-md-2"><div class="order-label">Remarks</div><div class="order-value online-order-remarks" title="{{ $transaction->note }}">{{ $transaction->note ?: '—' }}</div></div>
                                     <div class="col-12 col-md-2">
                                         <div class="order-label mb-1">Delivery status</div>
                                         @if($isRefunded)
