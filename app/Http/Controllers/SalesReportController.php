@@ -998,7 +998,7 @@ class SalesReportController extends Controller
             'exchange_payment_proofs' => ['nullable', 'array', 'max:4'],
             'exchange_payment_proofs.*' => ['file', 'mimes:jpeg,png,jpg,webp,pdf', 'min:1', 'max:2048'],
             'replacement_order_slip' => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp,pdf', 'max:2048'],
-            'reason' => ['nullable', 'string', 'max:2000'],
+            'reason' => ['nullable', 'string', 'max:150'],
         ]);
 
         $replacement = DB::transaction(function () use ($validated, $storeHub, $transaction, $item, $request) {

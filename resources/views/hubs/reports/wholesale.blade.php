@@ -691,7 +691,7 @@
                 @include('hubs.reports._exchange-additional-items', ['exchangePrefix' => 'wholesale', 'exchangeChannel' => 'wholesale'])
                 <div>
                     <label class="form-label fw-semibold" for="wholesaleReplacementReason">Reason (optional)</label>
-                    <textarea name="reason" id="wholesaleReplacementReason" class="form-control" rows="3" maxlength="2000" placeholder="Why is this item being replaced?"></textarea>
+                    <textarea name="reason" id="wholesaleReplacementReason" class="form-control" rows="3" maxlength="150" placeholder="Why is this item being replaced?"></textarea>
                 </div>
             </div>
             <div class="modal-footer">

@@ -490,7 +490,7 @@
                                 </div>
                                 @include('hubs.reports._exchange-additional-items', ['exchangePrefix' => 'online-'.$item->id, 'exchangeChannel' => 'online'])
                                 <label class="form-label fw-semibold mt-3">Reason (optional)</label>
-                                <textarea name="reason" class="form-control" rows="3" maxlength="2000"></textarea>
+                                <textarea name="reason" class="form-control" rows="3" maxlength="150"></textarea>
                             </div>
                             <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success">Submit for Verification</button></div>
                         </form>

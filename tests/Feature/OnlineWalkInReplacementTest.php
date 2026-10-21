@@ -77,7 +77,17 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertDontSee('>Reset</a>')
             ->assertSee('Search by Item ID, barcode, or product name')
             ->assertSee('Exchange calculation')
-            ->assertSee('name="exchange_payment_amount"', false);
+            ->assertSee('name="exchange_payment_amount"', false)
+            ->assertSee('name="reason" class="form-control" rows="3" maxlength="150"', false);
+
+        $this->post(route('hub.report.online.replacement.store', [$hub, $sale, $item]), [
+            'replacement_product_id' => $replacement->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'replacement_shipping_fee_type' => 'Free',
+            'exchange_payment_method' => 'CASH',
+            'reason' => str_repeat('A', 151),
+        ])->assertSessionHasErrors('reason');
 
         $this->actingAs($admin)->post(route('hub.report.online.replacement.store', [$hub, $sale, $item]), [
             'replacement_product_id' => $replacement->id,

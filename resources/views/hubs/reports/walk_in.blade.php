@@ -413,7 +413,7 @@
                 </div>
                 @include('hubs.reports._exchange-additional-items', ['exchangePrefix' => 'walk-in-'.$item->id, 'exchangeChannel' => 'walk_in'])
                 <label class="form-label fw-semibold mt-2">Reason (optional)</label>
-                <textarea name="reason" class="form-control" rows="2" maxlength="2000"></textarea>
+                <textarea name="reason" class="form-control" rows="2" maxlength="150"></textarea>
             </div>
             <div class="modal-footer"><button class="btn btn-warning">Submit for Verification</button></div>
         </form></div></div>
