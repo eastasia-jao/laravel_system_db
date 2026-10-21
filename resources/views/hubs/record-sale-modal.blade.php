@@ -49,8 +49,8 @@
     #recordSaleModal .sale-attachment-field { padding: .85rem; border: 1px dashed #cbd5e1; border-radius: 11px; background: #fff; }
     #recordSaleModal .sale-attachment-field .form-text { max-width: 58ch; }
     #recordSaleModal #wholesaleExtraFields > .border { padding: 0 !important; border: 0 !important; background: transparent !important; }
-    #recordSaleModal #wholesaleExtraFields .row,
-    #recordSaleModal #onlineExtraFields .row { --bs-gutter-x: 1rem; --bs-gutter-y: .9rem; }
+    #recordSaleModal #wholesaleExtraFields .row { --bs-gutter-x: 1rem; --bs-gutter-y: .9rem; }
+    #recordSaleModal #onlineExtraFields .row { --bs-gutter-x: .85rem; --bs-gutter-y: .45rem; }
     #recordSaleModal #wholesaleExtraFields .check-details-fields { margin: 0; }
     #recordSaleModal #wholesaleExtraFields .wholesale-adjustment-card { padding: .9rem; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; height: 100%; }
     #recordSaleModal #wholesaleExtraFields .wholesale-adjustment-card .form-text { margin-bottom: 0; }
@@ -59,7 +59,7 @@
     #recordSaleModal #wholesaleExtraFields .sale-attachment-field .form-label { font-size: .82rem; margin-bottom: .35rem; }
     #recordSaleModal #wholesaleExtraFields .wholesale-payment-guide { display: flex; align-items: center; min-height: 72px; padding: .85rem 1rem; border: 1px solid #dbeafe; border-radius: 11px; background: #eff6ff; color: #475569; font-size: .8rem; line-height: 1.45; }
     #recordSaleModal #wholesaleExtraFields .wholesale-payment-guide i { color: #2563eb; font-size: 1rem; margin-right: .65rem; }
-    #recordSaleModal #onlineExtraFields { margin-top: 1rem !important; }
+    #recordSaleModal #onlineExtraFields { margin-top: 0 !important; }
     #recordSaleModal #onlineExtraFields .form-control[readonly] { background-color: #f8fafc !important; }
     #productRowsContainer { overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
     #productRowsContainer > .row:first-child { position: sticky; top: 0; z-index: 2; font-size: .75rem; }
