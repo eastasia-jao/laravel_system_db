@@ -788,7 +788,7 @@
                         </div>
                         <div class="row g-3">
                             <div class="col-12 sale-field-heading">Payment &amp; delivery status</div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label fw-bold">MOP</label>
                                 <select name="online_mop" class="form-select online-input mop-select" disabled>
                                     <option value="">-- Select MOP --</option>
@@ -805,11 +805,11 @@
                                     <input type="text" name="custom_mop" class="form-control online-input custom-online-mop-input uppercase-input" placeholder="Enter other payment method" disabled>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label fw-bold">Delivery Date</label>
                                 <input type="date" name="delivery_date" class="form-control online-input" disabled>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label fw-bold">Delivery Status</label>
                                 <select name="delivery_status" class="form-select online-input" disabled>
                                     <option value="pending">Pending</option>
