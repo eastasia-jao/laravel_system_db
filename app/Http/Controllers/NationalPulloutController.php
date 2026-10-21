@@ -40,7 +40,7 @@ class NationalPulloutController extends Controller
         $validated = $request->validate([
             'po_number' => ['required', 'string', 'max:100', Rule::unique('national_pullouts', 'po_number')],
             'occurred_on' => ['required', 'date'],
-            'remarks' => ['nullable', 'string', 'max:2000'],
+            'remarks' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1', 'max:200'],
             'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:national_products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
@@ -130,8 +130,9 @@ class NationalPulloutController extends Controller
     public function excelWorksheet(Request $request)
     {
         $this->headOffice($request);
-        $request->validate([
+        $validated = $request->validate([
             'include_products' => ['sometimes', 'boolean'],
+            'remarks' => ['nullable', 'string', 'max:150'],
         ]);
         $items = $request->boolean('include_products', true)
             ? NationalProduct::query()
@@ -151,7 +152,7 @@ class NationalPulloutController extends Controller
         $path = NationalPulloutWorkbook::create($items, [
             'po_number' => trim((string) $request->input('po_number')),
             'occurred_on' => (string) $request->input('occurred_on'),
-            'remarks' => trim((string) $request->input('remarks')),
+            'remarks' => trim((string) ($validated['remarks'] ?? '')),
         ]);
 
         return response()->download(
@@ -193,7 +194,7 @@ class NationalPulloutController extends Controller
         $validated = $request->validate([
             'po_number' => ['nullable', 'string', 'max:100'],
             'occurred_on' => ['nullable', 'date'],
-            'remarks' => ['nullable', 'string', 'max:2000'],
+            'remarks' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1', 'max:200'],
             'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:national_products,id'],
             'items.*.quantity' => ['nullable', 'integer', 'min:1'],

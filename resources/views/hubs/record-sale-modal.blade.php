@@ -935,7 +935,7 @@
 
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Note / Walk-In Remarks</label>
-                                <input type="text" name="walkin_remarks" class="form-control walk-in-input" placeholder="Optional notes" disabled>
+                                <input type="text" name="walkin_remarks" class="form-control walk-in-input" maxlength="150" placeholder="Optional notes" disabled>
                             </div>
 
                             <div class="col-md-6 walkin-check-details-fields" style="display: none;">

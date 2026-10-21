@@ -717,7 +717,7 @@ class SalesReportController extends Controller
             'payout_includes_refunds' => ['sometimes', 'boolean'],
             'drop_off_date' => ['nullable', 'date'],
             'courier' => ['nullable', 'string', 'max:255'],
-            'note' => ['nullable', 'string', 'max:2000'],
+            'note' => ['nullable', 'string', 'max:150'],
         ]);
 
         $salesTransaction = SalesTransaction::whereKey($transaction)

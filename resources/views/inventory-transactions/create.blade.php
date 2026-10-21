@@ -26,7 +26,7 @@
             <div class="col-md-4"><label class="form-label">Condition (returns)</label><select name="condition" class="form-select"><option value="">—</option><option value="good">Good</option><option value="damaged">Damaged</option></select></div>
             <div class="col-md-4"><label class="form-label">Target Store (transfer)</label><select name="target_hub_id" class="form-select"><option value="">—</option>@foreach($hubs as $hub)<option value="{{ $hub->id }}">{{ $hub->name }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Reference</label><input name="reference" class="form-control" placeholder="Document / order no."></div>
-            <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+            <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2" maxlength="150"></textarea></div>
         </div>
         <div class="mt-4"><button class="btn btn-primary">Save Transaction</button> <a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a></div>
     </form>

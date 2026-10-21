@@ -102,7 +102,7 @@
         </div>
         <div class="row g-3 mt-2">
             <div class="col-md-4"><label class="form-label">Reference Document No.</label><input name="reference" class="form-control" value="{{ old('reference', $restockReference) }}" readonly aria-readonly="true"></div>
-            <div class="col-md-8"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+            <div class="col-md-8"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2" maxlength="150"></textarea></div>
         </div>
         <div class="mt-4"><button class="btn btn-primary">Save Added Items</button>
             <a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a>

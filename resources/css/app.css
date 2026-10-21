@@ -62,6 +62,9 @@ body.app-shell {
 }
 
 a, button, input, select, textarea { transition: color var(--ac-transition), background-color var(--ac-transition), border-color var(--ac-transition), box-shadow var(--ac-transition), transform var(--ac-transition); }
+textarea[name="note"],
+textarea[name="notes"],
+textarea[name="remarks"] { resize: none; }
 :focus-visible { outline: 3px solid rgba(37, 99, 235, .28) !important; outline-offset: 2px; }
 .app-layout { min-height: 100vh; }
 

@@ -30,7 +30,7 @@
             <div class="col-md-4"><label class="form-label">Condition</label><select name="condition" class="form-select" required><option value="">Select condition</option><option value="good">Good</option><option value="damaged">Damaged</option></select></div>
         @endif
         <div class="col-md-4"><label class="form-label">Reference</label><input name="reference" class="form-control" placeholder="Document / order no."></div>
-        <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+        <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2" maxlength="150"></textarea></div>
     </div>
     <div class="mt-4"><button class="btn btn-primary">{{ $labels['button'] }}</button>
         <a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a>

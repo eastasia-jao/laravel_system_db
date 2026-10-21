@@ -150,10 +150,7 @@
                     <strong data-online-proof-label>{{ $proofAttachments->first()['label'] }}</strong>
                     <span class="d-block text-muted" data-online-proof-amount>@if(($proofAttachments->first()['amount'] ?? 0) > 0)Amount: &#8369;{{ number_format($proofAttachments->first()['amount'], 2) }}@endif</span>
                 </div>
-                <div class="text-end">
-                    <span data-online-proof-count>1 of {{ $proofAttachments->count() }}</span>
-                    <button type="button" class="btn btn-sm btn-link p-0 d-block ms-auto" data-online-proof-enlarge>View larger</button>
-                </div>
+                <span class="text-nowrap" data-online-proof-count>1 of {{ $proofAttachments->count() }}</span>
             </div>
             <div class="online-proof-lightbox" data-online-proof-lightbox role="dialog" aria-modal="true" aria-label="Payment proof preview" hidden>
                 <div class="online-proof-lightbox-content">

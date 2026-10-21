@@ -168,7 +168,7 @@
                 </div>
                 <div class="row g-3 mt-2">
                     <div class="col-md-4"><label class="form-label">Reference Document No.</label><input name="reference" class="form-control" value="{{ old('reference', $sponsorReference) }}" readonly aria-readonly="true"></div>
-                    <div class="col-md-8"><label class="form-label">Remarks</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+                    <div class="col-md-8"><label class="form-label">Remarks</label><textarea name="notes" class="form-control" rows="2" maxlength="150"></textarea></div>
                 </div>
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <button class="btn btn-primary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Event Items</button>
@@ -209,7 +209,7 @@
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold" for="fullyBookedRemarks">Remarks</label>
-                    <textarea id="fullyBookedRemarks" name="remarks" class="form-control" rows="3" maxlength="2000" placeholder="Add any details or instructions for Inventory Staff">{{ old('remarks') }}</textarea>
+                    <textarea id="fullyBookedRemarks" name="remarks" class="form-control" rows="3" maxlength="150" placeholder="Add any details or instructions for Inventory Staff">{{ old('remarks') }}</textarea>
                 </div>
                 <div class="col-12">
                     <div id="fullyBookedPreview" class="border rounded-3 p-2 bg-light" hidden>

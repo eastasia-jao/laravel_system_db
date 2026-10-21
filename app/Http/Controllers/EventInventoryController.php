@@ -372,7 +372,7 @@ class EventInventoryController extends Controller
     public function close(Request $request, EventPullout $eventPullout)
     {
         $validated = $request->validate([
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
         ]);
 
         $missing = DB::transaction(function () use ($eventPullout, $validated, $request) {

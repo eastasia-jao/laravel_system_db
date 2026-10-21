@@ -96,7 +96,7 @@
             </div>
             <div class="col-12">
                 <label class="form-label fw-semibold" for="pulloutRemarks">Remarks</label>
-                <textarea id="pulloutRemarks" name="remarks" class="form-control" rows="2" maxlength="2000" placeholder="Optional remarks">{{ old('remarks') }}</textarea>
+                <textarea id="pulloutRemarks" name="remarks" class="form-control" rows="2" maxlength="150" placeholder="Optional remarks">{{ old('remarks') }}</textarea>
             </div>
         </div>
 

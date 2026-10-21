@@ -756,7 +756,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('data-proof-label="Replacement additional payment proof"', false)
             ->assertSee('Previous payment proof')
             ->assertSee('Next payment proof')
-            ->assertSee('View larger')
+            ->assertDontSee('View larger')
             ->assertSee('data-online-proof-lightbox', false)
             ->getContent();
 

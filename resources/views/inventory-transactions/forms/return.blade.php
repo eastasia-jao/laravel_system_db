@@ -84,7 +84,7 @@
         </div>
         <div class="return-entry-layout">
             <div id="returnItems"><div class="text-muted p-3">Select a return source and reference to load its products.</div></div>
-            <div class="return-notes-panel"><label class="form-label" for="returnNotes">Notes</label><textarea id="returnNotes" name="notes" class="form-control" rows="6" maxlength="120" placeholder="Add notes about the returned items">{{ old('notes') }}</textarea><div class="form-text text-end"><span id="returnNotesCount">0</span>/120</div></div>
+            <div class="return-notes-panel"><label class="form-label" for="returnNotes">Notes</label><textarea id="returnNotes" name="notes" class="form-control" rows="6" maxlength="150" placeholder="Add notes about the returned items">{{ old('notes') }}</textarea><div class="form-text text-end"><span id="returnNotesCount">0</span>/150</div></div>
             <div class="return-actions"><button class="btn btn-primary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Return Items</button><a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a></div>
         </div>
     </form>

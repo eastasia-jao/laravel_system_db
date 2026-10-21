@@ -73,7 +73,7 @@ class FullyBookedOrderController extends Controller
             'attachment' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
             'store_selection' => ['required', Rule::in($activeStoreIds->push('other')->all())],
             'other_store_name' => ['nullable', 'required_if:store_selection,other', 'string', 'max:255'],
-            'remarks' => ['nullable', 'string', 'max:2000'],
+            'remarks' => ['nullable', 'string', 'max:150'],
         ]);
         $storeName = $validated['store_selection'] === 'other'
             ? trim($validated['other_store_name'])

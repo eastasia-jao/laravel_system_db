@@ -153,7 +153,7 @@
                 <label class="form-label">Transfer Document No.</label>
                 <input name="reference" class="form-control" value="{{ old('reference', $transferReference) }}" placeholder="Transfer document no." readonly aria-readonly="true">
             </div>
-            <div class="col-md-8"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+            <div class="col-md-8"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2" maxlength="150"></textarea></div>
         </div>
         <div class="mt-4">
             @if(! $branchTransfer || auth()->user()?->can('submit-branch-transfers') || auth()->user()?->can('manage-inventory'))

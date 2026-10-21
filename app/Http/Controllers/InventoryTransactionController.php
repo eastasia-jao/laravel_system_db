@@ -253,7 +253,7 @@ class InventoryTransactionController extends Controller
             'transfer_direction' => ['nullable', Rule::in(['ho_to_branch', 'branch_to_ho'])],
             'reference' => ['nullable', 'string', 'max:100'],
             'occurred_on' => ['nullable', 'date_format:Y-m-d'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
             'include_products' => ['sometimes', 'boolean'],
         ];
     }
@@ -320,7 +320,7 @@ class InventoryTransactionController extends Controller
             'reference' => ['nullable', 'string', 'max:100'],
             'occurred_on' => ['nullable', 'date_format:Y-m-d'],
             'source' => ['nullable', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
             'include_products' => ['sometimes', 'boolean'],
         ]);
         $hub = $this->authorizeEventWorkbookHub((int) $validated['hub_id']);
@@ -518,7 +518,7 @@ class InventoryTransactionController extends Controller
             'occurred_on' => ['required', 'date_format:Y-m-d'],
             'source' => ['required', 'string', 'max:100'],
             'reference' => ['nullable', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer'],
             'items.*.quantity' => ['nullable', 'integer', 'min:1'],
@@ -1497,7 +1497,7 @@ class InventoryTransactionController extends Controller
             'source_hub_id' => ['nullable', 'exists:store_hubs,id'],
             'target_hub_id' => ['nullable', 'exists:store_hubs,id'],
             'reference' => ['required', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:120'],
+            'notes' => ['nullable', 'string', 'max:150'],
         ]);
 
         $user = auth()->user();
@@ -1579,7 +1579,7 @@ class InventoryTransactionController extends Controller
                 'string',
                 'max:100',
             ],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
@@ -1926,7 +1926,7 @@ class InventoryTransactionController extends Controller
             'occurred_on' => ['required', 'date'],
             'source' => ['required', 'string', 'max:100'],
             'reference' => ['nullable', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
@@ -2037,7 +2037,7 @@ class InventoryTransactionController extends Controller
             'occurred_on' => ['required', 'date'],
             'restock_source' => ['required', Rule::in(['warehouse_request'])],
             'reference' => ['nullable', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
         ]);
         $receivingHub = StoreHub::findOrFail($validated['store_hub_id']);
         $hubCode = $this->transferReferenceHubCode($receivingHub->code);
@@ -2110,7 +2110,7 @@ class InventoryTransactionController extends Controller
             'channel' => ['required', Rule::in(['shopee', 'lazada', 'tiktok', 'online', 'walk_in', 'wholesale', 'fully_booked'])],
             'source' => ['nullable', 'string', 'max:100'],
             'reference' => ['nullable', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.good_quantity' => ['nullable', 'integer', 'min:0'],
@@ -2293,7 +2293,7 @@ class InventoryTransactionController extends Controller
             'occurred_on' => ['required', 'date'],
             'channel' => ['required', Rule::in(['event'])],
             'event_reference' => ['required', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.good_quantity' => ['nullable', 'integer', 'min:0'],
@@ -2438,7 +2438,7 @@ class InventoryTransactionController extends Controller
             'occurred_on' => ['required', 'date'],
             'channel' => ['required', Rule::in(['national_bookstore'])],
             'reference' => ['required', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:150'],
             'national_pullout_id' => ['required', 'integer', 'exists:national_pullouts,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.national_pullout_item_id' => ['required', 'integer', 'distinct', 'exists:national_pullout_items,id'],
