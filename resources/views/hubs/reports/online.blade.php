@@ -13,7 +13,7 @@
     .online-proof-slide { display: grid; width: 100%; height: 100%; min-width: 0; place-items: center; overflow: hidden; }
     .online-proof-slide[hidden], .online-proof-lightbox[hidden] { display: none !important; }
     .online-proof-image, .online-proof-document { display: block; max-width: 100%; border: 0; background: #fff; }
-    .online-proof-image { width: auto; height: auto; max-height: 100%; object-fit: contain; cursor: zoom-in; }
+    .online-proof-image { width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; }
     .online-proof-document { width: 100%; height: 100%; min-height: 0; }
     .online-proof-arrow { position: absolute; top: 50%; z-index: 3; display: grid; width: 36px; height: 36px; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .75); transform: translateY(-50%); }
     .online-proof-arrow:hover:not(:disabled) { background: #2563eb; }
