@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\ProductReplacement;
 use App\Models\SalesTransaction;
@@ -115,6 +116,7 @@ class OnlineSalesReportTest extends TestCase
             ->assertSee('Replacements')
             ->assertSee('Preview / Save PNG')
             ->assertSee('Save as PNG')
+            ->assertSee('id="onlineReportPreviewModal" data-bs-backdrop="static" data-bs-keyboard="false"', false)
             ->assertDontSee('Print / Save PDF')
             ->assertSee('data-online-delivery-form', false)
             ->assertSee('View details')
@@ -146,6 +148,130 @@ class OnlineSalesReportTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $this->assertSame('delivered', $septemberSale->fresh()->delivery_status);
+    }
+
+    public function test_online_refund_requires_complete_returns_and_permanently_locks_the_order(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Online Refund Hub',
+            'code' => 'ONLINE-REFUND',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'ONLINE-REFUND-ITEM',
+            'name' => 'Online Refund Item',
+            'stock' => 10,
+            'sales_price' => 100,
+            'status' => 'active',
+        ]);
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'online',
+            'customer_name' => 'Online Refund Customer',
+            'order_number' => 'ONLINE-REFUND-ORDER',
+            'order_date' => '2026-10-21',
+            'sub_total' => 200,
+            'total_amount' => 200,
+            'grand_total' => 200,
+            'shipping_fee_amount' => 20,
+            'proof_amount' => 220,
+            'status' => 'confirmed',
+            'payment_status' => 'not_applicable',
+            'delivery_status' => 'delivered',
+        ]);
+        $item = $sale->items()->create([
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit_price' => 100,
+            'line_total' => 200,
+        ]);
+        $reportUrl = route('hub.report', ['hub' => $hub->id, 'channel' => 'online']);
+        $refundUrl = route('hub.report.online.refund', [$hub->id, $sale->id]);
+
+        $initialResponse = $this->actingAs($admin)->get($reportUrl);
+        $initialResponse->assertOk()
+            ->assertSee('Refund is available after every ordered unit is recorded as returned.')
+            ->assertSee('id="onlineReportPreviewModal" data-bs-backdrop="static" data-bs-keyboard="false"', false);
+        $previewStart = strpos($initialResponse->getContent(), 'id="onlineReportPreviewModal"');
+        $previewBody = strpos($initialResponse->getContent(), '<div class="modal-body', $previewStart);
+        $this->assertNotFalse($previewStart);
+        $this->assertNotFalse($previewBody);
+        $this->assertStringNotContainsString('btn-close', substr($initialResponse->getContent(), $previewStart, $previewBody - $previewStart));
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasErrors('refund');
+
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'online',
+            'condition' => 'good',
+            'quantity' => 2,
+            'occurred_on' => '2026-10-21',
+            'created_by' => $admin->id,
+        ]);
+
+        $replacementProduct = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'ONLINE-REFUND-REPLACEMENT',
+            'name' => 'Online Refund Replacement',
+            'stock' => 3,
+            'sales_price' => 100,
+            'status' => 'active',
+        ]);
+        $replacement = ProductReplacement::create([
+            'transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'original_product_id' => $product->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 1,
+            'status' => 'pending',
+        ]);
+        $this->get($reportUrl)->assertOk()
+            ->assertSee('Resolve pending or approved replacements before refunding.');
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasErrors('refund');
+        $replacement->delete();
+
+        $this->get($reportUrl)->assertOk()->assertSee('Refund &amp; Lock Order', false);
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $sale = $sale->fresh();
+        $this->assertSame('refunded', $sale->status);
+        $this->assertSame('refunded', $sale->payment_status);
+        $this->assertSame('0.00', $sale->proof_amount);
+        $this->assertSame('0.00', $sale->amount_paid);
+        $this->assertSame('0.00', $sale->grand_total);
+        $this->assertSame('0.00', $sale->total_amount);
+        $this->assertSame('0.00', $sale->sub_total);
+        $this->assertSame('200.00', $sale->refund_original_order_value);
+        $this->assertSame('220.00', $sale->refund_original_collected);
+        $this->assertSame('200.00', $sale->wholesale_refund_amount);
+        $this->assertSame($admin->id, $sale->refunded_by);
+        $this->assertNotNull($sale->refunded_at);
+
+        $this->get($reportUrl)->assertOk()
+            ->assertSee('Refunded and locked')
+            ->assertViewHas('totalSales', 0.0)
+            ->assertViewHas('metrics', fn (array $metrics) => (float) $metrics['refund_total'] === 200.0);
+        $this->patch(route('sales.status.update', $sale->id), [
+            'delivery_status' => 'pending',
+        ])->assertStatus(409);
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasErrors('refund');
     }
 
     private function onlineSale(User $user, StoreHub $hub, Product $product, array $attributes): SalesTransaction

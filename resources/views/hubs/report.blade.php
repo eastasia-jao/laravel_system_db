@@ -780,12 +780,11 @@
     @endif
 
     @if($channel === 'online')
-        <div class="modal fade" id="onlineReportPreviewModal" tabindex="-1" aria-labelledby="onlineReportPreviewLabel" aria-hidden="true">
+        <div class="modal fade" id="onlineReportPreviewModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="onlineReportPreviewLabel" aria-hidden="true">
             <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header">
                         <div><h5 class="modal-title" id="onlineReportPreviewLabel">Online Sales Report Preview</h5><small class="text-muted">This preview is exactly what will be saved as PNG.</small></div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body overflow-hidden bg-secondary-subtle">
                         <div id="onlineReportPreviewCanvas" class="online-preview-canvas shadow-sm mx-auto p-4"></div>

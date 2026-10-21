@@ -73,6 +73,7 @@
                             ? null
                             : (float) $transaction->proof_amount
                                 - (float) ($transaction->sub_total ?: $saleAmount);
+                        $isRefunded = $transaction->status === 'refunded';
                     @endphp
                     <div class="col-12">
                         <article class="card online-order-card overflow-hidden">
@@ -85,6 +86,7 @@
                                     @foreach($saleReplacements->pluck('status')->unique() as $replacementStatus)
                                         <span class="badge mt-1 {{ $replacementStatus === 'approved' ? 'bg-success' : ($replacementStatus === 'pending' ? 'bg-warning text-dark' : 'bg-secondary') }}">Replacement: {{ strtoupper($replacementStatus) }}</span>
                                     @endforeach
+                                    @if($isRefunded)<span class="badge bg-secondary mt-1"><i class="fa-solid fa-lock me-1"></i>REFUNDED &amp; LOCKED</span>@endif
                                 </div>
                                 <div class="col-12 col-md-4 text-md-center">
                                     <div class="order-label">Payment / Bank</div>
@@ -107,7 +109,10 @@
                                     <div class="col-12 col-md-2"><div class="order-label">Remarks</div><div class="order-value">{{ $transaction->note ?: '—' }}</div></div>
                                     <div class="col-12 col-md-2">
                                         <div class="order-label mb-1">Delivery status</div>
-                                        @can('manage-sales-status')
+                                        @if($isRefunded)
+                                            <span class="badge bg-secondary"><i class="fa-solid fa-lock me-1"></i>Locked</span>
+                                        @else
+                                            @can('manage-sales-status')
                                             <form action="{{ route('sales.status.update', $transaction->id) }}" method="POST" class="d-flex flex-wrap gap-2" data-online-delivery-form>
                                                 @csrf
                                                 @method('PATCH')
@@ -118,9 +123,10 @@
                                                 </select>
                                                 <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
                                             </form>
-                                        @else
-                                            <span class="badge text-bg-light border">{{ ucfirst(str_replace('_', ' ', strtolower($transaction->delivery_status ?: 'Unspecified'))) }}</span>
-                                        @endcan
+                                            @else
+                                                <span class="badge text-bg-light border">{{ ucfirst(str_replace('_', ' ', strtolower($transaction->delivery_status ?: 'Unspecified'))) }}</span>
+                                            @endcan
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -193,6 +199,25 @@
             ->sum('replacement_shipping_fee_amount');
         $detailRefundTotal = $transaction->items->sum(fn ($item) => $item->refundCostAmount())
             + $transaction->inventoryReturns->whereNull('transaction_item_id')->sum('refund_amount');
+        $detailIsRefunded = $transaction->status === 'refunded';
+        $detailRefundTotal = $detailIsRefunded
+            ? max((float) $detailRefundTotal, (float) $transaction->wholesale_refund_amount)
+            : (float) $detailRefundTotal;
+        $detailRefundItemsComplete = $transaction->items->isNotEmpty()
+            && $transaction->items->every(fn ($item) => $item->returnedQuantity() >= (int) $item->quantity);
+        $detailRefundHasActiveReplacement = $transaction->items->contains(
+            fn ($item) => $item->replacements->contains(fn ($replacement) => in_array($replacement->status, ['pending', 'approved'], true))
+        );
+        $detailRefundEligible = ! $detailIsRefunded
+            && in_array($transaction->status, ['confirmed', 'completed'], true)
+            && $detailRefundItemsComplete
+            && ! $detailRefundHasActiveReplacement;
+        $detailRefundAmount = $detailIsRefunded
+            ? (float) $transaction->wholesale_refund_amount
+            : min(
+                max(0, (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'))),
+                max(0, (float) ($transaction->proof_amount ?? 0))
+            );
         $detailPaymentLabel = strtoupper($transaction->mode_of_payment ?: 'Unspecified');
         if ($transaction->custom_mop) {
             $detailPaymentLabel .= ' / '.strtoupper($transaction->custom_mop);
@@ -207,6 +232,7 @@
                         <h5 class="modal-title" id="online-order-title-{{ $transaction->id }}">Online Order #{{ $transaction->order_number }}</h5>
                         <small class="text-muted">{{ $transaction->customer_name }}@include('hubs.reports._new-customer-badge') · {{ optional($transaction->order_date)->format('F d, Y') }} · {{ $detailPaymentLabel }}@if($detailBankLabel) / {{ strtoupper($detailBankLabel) }}@endif</small>
                     </div>
+                    @if($detailIsRefunded)<span class="badge bg-secondary"><i class="fa-solid fa-lock me-1"></i>Refunded and locked</span>@endif
                 </div>
                 <div class="modal-body">
                     <div class="row g-3 mb-4 align-items-stretch">
@@ -303,11 +329,58 @@
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+                <div class="modal-footer justify-content-between">
+                    <div>
+                        @if($detailIsRefunded)
+                            <div class="text-secondary fw-semibold"><i class="fa-solid fa-lock me-1"></i>Refunded and locked · ₱{{ number_format($detailRefundAmount, 2) }}</div>
+                        @else
+                            @can('manage-sales-status')
+                                <form action="{{ route('hub.report.online.refund', [$hub->id, $transaction->id]) }}" method="POST" class="online-refund-form"
+                                    data-order-number="{{ $transaction->order_number }}"
+                                    data-refund-amount="{{ number_format($detailRefundAmount, 2, '.', '') }}">
+                                    @csrf
+                                    @if($detailRefundEligible)
+                                        <button type="submit" class="btn btn-outline-danger"><i class="fa-solid fa-lock me-1"></i>Refund &amp; Lock Order</button>
+                                    @else
+                                        <button type="button" class="btn btn-outline-secondary" disabled><i class="fa-solid fa-lock me-1"></i>Refund Locked</button>
+                                        <small class="text-muted d-block mt-1">
+                                            {{ $detailRefundHasActiveReplacement ? 'Resolve pending or approved replacements before refunding.' : ($detailRefundItemsComplete ? 'Refund is available only for verified Online orders.' : 'Refund is available after every ordered unit is recorded as returned.') }}
+                                        </small>
+                                    @endif
+                                </form>
+                            @endcan
+                        @endif
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
 @endforeach
+
+@can('manage-sales-status')
+<div class="modal fade" id="onlineRefundConfirmModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="onlineRefundConfirmTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fs-6" id="onlineRefundConfirmTitle"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Confirm Online refund</h5>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small">This refunds the recorded product amount and permanently locks the order.</div>
+                <dl class="row small mb-0">
+                    <dt class="col-6 text-muted">Order</dt><dd class="col-6 text-end fw-semibold" id="onlineRefundOrder"></dd>
+                    <dt class="col-6 text-muted mb-0">Refund amount</dt><dd class="col-6 text-end fw-bold text-danger mb-0" id="onlineRefundAmount"></dd>
+                </dl>
+                <div class="small text-muted mt-3">The active order and proof totals will become ₱0.00. Original values remain available for audit.</div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="onlineRefundConfirmButton"><i class="fa-solid fa-lock me-1"></i>Refund &amp; Lock</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endcan
 
 @can('manage-sales-status')
     @foreach($transactions as $transaction)
@@ -408,6 +481,34 @@
 <script>
 (() => {
     const endpoint = @json(route('hub.products.search.ajax', $hub->id));
+
+    let pendingOnlineRefundForm = null;
+    const onlineRefundModalElement = document.getElementById('onlineRefundConfirmModal');
+    const onlineRefundModal = onlineRefundModalElement ? bootstrap.Modal.getOrCreateInstance(onlineRefundModalElement) : null;
+    document.querySelectorAll('.online-refund-form').forEach(form => {
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            pendingOnlineRefundForm = form;
+            document.getElementById('onlineRefundOrder').textContent = `#${form.dataset.orderNumber}`;
+            document.getElementById('onlineRefundAmount').textContent = `₱${Number(form.dataset.refundAmount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const orderModal = form.closest('.modal');
+            if (orderModal) {
+                orderModal.addEventListener('hidden.bs.modal', () => onlineRefundModal?.show(), { once: true });
+                bootstrap.Modal.getOrCreateInstance(orderModal).hide();
+            } else {
+                onlineRefundModal?.show();
+            }
+        });
+    });
+    document.getElementById('onlineRefundConfirmButton')?.addEventListener('click', () => {
+        if (!pendingOnlineRefundForm) return;
+        const form = pendingOnlineRefundForm;
+        pendingOnlineRefundForm = null;
+        HTMLFormElement.prototype.submit.call(form);
+    });
+    onlineRefundModalElement?.addEventListener('hidden.bs.modal', () => {
+        pendingOnlineRefundForm = null;
+    });
 
     document.querySelectorAll('.online-replace-button').forEach(button => {
         button.addEventListener('click', event => {

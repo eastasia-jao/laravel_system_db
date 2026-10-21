@@ -11,9 +11,9 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use App\Notifications\InventoryWorkflowNotification;
-use App\Support\AttachmentStorage;
 use App\Support\AttachmentAvailability;
 use App\Support\AttachmentResponse;
+use App\Support\AttachmentStorage;
 use App\Support\KeywordSearch;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -1205,27 +1205,38 @@ class SalesReportController extends Controller
 
     public function refundWholesaleOrder(Request $request, int $hub, int $transaction)
     {
+        return $this->refundAndLockOrder($hub, $transaction, 'wholesale');
+    }
+
+    public function refundOnlineOrder(Request $request, int $hub, int $transaction)
+    {
+        return $this->refundAndLockOrder($hub, $transaction, 'online');
+    }
+
+    private function refundAndLockOrder(int $hub, int $transaction, string $channel)
+    {
         $storeHub = StoreHub::findOrFail($hub);
         abort_unless(auth()->user()?->canAccessHub($storeHub->id), 403);
+        $channelLabel = $channel === 'online' ? 'Online' : 'Wholesale';
 
-        DB::transaction(function () use ($storeHub, $transaction) {
+        DB::transaction(function () use ($storeHub, $transaction, $channel, $channelLabel) {
             $sale = SalesTransaction::query()
                 ->whereKey($transaction)
                 ->where('store_hub_id', $storeHub->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            abort_unless($this->normalizeChannel($sale->channel_type) === 'wholesale', 404);
+            abort_unless($this->normalizeChannel($sale->channel_type) === $channel, 404);
 
             if ($sale->status === 'refunded') {
                 throw ValidationException::withMessages([
-                    'refund' => 'This wholesale order has already been refunded and locked.',
+                    'refund' => "This {$channelLabel} order has already been refunded and locked.",
                 ]);
             }
 
             if (! in_array($sale->status, ['confirmed', 'completed'], true)) {
                 throw ValidationException::withMessages([
-                    'refund' => 'Only verified wholesale orders can be refunded.',
+                    'refund' => "Only verified {$channelLabel} orders can be refunded.",
                 ]);
             }
 
@@ -1247,13 +1258,20 @@ class SalesReportController extends Controller
             }
 
             $orderValue = (float) ($sale->grand_total ?: $sale->total_amount ?: $sale->items()->sum('line_total'));
-            $productTotal = max(0, $orderValue - (float) ($sale->shipping_fee_amount ?? 0));
-            $collected = min($productTotal, max(0, (float) ($sale->amount_paid ?? 0)));
+            $originalCollected = $channel === 'online'
+                ? (float) ($sale->proof_amount ?? 0)
+                : (float) ($sale->amount_paid ?? 0);
+            $refundableOrderValue = $channel === 'online'
+                ? max(0, $orderValue)
+                : max(0, $orderValue - (float) ($sale->shipping_fee_amount ?? 0));
+            $collected = min($refundableOrderValue, max(0, $originalCollected));
 
             $sale->forceFill([
                 'refund_original_order_value' => $orderValue,
-                'refund_original_collected' => (float) ($sale->amount_paid ?? 0),
-                'refund_original_withholding_tax' => (float) ($sale->wholesale_withholding_tax ?? 0),
+                'refund_original_collected' => $originalCollected,
+                'refund_original_withholding_tax' => $channel === 'wholesale'
+                    ? (float) ($sale->wholesale_withholding_tax ?? 0)
+                    : 0,
                 'wholesale_refund_amount' => $collected,
                 'refunded_at' => now(),
                 'refunded_by' => auth()->id(),
@@ -1261,6 +1279,7 @@ class SalesReportController extends Controller
                 'status' => 'refunded',
                 'payment_status' => 'refunded',
                 'amount_paid' => 0,
+                'proof_amount' => $channel === 'online' ? 0 : $sale->proof_amount,
                 'sub_total' => 0,
                 'total_amount' => 0,
                 'grand_total' => 0,
@@ -1269,7 +1288,7 @@ class SalesReportController extends Controller
             ])->save();
         });
 
-        return back()->with('success', 'Wholesale order refunded and locked. The original order values were retained for audit.');
+        return back()->with('success', "{$channelLabel} order refunded and locked. The original order values were retained for audit.");
     }
 
     public function recordWalkInReplacementPayment(Request $request, int $hub, int $transaction)

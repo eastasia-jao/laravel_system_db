@@ -345,6 +345,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             Route::patch('/report/tiktok/{transaction}/returns/{item}', [SalesReportController::class, 'updateTikTokReturn'])->middleware('can:view-sales-reports')->name('report.tiktok.return.update');
             Route::post('/report/tiktok/{transaction}/replacements/{item}', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:manage-sales-status')->name('report.tiktok.replacement.store');
             Route::post('/report/online/{transaction}/replacements/{item}', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:manage-sales-status')->name('report.online.replacement.store');
+            Route::post('/report/online/{transaction}/refund', [SalesReportController::class, 'refundOnlineOrder'])->middleware('can:manage-sales-status')->name('report.online.refund');
             Route::post('/report/walk-in/{transaction}/replacements/{item}', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:request-walk-in-replacements')->name('report.walk-in.replacement.store');
             Route::post('/report/walk-in/{transaction}/replacement-payment', [SalesReportController::class, 'recordWalkInReplacementPayment'])->middleware('can:manage-sales-status')->name('report.walk-in.replacement-payment.store');
             Route::post('/report/wholesale/{transaction}/items/{item}/replace', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:manage-sales-status')->name('report.wholesale.replace');
