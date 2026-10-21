@@ -767,6 +767,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Previous payment proof')
             ->assertSee('Next payment proof')
             ->assertDontSee('View larger')
+            ->assertSee('.online-proof-stage { position: relative; display: grid; height: 180px;', false)
+            ->assertSee('.online-proof-caption { display: flex; height: 3.25rem;', false)
             ->assertSee('data-online-proof-lightbox', false)
             ->getContent();
 
