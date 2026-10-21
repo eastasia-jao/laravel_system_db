@@ -8,6 +8,27 @@
     .online-order-card .fs-5 { font-size: 1rem !important; }
     .online-order-card .row { --bs-gutter-y: .55rem; }
     .online-order-card [data-online-delivery-form] { max-width: 260px; }
+    .online-proof-gallery { display: grid; gap: .55rem; }
+    .online-proof-stage { position: relative; display: grid; min-height: 260px; place-items: center; overflow: hidden; border: 1px solid #dbe3ee; border-radius: .6rem; background: #eef2f7; }
+    .online-proof-slide { display: grid; width: 100%; height: 260px; place-items: center; overflow: hidden; }
+    .online-proof-slide[hidden], .online-proof-lightbox[hidden] { display: none !important; }
+    .online-proof-image, .online-proof-document { display: block; width: 100%; height: 260px; border: 0; background: #fff; }
+    .online-proof-image { object-fit: contain; cursor: zoom-in; }
+    .online-proof-arrow { position: absolute; top: 50%; z-index: 3; display: grid; width: 36px; height: 36px; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .75); transform: translateY(-50%); }
+    .online-proof-arrow:hover:not(:disabled) { background: #2563eb; }
+    .online-proof-arrow:disabled { display: none; }
+    .online-proof-arrow.is-previous { left: .6rem; }
+    .online-proof-arrow.is-next { right: .6rem; }
+    .online-proof-caption { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; color: #475569; font-size: .78rem; }
+    .online-proof-caption strong { color: #1e3a8a; }
+    .online-proof-lightbox { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .9); }
+    .online-proof-lightbox-content { position: relative; display: grid; width: min(1100px, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); place-items: center; gap: .65rem; padding: 1rem; border-radius: .8rem; background: #fff; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+    .online-proof-lightbox-media { display: grid; width: 100%; height: min(78dvh, 760px); place-items: center; overflow: hidden; }
+    .online-proof-lightbox-image, .online-proof-lightbox-document { display: block; width: 100%; height: 100%; border: 0; }
+    .online-proof-lightbox-image { object-fit: contain; }
+    .online-proof-lightbox-close { position: absolute; top: .55rem; right: .55rem; z-index: 4; display: grid; width: 38px; height: 38px; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .82); }
+    .online-proof-lightbox-close:hover { background: #2563eb; }
+    .online-proof-lightbox-caption { color: #1e3a8a; font-size: .85rem; font-weight: 700; text-align: center; }
 </style>
 <div id="onlineReportImageSource">
     <div class="d-none mb-4" data-online-image-only>
@@ -481,6 +502,111 @@
 <script>
 (() => {
     const endpoint = @json(route('hub.products.search.ajax', $hub->id));
+
+    document.querySelectorAll('[data-online-proof-gallery]').forEach(gallery => {
+        const slides = [...gallery.querySelectorAll('[data-online-proof-slide]')];
+        const previous = gallery.querySelector('[data-online-proof-previous]');
+        const next = gallery.querySelector('[data-online-proof-next]');
+        const label = gallery.querySelector('[data-online-proof-label]');
+        const amount = gallery.querySelector('[data-online-proof-amount]');
+        const count = gallery.querySelector('[data-online-proof-count]');
+        const enlarge = gallery.querySelector('[data-online-proof-enlarge]');
+        const lightbox = gallery.querySelector('[data-online-proof-lightbox]');
+        const lightboxImage = gallery.querySelector('.online-proof-lightbox-image');
+        const lightboxDocument = gallery.querySelector('.online-proof-lightbox-document');
+        const lightboxCaption = gallery.querySelector('[data-online-proof-lightbox-caption]');
+        const lightboxPrevious = gallery.querySelector('[data-online-proof-lightbox-previous]');
+        const lightboxNext = gallery.querySelector('[data-online-proof-lightbox-next]');
+        const lightboxClose = gallery.querySelector('[data-online-proof-close]');
+        let activeIndex = 0;
+        let lightboxTrigger = null;
+
+        if (!slides.length) return;
+        document.body.appendChild(lightbox);
+
+        const activeAttachment = () => ({
+            url: slides[activeIndex].dataset.proofUrl,
+            label: slides[activeIndex].dataset.proofLabel,
+            kind: slides[activeIndex].dataset.proofKind,
+            amount: Number(slides[activeIndex].dataset.proofAmount || 0),
+        });
+        const updateCaption = () => {
+            const attachment = activeAttachment();
+            label.textContent = attachment.label;
+            amount.textContent = attachment.amount > 0
+                ? `Amount: ₱${attachment.amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : '';
+            count.textContent = `${activeIndex + 1} of ${slides.length}`;
+            previous.disabled = slides.length < 2;
+            next.disabled = slides.length < 2;
+            lightboxPrevious.disabled = slides.length < 2;
+            lightboxNext.disabled = slides.length < 2;
+        };
+        const showSlide = index => {
+            activeIndex = (index + slides.length) % slides.length;
+            slides.forEach((slide, slideIndex) => { slide.hidden = slideIndex !== activeIndex; });
+            updateCaption();
+        };
+        const renderLightbox = () => {
+            const attachment = activeAttachment();
+            const amountText = attachment.amount > 0
+                ? ` · ₱${attachment.amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : '';
+            lightboxCaption.textContent = `${attachment.label}${amountText} · ${activeIndex + 1} of ${slides.length}`;
+            lightboxImage.hidden = attachment.kind !== 'image';
+            lightboxDocument.hidden = attachment.kind === 'image';
+            if (attachment.kind === 'image') {
+                lightboxDocument.removeAttribute('src');
+                lightboxImage.src = attachment.url;
+                lightboxImage.alt = attachment.label;
+            } else {
+                lightboxImage.removeAttribute('src');
+                lightboxDocument.src = attachment.url;
+                lightboxDocument.title = attachment.label;
+            }
+        };
+        const openLightbox = trigger => {
+            lightboxTrigger = trigger;
+            renderLightbox();
+            lightbox.hidden = false;
+            lightboxClose.focus();
+        };
+        const closeLightbox = () => {
+            lightbox.hidden = true;
+            lightboxImage.removeAttribute('src');
+            lightboxDocument.removeAttribute('src');
+            lightboxTrigger?.focus();
+            lightboxTrigger = null;
+        };
+        const move = step => {
+            showSlide(activeIndex + step);
+            if (!lightbox.hidden) renderLightbox();
+        };
+
+        previous.addEventListener('click', () => move(-1));
+        next.addEventListener('click', () => move(1));
+        lightboxPrevious.addEventListener('click', () => move(-1));
+        lightboxNext.addEventListener('click', () => move(1));
+        enlarge.addEventListener('click', () => openLightbox(enlarge));
+        lightboxClose.addEventListener('click', closeLightbox);
+        slides.forEach(slide => {
+            const image = slide.querySelector('.online-proof-image');
+            image?.addEventListener('click', () => openLightbox(image));
+            image?.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openLightbox(image);
+                }
+            });
+        });
+        document.addEventListener('keydown', event => {
+            if (lightbox.hidden) return;
+            if (event.key === 'Escape') closeLightbox();
+            if (event.key === 'ArrowLeft') move(-1);
+            if (event.key === 'ArrowRight') move(1);
+        });
+        showSlide(0);
+    });
 
     let pendingOnlineRefundForm = null;
     const onlineRefundModalElement = document.getElementById('onlineRefundConfirmModal');

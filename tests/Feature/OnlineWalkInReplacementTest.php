@@ -21,6 +21,8 @@ class OnlineWalkInReplacementTest extends TestCase
 
     public function test_online_replacement_uses_allocated_stock_and_preserves_payment_status(): void
     {
+        config(['filesystems.attachment_disks.sales' => 'sales-attachments']);
+        Storage::fake('sales-attachments');
         [$hub, $admin, $original, $replacement] = $this->fixtures('ONLINE');
         ProductStockAllocation::create(['product_id' => $original->id, 'online' => 0]);
         ProductStockAllocation::create(['product_id' => $replacement->id, 'online' => 5]);
@@ -84,13 +86,19 @@ class OnlineWalkInReplacementTest extends TestCase
             'replacement_shipping_fee_type' => 'Custom Amount',
             'replacement_shipping_fee_amount' => 15,
             'exchange_payment_amount' => 35,
-            'exchange_payment_method' => 'CASH',
+            'exchange_payment_method' => 'GCASH',
+            'exchange_payment_proofs' => [UploadedFile::fake()->createWithContent(
+                'replacement-payment.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=').str_repeat("\0", 2048)
+            )],
             'reason' => 'Online customer requested another item.',
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $request = ProductReplacement::sole();
         $this->assertSame('pending', $request->status);
         $this->assertSame('120.00', $request->replacement_unit_price);
+        $this->assertCount(1, $request->exchange_payment_proofs);
+        Storage::disk('sales-attachments')->assertExists($request->exchange_payment_proofs[0]);
 
         $replacement->stockAllocation->update(['online' => 0]);
         $this->actingAs($admin)->get(route('hub.sales.pending', $hub->id))
@@ -120,6 +128,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $this->assertSame('approved', $request->fresh()->status);
+        $this->assertCount(1, $request->fresh()->exchange_payment_proofs);
+        Storage::disk('sales-attachments')->assertExists($request->fresh()->exchange_payment_proofs[0]);
         $this->assertSame('235.00', $sale->fresh()->grand_total);
         $this->assertSame('15.00', $sale->fresh()->shipping_fee_amount);
         $this->assertSame('235.00', $sale->fresh()->proof_amount);
@@ -145,6 +155,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('ONLINE-ORDER')
             ->assertDontSee('Proof amount breakdown')
             ->assertDontSee('Product subtotal</td>')
+            ->assertSee('data-proof-label="Replacement additional payment proof"', false)
             ->assertSee('Includes ₱15.00 replacement shipping')
             ->assertSee('class="text-center fw-semibold">1</td>', false)
             ->assertSee('class="text-end fw-bold">₱100.00</td>', false);
@@ -705,6 +716,73 @@ class OnlineWalkInReplacementTest extends TestCase
             $this->assertSame(10, $listed[strtoupper($channel).'-ORIGINAL']->remaining_values[$channel]);
             $this->assertSame(9, $listed[strtoupper($channel).'-REPLACEMENT']->remaining_values[$channel]);
         }
+    }
+
+    public function test_online_report_combines_original_and_replacement_payment_proofs_in_an_inline_gallery(): void
+    {
+        config(['filesystems.attachment_disks.sales' => 'sales-attachments']);
+        Storage::fake('sales-attachments');
+        [$hub, $admin, $original, $replacementProduct] = $this->fixtures('ONLINE-PROOF-GALLERY');
+        [$sale, $item] = $this->sale($admin, $hub, $original, 'online', 'not_applicable');
+        $originalProof = 'proofs_of_payment/original-proof.png';
+        $replacementProof = 'exchange_payment_proofs/replacement-proof.webp';
+        Storage::disk('sales-attachments')->put($originalProof, 'original payment proof');
+        Storage::disk('sales-attachments')->put($replacementProof, 'replacement payment proof');
+        $sale->update([
+            'proof_of_payment' => $originalProof,
+            'proof_amount' => 140,
+        ]);
+        $replacement = ProductReplacement::create([
+            'transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'original_product_id' => $original->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'exchange_payment_amount' => 40,
+            'additional_payment_due' => 40,
+            'exchange_payment_proofs' => [$replacementProof],
+            'status' => 'pending',
+            'created_by' => $admin->id,
+        ]);
+        $this->assertSame($originalProof, $sale->fresh()->proof_of_payment);
+        Storage::disk('sales-attachments')->assertExists($originalProof);
+        Storage::disk('sales-attachments')->assertExists($replacementProof);
+
+        $html = $this->actingAs($admin)
+            ->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'online']))
+            ->assertOk()
+            ->assertSee('data-proof-label="Original sales payment proof"', false)
+            ->assertSee('data-proof-label="Replacement additional payment proof"', false)
+            ->assertSee('Previous payment proof')
+            ->assertSee('Next payment proof')
+            ->assertSee('View larger')
+            ->assertSee('data-online-proof-lightbox', false)
+            ->getContent();
+
+        $document = new \DOMDocument;
+        @$document->loadHTML($html);
+        $xpath = new \DOMXPath($document);
+        $slides = $xpath->query('//*[@data-online-proof-gallery]//*[@data-online-proof-slide]');
+        $externalLinks = $xpath->query('//*[@data-online-proof-gallery]//*[@target="_blank"]');
+
+        $this->assertSame(2, $slides->length);
+        $this->assertSame('Original sales payment proof', $slides->item(0)->getAttribute('data-proof-label'));
+        $this->assertSame('Replacement additional payment proof', $slides->item(1)->getAttribute('data-proof-label'));
+        $this->assertSame(0, $externalLinks->length);
+
+        $this->get(route('hub.report.sales-attachment', [
+            'hub' => $hub->id,
+            'transaction' => $sale->id,
+            'type' => 'payment-proof',
+            'index' => 0,
+        ]))->assertOk()->assertStreamedContent('original payment proof');
+        $this->get(route('hub.report.replacement-attachment', [
+            'hub' => $hub->id,
+            'replacement' => $replacement->id,
+            'type' => 'payment-proof',
+            'index' => 0,
+        ]))->assertOk()->assertStreamedContent('replacement payment proof');
     }
 
     private function fixtures(string $prefix): array
