@@ -184,6 +184,46 @@ class DashboardTest extends TestCase
             ['name' => 'Online Item', 'units' => 3],
         ], $response->viewData('topProducts')->all());
     }
+
+    public function test_slow_moving_items_show_the_same_sold_units_as_top_products(): void
+    {
+        $hub = StoreHub::create(['name' => 'Slow Sales Branch', 'code' => 'SLOW-SALES', 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'SLOW-SALES-001',
+            'name' => 'Slow Sales Product',
+            'stock' => 25,
+            'status' => 'active',
+        ]);
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'walk_in',
+            'customer_name' => 'Slow Sales Customer',
+            'order_number' => 'SLOW-SALES-001',
+            'order_date' => '2026-10-05',
+            'grand_total' => 400,
+            'status' => 'completed',
+        ]);
+        $sale->items()->create([
+            'product_id' => $product->id,
+            'quantity' => 4,
+            'unit_price' => 100,
+            'line_total' => 400,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard', [
+            'hub_id' => $hub->id,
+            'from' => '2026-10-01',
+            'to' => '2026-10-07',
+        ]))->assertOk();
+
+        $this->assertSame([['name' => 'Slow Sales Product', 'units' => 4]], $response->viewData('topProducts')->all());
+        $slowProduct = $response->viewData('slowProducts')->getCollection()->firstWhere('id', $product->id);
+        $this->assertSame(4, $slowProduct['units']);
+    }
+
     public function test_sales_channel_filter_is_locked_for_one_channel_and_selectable_for_multiple(): void
     {
         $hub = StoreHub::create([

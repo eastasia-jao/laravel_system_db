@@ -469,7 +469,7 @@ class HubController extends Controller
             ->where('status', 'active')
             ->when(! $dashboardStockChannel, fn ($query) => $query->where('stock', '>', 0));
         $slowProducts = $slowProductsQuery->get()
-            ->map(function ($product) use ($dashboardStockChannel) {
+            ->map(function ($product) use ($dashboardStockChannel, $soldUnits) {
                 $stock = $dashboardStockChannel === 'walk_in'
                     ? $product->unallocatedStock()
                     : ($dashboardStockChannel
