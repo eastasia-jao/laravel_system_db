@@ -732,7 +732,7 @@ class DashboardTest extends TestCase
 
         $this->assertSame([['name' => 'Net Seller', 'units' => 3]], $response->viewData('topProducts')->all());
         $slowItems = $response->viewData('slowProducts')->getCollection();
-        $this->assertSame(0, $slowItems->firstWhere('id', $returnedProduct->id)['units']);
+        $this->assertNull($slowItems->firstWhere('id', $returnedProduct->id));
         $this->assertSame(3, $slowItems->firstWhere('id', $netProduct->id)['units']);
         $this->assertSame(3, $response->viewData('soldItemCount'));
     }
@@ -773,14 +773,37 @@ class DashboardTest extends TestCase
         $hub = StoreHub::create(['name' => 'Slow Items Branch', 'code' => 'SLOW-ITEMS', 'status' => 'active']);
         $user = User::factory()->create(['role' => 'admin']);
         foreach (range(1, 12) as $number) {
-            Product::create([
+            $product = Product::create([
                 'store_hub_id' => $hub->id,
                 'item_id' => sprintf('SLOW-%02d', $number),
                 'name' => sprintf('Stocked slow item %02d', $number),
                 'stock' => 5,
                 'status' => 'active',
             ]);
+            $sale = SalesTransaction::create([
+                'user_id' => $user->id,
+                'store_hub_id' => $hub->id,
+                'customer_name' => 'Slow Items Customer',
+                'channel_type' => 'walk_in',
+                'order_number' => sprintf('SLOW-SALE-%02d', $number),
+                'order_date' => '2026-09-15',
+                'grand_total' => 10,
+                'status' => 'completed',
+            ]);
+            $sale->items()->create([
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 10,
+                'line_total' => 10,
+            ]);
         }
+        Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'UNSOLD-IN-STOCK',
+            'name' => 'Unsold but stocked item',
+            'stock' => 5,
+            'status' => 'active',
+        ]);
         Product::create([
             'store_hub_id' => $hub->id,
             'item_id' => 'OUT-OF-STOCK',
@@ -798,6 +821,7 @@ class DashboardTest extends TestCase
         $firstPage->assertOk()
             ->assertSee('Stocked slow item 01')
             ->assertSee('Stocked slow item 10')
+            ->assertDontSee('Unsold but stocked item')
             ->assertSee('slow_page=2', false)
             ->assertSee('id="slowProductsResults"', false)
             ->assertSee('w-100 pagination-summary', false)

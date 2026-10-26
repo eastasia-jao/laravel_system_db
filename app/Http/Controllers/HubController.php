@@ -485,7 +485,7 @@ class HubController extends Controller
                     'units' => (int) ($soldUnits[$product->id] ?? 0),
                 ];
             })
-            ->filter(fn ($product) => $product['stock'] > 0)
+            ->filter(fn ($product) => $product['stock'] > 0 && $product['units'] > 0)
             ->sortBy(fn ($product) => [$product['units'], $product['id']])
             ->values();
         $slowProducts = (new LengthAwarePaginator(
