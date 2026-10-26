@@ -72,16 +72,16 @@
         ]];
     }
 
-    $inventoryActions = [
-        ['label' => 'Inventory', 'icon' => 'fa-boxes-stacked', 'url' => route('products.index', ['hub_id' => $hub->id])],
-    ];
+    $inventoryActions = [];
     if ($currentUser?->can('manage-inventory')) {
-        $inventoryActions = array_merge($inventoryActions, [
+        $inventoryActions = [
             ['label' => 'Import CSV', 'icon' => 'fa-file-arrow-up', 'modal' => '#importProductModal'],
             ['label' => 'Export Products', 'icon' => 'fa-file-export', 'modal' => '#exportProductModal'],
-        ]);
+        ];
     }
-    $hubActionGroups[] = ['title' => 'Inventory management', 'description' => 'Review inventory or exchange product files.', 'actions' => $inventoryActions];
+    if ($inventoryActions !== []) {
+        $hubActionGroups[] = ['title' => 'Inventory management', 'description' => 'Exchange product files for this store hub.', 'actions' => $inventoryActions];
+    }
 @endphp
 <style>
     .hub-action { display: flex !important; flex-direction: row !important; align-items: center !important; min-height: 64px; border: 1px solid #d7e3ff; border-radius: .5rem; background: #fff; color: var(--bs-primary); text-decoration: none; }

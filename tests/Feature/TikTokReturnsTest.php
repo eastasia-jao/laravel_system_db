@@ -239,7 +239,8 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('Sales operations')
             ->assertSee('Marketplace operations')
             ->assertSee('Fully Booked operations')
-            ->assertSee('Inventory management');
+            ->assertSee('Inventory management')
+            ->assertDontSee('<span class="hub-action-label">Inventory</span>', false);
         foreach (['shopee' => 'Shopee', 'lazada' => 'Lazada', 'tiktok' => 'TikTok'] as $channel => $label) {
             $ordersRoute = route('hub.marketplace-orders', ['hub' => $hub->id, 'channel' => $channel]);
             $returnsRoute = $channel === 'tiktok'
@@ -285,6 +286,7 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('Verify Sales')
             ->assertSee('Import CSV')
             ->assertSee('Export Products')
+            ->assertDontSee('<span class="hub-action-label">Inventory</span>', false)
             ->assertDontSee('Fully Booked operations');
 
         $this->actingAs($salesAssociate)
@@ -292,13 +294,14 @@ class TikTokReturnsTest extends TestCase
             ->assertOk()
             ->assertSee('data-hub-action-groups', false)
             ->assertSee('Sales operations')
-            ->assertSee('Inventory management')
+            ->assertDontSee('Inventory management')
             ->assertSee('Record Walk-In')
             ->assertSee('Return Items')
             ->assertSee('Sales Report')
             ->assertDontSee('Verify Sales')
             ->assertDontSee('Import CSV')
             ->assertDontSee('Export Products')
+            ->assertDontSee('<span class="hub-action-label">Inventory</span>', false)
             ->assertDontSee('Fully Booked operations');
     }
 

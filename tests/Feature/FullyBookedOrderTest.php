@@ -101,8 +101,8 @@ class FullyBookedOrderTest extends TestCase
                 '<span class="hub-action-label">Fully Booked Order</span>',
                 '<span class="hub-action-label">Fully Booked Returns</span>',
                 '<span class="hub-action-label">Rejected Fully Booked</span>',
-                '<span class="hub-action-label">Inventory</span>',
             ], false)
+            ->assertDontSee('<span class="hub-action-label">Inventory</span>', false)
             ->assertDontSee('My Fully Booked Orders')
             ->assertDontSee('Fully Booked Orders')
             ->assertDontSee(route('inventory-transactions.fully-booked.index'), false)
@@ -871,8 +871,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSeeInOrder([
                 '<span class="hub-action-label">Fully Booked Returns</span>',
                 '<span class="hub-action-label">Rejected Fully Booked</span>',
-                '<span class="hub-action-label">Inventory</span>',
-            ], false);
+            ], false)
+            ->assertDontSee('<span class="hub-action-label">Inventory</span>', false);
         $this->actingAs($otherStaff)->get($rejectedUrl)
             ->assertOk()
             ->assertDontSee('FB-REJECT-001')
