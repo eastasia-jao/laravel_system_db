@@ -182,6 +182,7 @@ class TikTokReturnsTest extends TestCase
         $this->actingAs($staff)
             ->get(route('hub.dashboard', $hub->id))
             ->assertOk()
+            ->assertSee('data-hub-action-groups', false)
             ->assertDontSee('data-admin-hub-action-groups', false)
             ->assertSee('TikTok Returns')
             ->assertSee(route('hub.tiktok-returns', $hub->id), false);
@@ -254,6 +255,51 @@ class TikTokReturnsTest extends TestCase
             $this->get($ordersRoute)->assertOk();
             $this->get($returnsRoute)->assertOk();
         }
+    }
+
+    public function test_inventory_staff_and_sales_associate_use_the_grouped_branch_dashboard_with_role_scoped_actions(): void
+    {
+        $branch = StoreHub::create([
+            'name' => 'Grouped Branch',
+            'code' => 'GROUPED-BRANCH',
+            'status' => 'active',
+            'is_head_office' => false,
+        ]);
+        $inventoryStaff = User::factory()->create([
+            'role' => 'inventory_staff',
+            'hub_id' => $branch->id,
+            'sales_channels' => ['walk_in'],
+        ]);
+        $salesAssociate = User::factory()->create([
+            'role' => 'sales_associate',
+            'hub_id' => $branch->id,
+        ]);
+
+        $this->actingAs($inventoryStaff)
+            ->get(route('hub.dashboard', $branch->id))
+            ->assertOk()
+            ->assertSee('data-hub-action-groups', false)
+            ->assertSee('Sales operations')
+            ->assertSee('Inventory management')
+            ->assertSee('Record Walk-In')
+            ->assertSee('Verify Sales')
+            ->assertSee('Import CSV')
+            ->assertSee('Export Products')
+            ->assertDontSee('Fully Booked operations');
+
+        $this->actingAs($salesAssociate)
+            ->get(route('hub.dashboard', $branch->id))
+            ->assertOk()
+            ->assertSee('data-hub-action-groups', false)
+            ->assertSee('Sales operations')
+            ->assertSee('Inventory management')
+            ->assertSee('Record Walk-In')
+            ->assertSee('Return Items')
+            ->assertSee('Sales Report')
+            ->assertDontSee('Verify Sales')
+            ->assertDontSee('Import CSV')
+            ->assertDontSee('Export Products')
+            ->assertDontSee('Fully Booked operations');
     }
 
     public function test_non_head_office_hub_dashboard_has_a_return_items_action(): void
