@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
@@ -111,7 +112,7 @@ class BranchTransferTest extends TestCase
             ->assertSee('awaiting inventory staff or admin approval');
         $this->assertEquals(10, $product->fresh()->stock);
         $this->assertEquals(2, $receiving->fresh()->stock);
-        $transfer = \App\Models\InventoryTransaction::firstOrFail();
+        $transfer = InventoryTransaction::firstOrFail();
         $this->assertSame('pending', $transfer->status);
         $this->assertSame($reference, $transfer->reference);
         $this->assertNotNull($transfer->transfer_batch_id);
@@ -226,7 +227,7 @@ class BranchTransferTest extends TestCase
         [$source, $target, $product] = $this->fixtures();
         $reviewer = User::factory()->create(['role' => 'inventory_staff']);
         foreach (range(1, 11) as $index) {
-            \App\Models\InventoryTransaction::create([
+            InventoryTransaction::create([
                 'reference' => sprintf('TRF-PAGE-%02d', $index),
                 'transfer_batch_id' => sprintf('batch-page-%02d', $index),
                 'type' => 'branch_transfer',
@@ -264,7 +265,7 @@ class BranchTransferTest extends TestCase
         $this->actingAs($submitter);
         $payload = $this->payload($source, $target, $product);
         $this->post(route('inventory-transactions.branch-transfer.store'), $payload)->assertSessionHasNoErrors();
-        $transfer = \App\Models\InventoryTransaction::firstOrFail();
+        $transfer = InventoryTransaction::firstOrFail();
 
         $this->post(route('inventory-transactions.branch-transfer.review', ['batch' => $transfer->transfer_batch_id]), ['decision' => 'approved'])
             ->assertForbidden();
@@ -310,7 +311,7 @@ class BranchTransferTest extends TestCase
         [$source, $target, $product, $receiving] = $this->fixtures();
         $this->actingAs(User::factory()->create(['role' => 'sales_associate', 'hub_id' => $source->id]));
         $this->post(route('inventory-transactions.branch-transfer.store'), $this->payload($source, $target, $product))->assertSessionHasNoErrors();
-        $transfer = \App\Models\InventoryTransaction::firstOrFail();
+        $transfer = InventoryTransaction::firstOrFail();
         $product->update(['stock' => 1]);
 
         $this->actingAs(User::factory()->create(['role' => 'inventory_staff']))
@@ -387,7 +388,7 @@ class BranchTransferTest extends TestCase
                 ->assertRedirect(route('inventory-transactions.index', [
                     'hub_id' => $source->id,
                     'stock_transfer_saved' => 1,
-                    'reference' => \App\Models\InventoryTransaction::latest('id')->value('reference'),
+                    'reference' => InventoryTransaction::latest('id')->value('reference'),
                 ]));
 
             $this->assertSame(7, $product->fresh()->stock);
@@ -400,14 +401,19 @@ class BranchTransferTest extends TestCase
                 'reviewed_by' => $staff->id,
             ]);
 
-            $this->get(route('inventory-transactions.index'))
+            $transactionLogs = $this->get(route('inventory-transactions.index'))
                 ->assertOk()
                 ->assertSee('.log-type-badge.transfer { width: 14.5rem; justify-content: center;', false)
-                ->assertSee('<strong>'.\App\Models\InventoryTransaction::where('type', 'branch_transfer')->latest('id')->value('reference').'</strong>', false)
+                ->assertSee('<strong>'.InventoryTransaction::where('type', 'branch_transfer')->latest('id')->value('reference').'</strong>', false)
                 ->assertDontSee('total transferred')
                 ->assertSee('BRANCH to BRANCH')
-                ->assertDontSee('class="badge mt-1 d-table text-bg-success">APPROVED</span>', false)
-                ->assertDontSee('Stock Transfer (Branch to Branch)');
+                ->assertDontSee('class="badge mt-1 d-table text-bg-success">APPROVED</span>', false);
+
+            if ($role === 'admin') {
+                $transactionLogs
+                    ->assertSee('Stock Transfer (Branch to Branch)')
+                    ->assertSee('href="'.route('inventory-transactions.branch-transfer.create', ['hub_id' => $source->id]).'"', false);
+            }
 
             $this->get(route('hub.dashboard', $source->id))
                 ->assertOk()
@@ -417,9 +423,21 @@ class BranchTransferTest extends TestCase
             $target->refresh();
             $product->refresh();
             $product->update(['stock' => 10]);
-            $targetProduct = \App\Models\Product::where('store_hub_id', $target->id)->first();
+            $targetProduct = Product::where('store_hub_id', $target->id)->first();
             $targetProduct?->update(['stock' => 2]);
         }
+    }
+
+    public function test_admin_assigned_to_one_branch_can_select_any_active_branch_as_the_transfer_source(): void
+    {
+        [$source, $target] = $this->fixtures();
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $source->id]);
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.branch-transfer.create', ['hub_id' => $target->id]))
+            ->assertOk()
+            ->assertViewHas('hubId', $target->id)
+            ->assertViewHas('transferSourceHubs', fn ($hubs) => $hubs->modelKeys() === [$source->id, $target->id]);
     }
 
     public function test_multiple_designated_branches_allow_source_selection(): void
@@ -482,7 +500,7 @@ class BranchTransferTest extends TestCase
         $payload['reference'] = $transferReference;
         $response = $this->post(route('inventory-transactions.store'), $payload)
             ->assertSessionHasNoErrors();
-        $savedTransfer = \App\Models\InventoryTransaction::where('type', 'stock_transfer')->firstOrFail();
+        $savedTransfer = InventoryTransaction::where('type', 'stock_transfer')->firstOrFail();
         $this->assertMatchesRegularExpression('/^TRF-A-\d{8}-\d{6}-[A-F0-9]{6}$/', $savedTransfer->reference);
         $popupUrl = route('inventory-transactions.index', [
             'hub_id' => $source->id,
@@ -544,7 +562,7 @@ class BranchTransferTest extends TestCase
             'items' => [['product_id' => $product->id, 'quantity' => 3]],
         ])->assertSessionHasNoErrors();
 
-        $transfer = \App\Models\InventoryTransaction::where('type', 'stock_transfer')->firstOrFail();
+        $transfer = InventoryTransaction::where('type', 'stock_transfer')->firstOrFail();
         $this->assertSame($source->id, $transfer->source_hub_id);
         $this->assertSame($ho->id, $transfer->target_hub_id);
         $this->assertNotNull($transfer->transfer_batch_id);
@@ -587,7 +605,7 @@ class BranchTransferTest extends TestCase
             [$branchA, $headOffice, $branchProduct],
             [$headOffice, $branchA, $headOfficeProduct],
         ] as [$source, $target, $product]) {
-            \App\Models\InventoryTransaction::create([
+            InventoryTransaction::create([
                 'type' => 'stock_transfer',
                 'reference' => $reference,
                 'store_hub_id' => $source->id,
@@ -642,7 +660,7 @@ class BranchTransferTest extends TestCase
             ->assertOk()
             ->viewData('transactions')
             ->getCollection();
-        $batches = \App\Models\InventoryTransaction::where('type', 'stock_transfer')->pluck('transfer_batch_id');
+        $batches = InventoryTransaction::where('type', 'stock_transfer')->pluck('transfer_batch_id');
 
         $this->assertCount(2, $groups);
         $this->assertCount(2, $batches->unique());

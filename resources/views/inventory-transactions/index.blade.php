@@ -225,7 +225,7 @@
                 $inventoryActionGroups[0]['actions'][] = [
                     'route' => 'inventory-transactions.branch-transfer.create',
                     'icon' => 'fa-right-left',
-                    'title' => 'Branch ↔ Branch Transfer',
+                    'title' => 'Stock Transfer (Branch to Branch)',
                     'text' => 'Move stock directly between branches',
                 ];
             }
