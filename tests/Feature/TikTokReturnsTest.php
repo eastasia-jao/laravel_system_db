@@ -182,6 +182,7 @@ class TikTokReturnsTest extends TestCase
         $this->actingAs($staff)
             ->get(route('hub.dashboard', $hub->id))
             ->assertOk()
+            ->assertDontSee('data-admin-hub-action-groups', false)
             ->assertSee('TikTok Returns')
             ->assertSee(route('hub.tiktok-returns', $hub->id), false);
 
@@ -231,7 +232,13 @@ class TikTokReturnsTest extends TestCase
 
         $dashboard = $this->actingAs($admin)->get(route('hub.dashboard', $hub->id));
 
-        $dashboard->assertOk();
+        $dashboard
+            ->assertOk()
+            ->assertSee('data-admin-hub-action-groups', false)
+            ->assertSee('Sales operations')
+            ->assertSee('Marketplace operations')
+            ->assertSee('Fully Booked operations')
+            ->assertSee('Inventory management');
         foreach (['shopee' => 'Shopee', 'lazada' => 'Lazada', 'tiktok' => 'TikTok'] as $channel => $label) {
             $ordersRoute = route('hub.marketplace-orders', ['hub' => $hub->id, 'channel' => $channel]);
             $returnsRoute = $channel === 'tiktok'
@@ -262,9 +269,14 @@ class TikTokReturnsTest extends TestCase
         $this->actingAs($admin)
             ->get(route('hub.dashboard', $hub->id))
             ->assertOk()
+            ->assertSee('data-admin-hub-action-groups', false)
             ->assertSee('Return Items')
             ->assertSee(route('hub.branch-returns', ['hub' => $hub->id]), false)
-            ->assertDontSee(route('inventory-transactions.return.create', ['hub_id' => $hub->id]), false);
+            ->assertDontSee(route('inventory-transactions.return.create', ['hub_id' => $hub->id]), false)
+            ->assertDontSee('Fully Booked operations')
+            ->assertDontSee('Fully Booked Order')
+            ->assertDontSee('Fully Booked Returns')
+            ->assertDontSee('Rejected Fully Booked');
     }
 
     public function test_legacy_tiktok_returns_show_customer_name_using_order_reference(): void
