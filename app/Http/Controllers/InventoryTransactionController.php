@@ -1365,9 +1365,6 @@ class InventoryTransactionController extends Controller
             : 'ho_to_branch';
         if ($type === 'branch_transfer') {
             $hubs = $hubs->filter(fn (StoreHub $hub) => ! $hub->is_head_office)->values();
-            if ($user?->store_hub_id && ! in_array($user?->role, ['sales_associate', 'inventory_staff'], true)) {
-                $hubs = $hubs->filter(fn (StoreHub $hub) => (int) $hub->id === (int) $user->store_hub_id)->values();
-            }
             $allHubs = $allHubs->filter(fn (StoreHub $hub) => ! $hub->is_head_office)->values();
             $hubId = ($hubs->firstWhere('id', $hubId) ?: $hubs->first())?->id;
         }
@@ -1419,7 +1416,8 @@ class InventoryTransactionController extends Controller
             ? StoreHub::where('status', 'active')->orderByDesc('is_head_office')->orderBy('name')->get()
             : collect();
         $canManageEvent = $user?->can('manage-inventory') ?? false;
-        $canSubmitFullyBooked = $user?->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked');
+        $canSubmitFullyBooked = $user?->role === 'admin'
+            || ($user?->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked'));
         $canUseFullyBookedForm = $canManageEvent || $canSubmitFullyBooked;
         $activityType = $canSubmitFullyBooked && ! $canManageEvent
             ? 'fully_booked'

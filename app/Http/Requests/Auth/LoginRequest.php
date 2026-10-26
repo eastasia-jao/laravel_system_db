@@ -2,14 +2,15 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use App\Models\User;
 
 class LoginRequest extends FormRequest
 {
@@ -56,6 +57,17 @@ class LoginRequest extends FormRequest
             'password' => $this->input('password'),
             'status' => 'active',
         ], $this->boolean('remember'))) {
+            $inactiveUser = User::query()
+                ->where($field, $login)
+                ->where('status', 'inactive')
+                ->first();
+
+            if ($inactiveUser && Hash::check($this->input('password'), $inactiveUser->password)) {
+                throw ValidationException::withMessages([
+                    $field => 'This account is inactive. Please contact the administrator to restore access.',
+                ]);
+            }
+
             RateLimiter::hit($this->throttleKey(), self::LOCKOUT_SECONDS);
 
             if (RateLimiter::tooManyAttempts($this->throttleKey(), self::MAX_LOGIN_ATTEMPTS)) {

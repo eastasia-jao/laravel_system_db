@@ -117,7 +117,7 @@
         </div>
     </header>
     
-    <form id="eventFullyBookedForm" method="POST" action="{{ $activityType === 'fully_booked' ? route('fully-booked-orders.store') : route('inventory-transactions.store') }}" enctype="multipart/form-data" data-event-action="{{ route('inventory-transactions.store') }}" data-fully-booked-action="{{ route('fully-booked-orders.store') }}" data-can-manage-event="{{ $canManageEvent ? '1' : '0' }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
+    <form id="eventFullyBookedForm" method="POST" action="{{ $activityType === 'fully_booked' ? route('fully-booked-orders.store') : route('inventory-transactions.store') }}" enctype="multipart/form-data" data-event-action="{{ route('inventory-transactions.store') }}" data-fully-booked-action="{{ route('fully-booked-orders.store') }}" data-can-manage-event="{{ $canManageEvent ? '1' : '0' }}" data-can-submit-fully-booked="{{ $canSubmitFullyBooked ? '1' : '0' }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf
         @if($canManageEvent && $activityType !== 'fully_booked')
             <div class="row g-3 mb-4">
@@ -179,6 +179,7 @@
         @if($canUseFullyBookedForm)
         <section id="fullyBookedFields" @if(old('activity_type', $activityType) !== 'fully_booked') hidden @endif>
             @if($canSubmitFullyBooked)
+            <input type="hidden" name="inventory_hub_id" value="{{ $hubId }}">
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label fw-semibold" for="fullyBookedOrderNumber">Fully Booked Order Number</label>
@@ -220,7 +221,7 @@
                 </div>
             </div>
             <div class="d-flex justify-content-end gap-2 mt-4">
-                <button id="submitFullyBooked" class="btn btn-primary" @disabled($fullyBookedStaff->isEmpty())><i class="fa-solid fa-paper-plane me-1" aria-hidden="true"></i>Send for Review</button>
+                <button id="submitFullyBooked" class="btn btn-primary"><i class="fa-solid fa-paper-plane me-1" aria-hidden="true"></i>Send for Review</button>
                 @if(auth()->user()->role === 'sales_marketing_staff')
                     <a href="{{ route('hub.dashboard', auth()->user()->hub_id) }}" class="btn btn-outline-secondary">Cancel</a>
                 @else
@@ -585,7 +586,9 @@
 
     selector.addEventListener('change', updateActivityType);
     form.addEventListener('submit', event => {
-        if (form.dataset.canManageEvent === '1' && selector.value === 'fully_booked') {
+        if (form.dataset.canManageEvent === '1'
+            && form.dataset.canSubmitFullyBooked !== '1'
+            && selector.value === 'fully_booked') {
             event.preventDefault();
         }
     });

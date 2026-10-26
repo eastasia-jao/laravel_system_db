@@ -641,7 +641,10 @@ class SalesController extends Controller
         $pendingSale = PendingSale::findOrFail($id);
 
         $user = auth()->user();
-        if ($user && $user->role !== 'inventory_staff' && $user->store_hub_id && $pendingSale->store_hub_id != $user->store_hub_id) {
+        if ($user
+            && ! in_array($user->role, ['admin', 'inventory_staff'], true)
+            && $user->store_hub_id
+            && $pendingSale->store_hub_id != $user->store_hub_id) {
             abort(403, 'Unauthorized action. You cannot confirm pending sales for another store hub.');
         }
 

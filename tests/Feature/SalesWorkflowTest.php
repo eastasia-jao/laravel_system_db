@@ -1063,6 +1063,46 @@ class SalesWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_admin_assigned_to_one_hub_can_confirm_pending_sales_from_another_hub(): void
+    {
+        $assignedHub = StoreHub::create(['name' => 'Admin Assigned Hub', 'code' => 'ADMIN-ASSIGNED', 'status' => 'active']);
+        $saleHub = StoreHub::create(['name' => 'Admin Sale Hub', 'code' => 'ADMIN-SALE', 'status' => 'active']);
+        $admin = User::factory()->create(['hub_id' => $assignedHub->id, 'role' => 'admin']);
+        $submitter = User::factory()->create(['hub_id' => $saleHub->id, 'role' => 'sales_associate']);
+        $product = Product::create([
+            'item_id' => 'ADMIN-CROSS-HUB-001',
+            'name' => 'Admin Cross Hub Product',
+            'sales_price' => 100,
+            'stock' => 5,
+            'status' => 'active',
+            'store_hub_id' => $saleHub->id,
+        ]);
+        $pendingSale = PendingSale::create([
+            'store_hub_id' => $saleHub->id,
+            'sales_channel' => 'walk_in',
+            'placed_order_date' => '2026-10-26',
+            'invoice_number' => 'ADMIN-CROSS-HUB-ORDER',
+            'customer_name' => 'Admin Cross Hub Customer',
+            'items' => [[
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'quantity' => 2,
+                'unit_price' => 100,
+            ]],
+            'status' => 'pending',
+            'inventory_status' => 'ready',
+            'submitted_by' => $submitter->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('sales.confirmPending', $pendingSale))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertSame('confirmed', $pendingSale->fresh()->status);
+        $this->assertSame(3, (int) $product->fresh()->stock);
+    }
+
     public function test_channel_reports_use_tiktok_and_online_financial_formulas(): void
     {
         $hub = StoreHub::create([

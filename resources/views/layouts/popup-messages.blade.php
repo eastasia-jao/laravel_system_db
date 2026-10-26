@@ -15,7 +15,14 @@
             : null];
     }
     $popupErrors = collect($errors->getBags())->flatMap(fn ($bag) => $bag->all())->unique()->values()->all();
-    if ($popupErrors) $popupMessages[] = ['text' => implode("\n", $popupErrors), 'type' => 'error'];
+    if ($popupErrors) {
+        $inactiveAccountMessage = 'This account is inactive. Please contact the administrator to restore access.';
+        $popupMessages[] = [
+            'text' => implode("\n", $popupErrors),
+            'type' => 'error',
+            'title' => in_array($inactiveAccountMessage, $popupErrors, true) ? 'Account inactive' : null,
+        ];
+    }
 @endphp
 <style>
     .branch-transfer-success-popup {

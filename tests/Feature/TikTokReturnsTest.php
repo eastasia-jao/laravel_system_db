@@ -2,7 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Product, ProductStockAllocation, SalesTransaction, StoreHub, User, InventoryTransaction};
+use App\Models\InventoryTransaction;
+use App\Models\Product;
+use App\Models\ProductStockAllocation;
+use App\Models\SalesTransaction;
+use App\Models\StoreHub;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,6 +23,7 @@ class TikTokReturnsTest extends TestCase
         ProductStockAllocation::create(['product_id' => $product->id, 'tiktok' => 8]);
         $sale = SalesTransaction::create(['store_hub_id' => $hub->id, 'channel_type' => 'tiktok', 'order_date' => '2026-09-08', 'order_number' => 'RETURN-1', 'customer_name' => 'Customer', 'sales_after_transaction_fee' => 180, 'refund_shipping_fee' => 10]);
         $item = $sale->items()->create(['product_id' => $product->id, 'quantity' => 2, 'unit_price' => 100, 'line_total' => 200]);
+
         return [$hub, $product, $sale, $item];
     }
 
@@ -218,6 +224,31 @@ class TikTokReturnsTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_open_all_marketplace_order_and_return_actions_from_head_office(): void
+    {
+        [$hub] = $this->order();
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $dashboard = $this->actingAs($admin)->get(route('hub.dashboard', $hub->id));
+
+        $dashboard->assertOk();
+        foreach (['shopee' => 'Shopee', 'lazada' => 'Lazada', 'tiktok' => 'TikTok'] as $channel => $label) {
+            $ordersRoute = route('hub.marketplace-orders', ['hub' => $hub->id, 'channel' => $channel]);
+            $returnsRoute = $channel === 'tiktok'
+                ? route('hub.tiktok-returns', ['hub' => $hub->id])
+                : route('hub.marketplace-returns', ['hub' => $hub->id, 'channel' => $channel]);
+
+            $dashboard
+                ->assertSee($label.' Orders')
+                ->assertSee($ordersRoute, false)
+                ->assertSee($label.' Returns')
+                ->assertSee($returnsRoute, false);
+
+            $this->get($ordersRoute)->assertOk();
+            $this->get($returnsRoute)->assertOk();
+        }
+    }
+
     public function test_non_head_office_hub_dashboard_has_a_return_items_action(): void
     {
         $hub = StoreHub::create([
@@ -232,7 +263,8 @@ class TikTokReturnsTest extends TestCase
             ->get(route('hub.dashboard', $hub->id))
             ->assertOk()
             ->assertSee('Return Items')
-            ->assertSee(route('hub.branch-returns', ['hub' => $hub->id]), false);
+            ->assertSee(route('hub.branch-returns', ['hub' => $hub->id]), false)
+            ->assertDontSee(route('inventory-transactions.return.create', ['hub_id' => $hub->id]), false);
     }
 
     public function test_legacy_tiktok_returns_show_customer_name_using_order_reference(): void

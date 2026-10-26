@@ -26,11 +26,14 @@ class StockAllocationController extends Controller
         $soldTo = $filters['sold_to'] ?? null;
         $hasSoldDateRange = $soldFrom !== null && $soldTo !== null;
         $user = auth()->user();
-        $assignedHub = $user?->store_hub_id ? StoreHub::find($user->store_hub_id) : null;
+        $assignedHub = $user?->role !== 'admin' && $user?->store_hub_id
+            ? StoreHub::find($user->store_hub_id)
+            : null;
         abort_if($assignedHub && ! $assignedHub->is_head_office, 403, 'Stock allocations are only available for head office stores.');
         $canViewAllHubs = in_array($user?->role, ['admin', 'inventory_staff'], true)
             && (! $assignedHub || $assignedHub->is_head_office);
-        $hubId = $request->integer('hub_id') ?: $user?->store_hub_id;
+        $hubId = $request->integer('hub_id')
+            ?: ($user?->role === 'admin' ? null : $user?->store_hub_id);
 
         if (! $canViewAllHubs) {
             $hubId = $user?->store_hub_id ?: 0;
@@ -136,8 +139,10 @@ class StockAllocationController extends Controller
         if ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
             abort(403, 'Only inventory staff can update stock allocations.');
         }
-        $assignedHub = $user?->store_hub_id ? StoreHub::find($user->store_hub_id) : null;
-        $canUpdateAllHubs = ! $assignedHub || $assignedHub->is_head_office;
+        $assignedHub = $user?->role !== 'admin' && $user?->store_hub_id
+            ? StoreHub::find($user->store_hub_id)
+            : null;
+        $canUpdateAllHubs = $user?->role === 'admin' || ! $assignedHub || $assignedHub->is_head_office;
         $targetHub = StoreHub::findOrFail($validated['hub_id']);
         abort_unless($targetHub->is_head_office, 403, 'Stock allocations are only available for head office stores.');
         if (! $canUpdateAllHubs && (int) $user->store_hub_id !== (int) $validated['hub_id']) {

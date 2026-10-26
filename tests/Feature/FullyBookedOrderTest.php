@@ -22,6 +22,8 @@ class FullyBookedOrderTest extends TestCase
 
     public function test_event_page_offers_fully_booked_and_only_lists_designated_staff(): void
     {
+        config(['filesystems.attachment_disks.inventory' => 'inventory-attachments']);
+        Storage::fake('inventory-attachments');
         $hub = StoreHub::create([
             'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
         ]);
@@ -37,7 +39,10 @@ class FullyBookedOrderTest extends TestCase
             'hub_id' => $hub->id,
             'sales_channels' => ['online'],
         ]);
-        $admin = User::factory()->create(['role' => 'admin']);
+        $adminHub = StoreHub::create([
+            'name' => 'Administrator Home Branch', 'code' => 'ADMIN-HOME', 'status' => 'active', 'is_head_office' => false,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $adminHub->id]);
 
         $this->actingAs($admin)->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
             ->assertOk()
@@ -46,7 +51,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('<h2 id="activityHeadingTitle" class="page-hero-title">Event</h2>', false)
             ->assertSee('value="event"', false)
             ->assertSee('value="fully_booked"', false)
-            ->assertDontSee('id="fullyBookedAttachment"', false);
+            ->assertSee('id="fullyBookedAttachment"', false)
+            ->assertSee('data-can-submit-fully-booked="1"', false);
 
         $this->actingAs($designated)
             ->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
@@ -64,10 +70,29 @@ class FullyBookedOrderTest extends TestCase
             ->assertDontSee('name="sales_staff_id"', false)
             ->assertSee('Generated automatically when submitted')
             ->assertSee('href="'.route('hub.dashboard', $hub->id).'" class="btn btn-outline-secondary">Cancel</a>', false);
-        $this->actingAs($admin)->post(route('fully-booked-orders.store'), [
-            'sales_staff_id' => $designated->id,
-            'attachment' => $this->fakePdf(),
-        ])->assertForbidden();
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.sponsor.create', [
+                'hub_id' => $hub->id,
+                'activity_type' => 'fully_booked',
+            ]))
+            ->assertOk()
+            ->assertSee('id="fullyBookedAttachment"', false)
+            ->assertSee('Send for Review');
+        $this->post(route('fully-booked-orders.store'), [
+            'inventory_hub_id' => $hub->id,
+            'store_selection' => (string) $hub->id,
+            'attachment' => $this->fakePdf('admin-order.pdf'),
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('fully_booked_orders', [
+            'store_hub_id' => $hub->id,
+            'submitted_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('Fully Booked Order')
+            ->assertSee('Fully Booked Returns')
+            ->assertSee('Rejected Fully Booked');
 
         $this->actingAs($designated)->get(route('hub.dashboard', $hub->id))
             ->assertOk()
@@ -761,6 +786,7 @@ class FullyBookedOrderTest extends TestCase
             'hub_id' => $hub->id,
             'sales_channels' => ['fully_booked'],
         ]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $hub->id]);
         $inventoryStaff = User::factory()->create(['role' => 'inventory_staff']);
         $otherStaff = User::factory()->create([
             'role' => 'sales_marketing_staff',
@@ -851,6 +877,10 @@ class FullyBookedOrderTest extends TestCase
             ->assertOk()
             ->assertDontSee('FB-REJECT-001')
             ->assertSee('You do not have any rejected Fully Booked orders.');
+        $this->actingAs($admin)->get($rejectedUrl)
+            ->assertOk()
+            ->assertSee('FB-REJECT-001')
+            ->assertSee('The attachment is missing the requested quantities.');
         $this->actingAs($staff)->get(route('notifications.read', $notification->id))
             ->assertRedirect($rejectedUrl);
         $this->get(route('notifications.index'))

@@ -38,7 +38,8 @@ class FullyBookedOrderController extends Controller
     {
         $user = $request->user();
         abort_unless(
-            $user->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked'),
+            $user->role === 'admin'
+                || ($user->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked')),
             403
         );
 
@@ -47,7 +48,7 @@ class FullyBookedOrderController extends Controller
 
         $orders = FullyBookedOrder::query()
             ->where('store_hub_id', $storeHub->id)
-            ->where('submitted_by', $user->id)
+            ->when($user->role !== 'admin', fn ($query) => $query->where('submitted_by', $user->id))
             ->where('status', 'rejected')
             ->latest()
             ->paginate(20)
@@ -63,14 +64,16 @@ class FullyBookedOrderController extends Controller
     {
         $user = $request->user();
         abort_unless(
-            $user->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked')
+            ($user->role === 'admin'
+                || ($user->role === 'sales_marketing_staff' && $user->hasSalesChannel('fully_booked')))
                 && $user->status === 'active',
             403,
-            'Fully Booked order submission is only available to active Sales/Marketing staff designated for this channel.'
+            'Fully Booked order submission is only available to an active Administrator or designated Sales/Marketing staff.'
         );
         $activeStoreIds = StoreHub::where('status', 'active')->pluck('id')->map(fn ($id) => (string) $id);
         $validated = $request->validate([
             'attachment' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'inventory_hub_id' => ['nullable', 'integer', Rule::exists('store_hubs', 'id')->where('status', 'active')],
             'store_selection' => ['required', Rule::in($activeStoreIds->push('other')->all())],
             'other_store_name' => ['nullable', 'required_if:store_selection,other', 'string', 'max:255'],
             'remarks' => ['nullable', 'string', 'max:150'],
@@ -79,6 +82,9 @@ class FullyBookedOrderController extends Controller
             ? trim($validated['other_store_name'])
             : StoreHub::whereKey($validated['store_selection'])->where('status', 'active')->value('name');
         $salesStaff = $user;
+        $inventoryHubId = $user->role === 'admin'
+            ? (int) ($validated['inventory_hub_id'] ?? $user->hub_id)
+            : (int) $user->hub_id;
 
         $file = $validated['attachment'];
         $path = $file->store(
@@ -90,10 +96,10 @@ class FullyBookedOrderController extends Controller
         }
 
         try {
-            $order = DB::transaction(function () use ($salesStaff, $user, $path, $file, $validated, $storeName) {
+            $order = DB::transaction(function () use ($salesStaff, $user, $path, $file, $validated, $storeName, $inventoryHubId) {
                 $order = FullyBookedOrder::create([
                     'order_number' => 'PENDING-'.Str::uuid(),
-                    'store_hub_id' => $salesStaff->hub_id,
+                    'store_hub_id' => $inventoryHubId,
                     'store_name' => $storeName,
                     'sales_staff_id' => $salesStaff->id,
                     'submitted_by' => $user->id,

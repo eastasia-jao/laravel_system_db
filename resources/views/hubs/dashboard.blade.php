@@ -74,7 +74,7 @@
         @endunless
         @endcan
 
-        @if($hub->is_head_office && auth()->user()?->role === 'sales_marketing_staff')
+        @if($hub->is_head_office && in_array(auth()->user()?->role, ['admin', 'sales_marketing_staff'], true))
             @foreach(['shopee' => 'Shopee', 'lazada' => 'Lazada', 'tiktok' => 'TikTok'] as $marketplaceChannel => $marketplaceLabel)
                 @if(auth()->user()->hasSalesChannel($marketplaceChannel))
                 <div class="col">
@@ -104,7 +104,7 @@
         @endif
         @endcan
 
-        @if(auth()->user()?->role === 'sales_marketing_staff' && auth()->user()->hasSalesChannel('fully_booked'))
+        @if(auth()->user()?->role === 'admin' || (auth()->user()?->role === 'sales_marketing_staff' && auth()->user()->hasSalesChannel('fully_booked')))
         <div class="col">
             <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id, 'activity_type' => 'fully_booked']) }}" class="hub-action w-100 p-3 d-flex flex-column align-items-center justify-content-center">
                 <span class="hub-action-icon"><i class="fa-solid fa-file-arrow-up"></i></span><span class="hub-action-label">Fully Booked Order</span>

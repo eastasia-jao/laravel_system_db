@@ -42,6 +42,25 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_inactive_account_receives_a_clear_popup_message_when_credentials_are_correct(): void
+    {
+        $user = User::factory()->create(['status' => 'inactive']);
+        $message = 'This account is inactive. Please contact the administrator to restore access.';
+
+        $response = $this->from('/login')->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/login')->assertSessionHasErrors(['username' => $message]);
+
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Account inactive')
+            ->assertSee($message);
+    }
+
     public function test_account_is_locked_for_fifteen_minutes_after_five_failed_sign_in_attempts(): void
     {
         $user = User::factory()->create();

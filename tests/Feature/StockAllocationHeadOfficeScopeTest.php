@@ -113,6 +113,34 @@ class StockAllocationHeadOfficeScopeTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_assigned_to_a_branch_can_manage_head_office_stock_allocations(): void
+    {
+        $branch = StoreHub::create(['name' => 'Admin Branch', 'code' => 'ADMIN-BR', 'status' => 'active', 'is_head_office' => false]);
+        $headOffice = StoreHub::create(['name' => 'Admin Head Office', 'code' => 'ADMIN-HO', 'status' => 'active', 'is_head_office' => true]);
+        $product = Product::create([
+            'store_hub_id' => $headOffice->id,
+            'item_id' => 'ADMIN-GLOBAL-ALLOC',
+            'name' => 'Admin Global Allocation Product',
+            'stock' => 10,
+            'status' => 'active',
+        ]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $branch->id]);
+
+        $this->actingAs($admin)
+            ->get(route('stock-allocation.index', ['hub_id' => $headOffice->id]))
+            ->assertOk()
+            ->assertSee('Admin Global Allocation Product');
+
+        $this->post(route('stock-allocation.update'), [
+            'hub_id' => $headOffice->id,
+            'allocations' => [
+                $product->id => ['online' => 2, 'wholesale' => 2, 'shopee' => 2, 'lazada' => 2, 'tiktok' => 2],
+            ],
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertSame(2, (int) $product->fresh()->stockAllocation->online);
+    }
+
     public function test_non_head_office_hub_cannot_be_updated_in_stock_allocations(): void
     {
         $branch = StoreHub::create(['name' => 'Branch Store', 'code' => 'BR-ALLOC', 'status' => 'active', 'is_head_office' => false]);
