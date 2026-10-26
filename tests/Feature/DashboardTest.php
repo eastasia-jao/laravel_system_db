@@ -1004,7 +1004,7 @@ class DashboardTest extends TestCase
 
         $headOfficeResponse = $this->actingAs($admin)->get(route('dashboard', ['hub_id' => $headOffice->id]));
         $headOfficeResponse->assertOk()
-            ->assertSee('head-office-channel-section', false)
+            ->assertSee('panel head-office-channel-section p-3 p-lg-4 mb-4', false)
             ->assertSee('head-office-channel-grid', false)
             ->assertSee('row-cols-lg-3', false);
 

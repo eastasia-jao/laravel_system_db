@@ -295,7 +295,7 @@
         <div class="col-xl-6">
     @endif
     @if($channelSummaries->isNotEmpty())
-    <section class="{{ $isChannelSideBySideDashboard ? 'panel p-3 p-lg-4 h-100' : ($isAllStoresAdminDashboard ? 'panel all-store-channel-section mb-4' : ($isHeadOfficeAdminDashboard ? 'panel head-office-channel-section mb-4' : 'mb-4')) }}">
+    <section class="{{ $isChannelSideBySideDashboard ? 'panel p-3 p-lg-4 h-100' : ($isAllStoresAdminDashboard ? 'panel all-store-channel-section mb-4' : ($isHeadOfficeAdminDashboard ? 'panel head-office-channel-section p-3 p-lg-4 mb-4' : 'mb-4')) }}">
         <div>
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <div>
