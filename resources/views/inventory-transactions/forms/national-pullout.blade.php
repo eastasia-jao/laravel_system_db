@@ -11,11 +11,6 @@
     .national-pullout-items th { color: #526178; background: #f8fafc; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
     .national-pullout-items th { position: sticky; top: 0; z-index: 2; }
     .national-pullout-items td { vertical-align: middle; }
-    .pullout-product-results { position: fixed; z-index: 2000; max-height: 240px; overflow-y: auto; border: 1px solid #dbe3ee; border-radius: .65rem; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.16); }
-    .pullout-product-result { display: block; width: 100%; padding: .65rem .75rem; border: 0; border-bottom: 1px solid #edf1f6; color: #172033; background: #fff; text-align: left; }
-    .pullout-product-result:last-child { border-bottom: 0; }
-    .pullout-product-result:hover, .pullout-product-result:focus { background: #eff6ff; }
-    .pullout-product-result small { display: block; color: #64748b; }
     .national-pullout-import-overlay { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .48); backdrop-filter: blur(4px); }
     .national-pullout-import-overlay[hidden] { display: none; }
     .national-pullout-import-card { width: min(430px, 100%); padding: 1.5rem; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 24px 70px rgba(15, 23, 42, .24); text-align: center; }
@@ -129,10 +124,19 @@
         if (!byName.has(key)) byName.set(key, []);
         byName.get(key).push(product);
     });
+    const productLabel = product => `${product.item_id || product.id} — ${product.name || 'Unnamed product'} (stock: ${product.stock})`;
+    const productsByLabel = new Map(products.map(product => [productLabel(product).toLowerCase(), product]));
+    const dataList = document.createElement('datalist');
+    dataList.id = 'nationalPulloutProductOptions';
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = productLabel(product);
+        dataList.appendChild(option);
+    });
+    document.body.appendChild(dataList);
     const itemsBody = document.getElementById('nationalPulloutItems');
     const message = document.getElementById('pulloutCsvMessage');
     let importedItemCount = 0;
-    const hideProductResults = () => document.querySelectorAll('.pullout-product-results').forEach(result => result.hidden = true);
     const selectedProductIds = excludedRow => new Set(
         [...itemsBody.querySelectorAll('.national-pullout-item')]
             .filter(row => row !== excludedRow)
@@ -141,71 +145,55 @@
     );
     let rowIndex = 0;
 
-    const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
     const showMessage = (text, error = false) => {
         message.hidden = false;
         message.className = `alert ${error ? 'alert-danger' : 'alert-success'} py-2 mb-3`;
         message.textContent = text;
     };
-    const selectProduct = (row, product) => {
-        if (selectedProductIds(row).has(String(product.id))) {
-            showMessage(`${product.name} is already included in Items to Pull Out.`, true);
+    const setProduct = (row, product) => {
+        const search = row.querySelector('.pullout-product-search');
+        const productId = row.querySelector('.pullout-product-id');
+        if (!product) {
+            productId.value = '';
+            search.setCustomValidity('Select a product from the search suggestions.');
             return;
         }
-        row.querySelector('.pullout-product-search').value = `${product.name} (${product.item_id})`;
-        row.querySelector('.pullout-product-id').value = product.id;
+        search.value = productLabel(product);
+        productId.value = product.id;
+        search.setCustomValidity('');
+        if (selectedProductIds(row).has(String(product.id))) {
+            showMessage(`${product.name} is already included in Items to Pull Out.`, true);
+            search.value = '';
+            productId.value = '';
+            search.setCustomValidity('Select a product from the search suggestions.');
+            return;
+        }
         row.dataset.physicalStock = product.stock;
-        row.querySelector('.pullout-product-results').hidden = true;
-    };
-    const renderResults = (row, term) => {
-        const results = row.querySelector('.pullout-product-results');
-        const search = row.querySelector('.pullout-product-search');
-        const selectedIds = selectedProductIds(row);
-        const matches = products.filter(product => {
-            const haystack = `${product.name} ${product.item_id}`.toLowerCase();
-            return !selectedIds.has(String(product.id)) && haystack.includes(term.toLowerCase());
-        }).slice(0, 20);
-        results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)} · Available: ${escapeHtml(product.stock)}</small></button>`).join('');
-        const bounds = search.getBoundingClientRect();
-        results.style.left = `${bounds.left}px`;
-        results.style.top = `${bounds.bottom + 4}px`;
-        results.style.width = `${bounds.width}px`;
-        results.hidden = matches.length === 0;
     };
     const addRow = (values = {}) => {
         const index = rowIndex++;
         const row = document.createElement('tr');
         row.className = 'national-pullout-item';
         row.innerHTML = `
-            <td><div class="d-flex align-items-center gap-2"><div class="position-relative flex-grow-1"><input type="search" class="form-control pullout-product-search" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" class="pullout-product-id" name="items[${index}][product_id]"><div class="pullout-product-results" hidden></div></div><button type="button" class="btn btn-outline-danger remove-pullout-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div></td>
+            <td><div class="d-flex align-items-center gap-2"><input type="search" class="form-control pullout-product-search" list="nationalPulloutProductOptions" placeholder="Search product name or Item ID" autocomplete="off" required><input type="hidden" class="pullout-product-id" name="items[${index}][product_id]"><button type="button" class="btn btn-outline-danger remove-pullout-row" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button></div></td>
             <td><input type="number" class="form-control pullout-qty" name="items[${index}][quantity]" min="1" step="1" required></td>
             <td><input type="number" class="form-control pullout-actual" name="items[${index}][actual_pullout]" min="1" step="1" required></td>
 `;
         itemsBody.appendChild(row);
         const search = row.querySelector('.pullout-product-search');
-        search.addEventListener('focus', () => renderResults(row, search.value && !row.querySelector('.pullout-product-id').value ? search.value.trim() : ''));
         search.addEventListener('input', () => {
-            row.querySelector('.pullout-product-id').value = '';
-            renderResults(row, search.value.trim());
-        });
-        row.querySelector('.pullout-product-results').addEventListener('click', event => {
-            const button = event.target.closest('[data-product-id]');
-            if (!button) return;
-            selectProduct(row, products.find(product => product.id === Number(button.dataset.productId)));
+            const product = productsByLabel.get(search.value.trim().toLowerCase());
+            setProduct(row, product || null);
         });
         row.querySelector('.remove-pullout-row').addEventListener('click', () => {
             row.remove();
             if (!itemsBody.children.length) addRow();
         });
-        if (values.product) selectProduct(row, values.product);
+        if (values.product) setProduct(row, values.product);
         row.querySelector('.pullout-qty').value = values.quantity || '';
         row.querySelector('.pullout-actual').value = values.actual || '';
         return row;
     };
-    document.addEventListener('click', event => {
-        if (!event.target.closest('.position-relative')) hideProductResults();
-    });
-    document.addEventListener('scroll', hideProductResults, true);
     document.getElementById('addNationalPulloutItem').addEventListener('click', () => addRow());
     addRow();
 
@@ -371,7 +359,7 @@
         const invalid = [...itemsBody.querySelectorAll('.national-pullout-item')].find(row => !row.querySelector('.pullout-product-id').value);
         if (invalid) {
             event.preventDefault();
-            showMessage('Select every product from the search results before saving.', true);
+            showMessage('Select every product from the search suggestions before saving.', true);
             invalid.querySelector('.pullout-product-search').focus();
         }
     });
