@@ -8,6 +8,7 @@ use App\Models\ProductFileRequest;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
+use App\Support\ProductExportWorkbook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -22,6 +23,14 @@ class HubQueuedImportTest extends TestCase
         return "ID,Item ID,Name,Description,Barcode,Brand,Retail Group,Retail Department,Cost Price,Sales Price,Wholesale Price,Shopee Price,Lazada Price,Tiktok Price,Stock,Unit Type\n1,SKU-1,Updated brush,Brush,001234,,,,1,2,2,2,2,2,12,pc\n";
     }
 
+    private function workbook(?string $csv = null): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent(
+            'products.xlsx',
+            ProductExportWorkbook::fromCsv($csv ?? $this->csv())
+        );
+    }
+
     public function test_hub_import_is_queued_then_exposes_its_status_and_results(): void
     {
         Queue::fake();
@@ -30,7 +39,7 @@ class HubQueuedImportTest extends TestCase
         $staff = User::factory()->create(['role' => 'inventory_staff']);
         $product = Product::create(['store_hub_id' => $hub->id, 'item_id' => 'SKU-1', 'name' => 'Original', 'stock' => 5]);
         $other = Product::create(['store_hub_id' => $branch->id, 'item_id' => 'SKU-1', 'name' => 'Other', 'stock' => 99]);
-        $response = $this->actingAs($staff)->post(route('hub.products.import', $hub), ['file' => UploadedFile::fake()->createWithContent('products.csv', $this->csv())])->assertSessionHasNoErrors();
+        $response = $this->actingAs($staff)->post(route('hub.products.import', $hub), ['file' => $this->workbook()])->assertSessionHasNoErrors();
         $response->assertRedirect(route('hub.dashboard', $hub));
         $record = ProductFileRequest::sole();
         $this->assertSame('queued', $record->processing_status);
@@ -57,7 +66,7 @@ class HubQueuedImportTest extends TestCase
         $local = Product::create(['store_hub_id' => $branch->id, 'catalog_product_id' => $master->catalog_product_id, 'stock' => 4, 'sales_price' => 10]);
         $staff = User::factory()->create(['role' => 'inventory_staff']);
         $this->actingAs($staff)
-            ->post(route('hub.products.import', $branch), ['file' => UploadedFile::fake()->createWithContent('products.csv', $this->csv())])
+            ->post(route('hub.products.import', $branch), ['file' => $this->workbook()])
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('hub.dashboard', $branch));
         $record = ProductFileRequest::sole();
@@ -79,7 +88,7 @@ class HubQueuedImportTest extends TestCase
 
         $this->actingAs($staff)
             ->post(route('hub.products.import', $hub), [
-                'file' => UploadedFile::fake()->createWithContent('products.csv', $csv),
+                'file' => $this->workbook($csv),
             ])
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('hub.dashboard', $hub));
@@ -102,7 +111,7 @@ class HubQueuedImportTest extends TestCase
         StaffActivityLog::creating(fn () => throw new \RuntimeException('Test audit failure'));
         try {
             $response = $this->actingAs($staff)
-                ->post(route('hub.products.import', $hub), ['file' => UploadedFile::fake()->createWithContent('products.csv', $this->csv())]);
+                ->post(route('hub.products.import', $hub), ['file' => $this->workbook()]);
             $response->assertRedirect(route('hub.dashboard', $hub));
             $record = ProductFileRequest::sole();
             $job = new ProcessProductFileRequest($record->id, $staff->id, '127.0.0.1');

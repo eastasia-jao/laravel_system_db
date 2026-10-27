@@ -52,7 +52,7 @@
                 failureMessage: '',
                 elapsedTimer: null,
                 pollTimer: null,
-                steps: ['Uploading the CSV file', 'Checking the file format', 'Applying product updates', 'Recording the import activity'],
+                steps: ['Uploading the Excel file', 'Checking the file format', 'Applying product updates', 'Recording the import activity'],
                 async startImport() {
                     if (this.importing) return;
                     this.importing = true;
@@ -120,7 +120,7 @@
                     <div class="modal-header border-0 px-4 pt-4 pb-2">
                         <div>
                             <h5 class="modal-title fw-bold" id="importProductModalLabel"><i class="fa-solid fa-file-import text-success me-2"></i>Import Products</h5>
-                            <div class="small text-muted mt-1" x-show="!importing">Upload a CSV file to import products directly into this branch.</div>
+                            <div class="small text-muted mt-1" x-show="!importing">Upload an Excel file to import products directly into this branch.</div>
                             <div class="small text-muted mt-1">Branch imports keep existing shared product details. Head Office imports can update those details for all branches.</div>
                         </div>
                         <button type="button" class="btn-close" aria-label="Close import result"
@@ -130,11 +130,11 @@
 
                     <div class="modal-body px-4 pb-4">
                         <div x-show="!importing">
-                            <label class="form-label fw-semibold">CSV inventory file</label>
+                            <label class="form-label fw-semibold">Excel inventory file</label>
                             <div class="border rounded-3 bg-light p-4 text-center">
                                 <i class="fa-solid fa-cloud-arrow-up text-success fs-2 mb-3"></i>
-                                <input type="file" name="file" accept=".csv,.txt,text/csv" required class="form-control" @change="fileName = $event.target.files[0]?.name || ''">
-                                <div class="small text-muted mt-2">CSV or TXT format</div>
+                                <input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="form-control" @change="fileName = $event.target.files[0]?.name || ''">
+                                <div class="small text-muted mt-2">Excel workbook (.xlsx)</div>
                                 
                                 <div id="storeHubImportError" class="alert alert-danger mt-3 mb-0 text-start d-none" role="alert" style="white-space: pre-line;"></div>
                             </div>
@@ -143,14 +143,14 @@
                         <div x-show="importing" style="display: none;" aria-live="polite">
                             <div class="import-loader-shell">
                                 <div class="import-loader-visual mb-3" aria-hidden="true">
-                                    <div class="import-loader-node"><i class="fa-solid fa-file-csv"></i></div>
+                                    <div class="import-loader-node"><i class="fa-solid fa-file-excel"></i></div>
                                     <div class="import-loader-flow"></div>
                                     <div class="import-loader-node"><i class="fa-solid fa-database"></i></div>
                                 </div>
 
                                 <div class="text-center mb-3">
                                     <h6 class="fw-bold mb-1" x-text="importStatus === 'completed' ? 'Import completed' : (importStatus === 'failed' ? 'Import failed' : 'Importing products')"></h6>
-                                    <div class="small text-muted text-truncate" x-text="fileName || 'Selected CSV file'"></div>
+                                    <div class="small text-muted text-truncate" x-text="fileName || 'Selected Excel file'"></div>
                                 </div>
 
                                 <div class="import-indeterminate mb-4" :class="{ 'import-complete': importStatus === 'completed' }" role="progressbar" aria-label="Import progress"></div>
@@ -168,7 +168,7 @@
 
                                 <div class="alert alert-light border small text-muted mt-4 mb-0 py-2">
                                     <i class="fa-solid fa-circle-info me-1 text-primary"></i>
-                                    <span x-show="importStatus === 'uploading'">Uploading and validating the CSV file.</span>
+                                    <span x-show="importStatus === 'uploading'">Uploading and validating the Excel file.</span>
                                     <span x-show="importStatus === 'queued'">Queued &mdash; waiting for the import worker.</span>
                                     <span x-show="importStatus === 'processing'">The file is being imported now.</span>
                                     <span x-show="importStatus === 'completed'">Import completed successfully. Review the results, then click &times; to close.</span>

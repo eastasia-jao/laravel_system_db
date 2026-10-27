@@ -6,6 +6,8 @@ use App\Models\NationalProduct;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
+use App\Support\ProductExportWorkbook;
+use App\Support\XlsxTable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
@@ -53,7 +55,7 @@ class NationalInventoryTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_national_csv_import_and_export_are_separate_from_store_products(): void
+    public function test_national_excel_import_and_export_are_separate_from_store_products(): void
     {
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
@@ -66,7 +68,7 @@ class NationalInventoryTest extends TestCase
         $this->actingAs($admin)
             ->post(route('national-inventory.import'), [
                 'hub_id' => $headOffice->id,
-                'file' => UploadedFile::fake()->createWithContent('national.csv', $csv),
+                'file' => UploadedFile::fake()->createWithContent('national.xlsx', ProductExportWorkbook::fromCsv($csv)),
             ])
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success', 'National inventory import complete: 2 new and 0 updated item(s).')
@@ -91,13 +93,11 @@ class NationalInventoryTest extends TestCase
             'export_all' => 1,
         ]))->assertOk();
         $this->assertStringContainsString('national_inventory_', $response->headers->get('Content-Disposition'));
-        $export = $response->streamedContent();
-        $this->assertStringContainsString('National Brush', $export);
-        $lines = preg_split('/\r\n|\r|\n/', preg_replace('/^\xEF\xBB\xBF/', '', $export));
-        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Good Items', 'Damaged Items', 'Unit Type'], str_getcsv($lines[0]));
-        $firstProduct = str_getcsv($lines[1]);
-        $this->assertSame('="00001"', $firstProduct[1]);
-        $this->assertSame('="007661234567891234567890"', $firstProduct[4]);
+        $exportFile = UploadedFile::fake()->createWithContent('national-export.xlsx', $response->getContent());
+        $exportRows = XlsxTable::read($exportFile->getRealPath());
+        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Good Items', 'Damaged Items', 'Unit Type'], $exportRows[0]);
+        $this->assertSame('00001', $exportRows[1][1]);
+        $this->assertSame('007661234567891234567890', $exportRows[1][4]);
         $this->assertFalse(Schema::hasColumn('national_products', 'retail_department'));
         $exportLog = StaffActivityLog::where('action_type', 'product_export')->sole();
         $this->assertSame(2, $exportLog->items()->count());
@@ -115,7 +115,7 @@ class NationalInventoryTest extends TestCase
             ->assertSee('National Brush');
     }
 
-    public function test_invalid_national_csv_is_rejected_before_any_writes(): void
+    public function test_invalid_national_excel_is_rejected_before_any_writes(): void
     {
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
         $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $headOffice->id]);
@@ -124,14 +124,14 @@ class NationalInventoryTest extends TestCase
         $this->actingAs($inventoryStaff)
             ->post(route('national-inventory.import'), [
                 'hub_id' => $headOffice->id,
-                'file' => UploadedFile::fake()->createWithContent('national.csv', $csv),
+                'file' => UploadedFile::fake()->createWithContent('national.xlsx', ProductExportWorkbook::fromCsv($csv)),
             ])
             ->assertSessionHasErrors('file');
 
         $this->assertDatabaseCount('national_products', 0);
     }
 
-    public function test_export_all_downloads_a_header_only_csv_when_national_inventory_is_empty(): void
+    public function test_export_all_downloads_a_header_only_excel_file_when_national_inventory_is_empty(): void
     {
         $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
@@ -142,10 +142,10 @@ class NationalInventoryTest extends TestCase
         ]))->assertOk();
 
         $this->assertStringContainsString('national_inventory_', $response->headers->get('Content-Disposition'));
-        $export = preg_replace('/^\xEF\xBB\xBF/', '', $response->streamedContent());
-        $lines = array_values(array_filter(preg_split('/\r\n|\r|\n/', $export), fn ($line) => $line !== ''));
-        $this->assertCount(1, $lines);
-        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Good Items', 'Damaged Items', 'Unit Type'], str_getcsv($lines[0]));
+        $exportFile = UploadedFile::fake()->createWithContent('national-empty.xlsx', $response->getContent());
+        $rows = XlsxTable::read($exportFile->getRealPath());
+        $this->assertCount(1, $rows);
+        $this->assertSame(['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Good Items', 'Damaged Items', 'Unit Type'], $rows[0]);
 
         $exportLog = StaffActivityLog::where('action_type', 'product_export')->sole();
         $this->assertSame(0, $exportLog->details['item_count']);

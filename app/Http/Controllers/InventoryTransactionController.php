@@ -22,6 +22,7 @@ use App\Support\AttachmentResponse;
 use App\Support\AttachmentStorage;
 use App\Support\CsvIdentifier;
 use App\Support\EventPulloutWorkbook;
+use App\Support\ProductExportWorkbook;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -67,38 +68,32 @@ class InventoryTransactionController extends Controller
             'restock' => 'Restock',
             'return' => 'Return',
         };
-        $filename = $hubCode.'_Download_'.$typeLabel.'_'.now()->format('Ymd_His').'.csv';
-        $callback = function () use ($headers, $validated) {
-            $file = fopen('php://output', 'w');
-            fwrite($file, "\xEF\xBB\xBF");
-            fputcsv($file, $headers);
+        $filename = $hubCode.'_Download_'.$typeLabel.'_'.now()->format('Ymd_His').'.xlsx';
+        $rows = [$headers];
+        Product::where('store_hub_id', $validated['hub_id'])
+            ->where('status', 'active')
+            ->when(
+                $validated['type'] === 'branch_transfer',
+                fn ($query) => $query->orderByCatalog('item_id'),
+                fn ($query) => $query->orderByCatalog(),
+            )
+            ->each(function (Product $product) use (&$rows, $validated) {
+                $row = [
+                    $product->description ?: $product->name,
+                    CsvIdentifier::read($product->barcode ?? '', 'Barcode'),
+                    CsvIdentifier::read($product->item_id, 'Item ID'),
+                    (int) $product->stock,
+                    '',
+                ];
+                if ($validated['type'] === 'return') {
+                    $row[] = '';
+                }
+                $rows[] = $row;
+            });
 
-            Product::where('store_hub_id', $validated['hub_id'])
-                ->where('status', 'active')
-                ->when(
-                    $validated['type'] === 'branch_transfer',
-                    fn ($query) => $query->orderByCatalog('item_id'),
-                    fn ($query) => $query->orderByCatalog(),
-                )
-                ->each(function (Product $product) use ($file, $validated) {
-                    $row = [
-                        $product->description ?: $product->name,
-                        CsvIdentifier::write($product->barcode ?? '', 'Barcode'),
-                        CsvIdentifier::write($product->item_id, 'Item ID'),
-                        (int) $product->stock,
-                        '',
-                    ];
-                    if ($validated['type'] === 'return') {
-                        $row[] = '';
-                    }
-                    fputcsv($file, $row);
-                });
-
-            fclose($file);
-        };
-
-        return response()->streamDownload($callback, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+        return response(ProductExportWorkbook::fromRows($rows), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 

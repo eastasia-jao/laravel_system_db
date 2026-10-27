@@ -107,24 +107,7 @@ class NationalPulloutController extends Controller
 
     public function worksheet(Request $request)
     {
-        $hub = $this->headOffice($request);
-        $products = NationalProduct::query()->where('status', 'active')->orderByRaw('LENGTH(item_id)')->orderBy('item_id');
-
-        return response()->streamDownload(
-            function () use ($products) {
-                $file = fopen('php://output', 'wb');
-                fwrite($file, "\xEF\xBB\xBF");
-                fputcsv($file, ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out']);
-                $products->chunk(250, function ($chunk) use ($file) {
-                    foreach ($chunk as $product) {
-                        fputcsv($file, [$product->name, '', 'National Bookstore Pullout', $product->stock, '']);
-                    }
-                });
-                fclose($file);
-            },
-            'NATIONAL_BOOKSTORE_PULLOUT_WORKSHEET_'.now()->format('Ymd_His').'.csv',
-            ['Content-Type' => 'text/csv; charset=UTF-8']
-        );
+        return $this->excelWorksheet($request);
     }
 
     public function excelWorksheet(Request $request)
@@ -167,25 +150,25 @@ class NationalPulloutController extends Controller
         $hub = $this->headOffice($request);
         abort_unless((int) $nationalPullout->store_hub_id === (int) $hub->id, 403);
         $nationalPullout->load('items');
-        $filename = 'NATIONAL_BOOKSTORE_PULLOUT_'.Str::slug($nationalPullout->po_number, '_').'.csv';
+        $items = $nationalPullout->items->map(fn ($item) => [
+            'name' => $item->product_name,
+            'item_id' => $item->item_id,
+            'quantity' => $item->quantity,
+            'purpose' => $item->purpose,
+            'physical_stock' => $item->physical_stock,
+            'actual_pullout' => $item->actual_pullout,
+        ])->all();
+        $path = NationalPulloutWorkbook::create($items, [
+            'po_number' => $nationalPullout->po_number,
+            'occurred_on' => $nationalPullout->occurred_on->format('Y-m-d'),
+            'remarks' => $nationalPullout->remarks ?? '',
+        ]);
 
-        return $this->csvResponse(
-            $filename,
-            $nationalPullout->po_number,
-            $nationalPullout->occurred_on->format('Y-m-d'),
-            $nationalPullout->remarks ?? '',
-            function ($file) use ($nationalPullout) {
-                foreach ($nationalPullout->items as $item) {
-                    fputcsv($file, [
-                        $item->product_name,
-                        $item->quantity,
-                        $item->purpose,
-                        $item->physical_stock,
-                        $item->actual_pullout,
-                    ]);
-                }
-            }
-        );
+        return response()->download(
+            $path,
+            'NATIONAL_BOOKSTORE_PULLOUT_'.Str::slug($nationalPullout->po_number, '_').'.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
     }
 
     public function exportExcelWorksheet(Request $request)
@@ -255,21 +238,6 @@ class NationalPulloutController extends Controller
         }
 
         return response()->json($data);
-    }
-
-    private function csvResponse(string $filename, string $poNumber, string $date, string $remarks, callable $writeItems)
-    {
-        return response()->streamDownload(function () use ($poNumber, $date, $remarks, $writeItems) {
-            $file = fopen('php://output', 'wb');
-            fwrite($file, "\xEF\xBB\xBF");
-            fputcsv($file, ['P.O. #:', $poNumber]);
-            fputcsv($file, ['Date:', $date]);
-            fputcsv($file, ['Remarks:', $remarks]);
-            fputcsv($file, []);
-            fputcsv($file, ['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out']);
-            $writeItems($file);
-            fclose($file);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function headOffice(Request $request): StoreHub

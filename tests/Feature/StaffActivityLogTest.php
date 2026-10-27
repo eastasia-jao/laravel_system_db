@@ -12,6 +12,7 @@ use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use App\Support\ProductExportWorkbook;
 use Tests\TestCase;
 
 class StaffActivityLogTest extends TestCase
@@ -63,7 +64,7 @@ class StaffActivityLogTest extends TestCase
 
         $this->actingAs($staff)
             ->post(route('hub.products.import', $hub), [
-                'file' => UploadedFile::fake()->createWithContent('products.csv', $csv),
+                'file' => UploadedFile::fake()->createWithContent('products.xlsx', ProductExportWorkbook::fromCsv($csv)),
             ])
             ->assertSessionHasNoErrors()->assertRedirect();
 

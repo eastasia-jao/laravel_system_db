@@ -22,9 +22,6 @@ export function setupHubImport() {
     if (!form) return;
     const input = form.querySelector('[name="file"]');
     const alert = document.getElementById('storeHubImportError');
-    document.getElementById('importProductModal').addEventListener('shown.bs.modal', () => {
-        window.AppAlert.show('Keep Barcode and Item ID as Text. Set these columns to Text before entering or pasting the original full codes, then save as CSV.\n\nCSV does not retain cell formatting, so we check values for scientific notation. Changing cell format alone cannot restore missing digits or leading zeros.', 'info', { title: 'Before you import', buttonLabel: 'Continue to import' });
-    });
     let checking = false;
     input.addEventListener('change', () => { alert.classList.add('d-none'); });
     form.addEventListener('submit', async event => {
@@ -34,7 +31,9 @@ export function setupHubImport() {
         checking = true;
         const file = input.files[0];
         try {
-            validateHubIdentifiers(await file.text());
+            if (!file.name.toLowerCase().endsWith('.xlsx')) {
+                throw new Error('Choose an Excel workbook in .xlsx format.');
+            }
             if (input.files[0] !== file) return;
             alert.classList.add('d-none');
             form.dispatchEvent(new CustomEvent('hub-import-approved', { bubbles: true }));

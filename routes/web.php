@@ -48,7 +48,6 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
     Route::get('/product-file-requests/{fileRequest}', [\App\Http\Controllers\ProductFileRequestController::class, 'show'])->middleware('can:view-products')->name('product-file-requests.show');
     Route::post('/product-file-requests/{fileRequest}/review', [\App\Http\Controllers\ProductFileRequestController::class, 'review'])->middleware('can:verify-inventory')->name('product-file-requests.review');
     Route::get('/product-file-requests/{fileRequest}/download', [\App\Http\Controllers\ProductFileRequestController::class, 'download'])->middleware('can:view-products')->name('product-file-requests.download');
-    Route::get('/product-file-requests/{fileRequest}/download-csv', [\App\Http\Controllers\ProductFileRequestController::class, 'downloadCsv'])->middleware('can:view-products')->name('product-file-requests.download-csv');
     Route::post('/notifications/read-all', function () {
         auth()->user()->unreadNotifications->markAsRead();
 

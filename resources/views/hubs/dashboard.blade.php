@@ -75,7 +75,7 @@
     $inventoryActions = [];
     if ($currentUser?->can('manage-inventory')) {
         $inventoryActions = [
-            ['label' => 'Import CSV', 'icon' => 'fa-file-arrow-up', 'modal' => '#importProductModal'],
+            ['label' => 'Import Excel', 'icon' => 'fa-file-arrow-up', 'modal' => '#importProductModal'],
             ['label' => 'Export Products', 'icon' => 'fa-file-export', 'modal' => '#exportProductModal'],
         ];
     }

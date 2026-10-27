@@ -7,6 +7,7 @@ use App\Models\ProductFileRequest;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
+use App\Support\ProductExportWorkbook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -35,6 +36,11 @@ class ProductFileRequestTest extends TestCase
     private function csv(): string
     {
         return "ID,Item ID,Name,Barcode,Stock\n1,00001,Brush,001234,12\n";
+    }
+
+    private function workbook(): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent('products.xlsx', ProductExportWorkbook::fromCsv($this->csv()));
     }
 
     private function createRequest(StoreHub $hub, User $associate, string $type, ?string $csv = null, ?array $productIds = null): ProductFileRequest
@@ -81,7 +87,6 @@ class ProductFileRequestTest extends TestCase
         $this->post('/product-file-requests', ['type' => 'export', 'export_all' => 1])->assertStatus(405);
         $this->get(route('product-file-requests.show', $record))->assertForbidden();
         $this->get(route('product-file-requests.download', $record))->assertForbidden();
-        $this->get(route('product-file-requests.download-csv', $record))->assertForbidden();
     }
 
     public function test_branch_import_and_export_are_visible_only_to_admin_and_inventory_staff(): void
@@ -103,7 +108,7 @@ class ProductFileRequestTest extends TestCase
             $this->actingAs(User::factory()->create(['role' => $role]))
                 ->get(route('hub.dashboard', $hub))
                 ->assertOk()
-                ->assertSee('Import CSV')
+                ->assertSee('Import Excel')
                 ->assertSee('Export Products')
                 ->assertSee('Why the import failed')
                 ->assertSee('failureMessage', false)
@@ -113,14 +118,14 @@ class ProductFileRequestTest extends TestCase
                 ->assertSee('id="importProductModal"', false)
                 ->assertSee('id="exportProductModal"', false)
                 ->assertDontSee('toast-container')
-                ->assertSee('AppAlert.show(`Your selected products have been exported.', false);
+                ->assertSee("AppAlert.show('Your selected products have been exported.", false);
         }
 
         $associate = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $hub->id]);
         $this->actingAs($associate)
             ->get(route('hub.dashboard', $hub))
             ->assertOk()
-            ->assertDontSee('Import CSV')
+            ->assertDontSee('Import Excel')
             ->assertDontSee('Export Products')
             ->assertDontSee('id="importProductModal"', false)
             ->assertDontSee('id="exportProductModal"', false);
@@ -155,7 +160,7 @@ class ProductFileRequestTest extends TestCase
 
         $this->actingAs($staff)
             ->post(route('hub.products.import', $hub), [
-                'file' => UploadedFile::fake()->createWithContent('products.csv', $this->csv()),
+                'file' => $this->workbook(),
             ])
             ->assertRedirect(route('hub.dashboard', $hub))
             ->assertSessionMissing('success');
@@ -165,7 +170,7 @@ class ProductFileRequestTest extends TestCase
         $this->assertSame('pending', $record->status);
         $this->assertSame('queued', $record->processing_status);
         $this->assertSame($staff->id, $record->submitted_by);
-        $this->assertSame($this->csv(), $record->csv);
+        $this->assertSame("ID,\"Item ID\",Name,Barcode,Stock\n1,00001,Brush,001234,12\n", $record->csv);
         Queue::assertPushed(\App\Jobs\ProcessProductFileRequest::class, 1);
     }
 
@@ -177,11 +182,11 @@ class ProductFileRequestTest extends TestCase
 
         $this->actingAs($staff)
             ->postJson(route('hub.products.import', $hub), [
-                'file' => UploadedFile::fake()->createWithContent('products.csv', $this->csv()),
+                'file' => $this->workbook(),
             ])
             ->assertStatus(202)
             ->assertJsonPath('import.status', 'queued')
-            ->assertJsonPath('import.file_name', 'products.csv')
+            ->assertJsonPath('import.file_name', 'products.xlsx')
             ->assertJsonPath('import.total_rows', 1);
     }
 
@@ -214,13 +219,10 @@ class ProductFileRequestTest extends TestCase
 
         $this->actingAs($staff)->post(route('product-file-requests.review', $record), ['decision' => 'approved'])->assertSessionHasNoErrors()->assertRedirect();
         $record->refresh();
-        $this->assertMatchesRegularExpression('/^products_BR_\d{8}_\d{6}_\d+\.csv$/', $record->file_name);
+        $this->assertMatchesRegularExpression('/^products_BR_\d{8}_\d{6}_\d+\.xlsx$/', $record->file_name);
         $product->update(['name' => 'Changed after approval']);
-        $this->actingAs($associate)->get(route('product-file-requests.download-csv', $record))->assertForbidden();
-        $this->actingAs($staff)->get(route('product-file-requests.download-csv', $record))
-            ->assertOk()->assertSee('Brush')->assertDontSee('Changed after approval')
-            ->assertHeader('Content-Disposition', 'attachment; filename="'.$record->file_name.'"');
-        $this->get(route('product-file-requests.download', $record))
+        $this->actingAs($associate)->get(route('product-file-requests.download', $record))->assertForbidden();
+        $this->actingAs($staff)->get(route('product-file-requests.download', $record))
             ->assertOk()
             ->assertHeader('Content-Disposition', 'attachment; filename="'.pathinfo($record->file_name, PATHINFO_FILENAME).'.xlsx"');
     }

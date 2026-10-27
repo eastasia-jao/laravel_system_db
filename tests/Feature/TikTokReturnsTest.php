@@ -284,7 +284,7 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('Inventory management')
             ->assertSee('Record Walk-In')
             ->assertSee('Verify Sales')
-            ->assertSee('Import CSV')
+            ->assertSee('Import Excel')
             ->assertSee('Export Products')
             ->assertDontSee('<span class="hub-action-label">Inventory</span>', false)
             ->assertDontSee('Fully Booked operations');
@@ -299,7 +299,7 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('Return Items')
             ->assertSee('Sales Report')
             ->assertDontSee('Verify Sales')
-            ->assertDontSee('Import CSV')
+            ->assertDontSee('Import Excel')
             ->assertDontSee('Export Products')
             ->assertDontSee('<span class="hub-action-label">Inventory</span>', false)
             ->assertDontSee('Fully Booked operations');

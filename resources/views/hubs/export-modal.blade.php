@@ -88,9 +88,6 @@
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" id="exportCsvBtn" class="btn btn-outline-success" data-export-format="csv">
-                        <i class="fa-solid fa-file-csv me-1"></i> CSV for Re-import
-                    </button>
                     <button type="submit" id="exportSubmitBtn" class="btn btn-success" data-export-format="xlsx">
                         <i class="fa-solid fa-file-excel me-1"></i> Download Excel
                     </button>
@@ -110,7 +107,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const resultsContainer = document.getElementById('searchResultsContainer');
     const exportForm = document.getElementById('productExportForm');
     const exportSubmitBtn = document.getElementById('exportSubmitBtn');
-    const exportCsvBtn = document.getElementById('exportCsvBtn');
     const exportStatus = document.getElementById('exportStatus');
     const hubId = "{{ $hub->id }}";
     const exportAll = document.getElementById('exportAllProducts');
@@ -260,9 +256,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const submitButton = event.submitter || exportSubmitBtn;
-        const requestedFormat = submitButton.dataset.exportFormat || 'xlsx';
+        const requestedFormat = 'xlsx';
         exportSubmitBtn.disabled = true;
-        exportCsvBtn.disabled = true;
         submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Exporting...';
         exportStatus.classList.remove('d-none');
         exportStatus.classList.add('d-flex');
@@ -299,15 +294,12 @@ document.addEventListener('DOMContentLoaded', function () {
             URL.revokeObjectURL(downloadUrl);
 
             bootstrap.Modal.getInstance(document.getElementById('exportProductModal'))?.hide();
-            const fileLabel = requestedFormat === 'xlsx' ? 'Excel file' : 'CSV file';
-            AppAlert.show(`Your selected products have been exported. The ${fileLabel} is ready in your downloads.`, 'success', { title: 'Your export is ready', buttonLabel: 'Done' });
+            AppAlert.show('Your selected products have been exported. The Excel file is ready in your downloads.', 'success', { title: 'Your export is ready', buttonLabel: 'Done' });
         } catch (error) {
             AppAlert.show(error.message || 'The export could not be completed.', 'error');
         } finally {
             exportSubmitBtn.disabled = false;
-            exportCsvBtn.disabled = false;
             exportSubmitBtn.innerHTML = '<i class="fa-solid fa-file-excel me-1"></i> Download Excel';
-            exportCsvBtn.innerHTML = '<i class="fa-solid fa-file-csv me-1"></i> CSV for Re-import';
             exportStatus.classList.add('d-none');
             exportStatus.classList.remove('d-flex');
         }

@@ -64,7 +64,7 @@ class ProductFileRequestController extends Controller
     private function validateCsv(string $csv): void
     {
         if (! mb_check_encoding($csv, 'UTF-8')) {
-            throw ValidationException::withMessages(['file' => 'Save the product file as CSV UTF-8 before submitting.']);
+            throw ValidationException::withMessages(['file' => 'The Excel worksheet contains unsupported text encoding.']);
         }
         $csv = preg_replace('/^\xEF\xBB\xBF/', '', $csv) ?? $csv;
         $stream = fopen('php://temp', 'r+');
@@ -101,7 +101,7 @@ class ProductFileRequestController extends Controller
                 $stock = $stockColumn === false ? '' : trim((string) ($row[$stockColumn] ?? ''));
                 if (count($row) !== count($normalizedHeader) || ! $id || isset($seen[$id])
                     || ($stockColumn !== false && $stock !== '' && ! preg_match('/^\d+$/', $stock))) {
-                    throw ValidationException::withMessages(['file' => 'Each row must match the CSV header, contain a unique Item ID, and use a nonnegative whole number or a blank value for Stock when Stock is included.']);
+                    throw ValidationException::withMessages(['file' => 'Each row must match the Excel worksheet header, contain a unique Item ID, and use a nonnegative whole number or a blank value for Stock when Stock is included.']);
                 }
                 $seen[$id] = true;
                 $count++;
@@ -190,7 +190,8 @@ class ProductFileRequestController extends Controller
                     $temp = tmpfile();
                     try {
                         fwrite($temp, $csv);
-                        $upload = new UploadedFile(stream_get_meta_data($temp)['uri'], $record->file_name, 'text/csv', null, true);
+                        $internalName = pathinfo((string) $record->file_name, PATHINFO_FILENAME).'.csv';
+                        $upload = new UploadedFile(stream_get_meta_data($temp)['uri'], $internalName, 'text/csv', null, true);
                         $operation = Request::create('/', 'POST', [], [], ['file' => $upload], $request->server->all());
                         $importSummary = $controller->applyImportCsv($operation, $record->store_hub_id);
                     } finally {
@@ -200,8 +201,13 @@ class ProductFileRequestController extends Controller
                     $ids = $record->product_ids;
                     abort_unless(Product::where('store_hub_id', $record->store_hub_id)->whereIn('id', $ids)->count() === count($ids), 422, 'A selected product is no longer available. Reject this request and submit a new one.');
                     $hub = $record->hub()->firstOrFail();
-                    $filename = $record->file_name ?: ProductExportFilename::make($hub, 'csv');
-                    $response = $controller->prepareExport(Request::create('/', 'GET', ['product_ids' => $ids], [], [], $request->server->all()), $record->store_hub_id, $filename);
+                    $filename = $record->file_name ?: ProductExportFilename::make($hub, 'xlsx');
+                    $response = $controller->prepareExport(
+                        Request::create('/', 'GET', ['product_ids' => $ids], [], [], $request->server->all()),
+                        $record->store_hub_id,
+                        $filename,
+                        true
+                    );
                     ob_start();
                     try {
                         $response->sendContent();
@@ -238,8 +244,8 @@ class ProductFileRequestController extends Controller
     {
         $this->ensureAccess();
         abort_unless($fileRequest->type === 'export' && $fileRequest->status === 'approved', 403);
-        $csvFilename = $fileRequest->file_name ?: ProductExportFilename::make($fileRequest->hub()->firstOrFail(), 'csv');
-        $filename = pathinfo($csvFilename, PATHINFO_FILENAME).'.xlsx';
+        $storedFilename = $fileRequest->file_name ?: ProductExportFilename::make($fileRequest->hub()->firstOrFail(), 'xlsx');
+        $filename = pathinfo($storedFilename, PATHINFO_FILENAME).'.xlsx';
 
         return response(ProductExportWorkbook::fromCsv($fileRequest->csv), 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -248,16 +254,4 @@ class ProductFileRequestController extends Controller
         ]);
     }
 
-    public function downloadCsv(ProductFileRequest $fileRequest)
-    {
-        $this->ensureAccess();
-        abort_unless($fileRequest->type === 'export' && $fileRequest->status === 'approved', 403);
-        $filename = $fileRequest->file_name ?: ProductExportFilename::make($fileRequest->hub()->firstOrFail(), 'csv');
-
-        return response($fileRequest->csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-            'Cache-Control' => 'private, no-store',
-        ]);
-    }
 }

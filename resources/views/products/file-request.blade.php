@@ -33,7 +33,7 @@
     @if($fileRequest->type === 'import')
         <p class="small text-muted">Imports are header-driven. Include only the fields you want to change; omitted names, descriptions, barcodes, classifications, prices, and stock remain unchanged. Branch imports update branch data, while Head Office imports can also update shared product details.</p>
         <p>File: <strong>{{ $fileRequest->file_name }}</strong> · {{ $rowCount }} product rows (10 per page)</p>
-        <div class="alert alert-warning">Approval creates or updates these products in this store. The CSV stock value replaces the current stock; it is not added to it.</div>
+        <div class="alert alert-warning">Approval creates or updates these products in this store. The Excel Stock value replaces the current stock; it is not added to it.</div>
         <div class="table-responsive import-preview mb-3" tabindex="0" role="region" aria-label="Imported product preview"><table class="table table-sm table-bordered">
             <thead><tr>@foreach($headers as $heading)<th>{{ $heading }}</th>@endforeach</tr></thead>
             <tbody>@foreach($rows as $row)<tr>@foreach($row as $cell)<td>{{ $cell }}</td>@endforeach</tr>@endforeach</tbody>
@@ -42,7 +42,7 @@
             <div class="mt-3">{{ $rowPages->onEachSide(1)->links() }}</div>
         @endif
     @else
-        <p>{{ count($fileRequest->product_ids) }} selected products. The downloadable CSV contains their values at approval time.</p>
+            <p>{{ count($fileRequest->product_ids) }} selected products. The downloadable Excel file contains their values at approval time.</p>
         <div class="table-responsive mb-3"><table class="table"><thead><tr><th>Item ID</th><th>Product</th><th>Current stock</th></tr></thead><tbody>
             @foreach($products as $product)<tr><td>{{ $product->item_id }}</td><td>{{ $product->name }}</td><td>{{ $product->stock }}</td></tr>@endforeach
         </tbody></table></div>
@@ -52,9 +52,8 @@
         @if($fileRequest->status === 'approved')
             <div class="d-flex flex-wrap gap-2">
                 <a class="btn btn-success" href="{{ route('product-file-requests.download', $fileRequest) }}"><i class="fa-solid fa-file-excel me-1"></i>Download Excel</a>
-                <a class="btn btn-outline-secondary" href="{{ route('product-file-requests.download-csv', $fileRequest) }}">Download CSV</a>
             </div>
-            <p class="small text-muted mt-2 mb-0">Use the Excel download to keep Item IDs and barcodes displayed as complete text. Use CSV when preparing a file for re-import.</p>
+            <p class="small text-muted mt-2 mb-0">The Excel download keeps Item IDs and barcodes as complete text and can be used for re-import.</p>
         @endif
     @endif
     @can('verify-inventory')

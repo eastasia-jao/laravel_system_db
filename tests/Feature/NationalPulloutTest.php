@@ -7,6 +7,7 @@ use App\Models\NationalPullout;
 use App\Models\InventoryTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
+use App\Support\NationalPulloutWorkbook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -27,7 +28,7 @@ class NationalPulloutTest extends TestCase
                 ->assertOk()
                 ->assertSee('National Bookstore Pullout')
                 ->assertDontSee('Download Print-Ready Excel Worksheet')
-                ->assertSee('Import Items (CSV / Excel)')
+                ->assertSee('Import Items (Excel)')
                 ->assertSee('Download Excel Worksheet')
                 ->assertSee('id="downloadPulloutWorksheet"', false)
                 ->assertSee('id="includePulloutWorksheetProducts" aria-label="Include all product items in the worksheet" checked', false)
@@ -38,7 +39,6 @@ class NationalPulloutTest extends TestCase
                 ->assertSee('<th style="min-width:320px">Product Item Name</th>', false)
                 ->assertSee('<th style="width:110px">Qty</th>', false)
                 ->assertSee('<th style="width:150px">Actual Pull-out</th>', false)
-                ->assertSee('Physical Stocks')
                 ->assertDontSee('<th>Unit Type</th>', false)
                 ->assertDontSee('<th>Purpose</th>', false)
                 ->assertSee('Actual Pull-out')
@@ -88,7 +88,7 @@ class NationalPulloutTest extends TestCase
             ->assertDontSee('Head Office only');
     }
 
-    public function test_csv_worksheet_has_only_the_requested_product_columns(): void
+    public function test_worksheet_route_downloads_the_excel_template(): void
     {
         [$headOffice] = $this->hubs();
         $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $headOffice->id]);
@@ -98,12 +98,11 @@ class NationalPulloutTest extends TestCase
             'hub_id' => $headOffice->id,
         ]))->assertOk();
 
-        $rows = $this->csvRows($response->streamedContent());
-        $this->assertSame(['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out'], $rows[0]);
-        $this->assertSame([$product->name, '', 'National Bookstore Pullout', '10', ''], $rows[1]);
-        $this->assertNotContains('P.O. #:', array_column($rows, 0));
-        $this->assertNotContains('Date:', array_column($rows, 0));
-        $this->assertNotContains('Remarks:', array_column($rows, 0));
+        $archive = new \PharData($response->getFile()->getPathname(), 0, null, \Phar::ZIP);
+        $worksheet = $archive['xl/worksheets/sheet1.xml']->getContent();
+        $this->assertStringContainsString($product->name, $worksheet);
+        $this->assertStringContainsString('<c r="C3" s="4"/>', $worksheet);
+        $this->assertStringContainsString('<c r="F3" s="4"/>', $worksheet);
     }
 
     public function test_excel_worksheet_has_the_requested_print_layout_and_product_columns(): void
@@ -206,11 +205,10 @@ class NationalPulloutTest extends TestCase
             ->assertSee("window.AppAlert.show(", false)
             ->assertSee("'Pullout items imported'", false)
             ->assertSee('for="pulloutWorksheetFile"', false)
-            ->assertSee('.csv,.xlsx', false)
+            ->assertSee('.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', false)
             ->assertSee("row.querySelector('.pullout-product-results').addEventListener('click'", false)
             ->assertSee("const results = row.querySelector('.pullout-product-results');", false)
             ->assertSee('results.style.width = `${bounds.width}px`;', false)
-            ->assertSee("const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-Out'];", false)
             ->assertSee("const selectedProductIds = excludedRow", false)
             ->assertSee("document.addEventListener('scroll', hideProductResults, true)", false)
             ->assertSee('/inventory-transactions/national-pullout/worksheet/excel/export', false)
@@ -334,7 +332,7 @@ class NationalPulloutTest extends TestCase
             ->assertOk()
             ->assertSee('National Bookstore Pullout')
             ->assertSee('P.O. # PO-1001')
-            ->assertSee('Download CSV');
+            ->assertSee('Download Excel');
 
         $export = $this->actingAs($admin)
             ->get(route('national-pullouts.export', [
@@ -342,12 +340,14 @@ class NationalPulloutTest extends TestCase
                 'hub_id' => $headOffice->id,
             ]))
             ->assertOk();
-        $rows = $this->csvRows($export->streamedContent());
-        $this->assertSame(['P.O. #:', 'PO-1001'], $rows[0]);
-        $this->assertSame(['Date:', '2026-10-09'], $rows[1]);
-        $this->assertSame(['Remarks:', 'For National Bookstore replenishment.'], $rows[2]);
-        $this->assertSame(['Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-Out'], $rows[4]);
-        $this->assertSame([$product->name, '5', 'National Bookstore Pullout', '10', '3'], $rows[5]);
+        $file = UploadedFile::fake()->createWithContent('pullout-export.xlsx', file_get_contents($export->getFile()->getPathname()));
+        $workbook = NationalPulloutWorkbook::read($file->getRealPath());
+        $this->assertSame('PO-1001', $workbook['po_number']);
+        $this->assertSame('2026-10-09', $workbook['occurred_on']);
+        $this->assertSame('For National Bookstore replenishment.', $workbook['remarks']);
+        $this->assertSame($product->name, $workbook['items'][0]['name']);
+        $this->assertSame('5', $workbook['items'][0]['quantity']);
+        $this->assertSame('3', $workbook['items'][0]['actual_pullout']);
     }
 
     public function test_invalid_pullout_is_atomic_and_duplicate_po_numbers_are_rejected(): void

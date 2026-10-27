@@ -49,10 +49,10 @@
         <input type="hidden" name="hub_id" value="{{ $hub->id }}">
 
         <div class="d-flex flex-wrap gap-2 mb-4">
-            <label class="btn btn-outline-primary" id="importPulloutWorksheet" for="pulloutWorksheetFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (CSV / Excel)</label>
+            <label class="btn btn-outline-primary" id="importPulloutWorksheet" for="pulloutWorksheetFile"><i class="fa-solid fa-file-import me-1"></i>Import Items (Excel)</label>
             <button type="button" class="btn btn-outline-secondary" id="downloadPulloutWorksheet"><i class="fa-solid fa-file-excel me-1"></i>Download Excel Worksheet</button>
             <button type="button" class="btn btn-outline-success" id="exportPulloutItems"><i class="fa-solid fa-file-excel me-1"></i>Export Items (Excel)</button>
-            <input type="file" class="visually-hidden" id="pulloutWorksheetFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" tabindex="-1" aria-label="Choose a pullout items CSV or Excel file">
+            <input type="file" class="visually-hidden" id="pulloutWorksheetFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" tabindex="-1" aria-label="Choose a pullout items Excel file">
         </div>
         <div class="national-pullout-worksheet-option">
             <div>
@@ -208,22 +208,6 @@
     document.getElementById('addNationalPulloutItem').addEventListener('click', () => addRow());
     addRow();
 
-    const parseCsv = text => {
-        const rows = []; let row = []; let field = ''; let quoted = false;
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            if (quoted) {
-                if (char === '"' && text[i + 1] === '"') { field += '"'; i++; }
-                else if (char === '"') quoted = false;
-                else field += char;
-            } else if (char === '"') quoted = true;
-            else if (char === ',') { row.push(field); field = ''; }
-            else if (char === '\n') { row.push(field.replace(/\r$/, '')); rows.push(row); row = []; field = ''; }
-            else field += char;
-        }
-        if (field !== '' || row.length) { row.push(field.replace(/\r$/, '')); rows.push(row); }
-        return rows;
-    };
     document.getElementById('downloadPulloutWorksheet').addEventListener('click', () => {
         const parameters = new URLSearchParams({
             hub_id: document.querySelector('[name="hub_id"]').value,
@@ -316,16 +300,6 @@
         importProgress.setAttribute('aria-valuetext', 'Working');
         importProgressText.textContent = 'Working…';
     };
-    const readCsvFile = file => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.addEventListener('progress', event => {
-            if (event.lengthComputable) updateImportProgress(35 * event.loaded / event.total);
-        });
-        reader.addEventListener('load', () => resolve(String(reader.result ?? '')));
-        reader.addEventListener('error', () => reject(new Error('Unable to read the selected CSV file. Please try again.')));
-        reader.addEventListener('abort', () => reject(new Error('CSV import was cancelled.')));
-        reader.readAsText(file);
-    });
     const uploadExcelFile = formData => new Promise((resolve, reject) => {
         const request = new XMLHttpRequest();
         request.open('POST', '{{ route('national-pullouts.import-excel-worksheet') }}');
@@ -357,43 +331,20 @@
         let imported = false;
         try {
             const file = fileInput.files[0];
-            if (file.name.toLowerCase().endsWith('.xlsx')) {
-                importStatus.textContent = 'Uploading the Excel worksheet...';
-                const formData = new FormData();
-                formData.append('_token', document.querySelector('#nationalPulloutForm [name="_token"]').value);
-                formData.append('hub_id', document.querySelector('[name="hub_id"]').value);
-                formData.append('worksheet', file);
-                const data = await uploadExcelFile(formData);
-                if (!await importRows(data.items || [], 'Excel worksheet')) return;
-                if (data.po_number) document.getElementById('pulloutPoNumber').value = data.po_number;
-                if (data.occurred_on) document.getElementById('pulloutDate').value = data.occurred_on;
-                if (data.remarks) document.getElementById('pulloutRemarks').value = data.remarks;
-            } else {
-                importStatus.textContent = 'Reading the CSV worksheet...';
-                const text = (await readCsvFile(file)).replace(/^\uFEFF/, '');
-                setImportIndeterminate('Reading and validating the CSV rows...');
-                await new Promise(resolve => requestAnimationFrame(resolve));
-                const rows = parseCsv(text);
-                const headerIndex = rows.findIndex(row => (row[0] || '').trim().toLowerCase() === 'product item name');
-                if (headerIndex < 0) throw new Error('The CSV must contain the Product Item Name header.');
-                const headers = rows[headerIndex].map(value => value.trim().toLowerCase());
-                const column = name => headers.indexOf(name.toLowerCase());
-                // Purpose and Physical Stocks are reference columns; import only request and actual pull-out quantities.
-                const requiredHeaders = ['Product Item Name', 'Qty', 'Actual Pull-Out'];
-                if (requiredHeaders.some(name => column(name) < 0)) {
-                    throw new Error('The CSV must contain Product Item Name, Qty, and Actual Pull-Out.');
-                }
-                const items = rows.slice(headerIndex + 1).map((values, offset) => ({
-                    name: values[column('Product Item Name')],
-                    quantity: values[column('Qty')],
-                    actual_pullout: values[column('Actual Pull-Out')],
-                    row: headerIndex + offset + 2,
-                }));
-                if (!await importRows(items, 'CSV')) return;
-            }
+            if (!file.name.toLowerCase().endsWith('.xlsx')) throw new Error('Choose an Excel workbook in .xlsx format.');
+            importStatus.textContent = 'Uploading the Excel worksheet...';
+            const formData = new FormData();
+            formData.append('_token', document.querySelector('#nationalPulloutForm [name="_token"]').value);
+            formData.append('hub_id', document.querySelector('[name="hub_id"]').value);
+            formData.append('worksheet', file);
+            const data = await uploadExcelFile(formData);
+            if (!await importRows(data.items || [], 'Excel worksheet')) return;
+            if (data.po_number) document.getElementById('pulloutPoNumber').value = data.po_number;
+            if (data.occurred_on) document.getElementById('pulloutDate').value = data.occurred_on;
+            if (data.remarks) document.getElementById('pulloutRemarks').value = data.remarks;
             imported = true;
         } catch (error) {
-            showMessage(error.message || 'The selected worksheet could not be read. Please choose a valid CSV or Excel file and try again.', true);
+            showMessage(error.message || 'The selected worksheet could not be read. Please choose a valid Excel file and try again.', true);
             console.error('National Bookstore Pullout worksheet import failed.', error);
         } finally {
             fileInput.value = '';

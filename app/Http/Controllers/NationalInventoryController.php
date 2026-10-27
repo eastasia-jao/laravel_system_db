@@ -6,6 +6,8 @@ use App\Models\NationalProduct;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Support\CsvIdentifier;
+use App\Support\ProductExportWorkbook;
+use App\Support\XlsxTable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -43,18 +45,16 @@ class NationalInventoryController extends Controller
     {
         $hub = $this->headOffice($request);
         $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
+            'file' => ['required', 'file', 'mimes:xlsx', 'max:10240'],
         ]);
-
-        $stream = fopen($request->file('file')->getRealPath(), 'rb');
-        if (! $stream) {
-            throw ValidationException::withMessages(['file' => 'The CSV file could not be opened.']);
+        try {
+            $worksheetRows = XlsxTable::read($request->file('file')->getRealPath());
+        } catch (\RuntimeException $exception) {
+            throw ValidationException::withMessages(['file' => $exception->getMessage()]);
         }
-
-        $header = fgetcsv($stream);
+        $header = array_shift($worksheetRows);
         if (! is_array($header)) {
-            fclose($stream);
-            throw ValidationException::withMessages(['file' => 'The CSV file must include a header row.']);
+            throw ValidationException::withMessages(['file' => 'The Excel worksheet must include a header row.']);
         }
 
         $columns = collect($header)->mapWithKeys(fn ($value, $index) => [
@@ -62,52 +62,47 @@ class NationalInventoryController extends Controller
         ]);
         foreach (['item_id', 'name'] as $required) {
             if (! $columns->has($required)) {
-                fclose($stream);
-                throw ValidationException::withMessages(['file' => 'The CSV file must include Item ID and Name columns.']);
+                throw ValidationException::withMessages(['file' => 'The Excel worksheet must include Item ID and Name columns.']);
             }
         }
 
         $rows = [];
         $seenItemIds = [];
         $line = 1;
-        try {
-            while (($values = fgetcsv($stream)) !== false) {
-                $line++;
-                if (count(array_filter($values, fn ($value) => trim((string) $value) !== '')) === 0) {
-                    continue;
-                }
-
-                $value = fn (string $key) => $columns->has($key) ? trim((string) ($values[$columns[$key]] ?? '')) : '';
-                $itemId = CsvIdentifier::read($value('item_id'), "Row {$line} Item ID");
-                $name = $value('name');
-                if ($itemId === '' || $name === '') {
-                    throw ValidationException::withMessages(['file' => "Row {$line} requires both Item ID and Name."]);
-                }
-                if (isset($seenItemIds[$itemId])) {
-                    throw ValidationException::withMessages(['file' => "Item ID {$itemId} is duplicated in rows {$seenItemIds[$itemId]} and {$line}."]);
-                }
-                $seenItemIds[$itemId] = $line;
-
-                $row = [
-                    'item_id' => $itemId,
-                    'name' => $name,
-                    'description' => $value('description') ?: null,
-                    'barcode' => ($barcode = CsvIdentifier::read($value('barcode'), "Row {$line} Barcode")) !== '' ? $barcode : null,
-                    'brand' => $value('brand') ?: null,
-                    'stock' => $this->stock($value('stock'), $line),
-                    'unit_type' => $value('unit_type') ?: null,
-                ];
-                if ($columns->has('damaged_stock')) {
-                    $row['damaged_stock'] = $this->stock($value('damaged_stock'), $line, 'Damaged Items');
-                }
-                $rows[] = $row;
+        foreach ($worksheetRows as $values) {
+            $line++;
+            if (count(array_filter($values, fn ($value) => trim((string) $value) !== '')) === 0) {
+                continue;
             }
-        } finally {
-            fclose($stream);
+
+            $value = fn (string $key) => $columns->has($key) ? trim((string) ($values[$columns[$key]] ?? '')) : '';
+            $itemId = CsvIdentifier::read($value('item_id'), "Row {$line} Item ID");
+            $name = $value('name');
+            if ($itemId === '' || $name === '') {
+                throw ValidationException::withMessages(['file' => "Row {$line} requires both Item ID and Name."]);
+            }
+            if (isset($seenItemIds[$itemId])) {
+                throw ValidationException::withMessages(['file' => "Item ID {$itemId} is duplicated in rows {$seenItemIds[$itemId]} and {$line}."]);
+            }
+            $seenItemIds[$itemId] = $line;
+
+            $row = [
+                'item_id' => $itemId,
+                'name' => $name,
+                'description' => $value('description') ?: null,
+                'barcode' => ($barcode = CsvIdentifier::read($value('barcode'), "Row {$line} Barcode")) !== '' ? $barcode : null,
+                'brand' => $value('brand') ?: null,
+                'stock' => $this->stock($value('stock'), $line),
+                'unit_type' => $value('unit_type') ?: null,
+            ];
+            if ($columns->has('damaged_stock')) {
+                $row['damaged_stock'] = $this->stock($value('damaged_stock'), $line, 'Damaged Items');
+            }
+            $rows[] = $row;
         }
 
         if ($rows === []) {
-            throw ValidationException::withMessages(['file' => 'The CSV file contains no product rows.']);
+            throw ValidationException::withMessages(['file' => 'The Excel worksheet contains no product rows.']);
         }
 
         $created = 0;
@@ -169,7 +164,7 @@ class NationalInventoryController extends Controller
             'user_id' => $request->user()->id,
             'store_hub_id' => $hub->id,
             'action_type' => 'product_export',
-            'description' => "Exported {$count} National inventory item(s) to CSV.",
+            'description' => "Exported {$count} National inventory item(s) to Excel.",
             'details' => ['inventory_scope' => 'national', 'item_count' => $count],
             'ip_address' => $request->ip(),
         ]);
@@ -185,29 +180,29 @@ class NationalInventoryController extends Controller
             ])->all());
         });
 
-        $filename = 'national_inventory_'.now()->format('Ymd_His').'.csv';
+        $filename = 'national_inventory_'.now()->format('Ymd_His').'.xlsx';
+        $rows = [self::EXPORT_HEADERS];
+        $query->orderBy('id')->chunk(250, function ($products) use (&$rows) {
+            foreach ($products as $product) {
+                $rows[] = [
+                    $product->id,
+                    CsvIdentifier::read($product->item_id, "National product {$product->id} Item ID"),
+                    $product->name,
+                    $product->description,
+                    CsvIdentifier::read($product->barcode, "National product {$product->id} Barcode"),
+                    $product->brand,
+                    $product->stock,
+                    $product->damaged_stock,
+                    $product->unit_type,
+                ];
+            }
+        });
 
-        return response()->streamDownload(function () use ($query) {
-            $file = fopen('php://output', 'wb');
-            fwrite($file, "\xEF\xBB\xBF");
-            fputcsv($file, self::EXPORT_HEADERS);
-            $query->orderBy('id')->chunk(250, function ($products) use ($file) {
-                foreach ($products as $product) {
-                    fputcsv($file, [
-                        $product->id,
-                        CsvIdentifier::write($product->item_id, "National product {$product->id} Item ID"),
-                        $product->name,
-                        $product->description,
-                        CsvIdentifier::write($product->barcode, "National product {$product->id} Barcode"),
-                        $product->brand,
-                        $product->stock,
-                        $product->damaged_stock,
-                        $product->unit_type,
-                    ]);
-                }
-            });
-            fclose($file);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return response(ProductExportWorkbook::fromRows($rows), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     public function update(Request $request, NationalProduct $nationalProduct)

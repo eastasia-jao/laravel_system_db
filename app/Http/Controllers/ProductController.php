@@ -19,6 +19,7 @@ use App\Support\CsvIdentifier;
 use App\Support\KeywordSearch;
 use App\Support\ProductExportFilename;
 use App\Support\ProductExportWorkbook;
+use App\Support\XlsxTable;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -302,10 +303,13 @@ class ProductController extends Controller
     {
         abort_unless(auth()->user()?->can('manage-inventory'), 403);
         $hub = StoreHub::findOrFail($hub_id);
-        $request->validate(['file' => 'required|file|mimes:csv,txt|max:5120']);
-        $csv = app(ProductFileRequestController::class)->prepareCsv(
-            file_get_contents($request->file('file')->getRealPath())
-        );
+        $request->validate(['file' => 'required|file|mimes:xlsx|max:10240']);
+        try {
+            $csv = XlsxTable::toCsv(XlsxTable::read($request->file('file')->getRealPath()));
+        } catch (\RuntimeException $exception) {
+            throw ValidationException::withMessages(['file' => $exception->getMessage()]);
+        }
+        $csv = app(ProductFileRequestController::class)->prepareCsv($csv);
 
         $record = null;
 
@@ -635,7 +639,7 @@ class ProductController extends Controller
         $record = DB::transaction(function () use ($request, $hubId, $ids, $hub) {
             $record = ProductFileRequest::create([
                 'type' => 'export', 'store_hub_id' => $hubId, 'submitted_by' => auth()->id(), 'product_ids' => $ids,
-                'file_name' => ProductExportFilename::make($hub, 'csv'),
+                'file_name' => ProductExportFilename::make($hub, 'xlsx'),
                 'processing_status' => 'queued', 'reviewed_by' => auth()->id(), 'reviewed_at' => now(),
             ]);
             ProcessProductFileRequest::dispatch($record->id, auth()->id(), $request->ip() ?? '127.0.0.1');
@@ -647,7 +651,7 @@ class ProductController extends Controller
         return $request->expectsJson() ? response()->json(['redirect' => $url]) : redirect($url)->with('success', 'Export queued. Download it here when processing completes.');
     }
 
-    public function prepareExport(Request $request, $hubId, ?string $filename = null)
+    public function prepareExport(Request $request, $hubId, ?string $filename = null, bool $internalCsv = false)
     {
         abort_if(auth()->user()?->role === 'sales_associate', 403, 'Submit an export request from List of Products for inventory staff approval.');
         $user = auth()->user();
@@ -660,9 +664,9 @@ class ProductController extends Controller
 
         $request->validate([
             'export_all' => 'sometimes|boolean',
-            'format' => 'sometimes|in:csv,xlsx',
+            'format' => 'sometimes|in:xlsx',
         ]);
-        $format = $request->input('format', 'csv');
+        $format = 'xlsx';
         if (! $request->boolean('export_all')) {
             if (! empty($productIds)) {
                 $query->whereIn('id', $productIds);
@@ -685,7 +689,7 @@ class ProductController extends Controller
             'user_id' => auth()->id(),
             'store_hub_id' => $hubId,
             'action_type' => 'product_export',
-            'description' => 'Exported '.$productCount.' product item(s) to '.($format === 'xlsx' ? 'Excel' : 'CSV').'.',
+            'description' => 'Exported '.$productCount.' product item(s) to Excel.',
             'details' => [
                 'file_name' => $filename,
                 'item_count' => $productCount,
@@ -734,28 +738,22 @@ class ProductController extends Controller
             fclose($file);
         };
 
-        if ($format === 'xlsx') {
-            ob_start();
-            try {
-                $callback();
-                $csv = (string) ob_get_contents();
-            } finally {
-                ob_end_clean();
-            }
-
-            return response(ProductExportWorkbook::fromCsv($csv), 200, [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-                'Cache-Control' => 'private, no-store',
-            ]);
+        ob_start();
+        try {
+            $callback();
+            $csv = (string) ob_get_contents();
+        } finally {
+            ob_end_clean();
         }
 
-        return response()->stream($callback, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename='.$filename,
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
+        if ($internalCsv) {
+            return response($csv, 200, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }
+
+        return response(ProductExportWorkbook::fromCsv($csv), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'private, no-store',
         ]);
     }
 

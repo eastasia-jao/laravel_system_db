@@ -9,7 +9,9 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
+use App\Support\XlsxTable;
 
 class TransactionBulkTest extends TestCase
 {
@@ -60,7 +62,7 @@ class TransactionBulkTest extends TestCase
             ->assertSee('TikTok');
     }
 
-    public function test_transaction_worksheets_download_as_csv_with_excel_safe_identifiers(): void
+    public function test_transaction_worksheets_download_as_excel_with_exact_identifiers(): void
     {
         foreach ([true, false] as $isHeadOffice) {
             $hub = StoreHub::create([
@@ -96,22 +98,23 @@ class TransactionBulkTest extends TestCase
                     'type' => $type,
                 ]))
                 ->assertOk()
-                ->assertHeader('Content-Type', 'text/csv; charset=UTF-8')
-                ->assertHeader('Content-Disposition', 'attachment; filename='.\Illuminate\Support\Str::upper(\Illuminate\Support\Str::slug($hub->code, '_')).'_Download_'.($isHeadOffice ? 'StockTrf_HO2B' : 'StockTrf_B2B').'_'.now()->format('Ymd_His').'.csv');
+                ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                ->assertHeader('Content-Disposition', 'attachment; filename="'.\Illuminate\Support\Str::upper(\Illuminate\Support\Str::slug($hub->code, '_')).'_Download_'.($isHeadOffice ? 'StockTrf_HO2B' : 'StockTrf_B2B').'_'.now()->format('Ymd_His').'.xlsx"');
 
-            $lines = preg_split('/\r\n|\n|\r/', ltrim($response->streamedContent(), "\xEF\xBB\xBF"));
+            $file = UploadedFile::fake()->createWithContent('worksheet.xlsx', $response->getContent());
+            $rows = XlsxTable::read($file->getRealPath());
             $this->assertSame(
                 ['Name / Description', 'Barcode', 'Item ID', 'Physical Stocks Qty', 'Physical Actual Pullout'],
-                str_getcsv($lines[0])
+                $rows[0]
             );
-            $rows = array_map('str_getcsv', array_slice($lines, 1));
+            $rows = array_slice($rows, 1);
             if ($isHeadOffice) {
-                $this->assertSame('="000012345678901234567890"', $rows[0][2]);
-                $this->assertSame('="00007661234567891234567890"', $rows[0][1]);
+                $this->assertSame('000012345678901234567890', $rows[0][2]);
+                $this->assertSame('00007661234567891234567890', $rows[0][1]);
                 $this->assertSame('8', $rows[0][3]);
             } else {
                 $this->assertSame(
-                    ['="1"', '="2"', '="10"', '="000012345678901234567890"'],
+                    ['1', '2', '10', '000012345678901234567890'],
                     array_column($rows, 2)
                 );
             }

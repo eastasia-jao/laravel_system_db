@@ -22,7 +22,7 @@
 <div class="workspace-page national-inventory-page">
     <x-page-header class="mb-3" eyebrow="Head Office workspace" title="National Inventory" description="Maintain stock that is separate from store inventory, sales channels, and stock allocation." icon="fa-earth-asia">
         <x-slot:actions>
-            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#nationalImportModal"><i class="fa-solid fa-file-arrow-up me-1"></i> Import CSV</button>
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#nationalImportModal"><i class="fa-solid fa-file-arrow-up me-1"></i> Import Excel</button>
         </x-slot:actions>
     </x-page-header>
 
@@ -108,7 +108,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="10" class="py-5 text-center text-muted">No National inventory products found. Import a CSV to begin.</td></tr>
+                    <tr><td colspan="10" class="py-5 text-center text-muted">No National inventory products found. Import an Excel file to begin.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -162,13 +162,13 @@
             @csrf
             <input type="hidden" name="hub_id" value="{{ $hub->id }}">
             <div class="modal-header">
-                <div><div class="small text-primary fw-bold text-uppercase">National Inventory</div><h5 class="modal-title" id="nationalImportModalLabel">Import CSV</h5></div>
+                <div><div class="small text-primary fw-bold text-uppercase">National Inventory</div><h5 class="modal-title" id="nationalImportModalLabel">Import Excel</h5></div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <label for="nationalCsvFile" class="form-label fw-semibold">National product CSV</label>
-                <input id="nationalCsvFile" type="file" name="file" class="form-control" accept=".csv,text/csv" required>
-                <div class="form-text mt-2">CSV columns: ID, Item ID, Name, Description, Barcode, Brand, Good Items, Damaged Items, and Unit Type. The older Stock column is still accepted as Good Items.</div>
+                <label for="nationalCsvFile" class="form-label fw-semibold">National product Excel file</label>
+                <input id="nationalCsvFile" type="file" name="file" class="form-control" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+                <div class="form-text mt-2">Excel columns: ID, Item ID, Name, Description, Barcode, Brand, Good Items, Damaged Items, and Unit Type. The older Stock column is still accepted as Good Items.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -182,7 +182,7 @@
     <div class="national-import-progress-card">
         <div class="national-import-orbit" aria-hidden="true"></div>
         <h5 class="fw-bold mb-2">Importing National inventory</h5>
-        <p class="text-muted mb-3" id="nationalImportStatus">Uploading and reading the CSV file...</p>
+        <p class="text-muted mb-3" id="nationalImportStatus">Uploading and reading the Excel file...</p>
         <div class="progress" style="height: 9px;">
             <div class="progress-bar progress-bar-striped progress-bar-animated w-100" aria-label="Import in progress"></div>
         </div>
@@ -241,7 +241,7 @@
             if (!importForm.checkValidity()) return;
             importSubmit.disabled = true;
             importProgress.hidden = false;
-            const messages = ['Uploading and reading the CSV file...', 'Validating Item IDs, stock, and barcodes...', 'Saving National inventory items...', 'Finalizing the import log...'];
+            const messages = ['Uploading and reading the Excel file...', 'Validating Item IDs, stock, and barcodes...', 'Saving National inventory items...', 'Finalizing the import log...'];
             let messageIndex = 0;
             const statusTimer = window.setInterval(() => {
                 messageIndex = (messageIndex + 1) % messages.length;

@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\StoreHub;
 use App\Models\User;
+use App\Support\ProductExportWorkbook;
+use App\Support\XlsxTable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Phar;
@@ -21,15 +23,12 @@ class ProductBarcodeCsvTest extends TestCase
         $hub = StoreHub::create(['name' => 'Test Hub', 'code' => 'TEST', 'status' => 'active']);
         $product = Product::create(['name' => 'Brush', 'item_id' => '00001', 'barcode' => '007661234567891234567890', 'store_hub_id' => $hub->id, 'stock' => 8, 'status' => 'active']);
         $exportResponse = $this->get(route('hub.products.export', ['hub' => $hub->id, 'product_ids' => [$product->id]]))->assertOk();
-        $this->assertMatchesRegularExpression('/filename=products_TEST_\d{8}_\d{6}_\d+\.csv/', $exportResponse->headers->get('Content-Disposition'));
-        ob_start();
-        $exportResponse->sendContent();
-        $csv = ob_get_clean();
-        $lines = explode("\n", $csv);
-        $row = str_getcsv($lines[1]);
-        $this->assertSame('="00001"', $row[1]);
-        $this->assertSame('="007661234567891234567890"', $row[4]);
-        $this->post(route('hub.products.import', $hub), ['file' => UploadedFile::fake()->createWithContent('roundtrip.csv', $csv)])
+        $this->assertMatchesRegularExpression('/filename="products_TEST_\d{8}_\d{6}_\d+\.xlsx"/', $exportResponse->headers->get('Content-Disposition'));
+        $workbook = UploadedFile::fake()->createWithContent('roundtrip.xlsx', $exportResponse->getContent());
+        $rows = XlsxTable::read($workbook->getRealPath());
+        $this->assertSame('00001', $rows[1][1]);
+        $this->assertSame('007661234567891234567890', $rows[1][4]);
+        $this->post(route('hub.products.import', $hub), ['file' => $workbook])
             ->assertSessionHasNoErrors()->assertRedirect();
         $this->assertDatabaseCount('products', 1);
         $this->assertSame('007661234567891234567890', $product->fresh()->barcode);
@@ -40,8 +39,12 @@ class ProductBarcodeCsvTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));
         $hub = StoreHub::create(['name' => 'Test Hub', 'code' => 'TEST', 'status' => 'active']);
-        $csv = "ID,Item ID,Name,Description,Barcode\n1,SKU-1,Brush,Brush,001234\n2,SKU-2,Paint,Paint,7.66e+11\n";
-        $this->post(route('hub.products.import', $hub), ['file' => UploadedFile::fake()->createWithContent('products.csv', $csv)])
+        $rows = [
+            ['ID', 'Item ID', 'Name', 'Description', 'Barcode'],
+            ['1', 'SKU-1', 'Brush', 'Brush', '001234'],
+            ['2', 'SKU-2', 'Paint', 'Paint', '7.66e+11'],
+        ];
+        $this->post(route('hub.products.import', $hub), ['file' => UploadedFile::fake()->createWithContent('products.xlsx', ProductExportWorkbook::fromRows($rows))])
             ->assertSessionHasErrors('file');
         $this->assertDatabaseCount('products', 0);
         $this->assertDatabaseCount('staff_activity_logs', 0);
@@ -60,27 +63,6 @@ class ProductBarcodeCsvTest extends TestCase
             'status' => 'active',
         ]);
 
-        $csvResponse = $this->get(route('hub.products.export', [
-            'hub' => $hub->id,
-            'product_ids' => [$product->id],
-            'format' => 'csv',
-        ]))->assertOk();
-        $csvWithBom = $csvResponse->streamedContent();
-        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $csvWithBom);
-        $csvLines = preg_split('/\r\n|\r|\n/', $csv);
-        $csvHeaders = str_getcsv($csvLines[0]);
-        $csvRow = str_getcsv($csvLines[1]);
-        $this->assertSame('ID', $csvHeaders[0]);
-        $this->assertSame('Item ID', $csvHeaders[1]);
-        $this->assertSame('', $csvRow[0]);
-        $this->assertSame('="000012345678901234567890"', $csvRow[1]);
-        $this->assertSame('="00007661234567891234567890"', $csvRow[4]);
-        $this->post(route('hub.products.import', $hub), [
-            'file' => UploadedFile::fake()->createWithContent('head-office-roundtrip.csv', $csvWithBom),
-        ])->assertSessionHasNoErrors()->assertRedirect();
-        $this->assertSame('000012345678901234567890', $product->fresh()->item_id);
-        $this->assertSame('00007661234567891234567890', $product->fresh()->barcode);
-
         $response = $this->get(route('hub.products.export', [
             'hub' => $hub->id,
             'product_ids' => [$product->id],
@@ -89,6 +71,11 @@ class ProductBarcodeCsvTest extends TestCase
             'Content-Type',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         );
+        $roundTrip = UploadedFile::fake()->createWithContent('head-office-roundtrip.xlsx', $response->getContent());
+        $this->post(route('hub.products.import', $hub), ['file' => $roundTrip])
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('000012345678901234567890', $product->fresh()->item_id);
+        $this->assertSame('00007661234567891234567890', $product->fresh()->barcode);
         $this->assertMatchesRegularExpression(
             '/filename="products_TEST_\d{8}_\d{6}_\d+\.xlsx"/',
             $response->headers->get('Content-Disposition')
@@ -123,7 +110,7 @@ class ProductBarcodeCsvTest extends TestCase
         }
     }
 
-    public function test_inventory_worksheet_exports_barcode_and_item_id_as_excel_safe_csv_text(): void
+    public function test_inventory_worksheet_exports_barcode_and_item_id_as_excel_text(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));
         $hub = StoreHub::create(['name' => 'Test Hub', 'code' => 'TEST', 'status' => 'active']);
@@ -140,9 +127,10 @@ class ProductBarcodeCsvTest extends TestCase
             'hub_id' => $hub->id,
             'type' => 'restock',
         ]))->assertOk();
-        $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
-        $lines = preg_split('/\r\n|\n|\r/', ltrim($response->streamedContent(), "\xEF\xBB\xBF"));
-        $this->assertSame('="00007661234567891234567890"', str_getcsv($lines[1])[1]);
-        $this->assertSame('="000012345678901234567890"', str_getcsv($lines[1])[2]);
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $file = UploadedFile::fake()->createWithContent('inventory.xlsx', $response->getContent());
+        $rows = XlsxTable::read($file->getRealPath());
+        $this->assertSame('00007661234567891234567890', $rows[1][1]);
+        $this->assertSame('000012345678901234567890', $rows[1][2]);
     }
 }

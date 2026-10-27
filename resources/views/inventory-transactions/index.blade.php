@@ -552,7 +552,7 @@
                                                 <div class="transfer-detail-reference">{{ $nationalPullout?->occurred_on?->format('M d, Y') ?? $transaction->occurred_on?->format('M d, Y') }}</div>
                                             </div>
                                             @if($nationalPullout)
-                                                <a href="{{ route('national-pullouts.export', ['nationalPullout' => $nationalPullout, 'hub_id' => $nationalPullout->store_hub_id]) }}" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-file-csv me-1"></i>Download CSV</a>
+                                                <a href="{{ route('national-pullouts.export', ['nationalPullout' => $nationalPullout, 'hub_id' => $nationalPullout->store_hub_id]) }}" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-file-excel me-1"></i>Download Excel</a>
                                             @endif
                                         </div>
                                     </div>

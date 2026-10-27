@@ -87,20 +87,20 @@
     <div class="d-flex flex-wrap align-items-center gap-2">
         <button type="button" class="btn btn-outline-primary btn-sm" data-bulk="import"
             @if($serverWorkbook) data-bulk-import-url="{{ $workbookImportUrl }}" @endif>
-            {{ $inventoryWorkbook ? 'Import Items (Excel)' : ($eventWorkbook ? 'Import Items (Excel / CSV)' : 'Import Items (CSV)') }}
+            {{ $serverWorkbook ? 'Import Items (Excel)' : 'Import Items' }}
         </button>
         @if($serverWorkbook)
             <a class="btn btn-outline-secondary btn-sm"
                 href="{{ $workbookDownloadUrl }}?hub_id={{ $hubId }}&type={{ $type }}"
                 data-bulk-worksheet-url="{{ $workbookDownloadUrl }}">Download Excel Worksheet</a>
         @else
-            <a class="btn btn-outline-secondary btn-sm" href="{{ route('inventory-transactions.product-worksheet', ['hub_id' => $hubId, 'type' => $type]) }}">Download CSV Worksheet</a>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ route('inventory-transactions.product-worksheet', ['hub_id' => $hubId, 'type' => $type]) }}">Download Excel Worksheet</a>
         @endif
         <button type="button" class="btn btn-outline-success btn-sm" data-bulk="export"
             @if($serverWorkbook) data-bulk-export-url="{{ $workbookExportUrl }}" @endif>
             {{ $inventoryWorkbook ? 'Export Items (Excel)' : 'Export Selected Items' }}
         </button>
-        <input type="file" accept="{{ $inventoryWorkbook ? '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : ($eventWorkbook ? '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : '.csv,text/csv') }}" class="d-none" id="transactionCsv">
+        <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="d-none" id="transactionCsv">
     </div>
     @if($serverWorkbook)
         <div class="worksheet-products-option">
@@ -114,14 +114,14 @@
         </div>
     @endif
     @if($eventWorkbook)
-        <small class="text-muted d-block mt-2">For each row with an actual pull-out quantity, enter Stock Condition as Good or Damaged in Excel or CSV.</small>
+        <small class="text-muted d-block mt-2">For each row with an actual pull-out quantity, enter Stock Condition as Good or Damaged in Excel.</small>
     @endif
     <div id="transactionImportLoading" class="transaction-import-overlay" role="status" aria-live="polite" hidden>
         <div class="transaction-import-card">
             <div class="transaction-import-spinner" aria-hidden="true"></div>
             <p class="text-primary small fw-bold text-uppercase mb-2">Product Import</p>
             <h2 class="h5 fw-bold mb-2">Getting your items ready</h2>
-            <p id="transactionImportLoadingText" class="text-muted mb-3">Preparing your {{ $inventoryWorkbook ? 'Excel' : ($eventWorkbook ? 'Excel / CSV' : 'CSV') }} import...</p>
+            <p id="transactionImportLoadingText" class="text-muted mb-3">Preparing your Excel import...</p>
             <div class="d-flex justify-content-between align-items-center small text-muted mb-2">
                 <span>Import progress</span>
                 <span id="transactionImportProgressText" class="fw-semibold text-primary">1%</span>

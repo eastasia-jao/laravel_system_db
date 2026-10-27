@@ -8,7 +8,9 @@ use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
+use App\Support\XlsxTable;
 
 class BranchTransferTest extends TestCase
 {
@@ -44,7 +46,7 @@ class BranchTransferTest extends TestCase
             ->assertDontSee('Inactive Transaction Hub');
     }
 
-    public function test_product_worksheet_exports_barcode_and_item_id_as_excel_safe_csv_text(): void
+    public function test_product_worksheet_exports_barcode_and_item_id_as_excel_text(): void
     {
         $hub = StoreHub::create(['name' => 'Barcode Branch', 'code' => 'BARCODE', 'status' => 'active']);
         Product::create([
@@ -62,11 +64,11 @@ class BranchTransferTest extends TestCase
             'type' => 'branch_transfer',
         ]))->assertOk();
 
-        $this->assertStringStartsWith('text/csv', $response->headers->get('Content-Type'));
-        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $response->streamedContent());
-        $rows = array_map('str_getcsv', preg_split('/\r\n|\n|\r/', trim($csv)));
-        $this->assertSame('="3046450762881"', $rows[1][1]);
-        $this->assertSame('="0011424"', $rows[1][2]);
+        $this->assertStringStartsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $response->headers->get('Content-Type'));
+        $file = UploadedFile::fake()->createWithContent('worksheet.xlsx', $response->getContent());
+        $rows = XlsxTable::read($file->getRealPath());
+        $this->assertSame('3046450762881', $rows[1][1]);
+        $this->assertSame('0011424', $rows[1][2]);
     }
 
     public function test_branch_transfer_waits_for_inventory_review_before_moving_stock(): void
@@ -574,7 +576,7 @@ class BranchTransferTest extends TestCase
         ]))->assertOk()
             ->assertHeader(
                 'Content-Disposition',
-                'attachment; filename=A_Download_StockTrf_B2HO_'.now()->format('Ymd_His').'.csv'
+                'attachment; filename="A_Download_StockTrf_B2HO_'.now()->format('Ymd_His').'.xlsx"'
             );
 
         $logsUrl = route('inventory-transactions.index', [

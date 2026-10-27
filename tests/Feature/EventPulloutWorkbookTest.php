@@ -123,7 +123,7 @@ class EventPulloutWorkbookTest extends TestCase
         ], $workbook['items']);
         $this->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
             ->assertOk()
-            ->assertSee('Import Items (Excel / CSV)')
+            ->assertSee('Import Items (Excel)')
             ->assertSee('id="transactionImportLoading" class="transaction-import-overlay"', false)
             ->assertSee('Getting your items ready')
             ->assertSee('Download Excel Worksheet')
