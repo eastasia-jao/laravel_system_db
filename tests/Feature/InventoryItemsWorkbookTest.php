@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\StoreHub;
 use App\Models\User;
 use App\Support\EventPulloutWorkbook;
@@ -22,7 +23,8 @@ class InventoryItemsWorkbookTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
 
         $routes = [
-            route('inventory-transactions.transfer.create', ['hub_id' => $headOffice->id, 'direction' => 'ho_to_branch']),
+            route('inventory-transactions.transfer.ho-to-branch.create', ['hub_id' => $headOffice->id]),
+            route('inventory-transactions.transfer.branch-to-ho.create', ['hub_id' => $branch->id]),
             route('inventory-transactions.branch-transfer.create', ['hub_id' => $branch->id]),
             route('inventory-transactions.restock.create', ['hub_id' => $headOffice->id]),
         ];
@@ -42,7 +44,7 @@ class InventoryItemsWorkbookTest extends TestCase
     public function test_inventory_workbook_download_contains_form_metadata_and_stock_columns(): void
     {
         [$headOffice, $branch] = $this->hubs();
-        Product::create([
+        $canvas = Product::create([
             'name' => 'Canvas Roll',
             'description' => 'Canvas Roll 12x12',
             'item_id' => '000123',
@@ -51,6 +53,14 @@ class InventoryItemsWorkbookTest extends TestCase
             'stock' => 8,
             'damaged_stock' => 2,
             'status' => 'active',
+        ]);
+        ProductStockAllocation::create([
+            'product_id' => $canvas->id,
+            'online' => 3,
+            'wholesale' => 0,
+            'shopee' => 0,
+            'lazada' => 0,
+            'tiktok' => 0,
         ]);
         foreach ([10, 2, 1] as $itemId) {
             Product::create([
@@ -89,7 +99,7 @@ class InventoryItemsWorkbookTest extends TestCase
         $canvas = collect($workbook['items'])->firstWhere('item_id', '000123');
         $this->assertSame('Canvas Roll', $canvas['name']);
         $this->assertSame('000456', $canvas['barcode']);
-        $this->assertSame('10', $canvas['physical_stock']);
+        $this->assertSame('5', $canvas['physical_stock']);
         $this->assertSame('', $canvas['quantity']);
         $this->assertStringContainsString('<dimension ref="A1:E6"/>', $worksheetXml);
         $this->assertStringNotContainsString('<mergeCell ref="D1:E1"/>', $worksheetXml);

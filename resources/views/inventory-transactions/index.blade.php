@@ -201,7 +201,8 @@
         @php
             $inventoryActionGroups = [
                 ['label' => 'Stock movement', 'actions' => [
-                    ['route' => 'inventory-transactions.transfer.create', 'icon' => 'fa-truck-ramp-box', 'title' => 'HO ↔ Branch Transfer', 'text' => 'Move stock between Head Office and a branch'],
+                    ['route' => 'inventory-transactions.transfer.ho-to-branch.create', 'icon' => 'fa-truck-ramp-box', 'title' => 'HO to Branch', 'text' => 'Send unallocated physical stock to a branch'],
+                    ['route' => 'inventory-transactions.transfer.branch-to-ho.create', 'icon' => 'fa-building-circle-arrow-right', 'title' => 'Branch to HO', 'text' => 'Return physical stock to Head Office'],
                 ]],
                 ['label' => 'Event operations', 'actions' => [
                     ['route' => 'inventory-transactions.sponsor.create', 'icon' => 'fa-tents', 'title' => 'Event', 'text' => 'Record event inventory pull-outs', 'activity_type' => 'event', 'return_to' => 'transaction_logs'],

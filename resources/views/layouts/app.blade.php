@@ -16,6 +16,8 @@
             'inventory-transactions.fully-booked.index' => 'Fully Booked Orders',
             'inventory-transactions.restock.create' => 'Restock Inventory',
             'inventory-transactions.transfer.create' => 'Stock Transfer',
+            'inventory-transactions.transfer.ho-to-branch.create' => 'HO to Branch Transfer',
+            'inventory-transactions.transfer.branch-to-ho.create' => 'Branch to HO Transfer',
             'national-pullouts.create' => 'National Bookstore Pull-Out',
             'product-file-requests.index' => 'Stock Transfer Review Requests',
             'product-file-requests.show' => 'Review Transfer Request',

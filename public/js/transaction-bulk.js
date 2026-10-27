@@ -125,6 +125,9 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
     const productLabel = (product, condition) => type === 'sponsor_workshop'
         ? window.transactionProductLabel(product, true, condition)
         : null;
+    const catalogProductLabel = product => type === 'stock_transfer'
+        ? `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}${product.barcode ? ' · ' + product.barcode : ''} (available physical stock: ${product.channel_available_stock ?? product.transfer_available_stock ?? product.stock ?? 0})`
+        : window.transactionProductLabel(product, type === 'sponsor_workshop');
     const workbookImportUrl = importButton.dataset.bulkImportUrl;
     const workbookExportUrl = panel.querySelector('[data-bulk="export"]').dataset.bulkExportUrl;
     const inventoryWorkbook = ['stock_transfer', 'branch_transfer', 'restock'].includes(type);
@@ -229,8 +232,7 @@ export function setupBulkItems({ products, type, hubCode, endpoint, transferDire
                     if (!response.ok) throw new Error('Could not load branch products. Please retry.');
                     const batch = await response.json();
                     for (const product of batch) {
-                        const id = String(product.id), label = labels.get(id)
-                            || window.transactionProductLabel(product, type === 'sponsor_workshop');
+                        const id = String(product.id), label = labels.get(id) || catalogProductLabel(product);
                         byId.set(id, product); labels.set(id, label); labelIds.set(label.toLowerCase(), id);
                         if (!known.has(id)) { products.push(product); known.add(id); }
                         if (!selectableIds.has(id)) { selectable.push({ ...product, label }); selectableIds.add(id); }

@@ -252,6 +252,12 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::resource('products', ProductController::class)->only(['update']);
         Route::delete('/products/{id}', [ProductController::class, 'destroy'])->middleware('can:full-access')->name('products.destroy');
         Route::post('/inventory/add-stock', [ProductController::class, 'addStock'])->name('inventory.addStock');
+        Route::get('/inventory-transactions/transfer/head-office-to-branch/create', [InventoryTransactionController::class, 'create'])
+            ->defaults('type', 'stock_transfer')->defaults('direction', 'ho_to_branch')
+            ->name('inventory-transactions.transfer.ho-to-branch.create');
+        Route::get('/inventory-transactions/transfer/branch-to-head-office/create', [InventoryTransactionController::class, 'create'])
+            ->defaults('type', 'stock_transfer')->defaults('direction', 'branch_to_ho')
+            ->name('inventory-transactions.transfer.branch-to-ho.create');
         Route::get('/inventory-transactions/transfer/create/{type?}', [InventoryTransactionController::class, 'create'])->defaults('type', 'stock_transfer')->name('inventory-transactions.transfer.create');
         Route::get('/inventory-transactions/create', fn () => redirect()->route('inventory-transactions.transfer.create'))->name('inventory-transactions.create');
         Route::get('/inventory-transactions/restock/create', [InventoryTransactionController::class, 'create'])->defaults('type', 'restock')->name('inventory-transactions.restock.create');

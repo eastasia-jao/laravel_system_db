@@ -72,6 +72,7 @@ class InventoryTransactionController extends Controller
         $rows = [$headers];
         Product::where('store_hub_id', $validated['hub_id'])
             ->where('status', 'active')
+            ->when($validated['type'] === 'stock_transfer', fn ($query) => $query->with('stockAllocation'))
             ->when(
                 $validated['type'] === 'branch_transfer',
                 fn ($query) => $query->orderByCatalog('item_id'),
@@ -82,7 +83,7 @@ class InventoryTransactionController extends Controller
                     $product->description ?: $product->name,
                     CsvIdentifier::read($product->barcode ?? '', 'Barcode'),
                     CsvIdentifier::read($product->item_id, 'Item ID'),
-                    (int) $product->stock,
+                    $validated['type'] === 'stock_transfer' ? $product->unallocatedStock() : (int) $product->stock,
                     '',
                 ];
                 if ($validated['type'] === 'return') {
@@ -104,9 +105,10 @@ class InventoryTransactionController extends Controller
         $items = $request->boolean('include_products', true)
             ? Product::where('store_hub_id', $hub->id)
                 ->where('status', 'active')
+                ->when($validated['type'] === 'stock_transfer', fn ($query) => $query->with('stockAllocation'))
                 ->orderByCatalog('item_id')
                 ->get()
-                ->map(fn (Product $product) => $this->inventoryWorkbookProduct($product, ''))
+                ->map(fn (Product $product) => $this->inventoryWorkbookProduct($product, '', $validated['type']))
                 ->all()
             : [];
         $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated));
@@ -222,13 +224,14 @@ class InventoryTransactionController extends Controller
         $products = Product::where('store_hub_id', $hub->id)
             ->where('status', 'active')
             ->whereIn('id', $productIds)
+            ->when($validated['type'] === 'stock_transfer', fn ($query) => $query->with('stockAllocation'))
             ->get()
             ->keyBy('id');
         if ($products->count() !== $productIds->count()) {
             throw ValidationException::withMessages(['items' => 'One or more products are not active in the selected store.']);
         }
-        $items = collect($validated['items'])->map(function (array $item) use ($products) {
-            return $this->inventoryWorkbookProduct($products->get((int) $item['product_id']), (int) $item['quantity']);
+        $items = collect($validated['items'])->map(function (array $item) use ($products, $validated) {
+            return $this->inventoryWorkbookProduct($products->get((int) $item['product_id']), (int) $item['quantity'], $validated['type']);
         })->all();
         $path = EventPulloutWorkbook::createInventoryItems($items, $this->inventoryWorkbookDocument($validated));
 
@@ -265,13 +268,15 @@ class InventoryTransactionController extends Controller
         return StoreHub::whereKey($hubId)->where('status', 'active')->firstOrFail();
     }
 
-    private function inventoryWorkbookProduct(Product $product, int|string $quantity): array
+    private function inventoryWorkbookProduct(Product $product, int|string $quantity, string $type): array
     {
         return [
             'name' => $product->name,
             'barcode' => (string) ($product->barcode ?? ''),
             'item_id' => (string) $product->item_id,
-            'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
+            'physical_stock' => $type === 'stock_transfer'
+                ? $product->unallocatedStock()
+                : (int) $product->stock + (int) $product->damaged_stock,
             'quantity' => $quantity,
         ];
     }
@@ -1355,7 +1360,8 @@ class InventoryTransactionController extends Controller
         $allHubs = StoreHub::where('status', 'active')->orderBy('name')->get();
         $allHubs = $allHubs->filter(fn (StoreHub $hub) => $hub->status === 'active')->values();
         $headOffices = $allHubs->filter(fn (StoreHub $hub) => $hub->is_head_office)->values();
-        $transferDirection = $request->input('direction') === 'branch_to_ho'
+        $requestedDirection = $request->route('direction') ?? $request->input('direction');
+        $transferDirection = $requestedDirection === 'branch_to_ho'
             ? 'branch_to_ho'
             : 'ho_to_branch';
         if ($type === 'branch_transfer') {
@@ -1377,7 +1383,16 @@ class InventoryTransactionController extends Controller
         } else {
             $hubId = ($hubs->firstWhere('id', $hubId) ?: $hubs->first())?->id;
         }
-        $products = Product::where('store_hub_id', $hubId)->where('status', 'active')->orderByCatalog()->limit(100)->get();
+        $products = Product::where('store_hub_id', $hubId)
+            ->where('status', 'active')
+            ->when($type === 'stock_transfer', fn ($query) => $query->with('stockAllocation'))
+            ->orderByCatalog()
+            ->limit(100)
+            ->get();
+        $products->each(fn (Product $product) => $product->setAttribute(
+            'transfer_available_stock',
+            $type === 'stock_transfer' ? $product->unallocatedStock() : max(0, (int) $product->stock)
+        ));
         $sponsorProductOptions = $products->map(fn (Product $product) => [
             'id' => $product->id,
             'item_id' => $product->item_id,
@@ -1632,9 +1647,14 @@ class InventoryTransactionController extends Controller
                         'items' => 'One or more selected products do not belong to the source store.',
                     ]);
                 }
-                if ((int) $product->stock < (int) $quantity) {
+                $availableStock = $validated['type'] === 'stock_transfer'
+                    ? $product->unallocatedStock()
+                    : max(0, (int) $product->stock);
+                if ($availableStock < (int) $quantity) {
                     throw ValidationException::withMessages([
-                        'items' => "Not enough stock for {$product->name}.",
+                        'items' => $validated['type'] === 'stock_transfer'
+                            ? "Not enough unallocated physical stock for {$product->name}."
+                            : "Not enough stock for {$product->name}.",
                     ]);
                 }
 

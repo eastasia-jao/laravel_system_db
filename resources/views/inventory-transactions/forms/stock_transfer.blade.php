@@ -5,8 +5,11 @@
     $branchTransfer = $type === 'branch_transfer';
     $transferDirection = $transferDirection ?? 'ho_to_branch';
     $transferDirectionLabel = $transferDirection === 'branch_to_ho' ? 'BRANCH to HO' : 'HO to BRANCH';
-    $transferRoute = $branchTransfer ? 'inventory-transactions.branch-transfer.create' : 'inventory-transactions.transfer.create';
-    $directionQuery = $branchTransfer ? '' : '&direction='.$transferDirection;
+    $transferRoute = $branchTransfer
+        ? 'inventory-transactions.branch-transfer.create'
+        : ($transferDirection === 'branch_to_ho'
+            ? 'inventory-transactions.transfer.branch-to-ho.create'
+            : 'inventory-transactions.transfer.ho-to-branch.create');
     $lockSourceStore = $branchTransfer
         && auth()->user()?->role === 'sales_associate'
         && $transferSourceHubs->count() === 1;
@@ -81,22 +84,14 @@
         @include('inventory-transactions.forms.bulk-items')
         <input type="hidden" name="type" value="{{ $type }}">
         <div class="row g-3">
-            @unless($branchTransfer)
-                <div class="col-md-3">
-                    <label class="form-label">Transfer Type</label>
-                    <select name="transfer_direction" id="transferDirection" class="form-select" required onchange="window.location.href='{{ route($transferRoute) }}?direction='+this.value+'&hub_id='+document.getElementById('sourceHub').value">
-                        <option value="ho_to_branch" @selected($transferDirection === 'ho_to_branch')>Head Office to Branch</option>
-                        <option value="branch_to_ho" @selected($transferDirection === 'branch_to_ho')>Branch to Head Office</option>
-                    </select>
-                </div>
-            @endunless
-            <div class="{{ $branchTransfer ? 'col-md-4' : 'col-md-3' }}">
+            @unless($branchTransfer)<input type="hidden" name="transfer_direction" value="{{ $transferDirection }}">@endunless
+            <div class="col-md-4">
                 <label class="form-label">{{ $branchTransfer ? 'Source Store' : ($transferDirection === 'branch_to_ho' ? 'Source Branch' : 'Source Head Office') }}</label>
                 @if($lockSourceStore)
                     <input type="hidden" name="store_hub_id" value="{{ $transferSourceHubs->first()->id }}">
                     <input type="text" class="form-control bg-light" value="{{ $transferSourceHubs->first()->name }}" readonly aria-readonly="true">
                 @else
-                    <select name="store_hub_id" id="sourceHub" class="form-select" required onchange="window.location.href='{{ route($transferRoute) }}?hub_id='+this.value+'{{ $directionQuery }}'">
+                    <select name="store_hub_id" id="sourceHub" class="form-select" required onchange="window.location.href='{{ route($transferRoute) }}?hub_id='+this.value">
                         @if($transferSourceHubs->isEmpty())
                             <option value="">{{ $branchTransfer || $transferDirection === 'branch_to_ho' ? 'No source branches available' : 'Enable Head Office Mode for an active store first' }}</option>
                         @endif
@@ -106,7 +101,7 @@
                     </select>
                 @endif
             </div>
-            <div class="{{ $branchTransfer ? 'col-md-4' : 'col-md-3' }}">
+            <div class="col-md-4">
                 <label class="form-label">{{ $branchTransfer ? 'Target Store' : ($transferDirection === 'branch_to_ho' ? 'Target Head Office' : 'Target Branch') }}</label>
                 <select name="target_hub_id" class="form-select" required>
                     <option value="">Select target {{ $branchTransfer ? 'store' : ($transferDirection === 'branch_to_ho' ? 'Head Office' : 'branch') }}</option>
@@ -117,7 +112,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="{{ $branchTransfer ? 'col-md-4' : 'col-md-3' }}">
+            <div class="col-md-4">
                 <label class="form-label">Transfer Date</label>
                 <input type="date" name="occurred_on" value="{{ old('occurred_on', now()->toDateString()) }}" class="form-control" required>
             </div>
@@ -173,7 +168,8 @@
             'item_id' => $product->item_id,
             'barcode' => $product->barcode,
             'description' => $product->description ?: $product->name,
-            'label' => $product->item_id.' — '.($product->name ?: $product->description).($product->description && strcasecmp(trim($product->description), trim($product->name)) !== 0 && $product->name ? ' / '.$product->description : '').($product->barcode ? ' · '.$product->barcode : '').' (stock: '.$product->stock.')',
+            'transfer_available_stock' => $product->transfer_available_stock,
+            'label' => $product->item_id.' — '.($product->name ?: $product->description).($product->description && strcasecmp(trim($product->description), trim($product->name)) !== 0 && $product->name ? ' / '.$product->description : '').($product->barcode ? ' · '.$product->barcode : '').' (available physical stock: '.$product->transfer_available_stock.')',
         ];
     })->values();
 @endphp
@@ -191,7 +187,15 @@
         dataList.appendChild(option);
     });
     document.body.appendChild(dataList);
-    setupTransactionSuggestions(container, dataList, productOptions, @json(route('hub.products.search.ajax', $hubId ?? 0)));
+    const transferProductLabel = product => `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}${product.barcode ? ' · ' + product.barcode : ''} (available physical stock: ${product.channel_available_stock ?? product.transfer_available_stock ?? product.stock ?? 0})`;
+    setupTransactionSuggestions(
+        container,
+        dataList,
+        productOptions,
+        @json(route('hub.products.search.ajax', ['hubId' => $hubId ?? 0, 'stock_channel' => $type === 'stock_transfer' ? 'walk_in' : null])),
+        false,
+        transferProductLabel
+    );
 
     const bindProductSearch = row => {
         const input = row.querySelector('.product-search');

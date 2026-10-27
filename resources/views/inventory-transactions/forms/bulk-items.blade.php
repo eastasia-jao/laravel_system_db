@@ -1,5 +1,5 @@
 @php
-    $bulkProducts = $products->map(fn ($product) => $product->only(['id', 'item_id', 'barcode', 'name', 'description', 'stock', 'damaged_stock']))->values();
+    $bulkProducts = $products->map(fn ($product) => $product->only(['id', 'item_id', 'barcode', 'name', 'description', 'stock', 'damaged_stock', 'transfer_available_stock']))->values();
 @endphp
 @php
     $eventWorkbook = $type === 'sponsor_workshop';
@@ -136,7 +136,7 @@
 </div>
 @push('scripts')
 <script type="module">
-    import { setupBulkItems } from {{ Illuminate\Support\Js::from(asset('js/transaction-bulk.js?v=20261016-condition-stock')) }};
-    setupBulkItems({ products: {{ Illuminate\Support\Js::from($bulkProducts) }}, type: {{ Illuminate\Support\Js::from($type) }}, hubCode: {{ Illuminate\Support\Js::from($selectedHub?->code ?? $hubId) }}, endpoint: {{ Illuminate\Support\Js::from(route('hub.products.search.ajax', $hubId ?? 0)) }}, transferDirection: {{ Illuminate\Support\Js::from($type === 'stock_transfer' ? ($transferDirection ?? 'ho_to_branch') : null) }}, worksheetUrl: {{ Illuminate\Support\Js::from($workbookDownloadUrl) }}, isActive: () => document.getElementById('activityType')?.value !== 'fully_booked' });
+    import { setupBulkItems } from {{ Illuminate\Support\Js::from(asset('js/transaction-bulk.js?v=20261027-transfer-available-stock')) }};
+    setupBulkItems({ products: {{ Illuminate\Support\Js::from($bulkProducts) }}, type: {{ Illuminate\Support\Js::from($type) }}, hubCode: {{ Illuminate\Support\Js::from($selectedHub?->code ?? $hubId) }}, endpoint: {{ Illuminate\Support\Js::from(route('hub.products.search.ajax', ['hubId' => $hubId ?? 0, 'stock_channel' => $type === 'stock_transfer' ? 'walk_in' : null])) }}, transferDirection: {{ Illuminate\Support\Js::from($type === 'stock_transfer' ? ($transferDirection ?? 'ho_to_branch') : null) }}, worksheetUrl: {{ Illuminate\Support\Js::from($workbookDownloadUrl) }}, isActive: () => document.getElementById('activityType')?.value !== 'fully_booked' });
 </script>
 @endpush

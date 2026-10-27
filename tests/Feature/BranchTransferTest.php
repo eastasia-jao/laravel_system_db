@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\InventoryTransaction;
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -31,7 +32,8 @@ class BranchTransferTest extends TestCase
             ->assertSee('<option value="branch_transfer"', false)
             ->assertSee('Stock Transfer (BRANCH to BRANCH)')
             ->assertDontSee('Inactive Transaction Hub')
-            ->assertSee('HO ↔ Branch');
+            ->assertSee('HO to Branch')
+            ->assertSee('Branch to HO');
 
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get(route('inventory-transactions.index'))
@@ -480,9 +482,11 @@ class BranchTransferTest extends TestCase
     public function test_ho_transfer_defaults_follow_head_office_mode(): void
     {
         [$source, $target, $product, $receiving, $ho] = $this->fixtures();
-        $url = route('inventory-transactions.transfer.create', ['hub_id' => $source->id]);
+        $url = route('inventory-transactions.transfer.ho-to-branch.create', ['hub_id' => $source->id]);
         $form = $this->get($url)->assertOk()
-            ->assertSee('class="page-hero mb-4"', false)
+            ->assertSee('class="page-hero mb-3"', false)
+            ->assertDontSee('Transfer Type')
+            ->assertSee('name="transfer_direction" value="ho_to_branch"', false)
             ->assertViewHas('hubId', $ho->id)
             ->assertViewHas('transferSourceHubs', fn ($hubs) => $hubs->modelKeys() === [$ho->id])
             ->assertViewHas('allHubs', fn ($hubs) => ! $hubs->contains('id', $ho->id))
@@ -539,13 +543,12 @@ class BranchTransferTest extends TestCase
             'status' => 'active',
         ]);
 
-        $form = $this->get(route('inventory-transactions.transfer.create', [
-            'direction' => 'branch_to_ho',
+        $form = $this->get(route('inventory-transactions.transfer.branch-to-ho.create', [
             'hub_id' => $source->id,
         ]))->assertOk()
-            ->assertSee('class="page-hero mb-4"', false)
-            ->assertSee('Transfer Type')
-            ->assertSee('Branch to Head Office')
+            ->assertSee('class="page-hero mb-3"', false)
+            ->assertDontSee('Transfer Type')
+            ->assertSee('name="transfer_direction" value="branch_to_ho"', false)
             ->assertSee('Source Branch')
             ->assertSee('Target Head Office')
             ->assertViewHas('hubId', $source->id)
@@ -588,6 +591,60 @@ class BranchTransferTest extends TestCase
         $this->get(route('inventory-transactions.index', ['hub_id' => $source->id, 'type' => 'stock_transfer']))
             ->assertOk()
             ->assertSee('Stock Transfer (BRANCH to HO)');
+    }
+
+    public function test_ho_transfer_shows_and_enforces_only_unallocated_physical_stock(): void
+    {
+        [, $target, , $targetProduct, $headOffice] = $this->fixtures();
+        $headOfficeProduct = Product::create([
+            'name' => 'Transfer Test Product',
+            'item_id' => 'TRANSFER-1',
+            'store_hub_id' => $headOffice->id,
+            'stock' => 50,
+            'status' => 'active',
+        ]);
+        ProductStockAllocation::create([
+            'product_id' => $headOfficeProduct->id,
+            'online' => 15,
+            'wholesale' => 5,
+            'shopee' => 0,
+            'lazada' => 0,
+            'tiktok' => 0,
+        ]);
+
+        $form = $this->get(route('inventory-transactions.transfer.ho-to-branch.create', [
+            'hub_id' => $headOffice->id,
+        ]))->assertOk()
+            ->assertSee('(available physical stock: 30)')
+            ->assertDontSee('(stock: 50)');
+        $this->getJson(route('hub.products.search.ajax', [
+            'hubId' => $headOffice->id,
+            'q' => 'TRANSFER-1',
+            'active_only' => 1,
+            'stock_channel' => 'walk_in',
+        ]))->assertOk()
+            ->assertJsonPath('0.channel_available_stock', 30);
+
+        $payload = [
+            'type' => 'stock_transfer',
+            'transfer_direction' => 'ho_to_branch',
+            'store_hub_id' => $headOffice->id,
+            'target_hub_id' => $target->id,
+            'occurred_on' => '2026-10-27',
+            'reference' => $form->viewData('transferReference'),
+            'items' => [['product_id' => $headOfficeProduct->id, 'quantity' => 31]],
+        ];
+        $this->post(route('inventory-transactions.store'), $payload)
+            ->assertSessionHasErrors('items');
+        $this->assertSame(50, $headOfficeProduct->fresh()->stock);
+        $this->assertSame(2, $targetProduct->fresh()->stock);
+
+        $payload['items'][0]['quantity'] = 30;
+        $this->post(route('inventory-transactions.store'), $payload)
+            ->assertSessionHasNoErrors();
+        $this->assertSame(20, $headOfficeProduct->fresh()->stock);
+        $this->assertSame(32, $targetProduct->fresh()->stock);
+        $this->assertSame(20, $headOfficeProduct->fresh()->stockAllocation->online + $headOfficeProduct->fresh()->stockAllocation->wholesale);
     }
 
     public function test_stock_transfer_logs_keep_same_reference_routes_separate(): void

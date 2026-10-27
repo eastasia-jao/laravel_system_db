@@ -829,8 +829,22 @@ class ProductController extends Controller
         }
         if ($request->boolean('inventory_page')) {
             $request->validate(['after' => 'nullable|integer|min:0']);
+            $page = $query->where('status', 'active')
+                ->where('id', '>', $request->integer('after'))
+                ->when($stockChannel, fn ($builder) => $builder->with('stockAllocation'))
+                ->orderBy('id')
+                ->limit(500)
+                ->get();
+            if ($stockChannel === 'walk_in') {
+                $page->each(function (Product $product): void {
+                    $available = $product->unallocatedStock();
+                    $product->setAttribute('channel_available_stock', $available);
+                    $product->setAttribute('transfer_available_stock', $available);
+                    $product->setAttribute('stock', $available);
+                });
+            }
 
-            return response()->json($query->where('status', 'active')->where('id', '>', $request->integer('after'))->orderBy('id')->limit(500)->get());
+            return response()->json($page);
         }
 
         if ($search !== '') {
