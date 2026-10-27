@@ -129,7 +129,7 @@
         const activityStorageKey = 'art-caravan-last-activity-{{ auth()->id() }}';
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         let logoutTimer;
-        let lastActivitySync = 0;
+        let lastActivitySync = Date.now();
         let lastSharedActivityWrite = 0;
         let localLastActivity = Date.now();
 

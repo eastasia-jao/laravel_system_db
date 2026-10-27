@@ -77,6 +77,23 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_a_transient_session_lock_mismatch_does_not_log_out_an_authenticated_user(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+        $activeSessionToken = (string) session('active_user_session_token');
+        ActiveUserSession::release($user->id, $activeSessionToken);
+        ActiveUserSession::claim($user->id, 'temporary-conflicting-lock');
+
+        $this->get('/dashboard')->assertOk();
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
         $user = User::factory()->create();

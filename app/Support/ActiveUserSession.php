@@ -8,8 +8,6 @@ final class ActiveUserSession
 {
     public const ALREADY_LOGGED_IN_MESSAGE = 'This account is already logged in on another device or browser. Sign out there or wait for the inactive session to expire.';
 
-    public const REPLACED_SESSION_MESSAGE = 'This session ended because the account is active on another device or browser. Please sign in again.';
-
     public static function hasActiveSession(int $userId): bool
     {
         return filled(Cache::get(self::key($userId)));
