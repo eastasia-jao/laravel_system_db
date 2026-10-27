@@ -143,6 +143,17 @@
             .map(row => row.querySelector('.pullout-product-id').value)
             .filter(Boolean)
     );
+    const updateProductSuggestions = (excludedRow = null) => {
+        const selectedIds = selectedProductIds(excludedRow);
+        dataList.replaceChildren();
+        products
+            .filter(product => !selectedIds.has(String(product.id)))
+            .forEach(product => {
+                const option = document.createElement('option');
+                option.value = productLabel(product);
+                dataList.appendChild(option);
+            });
+    };
     let rowIndex = 0;
 
     const showMessage = (text, error = false) => {
@@ -162,13 +173,13 @@
         productId.value = product.id;
         search.setCustomValidity('');
         if (selectedProductIds(row).has(String(product.id))) {
-            showMessage(`${product.name} is already included in Items to Pull Out.`, true);
             search.value = '';
             productId.value = '';
-            search.setCustomValidity('Select a product from the search suggestions.');
+            search.setCustomValidity('');
             return;
         }
         row.dataset.physicalStock = product.stock;
+        updateProductSuggestions();
     };
     const addRow = (values = {}) => {
         const index = rowIndex++;
@@ -181,13 +192,16 @@
 `;
         itemsBody.appendChild(row);
         const search = row.querySelector('.pullout-product-search');
+        search.addEventListener('focus', () => updateProductSuggestions(row));
         search.addEventListener('input', () => {
+            updateProductSuggestions(row);
             const product = productsByLabel.get(search.value.trim().toLowerCase());
             setProduct(row, product || null);
         });
         row.querySelector('.remove-pullout-row').addEventListener('click', () => {
             row.remove();
             if (!itemsBody.children.length) addRow();
+            updateProductSuggestions();
         });
         if (values.product) setProduct(row, values.product);
         row.querySelector('.pullout-qty').value = values.quantity || '';
