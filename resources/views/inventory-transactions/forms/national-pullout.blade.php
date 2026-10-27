@@ -11,9 +11,10 @@
     .national-pullout-items th { color: #526178; background: #f8fafc; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
     .national-pullout-items th { position: sticky; top: 0; z-index: 2; }
     .national-pullout-items td { vertical-align: middle; }
-    .pullout-product-results { position: fixed; z-index: 2000; max-height: 230px; overflow-y: auto; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.13); }
+    .pullout-product-results { position: fixed; z-index: 2000; max-height: 240px; overflow-y: auto; border: 1px solid #dbe3ee; border-radius: .65rem; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.16); }
     .pullout-product-result { display: block; width: 100%; padding: .65rem .75rem; border: 0; border-bottom: 1px solid #edf1f6; color: #172033; background: #fff; text-align: left; }
-    .pullout-product-result:hover { background: #eff6ff; }
+    .pullout-product-result:last-child { border-bottom: 0; }
+    .pullout-product-result:hover, .pullout-product-result:focus { background: #eff6ff; }
     .pullout-product-result small { display: block; color: #64748b; }
     .national-pullout-import-overlay { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .48); backdrop-filter: blur(4px); }
     .national-pullout-import-overlay[hidden] { display: none; }
@@ -33,7 +34,6 @@
         <div class="page-hero-main">
             <span class="page-hero-icon" aria-hidden="true"><i class="fa-solid fa-book-open"></i></span>
             <div class="page-hero-copy">
-                <div class="page-hero-eyebrow">Event / National Bookstore</div>
                 <h2 class="page-hero-title">National Bookstore Pullout</h2>
                 <p class="page-hero-description">Record a National Bookstore pull-out using the same event workflow, then review it in Transaction Logs.</p>
             </div>
@@ -152,7 +152,7 @@
             showMessage(`${product.name} is already included in Items to Pull Out.`, true);
             return;
         }
-        row.querySelector('.pullout-product-search').value = product.name;
+        row.querySelector('.pullout-product-search').value = `${product.name} (${product.item_id})`;
         row.querySelector('.pullout-product-id').value = product.id;
         row.dataset.physicalStock = product.stock;
         row.querySelector('.pullout-product-results').hidden = true;
@@ -165,7 +165,7 @@
             const haystack = `${product.name} ${product.item_id}`.toLowerCase();
             return !selectedIds.has(String(product.id)) && haystack.includes(term.toLowerCase());
         }).slice(0, 20);
-        results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)}</small></button>`).join('');
+        results.innerHTML = matches.map(product => `<button type="button" class="pullout-product-result" data-product-id="${product.id}"><strong>${escapeHtml(product.name)}</strong><small>Item ID: ${escapeHtml(product.item_id)} · Available: ${escapeHtml(product.stock)}</small></button>`).join('');
         const bounds = search.getBoundingClientRect();
         results.style.left = `${bounds.left}px`;
         results.style.top = `${bounds.bottom + 4}px`;
@@ -183,6 +183,7 @@
 `;
         itemsBody.appendChild(row);
         const search = row.querySelector('.pullout-product-search');
+        search.addEventListener('focus', () => renderResults(row, search.value && !row.querySelector('.pullout-product-id').value ? search.value.trim() : ''));
         search.addEventListener('input', () => {
             row.querySelector('.pullout-product-id').value = '';
             renderResults(row, search.value.trim());
