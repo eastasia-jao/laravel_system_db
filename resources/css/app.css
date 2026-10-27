@@ -176,6 +176,7 @@ body.sidebar-collapsed #appSidebar #storeHubDropdown { display: none !important;
 
 @media (min-width: 1200px) {
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) { width: var(--ac-sidebar-width) !important; box-shadow: 18px 0 50px rgba(15, 23, 42, .14); }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) ~ .app-main { margin-left: var(--ac-sidebar-width); width: calc(100% - var(--ac-sidebar-width)); }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .sidebar-header { flex-direction: row; align-items: center !important; }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .brand-label { display: inline !important; }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .nav-link .badge { display: inline-block !important; }
