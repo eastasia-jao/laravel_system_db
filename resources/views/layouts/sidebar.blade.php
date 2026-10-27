@@ -1,5 +1,5 @@
 <aside id="appSidebar" class="sidebar d-flex flex-column flex-shrink-0 p-4 bg-white border-end"
-       style="width: 280px; height: 100vh; position: fixed; top: 0; left: 0; z-index: 1020;" aria-label="Main navigation">
+       style="width: 240px; height: 100vh; position: fixed; top: 0; left: 0; z-index: 1020;" aria-label="Main navigation">
     @php
        $notifications = auth()->user()->notifications()->latest()->limit(10)->get();
        $unreadNotificationCount = auth()->user()->unreadNotifications()->count();
