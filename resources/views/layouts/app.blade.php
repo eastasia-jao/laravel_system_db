@@ -125,25 +125,60 @@
         const timeoutMilliseconds = {{ (int) config('session.lifetime') * 60 * 1000 }};
         const activityUrl = @json(route('session.activity'));
         const timeoutUrl = @json(route('session.timeout'));
+        const activeSessionToken = @json(session('active_user_session_token'));
+        const activityStorageKey = 'art-caravan-last-activity-{{ auth()->id() }}';
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         let logoutTimer;
         let lastActivitySync = 0;
+        let lastSharedActivityWrite = 0;
+        let localLastActivity = Date.now();
+
+        const sharedLastActivity = () => {
+            try {
+                return Math.max(localLastActivity, Number(localStorage.getItem(activityStorageKey)) || 0);
+            } catch (error) {
+                return localLastActivity;
+            }
+        };
+
+        const scheduleInactivityCheck = () => {
+            window.clearTimeout(logoutTimer);
+            const remaining = Math.max(0, timeoutMilliseconds - (Date.now() - sharedLastActivity()));
+            logoutTimer = window.setTimeout(checkInactivity, Math.max(250, remaining));
+        };
 
         const signOutForInactivity = () => {
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = timeoutUrl;
+            form.innerHTML = `<input type="hidden" name="active_session_token" value="${activeSessionToken}">`;
             document.body.appendChild(form);
             form.submit();
         };
 
+        const checkInactivity = () => {
+            if (Date.now() - sharedLastActivity() >= timeoutMilliseconds) {
+                signOutForInactivity();
+                return;
+            }
+
+            scheduleInactivityCheck();
+        };
+
         const recordActivity = () => {
-            window.clearTimeout(logoutTimer);
-            logoutTimer = window.setTimeout(signOutForInactivity, timeoutMilliseconds);
+            const now = Date.now();
+            localLastActivity = now;
+            if (now - lastSharedActivityWrite >= 1000) {
+                try {
+                    localStorage.setItem(activityStorageKey, String(now));
+                } catch (error) {}
+                lastSharedActivityWrite = now;
+            }
+            scheduleInactivityCheck();
 
-            if (Date.now() - lastActivitySync < 60000) return;
+            if (now - lastActivitySync < 60000) return;
 
-            lastActivitySync = Date.now();
+            lastActivitySync = now;
             fetch(activityUrl, {
                 method: 'POST',
                 credentials: 'same-origin',
@@ -158,6 +193,15 @@
 
         ['click', 'keydown', 'scroll', 'touchstart', 'mousemove'].forEach(eventName => {
             window.addEventListener(eventName, recordActivity, { passive: true });
+        });
+        window.addEventListener('focus', recordActivity);
+        window.addEventListener('storage', event => {
+            if (event.key !== activityStorageKey || !event.newValue) return;
+            localLastActivity = Math.max(localLastActivity, Number(event.newValue) || 0);
+            scheduleInactivityCheck();
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') recordActivity();
         });
         recordActivity();
     })();

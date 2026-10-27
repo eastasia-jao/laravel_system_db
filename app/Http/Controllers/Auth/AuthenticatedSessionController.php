@@ -77,6 +77,20 @@ class AuthenticatedSessionController extends Controller
      */
     public function timeout(Request $request): RedirectResponse
     {
+        $currentSessionToken = (string) $request->session()->get('active_user_session_token');
+        $submittedSessionToken = (string) $request->input('active_session_token');
+        if ($currentSessionToken !== '' && ! hash_equals($currentSessionToken, $submittedSessionToken)) {
+            return $request->user()
+                ? redirect()->route('dashboard')
+                : redirect()->route('login');
+        }
+
+        $lastActivity = (int) $request->session()->get('last_user_activity_at', 0);
+        $timeoutSeconds = max(1, (int) config('session.lifetime')) * 60;
+        if ($request->user() && $lastActivity > 0 && now()->timestamp - $lastActivity < $timeoutSeconds) {
+            return redirect()->route('dashboard');
+        }
+
         if ($request->user()) {
             ActiveUserSession::release(
                 (int) $request->user()->id,

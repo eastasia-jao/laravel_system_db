@@ -155,13 +155,55 @@ class AuthenticationTest extends TestCase
             'username' => $user->username,
             'password' => 'password',
         ])->assertRedirect(route('dashboard', absolute: false));
+        $activeSessionToken = (string) session('active_user_session_token');
+        $this->withSession([
+            'active_user_session_token' => $activeSessionToken,
+            'last_user_activity_at' => now()->subMinutes(16)->timestamp,
+        ]);
 
-        $this->post(route('session.timeout'))
+        $this->post(route('session.timeout'), [
+            'active_session_token' => $activeSessionToken,
+        ])
             ->assertRedirect(route('login'))
             ->assertSessionHas('warning', 'You were signed out after 15 minutes of inactivity. Please sign in again.');
 
         $this->assertGuest();
         $this->assertFalse(ActiveUserSession::hasActiveSession($user->id));
+    }
+
+    public function test_a_stale_browser_tab_cannot_log_out_a_newer_session(): void
+    {
+        $user = User::factory()->create();
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->post(route('session.timeout'), [
+            'active_session_token' => 'token-from-an-older-page',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertTrue(ActiveUserSession::hasActiveSession($user->id));
+    }
+
+    public function test_an_idle_tab_cannot_log_out_a_session_with_recent_activity(): void
+    {
+        $user = User::factory()->create();
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+        $activeSessionToken = (string) session('active_user_session_token');
+
+        $this->post(route('session.timeout'), [
+            'active_session_token' => $activeSessionToken,
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertTrue(ActiveUserSession::hasActiveSession($user->id));
     }
 
     public function test_an_expired_csrf_token_redirects_to_login_instead_of_rendering_419(): void
