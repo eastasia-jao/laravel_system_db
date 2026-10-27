@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CatalogProduct;
 use App\Models\NationalProduct;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
@@ -129,6 +130,78 @@ class NationalInventoryTest extends TestCase
             ->assertSessionHasErrors('file');
 
         $this->assertDatabaseCount('national_products', 0);
+    }
+
+    public function test_national_import_requires_only_item_id_and_fills_blank_details_from_shared_catalog(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $headOffice->id]);
+        CatalogProduct::create([
+            'item_id' => '1',
+            'name' => 'Fredrix Stretched Canvas Roll Label 12x12',
+            'description' => 'Shared catalog description',
+            'barcode' => '81702050548',
+            'brand' => 'Fredrix',
+            'unit_type' => 'PCS',
+        ]);
+        $rows = [
+            ['ID', 'Item ID', 'Name', 'Description', 'Barcode', 'Brand', 'Stock', 'Unit Type'],
+            ['', '1', '', '', '', '', '50', ''],
+            ['', 'NATIONAL-ONLY', '', '', '', '', '', ''],
+        ];
+
+        $this->actingAs($inventoryStaff)
+            ->post(route('national-inventory.import'), [
+                'hub_id' => $headOffice->id,
+                'file' => UploadedFile::fake()->createWithContent('national.xlsx', ProductExportWorkbook::fromRows($rows)),
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'National inventory import complete: 2 new and 0 updated item(s).');
+
+        $this->assertDatabaseHas('national_products', [
+            'item_id' => '1',
+            'name' => 'Fredrix Stretched Canvas Roll Label 12x12',
+            'description' => 'Shared catalog description',
+            'barcode' => '81702050548',
+            'brand' => 'Fredrix',
+            'unit_type' => 'PCS',
+            'stock' => 50,
+        ]);
+        $this->assertDatabaseHas('national_products', [
+            'item_id' => 'NATIONAL-ONLY',
+            'name' => 'NATIONAL-ONLY',
+            'stock' => 0,
+        ]);
+    }
+
+    public function test_national_import_without_name_column_preserves_existing_details_and_stock_when_stock_is_absent(): void
+    {
+        $headOffice = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-NATIONAL', 'status' => 'active', 'is_head_office' => true]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $headOffice->id]);
+        NationalProduct::create([
+            'item_id' => 'NAT-1',
+            'name' => 'Existing National Item',
+            'description' => 'Existing description',
+            'stock' => 8,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($inventoryStaff)
+            ->post(route('national-inventory.import'), [
+                'hub_id' => $headOffice->id,
+                'file' => UploadedFile::fake()->createWithContent('national.xlsx', ProductExportWorkbook::fromRows([
+                    ['Item ID'],
+                    ['NAT-1'],
+                ])),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('national_products', [
+            'item_id' => 'NAT-1',
+            'name' => 'Existing National Item',
+            'description' => 'Existing description',
+            'stock' => 8,
+        ]);
     }
 
     public function test_export_all_downloads_a_header_only_excel_file_when_national_inventory_is_empty(): void

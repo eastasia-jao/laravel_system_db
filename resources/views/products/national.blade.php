@@ -168,7 +168,7 @@
             <div class="modal-body">
                 <label for="nationalCsvFile" class="form-label fw-semibold">National product Excel file</label>
                 <input id="nationalCsvFile" type="file" name="file" class="form-control" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
-                <div class="form-text mt-2">Excel columns: ID, Item ID, Name, Description, Barcode, Brand, Good Items, Damaged Items, and Unit Type. The older Stock column is still accepted as Good Items.</div>
+                <div class="form-text mt-2">Item ID is required. Blank product details are matched from the shared Head Office catalog by Item ID. Good Items, Damaged Items, and the older Stock column are accepted.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CatalogProduct;
 use App\Models\NationalProduct;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
@@ -60,10 +61,8 @@ class NationalInventoryController extends Controller
         $columns = collect($header)->mapWithKeys(fn ($value, $index) => [
             $this->normalizeHeader((string) $value) => $index,
         ]);
-        foreach (['item_id', 'name'] as $required) {
-            if (! $columns->has($required)) {
-                throw ValidationException::withMessages(['file' => 'The Excel worksheet must include Item ID and Name columns.']);
-            }
+        if (! $columns->has('item_id')) {
+            throw ValidationException::withMessages(['file' => 'The Excel worksheet must include an Item ID column.']);
         }
 
         $rows = [];
@@ -77,9 +76,8 @@ class NationalInventoryController extends Controller
 
             $value = fn (string $key) => $columns->has($key) ? trim((string) ($values[$columns[$key]] ?? '')) : '';
             $itemId = CsvIdentifier::read($value('item_id'), "Row {$line} Item ID");
-            $name = $value('name');
-            if ($itemId === '' || $name === '') {
-                throw ValidationException::withMessages(['file' => "Row {$line} requires both Item ID and Name."]);
+            if ($itemId === '') {
+                throw ValidationException::withMessages(['file' => "Row {$line} requires an Item ID."]);
             }
             if (isset($seenItemIds[$itemId])) {
                 throw ValidationException::withMessages(['file' => "Item ID {$itemId} is duplicated in rows {$seenItemIds[$itemId]} and {$line}."]);
@@ -88,11 +86,11 @@ class NationalInventoryController extends Controller
 
             $row = [
                 'item_id' => $itemId,
-                'name' => $name,
+                'name' => $value('name'),
                 'description' => $value('description') ?: null,
                 'barcode' => ($barcode = CsvIdentifier::read($value('barcode'), "Row {$line} Barcode")) !== '' ? $barcode : null,
                 'brand' => $value('brand') ?: null,
-                'stock' => $this->stock($value('stock'), $line),
+                'stock' => $columns->has('stock') ? $this->stock($value('stock'), $line) : null,
                 'unit_type' => $value('unit_type') ?: null,
             ];
             if ($columns->has('damaged_stock')) {
@@ -105,15 +103,29 @@ class NationalInventoryController extends Controller
             throw ValidationException::withMessages(['file' => 'The Excel worksheet contains no product rows.']);
         }
 
+        $catalogByItemId = [];
+        foreach (array_chunk(array_keys($seenItemIds), 500) as $itemIds) {
+            foreach (CatalogProduct::whereIn('item_id', $itemIds)->get() as $catalogProduct) {
+                $catalogByItemId[(string) $catalogProduct->item_id] = $catalogProduct;
+            }
+        }
+
         $created = 0;
         $updated = 0;
-        DB::transaction(function () use ($rows, $request, $hub, &$created, &$updated) {
+        DB::transaction(function () use ($rows, $catalogByItemId, $request, $hub, &$created, &$updated) {
             $logItems = [];
             foreach ($rows as $row) {
                 $product = NationalProduct::where('item_id', $row['item_id'])->first();
+                $catalogProduct = $catalogByItemId[$row['item_id']] ?? null;
                 $stockBefore = $product?->stock ?? 0;
                 $operation = $product ? 'updated' : 'created';
                 $product ? $updated++ : $created++;
+                $row['name'] = $this->firstValue($row['name'], $catalogProduct?->name, $product?->name, $row['description'], $catalogProduct?->description, $row['item_id']);
+                $row['description'] = $this->firstValue($row['description'], $catalogProduct?->description, $product?->description);
+                $row['barcode'] = $this->firstValue($row['barcode'], $catalogProduct?->barcode, $product?->barcode);
+                $row['brand'] = $this->firstValue($row['brand'], $catalogProduct?->brand, $product?->brand);
+                $row['unit_type'] = $this->firstValue($row['unit_type'], $catalogProduct?->unit_type, $product?->unit_type);
+                $row['stock'] ??= $product?->stock ?? 0;
                 $product = NationalProduct::updateOrCreate(['item_id' => $row['item_id']], $row);
                 $logItems[] = [
                     'product_id' => null,
@@ -288,6 +300,18 @@ class NationalInventoryController extends Controller
         }
 
         return (int) $value;
+    }
+
+    private function firstValue(mixed ...$values): ?string
+    {
+        foreach ($values as $value) {
+            $value = trim((string) $value);
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     private function orderByItemId($query): void
