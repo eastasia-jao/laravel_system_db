@@ -20,7 +20,7 @@ class FullyBookedOrderTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_event_page_offers_fully_booked_and_only_lists_designated_staff(): void
+    public function test_event_and_fully_booked_pages_use_fixed_activity_types_and_only_list_designated_staff(): void
     {
         config(['filesystems.attachment_disks.inventory' => 'inventory-attachments']);
         Storage::fake('inventory-attachments');
@@ -46,18 +46,21 @@ class FullyBookedOrderTest extends TestCase
 
         $this->actingAs($admin)->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
             ->assertOk()
-            ->assertSee('Event / Fully Booked')
-            ->assertSee('<div id="activityHeadingLabel" class="page-hero-eyebrow">Event / Fully Booked</div>', false)
+            ->assertSee('<title>Event</title>', false)
+            ->assertSee('<h1 class="topbar-title">Event</h1>', false)
+            ->assertDontSee('Event / Fully Booked')
             ->assertSee('<h2 id="activityHeadingTitle" class="page-hero-title">Event</h2>', false)
-            ->assertSee('value="event"', false)
-            ->assertSee('value="fully_booked"', false)
+            ->assertSee('type="hidden" id="activityType" name="activity_type" value="event"', false)
+            ->assertDontSee('<select id="activityType"', false)
             ->assertSee('id="fullyBookedAttachment"', false)
             ->assertSee('data-can-submit-fully-booked="1"', false);
 
         $this->actingAs($designated)
             ->get(route('inventory-transactions.sponsor.create', ['hub_id' => $hub->id]))
             ->assertOk()
-            ->assertSee('<div id="activityHeadingLabel" class="page-hero-eyebrow">Event / Fully Booked</div>', false)
+            ->assertSee('<title>Fully Booked</title>', false)
+            ->assertSee('<h1 class="topbar-title">Fully Booked</h1>', false)
+            ->assertDontSee('Event / Fully Booked')
             ->assertSee('<h2 id="activityHeadingTitle" class="page-hero-title">Fully Booked</h2>', false)
             ->assertSee('type="hidden" id="activityType" name="activity_type" value="fully_booked"', false)
             ->assertDontSee('<select id="activityType"', false)
@@ -77,7 +80,9 @@ class FullyBookedOrderTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('id="fullyBookedAttachment"', false)
-            ->assertSee('Send for Review');
+            ->assertSee('Send for Review')
+            ->assertDontSee('<select id="activityType"', false)
+            ->assertDontSee('id="fullyBookedPageCancel"', false);
         $this->post(route('fully-booked-orders.store'), [
             'inventory_hub_id' => $hub->id,
             'store_selection' => (string) $hub->id,
@@ -307,7 +312,9 @@ class FullyBookedOrderTest extends TestCase
                 'activity_type' => 'fully_booked',
             ]))
             ->assertOk()
-            ->assertSee('<div id="activityHeadingLabel" class="page-hero-eyebrow">Event / Fully Booked</div>', false)
+            ->assertSee('<title>Fully Booked</title>', false)
+            ->assertSee('<h1 class="topbar-title">Fully Booked</h1>', false)
+            ->assertDontSee('Event / Fully Booked')
             ->assertSee('<h2 id="activityHeadingTitle" class="page-hero-title">Fully Booked</h2>', false)
             ->assertSee('type="hidden" id="activityType" name="activity_type" value="fully_booked"', false)
             ->assertDontSee('<select id="activityType"', false)
@@ -324,8 +331,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('Download')
             ->assertSee(route('inventory-transactions.fully-booked.attachment', $order), false)
             ->assertSee(route('inventory-transactions.fully-booked.pull-out', $order), false)
-            ->assertSee(route('inventory-transactions.index', ['hub_id' => $hub->id]), false)
-            ->assertSee('id="fullyBookedPageCancel"', false)
+            ->assertDontSee('id="fullyBookedPageCancel"', false)
             ->assertSee('Complete Order & Update Stock', false)
             ->assertSee('Export Excel')
             ->assertSee(route('inventory-transactions.fully-booked.export-worksheet', $order), false)

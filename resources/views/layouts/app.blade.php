@@ -15,7 +15,6 @@
             'inventory-transactions.branch-transfer.create' => 'Branch Transfer',
             'inventory-transactions.fully-booked.index' => 'Fully Booked Orders',
             'inventory-transactions.restock.create' => 'Restock Inventory',
-            'inventory-transactions.sponsor.create' => 'Event / Fully Booked',
             'inventory-transactions.transfer.create' => 'Stock Transfer',
             'national-pullouts.create' => 'National Bookstore Pull-Out',
             'product-file-requests.index' => 'Stock Transfer Review Requests',
@@ -38,7 +37,9 @@
             'sales.rejected' => 'Rejected Sales',
             'profile.edit' => 'My Profile',
         ];
-        $pageTitle = collect($pageTitles)->first(fn ($title, $route) => request()->routeIs($route)) ?? 'Inventory Management System';
+        $pageTitle = request()->routeIs('inventory-transactions.sponsor.create')
+            ? (($activityType ?? request('activity_type')) === 'fully_booked' ? 'Fully Booked' : 'Event')
+            : (collect($pageTitles)->first(fn ($title, $route) => request()->routeIs($route)) ?? 'Inventory Management System');
     @endphp
     <title>{{ $pageTitle }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">

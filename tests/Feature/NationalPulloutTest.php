@@ -79,6 +79,7 @@ class NationalPulloutTest extends TestCase
         $this->assertSame(['Event', 'Fully Booked', 'National Bookstore Pullout'], $eventActionTitles);
         $this->assertStringNotContainsString('Event Inventory', $eventOperations->item(0)->textContent);
         $this->assertStringContainsString('activity_type=event', $transactionLogContent);
+        $this->assertStringContainsString('return_to=transaction_logs', $transactionLogContent);
         $this->assertStringContainsString('activity_type=fully_booked', $transactionLogContent);
         $this->assertTrue($eventOperationsPosition < $inventoryUpdatesPosition);
         $this->actingAs($branchStaff)

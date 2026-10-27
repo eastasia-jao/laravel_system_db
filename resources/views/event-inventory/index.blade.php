@@ -20,7 +20,7 @@
     <x-page-header class="mb-3" eyebrow="Off-site inventory" title="Event Inventory" description="Track pulled-out stock, Event sales, returns, and closeout shortages without deducting Head Office stock twice." icon="fa-tents" />
 
     <div class="d-flex flex-wrap gap-2 mb-3">
-        <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId]) }}" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>New Event Pull-Out</a>
+        <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId, 'activity_type' => 'event', 'return_to' => 'event_inventory']) }}" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>New Event Pull-Out</a>
         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#recordEventSaleModal" @disabled($saleEvents->isEmpty())><i class="fa-solid fa-cart-plus me-1"></i>Record Event Sale</button>
         <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $hubId]) }}" class="btn btn-outline-primary"><i class="fa-solid fa-rotate-left me-1"></i>Return Items</a>
     </div>

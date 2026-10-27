@@ -105,41 +105,32 @@
     }
 </style>
 <div class="workspace-page inventory-entry-page">
-    @php($isFullyBookedPage = $activityType === 'fully_booked')
+    @php
+        $isFullyBookedPage = $activityType === 'fully_booked';
+        $eventReturnContext = request('return_to') === 'transaction_logs' ? 'transaction_logs' : 'event_inventory';
+        $eventCancelUrl = $eventReturnContext === 'transaction_logs'
+            ? route('inventory-transactions.index', ['hub_id' => $hubId])
+            : route('event-inventory.index', ['hub_id' => $hubId]);
+    @endphp
     <header class="page-hero mb-3">
         <div class="page-hero-main">
             <span class="page-hero-icon" aria-hidden="true"><i id="activityHeadingIcon" class="fa-solid {{ $isFullyBookedPage ? 'fa-book-open' : 'fa-people-group' }}"></i></span>
             <div class="page-hero-copy">
-                <div id="activityHeadingLabel" class="page-hero-eyebrow">Event / Fully Booked</div>
                 <h2 id="activityHeadingTitle" class="page-hero-title">{{ $isFullyBookedPage ? 'Fully Booked' : 'Event' }}</h2>
-                <p id="activityHeadingDescription" class="page-hero-description">{{ $isFullyBookedPage ? 'Review Fully Booked orders and update the selected store inventory.' : 'Record event inventory usage or submit a Fully Booked order attachment for review.' }}</p>
+                <p id="activityHeadingDescription" class="page-hero-description">{{ $isFullyBookedPage ? 'Review Fully Booked orders and update the selected store inventory.' : 'Record inventory pulled out for off-site events.' }}</p>
             </div>
         </div>
     </header>
     
     <form id="eventFullyBookedForm" method="POST" action="{{ $activityType === 'fully_booked' ? route('fully-booked-orders.store') : route('inventory-transactions.store') }}" enctype="multipart/form-data" data-event-action="{{ route('inventory-transactions.store') }}" data-fully-booked-action="{{ route('fully-booked-orders.store') }}" data-can-manage-event="{{ $canManageEvent ? '1' : '0' }}" data-can-submit-fully-booked="{{ $canSubmitFullyBooked ? '1' : '0' }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf
-        @if($canManageEvent && $activityType !== 'fully_booked')
-            <div class="row g-3 mb-4">
-                <div class="col-md-6 col-lg-4">
-                    <label class="form-label fw-semibold" for="activityType">Type</label>
-                    <select id="activityType" name="activity_type" class="form-select" required>
-                        <option value="event" @selected(old('activity_type', $activityType) === 'event')>Event</option>
-                        @if($canUseFullyBookedForm)
-                            <option value="fully_booked" @selected(old('activity_type', $activityType) === 'fully_booked')>Fully Booked</option>
-                        @endif
-                    </select>
-                </div>
-            </div>
-        @else
-            <input type="hidden" id="activityType" name="activity_type" value="fully_booked">
-        @endif
+        <input type="hidden" id="activityType" name="activity_type" value="{{ $activityType }}">
         <section id="eventFields" @if(!$canManageEvent || old('activity_type', $activityType) !== 'event') hidden @endif>
             @if($canManageEvent)
                 @include('inventory-transactions.forms.bulk-items')
                 <input type="hidden" name="type" value="sponsor_workshop">
                 <div class="row g-3">
-                    <div class="col-md-4"><label class="form-label">Store Hub</label><select name="store_hub_id" class="form-select" required onchange="window.location.href='{{ route('inventory-transactions.sponsor.create') }}?hub_id='+this.value">
+                    <div class="col-md-4"><label class="form-label">Store Hub</label><select name="store_hub_id" class="form-select" required onchange="const url = new URL(window.location.href); url.searchParams.set('hub_id', this.value); window.location.href = url.toString();">
                         @foreach($hubs->filter(fn ($hub) => $hub->status === 'active') as $hub)<option value="{{ $hub->id }}" @selected((int) $hubId === $hub->id)>{{ $hub->name }}</option>@endforeach
                     </select></div>
                     <div class="col-md-4"><label class="form-label">Date</label><input type="date" name="occurred_on" value="{{ old('occurred_on', now()->toDateString()) }}" class="form-control" required></div>
@@ -172,7 +163,7 @@
                 </div>
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <button class="btn btn-primary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Event Items</button>
-                    <a href="{{ route('event-inventory.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a>
+                    <a href="{{ $eventCancelUrl }}" class="btn btn-outline-secondary">Cancel</a>
                 </div>
             @endif
         </section>
@@ -333,10 +324,7 @@
                     <div class="small text-uppercase fw-bold text-primary">Inventory processing</div>
                     <h5 class="fw-bold mb-0">Orders Awaiting Inventory Pull-Out</h5>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge rounded-pill text-bg-warning">{{ $fullyBookedOrders->count() }} pending</span>
-                    <a id="fullyBookedPageCancel" class="btn btn-sm btn-outline-secondary" href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}">Cancel</a>
-                </div>
+                <span class="badge rounded-pill text-bg-warning">{{ $fullyBookedOrders->count() }} pending</span>
             </div>
             @forelse($fullyBookedOrders as $order)
                 <article class="card border-0 shadow-sm rounded-4 p-3 p-lg-4 mb-3 fully-booked-review-card">
@@ -548,7 +536,6 @@
     const eventFields = document.getElementById('eventFields');
     const fullyBookedFields = document.getElementById('fullyBookedFields');
     const fullyBookedOrders = document.getElementById('fullyBookedOrders');
-    const headingLabel = document.getElementById('activityHeadingLabel');
     const headingTitle = document.getElementById('activityHeadingTitle');
     const headingDescription = document.getElementById('activityHeadingDescription');
     const headingIcon = document.getElementById('activityHeadingIcon');
@@ -571,12 +558,11 @@
         setSectionState(eventFields, !isFullyBooked);
         setSectionState(fullyBookedFields, isFullyBooked);
         if (fullyBookedOrders) fullyBookedOrders.hidden = !isFullyBooked;
-        if (headingLabel) headingLabel.textContent = 'Event / Fully Booked';
         if (headingTitle) headingTitle.textContent = isFullyBooked ? 'Fully Booked' : 'Event';
         if (headingDescription) {
             headingDescription.textContent = isFullyBooked
                 ? 'Review Fully Booked orders and update the selected store inventory.'
-                : 'Record event inventory usage or submit a Fully Booked order attachment for review.';
+                : 'Record inventory pulled out for off-site events.';
         }
         if (headingIcon) {
             headingIcon.classList.toggle('fa-book-open', isFullyBooked);

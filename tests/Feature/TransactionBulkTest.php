@@ -649,8 +649,9 @@ class TransactionBulkTest extends TestCase
 
         $formResponse = $this->get(route('inventory-transactions.sponsor.create', ['hub_id' => $inactiveHub->id]))
             ->assertOk()
-            ->assertSee('<title>Event / Fully Booked</title>', false)
-            ->assertSee('<h1 class="topbar-title">Event / Fully Booked</h1>', false)
+            ->assertSee('<title>Event</title>', false)
+            ->assertSee('<h1 class="topbar-title">Event</h1>', false)
+            ->assertDontSee('Event / Fully Booked')
             ->assertSee('class="page-hero mb-3"', false)
             ->assertSee('href="'.route('event-inventory.index', ['hub_id' => $hub->id]).'" class="btn btn-outline-secondary">Cancel</a>', false)
             ->assertSee('Reference Document No.')
@@ -663,6 +664,14 @@ class TransactionBulkTest extends TestCase
         $this->assertSame($hub->id, $formResponse->viewData('hubId'));
         $formResponse
             ->assertDontSee('<option value="'.$inactiveHub->id.'"', false);
+
+        $this->get(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'event',
+            'return_to' => 'transaction_logs',
+        ]))->assertOk()
+            ->assertSee('href="'.route('inventory-transactions.index', ['hub_id' => $hub->id]).'" class="btn btn-outline-secondary">Cancel</a>', false)
+            ->assertDontSee('href="'.route('event-inventory.index', ['hub_id' => $hub->id]).'" class="btn btn-outline-secondary">Cancel</a>', false);
 
         $response = $this->post(route('inventory-transactions.store'), [
             'type' => 'sponsor_workshop',

@@ -23,6 +23,11 @@ class EventInventoryTest extends TestCase
         $this->actingAs($admin)
             ->get(route('event-inventory.index', ['hub_id' => $hub->id]))
             ->assertOk()
+            ->assertSee(route('inventory-transactions.sponsor.create', [
+                'hub_id' => $hub->id,
+                'activity_type' => 'event',
+                'return_to' => 'event_inventory',
+            ]))
             ->assertSee('No open events found')
             ->assertDontSee('>Create Event Pull-Out</a>', false);
     }
