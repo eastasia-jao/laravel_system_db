@@ -153,12 +153,24 @@ textarea[name="delivery_address"] { resize: none; }
 
 body.sidebar-collapsed #appSidebar { width: var(--ac-sidebar-rail) !important; }
 body.sidebar-collapsed .app-main { margin-left: var(--ac-sidebar-rail); width: calc(100% - var(--ac-sidebar-rail)); }
-body.sidebar-collapsed #appSidebar .brand-copy, body.sidebar-collapsed #appSidebar .nav-link .badge, body.sidebar-collapsed #appSidebar .sidebar-user-copy, body.sidebar-collapsed #appSidebar #sidebarClock { display: none !important; }
+body.sidebar-collapsed #appSidebar .brand-label, body.sidebar-collapsed #appSidebar .nav-link .badge, body.sidebar-collapsed #appSidebar .sidebar-user-copy, body.sidebar-collapsed #appSidebar #sidebarClock { display: none !important; }
 body.sidebar-collapsed #appSidebar .nav-link { width: 44px; padding-inline: 12px !important; overflow: hidden; gap: 1rem !important; }
 body.sidebar-collapsed #appSidebar .collapse { display: none !important; }
 body.sidebar-collapsed #appSidebar #storeHubDropdown { display: none !important; height: 0 !important; visibility: hidden; overflow: hidden !important; }
 
 @media (min-width: 1200px) {
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) { width: var(--ac-sidebar-width) !important; box-shadow: 18px 0 50px rgba(15, 23, 42, .14); }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .sidebar-header { flex-direction: row; align-items: center !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .sidebar-header > .dropdown { margin-left: auto !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .brand-label { display: inline !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .nav-link .badge { display: inline-block !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .sidebar-user-copy { display: flex !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) #sidebarClock { display: inline !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .nav-link { width: auto; justify-content: flex-start; padding-inline: 1rem !important; overflow: visible; gap: 1rem !important; font-size: .84rem !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .nav-link > i:first-child { font-size: inherit; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .nav-link > i:not(:first-child) { display: inline-block !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .collapse.show { display: block !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) #storeHubDropdown.show { display: block !important; height: auto !important; visibility: visible; overflow: visible !important; }
     body.sidebar-collapsed #appSidebar .sidebar-header { flex-direction: column; align-items: center !important; }
     body.sidebar-collapsed #appSidebar .sidebar-header > .dropdown { margin-left: 0 !important; }
     body.sidebar-collapsed #appSidebar .nav-link { justify-content: center; padding-inline: 0 !important; gap: 0 !important; font-size: 0 !important; }
@@ -199,9 +211,13 @@ body.sidebar-collapsed #appSidebar #storeHubDropdown { display: none !important;
     body.sidebar-drawer-open #appSidebar { transform: translateX(0) !important; }
     body.sidebar-drawer-open .sidebar-backdrop { display: block; }
     body.sidebar-drawer-open { overflow: hidden; }
-    body.sidebar-collapsed #appSidebar .brand-copy, body.sidebar-collapsed #appSidebar .sidebar-user-copy, body.sidebar-collapsed #appSidebar #sidebarClock { display: initial !important; }
+    body.sidebar-collapsed #appSidebar .brand-label { display: inline !important; }
+    body.sidebar-collapsed #appSidebar .nav-link .badge { display: inline-block !important; }
+    body.sidebar-collapsed #appSidebar .sidebar-user-copy { display: flex !important; }
+    body.sidebar-collapsed #appSidebar #sidebarClock { display: inline !important; }
     body.sidebar-collapsed #appSidebar .nav-link { width: auto; padding-inline: 1rem !important; overflow: visible; }
     body.sidebar-collapsed #appSidebar .collapse.show { display: block !important; }
+    body.sidebar-collapsed #appSidebar #storeHubDropdown.show { display: block !important; height: auto !important; visibility: visible; overflow: visible !important; }
 }
 
 @media (max-width: 767.98px) {

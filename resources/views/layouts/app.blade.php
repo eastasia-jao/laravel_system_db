@@ -53,7 +53,7 @@
 
 <link rel="stylesheet" href="{{ asset('app-alert.css') }}?v=20260929-branch-transfer-popup2">
 </head>
-<body class="app-shell">
+<body class="app-shell sidebar-collapsed">
     <div class="app-layout">
         @include('layouts.sidebar')
         <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
@@ -102,32 +102,15 @@
 @include('layouts.popup-messages')
 <script>
     (() => {
-        const toggle = document.getElementById('sidebarToggle');
         const mobileToggle = document.getElementById('mobileSidebarToggle');
         const moreToggle = document.getElementById('mobileMoreToggle');
         const backdrop = document.getElementById('sidebarBackdrop');
-        const preferenceKey = 'art-caravan-sidebar-collapsed-{{ auth()->id() }}';
         const isOverlay = () => window.matchMedia('(max-width: 1199.98px)').matches;
-        const setCollapsed = (collapsed, persist = true) => {
-            document.body.classList.toggle('sidebar-collapsed', collapsed);
-            if (collapsed) {
-                const storeHubMenu = document.getElementById('storeHubDropdown');
-                storeHubMenu?.classList.remove('show');
-                document.querySelector('[href="#storeHubDropdown"]')?.setAttribute('aria-expanded', 'false');
-            }
-            if (persist) localStorage.setItem(preferenceKey, collapsed ? '1' : '0');
-            if (toggle) {
-                toggle.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
-                toggle.setAttribute('aria-label', toggle.title);
-            }
-        };
         const setDrawerOpen = open => {
             document.body.classList.toggle('sidebar-drawer-open', open);
             mobileToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
         };
 
-        setCollapsed(localStorage.getItem(preferenceKey) === '1', false);
-        toggle?.addEventListener('click', () => setCollapsed(!document.body.classList.contains('sidebar-collapsed')));
         mobileToggle?.addEventListener('click', () => setDrawerOpen(true));
         moreToggle?.addEventListener('click', () => setDrawerOpen(true));
         backdrop?.addEventListener('click', () => setDrawerOpen(false));
