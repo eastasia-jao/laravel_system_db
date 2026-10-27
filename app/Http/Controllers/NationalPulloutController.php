@@ -126,6 +126,7 @@ class NationalPulloutController extends Controller
                 ->map(fn (NationalProduct $product) => [
                     'name' => $product->name,
                     'item_id' => $product->item_id,
+                    'barcode' => $product->barcode,
                     'quantity' => '',
                     'purpose' => 'National Bookstore Pullout',
                     'physical_stock' => (int) $product->stock,
@@ -136,6 +137,9 @@ class NationalPulloutController extends Controller
             'po_number' => trim((string) $request->input('po_number')),
             'occurred_on' => (string) $request->input('occurred_on'),
             'remarks' => trim((string) ($validated['remarks'] ?? '')),
+            'include_barcode' => true,
+            'top_align_metadata' => true,
+            'left_align_metadata' => true,
         ]);
 
         return response()->download(
@@ -149,10 +153,11 @@ class NationalPulloutController extends Controller
     {
         $hub = $this->headOffice($request);
         abort_unless((int) $nationalPullout->store_hub_id === (int) $hub->id, 403);
-        $nationalPullout->load('items');
+        $nationalPullout->load('items.product');
         $items = $nationalPullout->items->map(fn ($item) => [
             'name' => $item->product_name,
             'item_id' => $item->item_id,
+            'barcode' => $item->product?->barcode,
             'quantity' => $item->quantity,
             'purpose' => $item->purpose,
             'physical_stock' => $item->physical_stock,
@@ -162,6 +167,9 @@ class NationalPulloutController extends Controller
             'po_number' => $nationalPullout->po_number,
             'occurred_on' => $nationalPullout->occurred_on->format('Y-m-d'),
             'remarks' => $nationalPullout->remarks ?? '',
+            'include_barcode' => true,
+            'top_align_metadata' => true,
+            'left_align_metadata' => true,
         ]);
 
         return response()->download(
@@ -199,13 +207,18 @@ class NationalPulloutController extends Controller
             return [
                 'name' => $product->name,
                 'item_id' => $product->item_id,
+                'barcode' => $product->barcode,
                 'quantity' => $item['quantity'] ?? '',
                 'purpose' => 'National Bookstore Pullout',
                 'physical_stock' => (int) $product->stock,
                 'actual_pullout' => $item['actual_pullout'] ?? '',
             ];
         })->all();
-        $path = NationalPulloutWorkbook::create($items, $validated);
+        $path = NationalPulloutWorkbook::create($items, $validated + [
+            'include_barcode' => true,
+            'top_align_metadata' => true,
+            'left_align_metadata' => true,
+        ]);
 
         return response()->download(
             $path,

@@ -102,7 +102,7 @@ class NationalPulloutTest extends TestCase
         $worksheet = $archive['xl/worksheets/sheet1.xml']->getContent();
         $this->assertStringContainsString($product->name, $worksheet);
         $this->assertStringContainsString('<c r="C3" s="4"/>', $worksheet);
-        $this->assertStringContainsString('<c r="F3" s="4"/>', $worksheet);
+        $this->assertStringContainsString('<c r="F3" s="4" t="n"><v>10</v></c>', $worksheet);
     }
 
     public function test_excel_worksheet_has_the_requested_print_layout_and_product_columns(): void
@@ -142,15 +142,17 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString('paperSize="1" orientation="portrait" fitToWidth="1"', $sheet);
             $this->assertStringContainsString('left="0.6" right="0.6" top="0.6" bottom="0.6"', $sheet);
             $this->assertStringContainsString('width="9.5" customWidth="1"', $sheet);
+            $this->assertStringContainsString('dimension ref="A1:G3"', $sheet);
             $this->assertStringContainsString('r="1" ht="45" customHeight="1"', $sheet);
             $this->assertStringContainsString('r="2" ht="35" customHeight="1"', $sheet);
             $this->assertStringContainsString('r="3" ht="25" customHeight="1"', $sheet);
             $this->assertStringContainsString('name="_xlnm.Print_Titles"', $workbookXml);
-            $this->assertStringContainsString('dimension ref="A1:F3"', $sheet);
             $this->assertStringContainsString('<mergeCell ref="B1:C1"/>', $sheet);
-            $this->assertStringContainsString('<mergeCell ref="E1:F1"/>', $sheet);
+            $this->assertStringContainsString('<mergeCell ref="E1:G1"/>', $sheet);
             $this->assertStringContainsString('NBS', $sheet);
-            $this->assertStringContainsString('r="B1" s="3"', $sheet);
+            $this->assertStringContainsString('r="B1" s="7"', $sheet);
+            $this->assertStringContainsString('r="D1" s="7"', $sheet);
+            $this->assertStringContainsString('r="E1" s="7"', $sheet);
             $this->assertStringContainsString('P.O. #: PO-5001', $sheet);
             $this->assertStringContainsString('Date: 2026-10-13', $sheet);
             $this->assertStringContainsString('Remarks: National Bookstore replenishment', $sheet);
@@ -159,6 +161,7 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString('Item ID', $sheet);
             $this->assertStringContainsString('Product Item Name', $sheet);
             $this->assertStringContainsString('Qty', $sheet);
+            $this->assertStringContainsString('BARCODE', $sheet);
             $this->assertStringContainsString('Purpose', $sheet);
             $this->assertStringContainsString('Physical Stocks', $sheet);
             $this->assertStringContainsString('Actual Pull-out', $sheet);
@@ -167,8 +170,9 @@ class NationalPulloutTest extends TestCase
             $this->assertStringContainsString($product->name, $sheet);
             $this->assertStringContainsString($product->item_id.'</t>', $sheet);
             $this->assertStringContainsString('<c r="C3" s="4"/>', $sheet);
-            $this->assertStringContainsString('<c r="F3" s="4"/>', $sheet);
-            $this->assertStringContainsString('wrapText="1"', $styles);
+            $this->assertStringContainsString($product->barcode.'</t>', $sheet);
+            $this->assertStringContainsString('<c r="G3" s="4"/>', $sheet);
+            $this->assertStringContainsString('horizontal="left" vertical="top" wrapText="1"', $styles);
 
             $headerOnly = $this->actingAs($admin)->get(route('national-pullouts.excel-worksheet', [
                 'hub_id' => $headOffice->id,
@@ -177,7 +181,7 @@ class NationalPulloutTest extends TestCase
             $headerOnlyPath = $headerOnly->baseResponse->getFile()->getPathname();
             $headerOnlyWorkbook = new \PharData($headerOnlyPath, 0, null, \Phar::ZIP);
             $headerOnlySheet = $headerOnlyWorkbook['xl/worksheets/sheet1.xml']->getContent();
-            $this->assertStringContainsString('dimension ref="A1:F12"', $headerOnlySheet);
+            $this->assertStringContainsString('dimension ref="A1:G12"', $headerOnlySheet);
             $this->assertStringContainsString('<row r="3" ht="25" customHeight="1">', $headerOnlySheet);
             $this->assertStringContainsString('<c r="A3" s="1"/>', $headerOnlySheet);
             $this->assertStringContainsString('<c r="B3" s="1"/>', $headerOnlySheet);
@@ -233,6 +237,7 @@ class NationalPulloutTest extends TestCase
         $product = $this->product();
         $path = \App\Support\NationalPulloutWorkbook::create([[
             'name' => $product->name,
+            'barcode' => $product->barcode,
             'quantity' => 5,
             'purpose' => 'National Bookstore Pullout',
             'physical_stock' => 10,
@@ -241,6 +246,8 @@ class NationalPulloutTest extends TestCase
             'po_number' => 'PO-IMPORT-1',
             'occurred_on' => '2026-10-13',
             'remarks' => 'Imported worksheet',
+            'include_barcode' => true,
+            'top_align_metadata' => true,
         ]);
 
         try {
@@ -291,6 +298,8 @@ class NationalPulloutTest extends TestCase
             $sheet = $workbook['xl/worksheets/sheet1.xml']->getContent();
             $this->assertStringContainsString('P.O. #: PO-EXPORT-1', $sheet);
             $this->assertStringContainsString($product->name, $sheet);
+            $this->assertStringContainsString($product->barcode.'</t>', $sheet);
+            $this->assertStringContainsString('BARCODE', $sheet);
             $this->assertStringContainsString('<v>5</v>', $sheet);
             $this->assertStringContainsString('<v>3</v>', $sheet);
         } finally {

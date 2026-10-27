@@ -104,8 +104,8 @@ class NationalPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, item_id?: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
-     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string, top_align_metadata?: bool}  $document
+     * @param  list<array{name: string, item_id?: string, barcode?: string|null, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
+     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string, top_align_metadata?: bool, left_align_metadata?: bool, include_barcode?: bool}  $document
      */
     public static function create(array $items, array $document = []): string
     {
@@ -228,43 +228,75 @@ class NationalPulloutWorkbook
     }
 
     /**
-     * @param  list<array{name: string, item_id?: string, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
-     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string, top_align_metadata?: bool}  $document
+     * @param  list<array{name: string, item_id?: string, barcode?: string|null, quantity: int|string, purpose: string, physical_stock: int|string, actual_pullout: int|string}>  $items
+     * @param  array{po_number?: string, occurred_on?: string, remarks?: string, brand?: string, reference_label?: string, top_align_metadata?: bool, left_align_metadata?: bool, include_barcode?: bool}  $document
      * @return array<string, string>
      */
     private static function workbookFiles(array $items, array $document): array
     {
         $blankRows = $items === [] ? 10 : 0;
         $lastRow = count($items) + $blankRows + 2;
-        $metadataStyle = ($document['top_align_metadata'] ?? false) ? 6 : 3;
+        $includeBarcode = $document['include_barcode'] ?? false;
+        $lastColumn = $includeBarcode ? 'G' : 'F';
+        $metadataStyle = ($document['left_align_metadata'] ?? false)
+            ? 7
+            : (($document['top_align_metadata'] ?? false) ? 6 : 3);
+        $metadataValues = [
+            $document['brand'] ?? 'NBS',
+            ($document['reference_label'] ?? 'P.O. #:').' '.($document['po_number'] ?? ''),
+            '',
+            'Date: '.($document['occurred_on'] ?? ''),
+            'Remarks: '.($document['remarks'] ?? ''),
+            '',
+        ];
+        if ($includeBarcode) {
+            $metadataValues[] = '';
+        }
+        $headers = ['Item ID', 'Product Item Name', 'Qty'];
+        if ($includeBarcode) {
+            $headers[] = 'BARCODE';
+        }
+        array_push($headers, 'Purpose', 'Physical Stocks', 'Actual Pull-out');
         $rows = [
-            self::rowXml(1, [
-                $document['brand'] ?? 'NBS',
-                ($document['reference_label'] ?? 'P.O. #:').' '.($document['po_number'] ?? ''),
-                '',
-                'Date: '.($document['occurred_on'] ?? ''),
-                'Remarks: '.($document['remarks'] ?? ''),
-                '',
-            ], 45, $metadataStyle, [0 => 5]),
-            self::rowXml(2, ['Item ID', 'Product Item Name', 'Qty', 'Purpose', 'Physical Stocks', 'Actual Pull-out'], 35, 2),
+            self::rowXml(1, $metadataValues, 45, $metadataStyle, [0 => 5]),
+            self::rowXml(2, $headers, 35, 2),
         ];
 
         foreach ($items as $index => $item) {
             $row = $index + 3;
-            $rows[] = self::rowXml($row, [
+            $values = [
                 $item['item_id'] ?? '',
                 $item['name'],
                 $item['quantity'],
-                $item['purpose'],
-                $item['physical_stock'],
-                $item['actual_pullout'],
-            ], 25, 1, [2 => 4, 4 => 4, 5 => 4]);
+            ];
+            if ($includeBarcode) {
+                $values[] = $item['barcode'] ?? '';
+            }
+            array_push($values, $item['purpose'], $item['physical_stock'], $item['actual_pullout']);
+            $rows[] = self::rowXml($row, $values, 25, 1, $includeBarcode ? [2 => 4, 5 => 4, 6 => 4] : [2 => 4, 4 => 4, 5 => 4]);
         }
         for ($index = 0; $index < $blankRows; $index++) {
-            $rows[] = self::rowXml(count($items) + $index + 3, array_fill(0, 6, ''), 25, 1, [2 => 4, 4 => 4, 5 => 4]);
+            $rows[] = self::rowXml(
+                count($items) + $index + 3,
+                array_fill(0, $includeBarcode ? 7 : 6, ''),
+                25,
+                1,
+                $includeBarcode ? [2 => 4, 5 => 4, 6 => 4] : [2 => 4, 4 => 4, 5 => 4]
+            );
         }
 
         $sheetData = implode('', $rows);
+        $columnWidths = [18, 48, 9.5];
+        if ($includeBarcode) {
+            $columnWidths[] = 20;
+        }
+        array_push($columnWidths, 20, 18, 16);
+        $columns = '';
+        foreach ($columnWidths as $index => $width) {
+            $columnNumber = $index + 1;
+            $columns .= '<col min="'.$columnNumber.'" max="'.$columnNumber.'" width="'.$width.'" customWidth="1"/>';
+        }
+        $remarksEndColumn = $includeBarcode ? 'G' : 'F';
 
         return [
             '[Content_Types].xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -282,7 +314,7 @@ class NationalPulloutWorkbook
             'xl/workbook.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 .'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
                 .'<sheets><sheet name="Pullout" sheetId="1" r:id="rId1"/></sheets>'
-                .'<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'Pullout\'!$A$1:$F$'.$lastRow.'</definedName>'
+                .'<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'Pullout\'!$A$1:$'.$lastColumn.'$'.$lastRow.'</definedName>'
                 .'<definedName name="_xlnm.Print_Titles" localSheetId="0">\'Pullout\'!$1:$2</definedName></definedNames>'
                 .'</workbook>',
             'xl/_rels/workbook.xml.rels' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -294,17 +326,12 @@ class NationalPulloutWorkbook
             'xl/worksheets/sheet1.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
                 .'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
-                .'<dimension ref="A1:F'.$lastRow.'"/>'
+                .'<dimension ref="A1:'.$lastColumn.$lastRow.'"/>'
                 .'<sheetViews><sheetView showGridLines="0" workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews>'
                 .'<sheetFormatPr defaultRowHeight="15"/>'
-                .'<cols><col min="1" max="1" width="18" customWidth="1"/>'
-                .'<col min="2" max="2" width="48" customWidth="1"/>'
-                .'<col min="3" max="3" width="9.5" customWidth="1"/>'
-                .'<col min="4" max="4" width="20" customWidth="1"/>'
-                .'<col min="5" max="5" width="18" customWidth="1"/>'
-                .'<col min="6" max="6" width="16" customWidth="1"/></cols>'
+                .'<cols>'.$columns.'</cols>'
                 .'<sheetData>'.$sheetData.'</sheetData>'
-                .'<mergeCells count="2"><mergeCell ref="B1:C1"/><mergeCell ref="E1:F1"/></mergeCells>'
+                .'<mergeCells count="2"><mergeCell ref="B1:C1"/><mergeCell ref="E1:'.$remarksEndColumn.'1"/></mergeCells>'
                 .'<printOptions gridLines="0" horizontalCentered="0" verticalCentered="0"/>'
                 .'<pageMargins left="0.6" right="0.6" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'
                 .'<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/>'
@@ -361,13 +388,14 @@ class NationalPulloutWorkbook
             .'<border><left style="thin"><color rgb="FF64748B"/></left><right style="thin"><color rgb="FF64748B"/></right>'
             .'<top style="thin"><color rgb="FF64748B"/></top><bottom style="thin"><color rgb="FF64748B"/></bottom><diagonal/></border></borders>'
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            .'<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            .'<cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .'<xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0"><alignment vertical="center" shrinkToFit="1"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"><alignment vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"><alignment vertical="top" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>'
             .'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             .'</styleSheet>';
     }
