@@ -3,12 +3,23 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Support\ActiveUserSession;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Cache::flush();
+    }
 
     public function test_login_screen_can_be_rendered(): void
     {
@@ -27,7 +38,43 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
+        $this->assertTrue(ActiveUserSession::hasActiveSession($user->id));
         $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_an_account_with_an_active_session_cannot_log_in_on_another_device(): void
+    {
+        $user = User::factory()->create();
+        ActiveUserSession::claim($user->id, 'another-device-session');
+
+        $response = $this->from('/login')->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/login')->assertSessionHasErrors([
+            'username' => ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE,
+        ]);
+
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Account already logged in')
+            ->assertSee(ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE);
+    }
+
+    public function test_an_abandoned_session_stops_blocking_login_after_the_inactivity_window(): void
+    {
+        $user = User::factory()->create();
+        ActiveUserSession::claim($user->id, 'abandoned-device-session');
+        $this->travel(16)->minutes();
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
@@ -100,13 +147,47 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_browser_inactivity_endpoint_returns_to_login_without_a_csrf_token(): void
+    {
+        $user = User::factory()->create();
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->post(route('session.timeout'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('warning', 'You were signed out after 15 minutes of inactivity. Please sign in again.');
+
+        $this->assertGuest();
+        $this->assertFalse(ActiveUserSession::hasActiveSession($user->id));
+    }
+
+    public function test_an_expired_csrf_token_redirects_to_login_instead_of_rendering_419(): void
+    {
+        Route::middleware('web')->get('/test-expired-session', function () {
+            throw new TokenMismatchException;
+        });
+
+        $this->get('/test-expired-session')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('warning', 'Your session expired. Please sign in again.');
+    }
+
     public function test_users_can_logout(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/logout');
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ]);
+
+        $response = $this->post('/logout');
 
         $this->assertGuest();
+        $this->assertFalse(ActiveUserSession::hasActiveSession($user->id));
         $response->assertRedirect(route('login'));
     }
 }

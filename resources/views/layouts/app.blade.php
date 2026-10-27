@@ -124,7 +124,7 @@
     (() => {
         const timeoutMilliseconds = {{ (int) config('session.lifetime') * 60 * 1000 }};
         const activityUrl = @json(route('session.activity'));
-        const logoutUrl = @json(route('logout'));
+        const timeoutUrl = @json(route('session.timeout'));
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         let logoutTimer;
         let lastActivitySync = 0;
@@ -132,8 +132,7 @@
         const signOutForInactivity = () => {
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = logoutUrl;
-            form.innerHTML = `<input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="idle_logout" value="1">`;
+            form.action = timeoutUrl;
             document.body.appendChild(form);
             form.submit();
         };

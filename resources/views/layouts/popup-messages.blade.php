@@ -17,10 +17,13 @@
     $popupErrors = collect($errors->getBags())->flatMap(fn ($bag) => $bag->all())->unique()->values()->all();
     if ($popupErrors) {
         $inactiveAccountMessage = 'This account is inactive. Please contact the administrator to restore access.';
+        $alreadyLoggedInMessage = \App\Support\ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE;
         $popupMessages[] = [
             'text' => implode("\n", $popupErrors),
             'type' => 'error',
-            'title' => in_array($inactiveAccountMessage, $popupErrors, true) ? 'Account inactive' : null,
+            'title' => in_array($inactiveAccountMessage, $popupErrors, true)
+                ? 'Account inactive'
+                : (in_array($alreadyLoggedInMessage, $popupErrors, true) ? 'Account already logged in' : null),
         ];
     }
 @endphp

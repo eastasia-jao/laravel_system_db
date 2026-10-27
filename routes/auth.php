@@ -29,6 +29,9 @@ Route::middleware('guest')->group(function () {
         ->name('password.store');
 });
 
+Route::post('session/timeout', [AuthenticatedSessionController::class, 'timeout'])
+    ->name('session.timeout');
+
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');

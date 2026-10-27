@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use App\Models\User;
+use App\Support\ActiveUserSession;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -80,6 +81,15 @@ class LoginRequest extends FormRequest
 
             throw ValidationException::withMessages([
                 $field => trans('auth.failed'),
+            ]);
+        }
+
+        if (ActiveUserSession::hasActiveSession((int) Auth::id())) {
+            Auth::guard('web')->logout();
+            RateLimiter::clear($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                $field => ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE,
             ]);
         }
 

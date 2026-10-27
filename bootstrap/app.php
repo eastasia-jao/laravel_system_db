@@ -1,10 +1,13 @@
 <?php
 
-use App\Http\Middleware\EnsureUserBelongsToHub;
 use App\Http\Middleware\EnforceIdleSessionTimeout;
+use App\Http\Middleware\EnsureUserBelongsToHub;
+use App\Support\ActiveUserSession;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
 
         $middleware->redirectUsersTo(fn () => route('dashboard'));
+        $middleware->validateCsrfTokens(except: [
+            'session/timeout',
+        ]);
 
         $middleware->alias([
             'hub.access' => EnsureUserBelongsToHub::class,
@@ -26,5 +32,29 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->respond(function (Response $response) {
+            if ($response->getStatusCode() !== 419) {
+                return $response;
+            }
+
+            $request = request();
+            $user = Auth::guard('web')->user();
+            if ($user && $request->hasSession()) {
+                ActiveUserSession::release(
+                    (int) $user->id,
+                    (string) $request->session()->get('active_user_session_token')
+                );
+            }
+
+            Auth::guard('web')->logout();
+            if ($request->hasSession()) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+
+            return redirect()->route('login')->with(
+                'warning',
+                'Your session expired. Please sign in again.'
+            );
+        });
     })->create();
