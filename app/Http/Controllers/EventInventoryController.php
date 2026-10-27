@@ -137,6 +137,19 @@ class EventInventoryController extends Controller
             'mode_of_payment' => ['required', Rule::in(['CASH', 'GCASH', 'BDO', 'BPI', 'PAYMAYA', 'OTHERS'])],
             'custom_mop' => ['nullable', 'required_if:mode_of_payment,OTHERS', 'string', 'max:100'],
             'additional_discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
+            'event_promotion_type' => ['nullable', Rule::in(['coupon', 'voucher'])],
+            'event_promotion_value_type' => ['nullable', 'required_with:event_promotion_type', Rule::in(['amount', 'percentage'])],
+            'event_promotion_value' => [
+                'nullable',
+                'required_with:event_promotion_type',
+                'numeric',
+                'min:0',
+                function (string $attribute, mixed $value, $fail) use ($request) {
+                    if ($request->input('event_promotion_value_type') === 'percentage' && (float) $value > 100) {
+                        $fail('The coupon or voucher percentage cannot exceed 100%.');
+                    }
+                },
+            ],
             'note' => ['nullable', 'string', 'max:150'],
             'order_slip_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'item_images' => ['nullable', 'array', 'max:5'],
@@ -149,6 +162,14 @@ class EventInventoryController extends Controller
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.discount_percentage' => ['nullable', 'numeric', 'between:0,100'],
         ]);
+
+        $hasDiscountedItem = collect($validated['items'])
+            ->contains(fn (array $item) => (float) ($item['discount_percentage'] ?? 0) > 0);
+        if ($hasDiscountedItem && filled($validated['event_promotion_type'] ?? null)) {
+            throw ValidationException::withMessages([
+                'event_promotion_type' => 'Coupons and vouchers cannot be used when a product item already has a discount.',
+            ]);
+        }
 
         $attachmentPaths = [
             'order_slip' => null,
@@ -267,7 +288,15 @@ class EventInventoryController extends Controller
                     return round($gross * (1 - ((float) ($item['discount_percentage'] ?? 0) / 100)), 2);
                 });
                 $additionalDiscountPercentage = (float) ($validated['additional_discount_percentage'] ?? 0);
-                $grandTotal = round($subTotal * (1 - ($additionalDiscountPercentage / 100)), 2);
+                $discountedSubTotal = round($subTotal * (1 - ($additionalDiscountPercentage / 100)), 2);
+                $promotionType = $validated['event_promotion_type'] ?? null;
+                $promotionValueType = $promotionType ? ($validated['event_promotion_value_type'] ?? null) : null;
+                $promotionValue = $promotionType ? (float) ($validated['event_promotion_value'] ?? 0) : 0;
+                $promotionDiscountAmount = $promotionValueType === 'percentage'
+                    ? round($discountedSubTotal * ($promotionValue / 100), 2)
+                    : round($promotionValue, 2);
+                $promotionDiscountAmount = min($discountedSubTotal, $promotionDiscountAmount);
+                $grandTotal = round(max(0, $discountedSubTotal - $promotionDiscountAmount), 2);
                 $sale = SalesTransaction::create([
                     'user_id' => $request->user()->id,
                     'store_hub_id' => $event->store_hub_id,
@@ -284,6 +313,10 @@ class EventInventoryController extends Controller
                     'note' => $validated['note'] ?? null,
                     'sub_total' => $subTotal,
                     'additional_discount_percentage' => $additionalDiscountPercentage,
+                    'event_promotion_type' => $promotionType,
+                    'event_promotion_value_type' => $promotionValueType,
+                    'event_promotion_value' => $promotionValue,
+                    'event_promotion_discount_amount' => $promotionDiscountAmount,
                     'total_amount' => $grandTotal,
                     'grand_total' => $grandTotal,
                     'status' => 'confirmed',

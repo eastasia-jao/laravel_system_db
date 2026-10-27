@@ -25,6 +25,8 @@ class SalesTransaction extends Model
         'sales_after_transaction_fee' => 'decimal:2',
         'tiktok_recalculated_payout' => 'decimal:2',
         'additional_discount_percentage' => 'decimal:2',
+        'event_promotion_value' => 'decimal:2',
+        'event_promotion_discount_amount' => 'decimal:2',
         'withholding_tax' => 'decimal:2',
         'withholding_tax_amount' => 'decimal:2',
         'wholesale_withholding_tax' => 'decimal:2',

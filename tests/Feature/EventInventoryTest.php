@@ -79,6 +79,10 @@ class EventInventoryTest extends TestCase
             ->assertSee('maxlength="150"', false)
             ->assertSee('event-sale-remarks')
             ->assertSee('popup-event-price-display')
+            ->assertSee('popupEventPromotionType')
+            ->assertSee('popupEventPromotionValueType')
+            ->assertSee('popupEventPromotionValue')
+            ->assertSee('popupEventPromotionUnavailable')
             ->assertSee('closeEventConfirmModal')
             ->assertSee('Any remaining quantity will be recorded as missing.')
             ->assertSee('Close Event')
@@ -137,6 +141,9 @@ class EventInventoryTest extends TestCase
             'payment_status' => 'partial',
             'amount_paid' => 1,
             'additional_discount_percentage' => 5,
+            'event_promotion_type' => 'voucher',
+            'event_promotion_value_type' => 'amount',
+            'event_promotion_value' => 25,
             'order_slip_image' => $this->fakePng('order-slip.png'),
             'item_images' => [
                 $this->fakePng('event-1.png'),
@@ -149,7 +156,7 @@ class EventInventoryTest extends TestCase
                 'stock_condition' => 'good',
                 'quantity' => 2,
                 'unit_price' => 1,
-                'discount_percentage' => 10,
+                'discount_percentage' => 0,
             ]],
         ])->assertSessionHasNoErrors();
 
@@ -162,18 +169,22 @@ class EventInventoryTest extends TestCase
         $this->assertSame('OTHERS', $sale->mode_of_payment);
         $this->assertSame('Cooperative Voucher', $sale->custom_mop);
         $this->assertSame('paid', $sale->payment_status);
-        $this->assertSame('270.00', $sale->sub_total);
-        $this->assertSame('256.50', $sale->grand_total);
-        $this->assertSame('256.50', $sale->amount_paid);
+        $this->assertSame('300.00', $sale->sub_total);
+        $this->assertSame('voucher', $sale->event_promotion_type);
+        $this->assertSame('amount', $sale->event_promotion_value_type);
+        $this->assertSame('25.00', $sale->event_promotion_value);
+        $this->assertSame('25.00', $sale->event_promotion_discount_amount);
+        $this->assertSame('260.00', $sale->grand_total);
+        $this->assertSame('260.00', $sale->amount_paid);
         $this->assertNotEmpty($sale->event_attachments['order_slip']);
         $this->assertCount(3, $sale->event_attachments['item_images']);
         $this->assertNotEmpty($sale->event_attachments['proof_of_payment']);
         foreach (collect($sale->event_attachments)->flatten() as $attachment) {
             Storage::disk('event-attachments')->assertExists($attachment);
         }
-        $this->assertEquals(10.00, $sale->items()->sole()->discount_percentage);
+        $this->assertEquals(0.00, $sale->items()->sole()->discount_percentage);
         $this->assertEquals(150.00, $sale->items()->sole()->unit_price);
-        $this->assertEquals(270.00, $sale->items()->sole()->line_total);
+        $this->assertEquals(300.00, $sale->items()->sole()->line_total);
         $this->assertSame($stockAfterPullout, (int) $product->fresh()->stock);
         $this->assertDatabaseHas('inventory_transactions', [
             'event_pullout_id' => $event->id,
@@ -201,6 +212,9 @@ class EventInventoryTest extends TestCase
             'section' => 'transactions',
         ]))->assertOk()
             ->assertSee('Cooperative Voucher')
+            ->assertSee('Coupon / Voucher')
+            ->assertSee('Voucher')
+            ->assertSee('Deduction: -&#8369;25.00', false)
             ->assertSee('Order Slip Image')
             ->assertSee('Item Images')
             ->assertSee('Proof of Payment');
@@ -240,6 +254,69 @@ class EventInventoryTest extends TestCase
         $this->post(route('inventory-transactions.return.store'), $returnPayload)
             ->assertSessionHasNoErrors();
         $this->assertSame($stockAfterPullout + 3, (int) $product->fresh()->stock);
+    }
+
+    public function test_event_sale_applies_a_percentage_coupon_after_existing_discounts(): void
+    {
+        [$admin, $hub, $product] = $this->eventFixture();
+        $event = $this->createEvent($admin, $hub, $product, 3);
+        $line = $event->items()->sole();
+
+        $this->actingAs($admin)->post(route('event-inventory.sales.store', $event), [
+            'order_date' => '2026-10-15',
+            'order_number' => 'EVENT-'.$event->id.'-20261015123000-CD34',
+            'mode_of_payment' => 'CASH',
+            'additional_discount_percentage' => 10,
+            'event_promotion_type' => 'coupon',
+            'event_promotion_value_type' => 'percentage',
+            'event_promotion_value' => 10,
+            'items' => [[
+                'event_pullout_item_id' => $line->id,
+                'stock_condition' => 'good',
+                'quantity' => 1,
+                'unit_price' => 150,
+                'discount_percentage' => 0,
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $sale = SalesTransaction::where('event_pullout_id', $event->id)->sole();
+        $this->assertSame('150.00', $sale->sub_total);
+        $this->assertSame('coupon', $sale->event_promotion_type);
+        $this->assertSame('percentage', $sale->event_promotion_value_type);
+        $this->assertSame('10.00', $sale->event_promotion_value);
+        $this->assertSame('13.50', $sale->event_promotion_discount_amount);
+        $this->assertSame('121.50', $sale->grand_total);
+        $this->assertSame('121.50', $sale->amount_paid);
+    }
+
+    public function test_event_sale_rejects_coupon_or_voucher_when_a_product_item_has_a_discount(): void
+    {
+        [$admin, $hub, $product] = $this->eventFixture();
+        $event = $this->createEvent($admin, $hub, $product, 3);
+        $line = $event->items()->sole();
+        $basePayload = [
+            'order_date' => '2026-10-15',
+            'order_number' => 'EVENT-'.$event->id.'-20261015124500-EF56',
+            'mode_of_payment' => 'CASH',
+            'items' => [[
+                'event_pullout_item_id' => $line->id,
+                'stock_condition' => 'good',
+                'quantity' => 1,
+                'unit_price' => 150,
+                'discount_percentage' => 10,
+            ]],
+        ];
+
+        foreach ([
+            ['event_promotion_type' => 'coupon', 'event_promotion_value_type' => 'amount', 'event_promotion_value' => 10],
+            ['event_promotion_type' => 'voucher', 'event_promotion_value_type' => 'percentage', 'event_promotion_value' => 10],
+        ] as $promotion) {
+            $this->actingAs($admin)
+                ->post(route('event-inventory.sales.store', $event), array_replace($basePayload, $promotion))
+                ->assertSessionHasErrors('event_promotion_type');
+        }
+
+        $this->assertDatabaseCount('sales_transactions', 0);
     }
 
     public function test_event_return_rejects_returning_damaged_pullout_stock_as_good(): void
@@ -539,6 +616,12 @@ class EventInventoryTest extends TestCase
         $this->post(route('event-inventory.sales.store', $event), array_replace($basePayload, [
             'note' => str_repeat('R', 151),
         ]))->assertSessionHasErrors('note');
+
+        $this->post(route('event-inventory.sales.store', $event), array_replace($basePayload, [
+            'event_promotion_type' => 'coupon',
+            'event_promotion_value_type' => 'percentage',
+            'event_promotion_value' => 101,
+        ]))->assertSessionHasErrors('event_promotion_value');
 
         $this->assertDatabaseCount('sales_transactions', 0);
     }

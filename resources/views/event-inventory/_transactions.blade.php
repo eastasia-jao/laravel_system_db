@@ -140,9 +140,13 @@
                                 $paymentLabel = $group['sale']->mode_of_payment === 'OTHERS'
                                     ? ($group['sale']->custom_mop ?: 'Others')
                                     : ($paymentLabels[$group['sale']->mode_of_payment] ?? ($group['sale']->mode_of_payment ?: 'Not specified'));
+                                $promotionLabel = ucfirst((string) $group['sale']->event_promotion_type);
                             @endphp
                             <div class="col-md-6"><div class="event-log-meta"><div class="label">Activity</div><div class="fw-semibold mt-1">{{ $effect }}</div>@if($group['notes'])<div class="small text-muted mt-1">{{ $group['notes'] }}</div>@endif</div></div>
                             <div class="col-md-6"><div class="event-log-meta"><div class="label">Payment</div><div class="fw-semibold mt-1">{{ $paymentLabel }}</div><div class="small text-muted">{{ ucfirst($group['sale']->payment_status ?: 'paid') }}</div></div></div>
+                            @if($group['sale']->event_promotion_type)
+                                <div class="col-md-6"><div class="event-log-meta"><div class="label">Coupon / Voucher</div><div class="fw-semibold mt-1">{{ $promotionLabel }} &middot; @if($group['sale']->event_promotion_value_type === 'percentage'){{ number_format((float) $group['sale']->event_promotion_value, 2) }}%@else&#8369;{{ number_format((float) $group['sale']->event_promotion_value, 2) }}@endif</div><div class="small text-danger">Deduction: -&#8369;{{ number_format((float) $group['sale']->event_promotion_discount_amount, 2) }}</div></div></div>
+                            @endif
                         @else
                             @if($group['type'] !== 'sold')
                                 <div class="col-md-6"><div class="event-log-meta"><div class="label">Inventory Effect</div><div class="fw-semibold mt-1">{{ $headOfficeEffect }}</div><div class="small text-muted">Event balance {{ $eventEffect }}{{ $group['quantity'] }}</div></div></div>

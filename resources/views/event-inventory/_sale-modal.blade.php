@@ -112,7 +112,26 @@
                                 <div class="col-12 col-md-6" id="popupCustomMopWrap" hidden><label class="form-label fw-semibold" for="popupCustomMop">Specify Payment Method</label><input name="custom_mop" id="popupCustomMop" value="{{ old('custom_mop') }}" class="form-control" maxlength="100" placeholder="Enter payment method"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" for="popupSaleNote">Remarks</label><textarea name="note" id="popupSaleNote" class="form-control event-sale-remarks" rows="3" maxlength="150">{{ old('note') }}</textarea><div class="form-text">Maximum 150 characters.</div></div>
                             </div></div>
-                            <div class="col-lg-5"><div class="event-sale-summary p-3 h-100"><div class="d-flex justify-content-between mb-3"><span>Items subtotal</span><strong id="popupEventSubtotal">&#8369;0.00</strong></div><div class="row g-2 align-items-center mb-3"><div class="col"><label class="form-label mb-0">Additional Discount</label></div><div class="col-5"><div class="input-group"><input type="number" name="additional_discount_percentage" id="popupAdditionalDiscount" min="0" max="100" step="0.01" value="{{ old('additional_discount_percentage', 0) }}" class="form-control text-end"><span class="input-group-text">%</span></div></div></div><div class="border-top pt-3 d-flex justify-content-between align-items-end"><strong>Grand Total</strong><strong class="fs-4 text-success" id="popupEventGrandTotal">&#8369;0.00</strong></div></div></div>
+                            <div class="col-lg-5">
+                                <div class="event-sale-summary p-3 h-100">
+                                    <div class="d-flex justify-content-between mb-3"><span>Items subtotal</span><strong id="popupEventSubtotal">&#8369;0.00</strong></div>
+                                    <div class="row g-2 align-items-center mb-3">
+                                        <div class="col"><label class="form-label mb-0" for="popupAdditionalDiscount">Additional Discount</label></div>
+                                        <div class="col-5"><div class="input-group"><input type="number" name="additional_discount_percentage" id="popupAdditionalDiscount" min="0" max="100" step="0.01" value="{{ old('additional_discount_percentage', 0) }}" class="form-control text-end"><span class="input-group-text">%</span></div></div>
+                                    </div>
+                                    <div class="border-top pt-3 mb-3">
+                                        <div class="fw-semibold mb-2">Coupon / Voucher</div>
+                                        <div class="row g-2">
+                                            <div class="col-md-4"><label class="form-label small" for="popupEventPromotionType">Promotion</label><select name="event_promotion_type" id="popupEventPromotionType" class="form-select"><option value="">None</option><option value="coupon" @selected(old('event_promotion_type') === 'coupon')>Coupon</option><option value="voucher" @selected(old('event_promotion_type') === 'voucher')>Voucher</option></select></div>
+                                            <div class="col-md-4"><label class="form-label small" for="popupEventPromotionValueType">Value Type</label><select name="event_promotion_value_type" id="popupEventPromotionValueType" class="form-select"><option value="amount" @selected(old('event_promotion_value_type', 'amount') === 'amount')>Fixed Amount</option><option value="percentage" @selected(old('event_promotion_value_type') === 'percentage')>Percentage</option></select></div>
+                                            <div class="col-md-4"><label class="form-label small" for="popupEventPromotionValue">Value</label><div class="input-group"><span class="input-group-text" id="popupEventPromotionValuePrefix">&#8369;</span><input type="number" name="event_promotion_value" id="popupEventPromotionValue" min="0" step="0.01" value="{{ old('event_promotion_value', 0) }}" class="form-control text-end"><span class="input-group-text" id="popupEventPromotionValueSuffix" hidden>%</span></div></div>
+                                        </div>
+                                        <div class="form-text text-danger" id="popupEventPromotionUnavailable" hidden>Coupon/Voucher cannot be combined with a product item discount.</div>
+                                        <div class="d-flex justify-content-between mt-2 text-danger" id="popupEventPromotionDiscountRow" hidden><span id="popupEventPromotionDiscountLabel">Promotion deduction</span><strong id="popupEventPromotionDiscount">-&#8369;0.00</strong></div>
+                                    </div>
+                                    <div class="border-top pt-3 d-flex justify-content-between align-items-end"><strong>Grand Total</strong><strong class="fs-4 text-success" id="popupEventGrandTotal">&#8369;0.00</strong></div>
+                                </div>
+                            </div>
                             <div class="col-lg-4"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupOrderSlipImage">Order Slip Image</label><input type="file" name="order_slip_image" id="popupOrderSlipImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupOrderSlipPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
                             <div class="col-lg-4"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupItemImages">Item Images</label><input type="file" name="item_images[]" id="popupItemImages" class="form-control" accept="image/jpeg,image/png,image/webp" multiple><div class="form-text">Upload up to 5 images; maximum 2 MB each. Click a preview and use the arrows to browse.</div><div id="popupItemImagePreviews" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
                             <div class="col-lg-4"><div class="event-sale-attachment-card"><label class="form-label fw-semibold" for="popupProofOfPaymentImage">Proof of Payment</label><input type="file" name="proof_of_payment_image" id="popupProofOfPaymentImage" class="form-control" accept="image/jpeg,image/png,image/webp"><div class="form-text">One JPG, PNG, or WebP image; maximum 2 MB.</div><div id="popupProofOfPaymentPreview" class="d-flex flex-wrap gap-2 mt-2" aria-live="polite"></div></div></div>
@@ -148,6 +167,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const addButton = document.getElementById('addPopupEventItem');
     const saveButton = document.getElementById('savePopupEventSale');
     const additionalDiscount = document.getElementById('popupAdditionalDiscount');
+    const promotionType = document.getElementById('popupEventPromotionType');
+    const promotionValueType = document.getElementById('popupEventPromotionValueType');
+    const promotionValue = document.getElementById('popupEventPromotionValue');
+    const promotionValuePrefix = document.getElementById('popupEventPromotionValuePrefix');
+    const promotionValueSuffix = document.getElementById('popupEventPromotionValueSuffix');
+    const promotionUnavailable = document.getElementById('popupEventPromotionUnavailable');
+    const promotionDiscountRow = document.getElementById('popupEventPromotionDiscountRow');
+    const promotionDiscountLabel = document.getElementById('popupEventPromotionDiscountLabel');
+    const promotionDiscount = document.getElementById('popupEventPromotionDiscount');
     const orderNumber = document.getElementById('popupOrderNumber');
     const orderNumberInput = document.getElementById('popupOrderNumberInput');
     const customerName = document.getElementById('popupCustomerName');
@@ -179,17 +207,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function recalculate() {
         let subtotal = 0;
+        let hasDiscountedItem = false;
         rows.querySelectorAll('.event-sale-item-row').forEach(row => {
             const qty = Number(row.querySelector('.popup-event-qty').value) || 0;
             const price = Number(row.querySelector('.popup-event-price').value) || 0;
             const discount = Math.min(100, Math.max(0, Number(row.querySelector('.popup-event-discount').value) || 0));
+            hasDiscountedItem ||= discount > 0;
             const total = qty * price * (1 - discount / 100);
             row.querySelector('.popup-event-line-total').value = money(total);
             subtotal += total;
         });
+        promotionType.disabled = hasDiscountedItem;
+        promotionUnavailable.hidden = !hasDiscountedItem;
+        if (hasDiscountedItem) promotionType.value = '';
+        syncPromotionFields();
         const orderDiscount = Math.min(100, Math.max(0, Number(additionalDiscount.value) || 0));
+        const discountedSubtotal = subtotal * (1 - orderDiscount / 100);
+        const promotionInputValue = Math.max(0, Number(promotionValue.value) || 0);
+        const promotionDeduction = promotionType.value
+            ? Math.min(discountedSubtotal, promotionValueType.value === 'percentage'
+                ? discountedSubtotal * (Math.min(100, promotionInputValue) / 100)
+                : promotionInputValue)
+            : 0;
         document.getElementById('popupEventSubtotal').textContent = money(subtotal);
-        document.getElementById('popupEventGrandTotal').textContent = money(subtotal * (1 - orderDiscount / 100));
+        promotionDiscountRow.hidden = !promotionType.value;
+        promotionDiscountLabel.textContent = promotionType.value
+            ? `${promotionType.options[promotionType.selectedIndex].text} deduction`
+            : 'Promotion deduction';
+        promotionDiscount.textContent = `-${money(promotionDeduction)}`;
+        document.getElementById('popupEventGrandTotal').textContent = money(Math.max(0, discountedSubtotal - promotionDeduction));
+    }
+
+    function syncPromotionFields() {
+        const hasPromotion = !promotionType.disabled && Boolean(promotionType.value);
+        promotionValueType.disabled = !hasPromotion;
+        promotionValue.disabled = !hasPromotion;
+        promotionValuePrefix.hidden = !hasPromotion || promotionValueType.value === 'percentage';
+        promotionValueSuffix.hidden = !hasPromotion || promotionValueType.value !== 'percentage';
+        if (promotionValueType.value === 'percentage') {
+            promotionValue.max = '100';
+        } else {
+            promotionValue.removeAttribute('max');
+        }
     }
 
     function selectedLineIds(excludedRow = null) {
@@ -381,6 +440,9 @@ document.addEventListener('DOMContentLoaded', () => {
     eventSelect.addEventListener('change', () => loadEvent(false));
     addButton.addEventListener('click', () => addRow());
     additionalDiscount.addEventListener('input', recalculate);
+    promotionType.addEventListener('change', () => { syncPromotionFields(); recalculate(); });
+    promotionValueType.addEventListener('change', () => { syncPromotionFields(); recalculate(); });
+    promotionValue.addEventListener('input', recalculate);
     form.addEventListener('submit', event => {
         const missingProduct = [...rows.querySelectorAll('.event-sale-item-row')].find(row => !row.querySelector('.popup-event-line').value);
         if (missingProduct) {
@@ -395,6 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('scroll', hideResults, true);
     modalElement.addEventListener('hidden.bs.modal', () => { hideResults(); closeImageViewer(); });
     updateCustomPaymentMethod();
+    syncPromotionFields();
     loadEvent(true);
     if (shouldOpen && window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalElement).show();
 });
