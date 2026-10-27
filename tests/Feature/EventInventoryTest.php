@@ -28,8 +28,29 @@ class EventInventoryTest extends TestCase
                 'activity_type' => 'event',
                 'return_to' => 'event_inventory',
             ]))
+            ->assertSee(route('inventory-transactions.return.create', [
+                'hub_id' => $hub->id,
+                'channel' => 'event',
+                'return_to' => 'event_inventory',
+                'return_section' => 'overview',
+            ]))
             ->assertSee('No open events found')
             ->assertDontSee('>Create Event Pull-Out</a>', false);
+
+        $this->get(route('inventory-transactions.return.create', [
+            'hub_id' => $hub->id,
+            'channel' => 'event',
+            'return_to' => 'event_inventory',
+            'return_section' => 'transactions',
+        ]))->assertOk()
+            ->assertSee(route('event-inventory.index', [
+                'hub_id' => $hub->id,
+                'section' => 'transactions',
+            ]));
+
+        $this->get(route('inventory-transactions.return.create', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('href="'.route('inventory-transactions.index', ['hub_id' => $hub->id]).'" class="btn btn-outline-secondary">Cancel</a>', false);
     }
 
     public function test_event_pullout_creates_a_trackable_ledger_and_deducts_condition_stock_once(): void

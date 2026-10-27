@@ -209,7 +209,7 @@
                 ]],
                 ['label' => 'Inventory updates', 'actions' => [
                     ['route' => 'inventory-transactions.restock.create', 'icon' => 'fa-boxes-stacked', 'title' => 'Restock from Warehouse', 'text' => 'Record stock added from a request'],
-                    ['route' => 'inventory-transactions.return.create', 'icon' => 'fa-rotate-left', 'title' => 'Return Items', 'text' => 'Restore good or damaged stock'],
+                    ['route' => 'inventory-transactions.return.create', 'icon' => 'fa-rotate-left', 'title' => 'Return Items', 'text' => 'Restore good or damaged stock', 'return_to' => 'transaction_logs'],
                 ]],
             ];
             if ($canUseNationalPullout) {

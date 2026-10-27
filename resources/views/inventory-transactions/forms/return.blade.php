@@ -12,6 +12,11 @@
     $channelSelectionLocked = $currentUser?->role === 'sales_associate'
         || ($selectedHub && ! $selectedHub->is_head_office && ! $staffCanSelectEventReturn);
     $selectedReturnChannel = old('channel', request('channel', $channelSelectionLocked ? 'walk_in' : ''));
+    $returnContext = request('return_to') === 'event_inventory' ? 'event_inventory' : 'transaction_logs';
+    $returnSection = request('return_section') === 'transactions' ? 'transactions' : 'overview';
+    $cancelUrl = $returnContext === 'event_inventory'
+        ? route('event-inventory.index', ['hub_id' => $hubId, 'section' => $returnSection])
+        : route('inventory-transactions.index', ['hub_id' => $hubId]);
 @endphp
 <style>
     .transaction-form-card { border:1px solid #e2e8f0 !important; }
@@ -47,7 +52,7 @@
         <input type="hidden" name="national_pullout_id" id="nationalPulloutId">
         <input type="hidden" name="event_reference" id="eventReference">
         <div class="row g-3">
-            <div class="col-md-4"><label class="form-label">Store Hub</label><select name="store_hub_id" class="form-select" required @disabled($hubSelectionLocked || $visibleHubs->isEmpty()) onchange="window.location.href='{{ route('inventory-transactions.return.create') }}?hub_id='+this.value">
+            <div class="col-md-4"><label class="form-label">Store Hub</label><select name="store_hub_id" class="form-select" required @disabled($hubSelectionLocked || $visibleHubs->isEmpty()) onchange="const url = new URL(window.location.href); url.searchParams.set('hub_id', this.value); window.location.href = url.toString();">
                 @foreach($visibleHubs as $hub)<option value="{{ $hub->id }}" @selected((int) $hubId === (int) $hub->id)>{{ $hub->name }}</option>@endforeach
             </select></div>
             @if($hubSelectionLocked && $visibleHubs->isNotEmpty())
@@ -85,7 +90,7 @@
         <div class="return-entry-layout">
             <div id="returnItems"><div class="text-muted p-3">Select a return source and reference to load its products.</div></div>
             <div class="return-notes-panel"><label class="form-label" for="returnNotes">Notes</label><textarea id="returnNotes" name="notes" class="form-control" rows="6" maxlength="150" placeholder="Add notes about the returned items">{{ old('notes') }}</textarea><div class="form-text text-end"><span id="returnNotesCount">0</span>/150</div></div>
-            <div class="return-actions"><button class="btn btn-primary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Return Items</button><a href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-outline-secondary">Cancel</a></div>
+            <div class="return-actions"><button class="btn btn-primary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Save Return Items</button><a href="{{ $cancelUrl }}" class="btn btn-outline-secondary">Cancel</a></div>
         </div>
     </form>
 

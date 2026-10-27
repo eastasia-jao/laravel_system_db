@@ -22,7 +22,7 @@
     <div class="d-flex flex-wrap gap-2 mb-3">
         <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId, 'activity_type' => 'event', 'return_to' => 'event_inventory']) }}" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>New Event Pull-Out</a>
         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#recordEventSaleModal" @disabled($saleEvents->isEmpty())><i class="fa-solid fa-cart-plus me-1"></i>Record Event Sale</button>
-        <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $hubId]) }}" class="btn btn-outline-primary"><i class="fa-solid fa-rotate-left me-1"></i>Return Items</a>
+        <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $hubId, 'channel' => 'event', 'return_to' => 'event_inventory', 'return_section' => $section]) }}" class="btn btn-outline-primary"><i class="fa-solid fa-rotate-left me-1"></i>Return Items</a>
     </div>
 
     <nav class="nav nav-pills event-workspace-tabs mb-3" aria-label="Event Inventory sections">

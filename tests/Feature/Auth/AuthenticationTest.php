@@ -164,6 +164,40 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_authenticated_layout_provides_the_csrf_token_used_by_the_activity_heartbeat(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->get('/dashboard')
+            ->assertOk()
+            ->assertSee('<meta name="csrf-token" content="'.csrf_token().'">', false)
+            ->assertSee('const csrfToken = document.querySelector(\'meta[name="csrf-token"]\')?.content;', false)
+            ->assertSee('if (!csrfToken) return;', false);
+    }
+
+    public function test_activity_heartbeat_keeps_an_authenticated_session_alive_after_three_minutes(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->travel(3)->minutes();
+
+        $this->post(route('session.activity'))->assertNoContent();
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame(now()->timestamp, session('last_user_activity_at'));
+        $this->assertTrue(ActiveUserSession::hasActiveSession($user->id));
+    }
+
     public function test_browser_inactivity_endpoint_returns_to_login_without_a_csrf_token(): void
     {
         $user = User::factory()->create();
