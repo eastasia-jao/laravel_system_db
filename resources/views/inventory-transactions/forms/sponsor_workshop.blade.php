@@ -48,13 +48,29 @@
     .fully-booked-attachment-preview {
         min-height: 220px;
         display: flex;
-        align-items: center;
-        justify-content: center;
+        align-items: flex-start;
         padding: .75rem;
         border: 1px solid #e2e8f0;
         border-radius: .75rem;
         background: #f8fafc;
     }
+    .fully-booked-attachment-gallery { display: flex; flex-wrap: wrap; gap: .65rem; }
+    .fully-booked-attachment-thumb { position: relative; display: grid; width: 150px; height: 112px; place-items: center; overflow: hidden; padding: .25rem; border: 1px solid #dbe3ee; border-radius: .65rem; color: #64748b; background: #fff; cursor: zoom-in; }
+    .fully-booked-attachment-thumb img { width: 100%; height: 100%; border-radius: .4rem; object-fit: cover; }
+    .fully-booked-attachment-thumb .fa-magnifying-glass-plus { position: absolute; right: .4rem; bottom: .4rem; display: grid; width: 1.8rem; height: 1.8rem; place-items: center; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .78); }
+    .fully-booked-upload-list { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: .75rem; }
+    .fully-booked-viewer { position: relative; width: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); padding: 2.75rem 3.5rem 1rem; border: 0; border-radius: 14px; background: #0f172a; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+    .fully-booked-viewer::backdrop { background: rgba(15, 23, 42, .88); }
+    .fully-booked-viewer img, .fully-booked-viewer iframe { display: block; width: auto; max-width: calc(100vw - 9rem); height: auto; max-height: calc(100vh - 6rem); border: 0; object-fit: contain; background: #fff; }
+    .fully-booked-viewer iframe { width: min(1000px, calc(100vw - 9rem)); height: min(800px, calc(100vh - 6rem)); }
+    .fully-booked-viewer [hidden] { display: none !important; }
+    .fully-booked-viewer-close, .fully-booked-viewer-nav { position: absolute; z-index: 1; display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .18); }
+    .fully-booked-viewer-close { top: .5rem; right: .5rem; }
+    .fully-booked-viewer-nav { top: 50%; transform: translateY(-50%); }
+    .fully-booked-viewer-previous { left: .5rem; }
+    .fully-booked-viewer-next { right: .5rem; }
+    .fully-booked-viewer-close:hover, .fully-booked-viewer-nav:hover { background: #2563eb; }
+    .fully-booked-viewer-count { position: absolute; top: 1.25rem; left: 50%; color: #fff; font-size: .85rem; transform: translateX(-50%); }
     .fully-booked-tracking-items {
         max-height: min(52vh, 420px);
         overflow-x: hidden;
@@ -195,20 +211,14 @@
                     <input id="fullyBookedOtherStore" name="other_store_name" class="form-control" value="{{ old('other_store_name') }}" maxlength="255" @required(old('store_selection') === 'other')>
                 </div>
                 <div class="col-12">
-                    <label class="form-label fw-semibold" for="fullyBookedAttachment">Order Attachment</label>
-                    <input id="fullyBookedAttachment" name="attachment" type="file" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" required>
-                    <div class="form-text">Upload a JPEG, PNG, WebP, or PDF file (maximum 10 MB). Your order number will be generated automatically. Inventory Staff can preview it for review.</div>
+                    <label class="form-label fw-semibold" for="fullyBookedAttachment">Order Attachments</label>
+                    <input id="fullyBookedAttachment" name="attachments[]" type="file" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" multiple required>
+                    <div class="form-text">Upload up to 10 JPEG, PNG, WebP, or PDF files (maximum 10 MB each). Your order number will be generated automatically.</div>
+                    <div id="fullyBookedUploadList" class="fully-booked-upload-list" aria-live="polite"></div>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold" for="fullyBookedRemarks">Remarks</label>
                     <textarea id="fullyBookedRemarks" name="remarks" class="form-control" rows="3" maxlength="150" placeholder="Add any details or instructions for Inventory Staff">{{ old('remarks') }}</textarea>
-                </div>
-                <div class="col-12">
-                    <div id="fullyBookedPreview" class="border rounded-3 p-2 bg-light" hidden>
-                        <div class="fw-semibold small text-muted mb-2">Attachment Preview</div>
-                        <img id="fullyBookedImagePreview" class="img-fluid rounded" alt="Selected Fully Booked order attachment preview" style="max-height:560px" hidden>
-                        <iframe id="fullyBookedPdfPreview" title="Selected Fully Booked order PDF preview" class="w-100 border rounded bg-white" style="height:560px" hidden></iframe>
-                    </div>
                 </div>
             </div>
             <div class="d-flex justify-content-end gap-2 mt-4">
@@ -225,6 +235,14 @@
         </section>
         @endif
     </form>
+    <dialog class="fully-booked-viewer" id="fullyBookedAttachmentViewer" aria-label="Fully Booked attachment preview">
+        <button type="button" class="fully-booked-viewer-close" aria-label="Close attachment preview"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="fully-booked-viewer-nav fully-booked-viewer-previous" aria-label="Previous attachment"><i class="fa-solid fa-chevron-left"></i></button>
+        <span class="fully-booked-viewer-count" aria-live="polite"></span>
+        <img alt="" hidden>
+        <iframe title="Fully Booked attachment preview" hidden></iframe>
+        <button type="button" class="fully-booked-viewer-nav fully-booked-viewer-next" aria-label="Next attachment"><i class="fa-solid fa-chevron-right"></i></button>
+    </dialog>
     @if($canSubmitFullyBooked && $fullyBookedOrders->isNotEmpty())
         <section class="mt-4">
             <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
@@ -264,12 +282,45 @@
                             @if($order->remarks)
                                 <div class="small mt-2"><strong>Remarks:</strong> {{ $order->remarks }}</div>
                             @endif
+                            <div class="fully-booked-attachment-gallery mt-3" aria-label="Attachments for {{ $order->order_number }}">
+                                @foreach($order->attachments as $attachment)
+                                    @php($attachmentUrl = route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'attachment_id' => $attachment->id]))
+                                    <div>
+                                        <button type="button" class="fully-booked-attachment-thumb" data-fully-booked-preview data-preview-url="{{ $attachmentUrl }}" data-preview-type="{{ str_starts_with($attachment->mime_type, 'image/') ? 'image' : 'pdf' }}" data-preview-title="{{ $attachment->original_filename }}" aria-label="Magnify {{ $attachment->original_filename }}">
+                                            @if(str_starts_with($attachment->mime_type, 'image/'))
+                                                <img src="{{ $attachmentUrl }}" alt="" loading="lazy">
+                                            @else
+                                                <i class="fa-solid fa-file-pdf fa-2x text-danger" aria-hidden="true"></i>
+                                            @endif
+                                            <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+                                        </button>
+                                        <div class="d-flex align-items-center justify-content-between gap-1 mt-1">
+                                            <span class="small text-muted text-truncate" style="max-width:115px" title="{{ $attachment->original_filename }}">{{ $attachment->original_filename }}</span>
+                                            <a class="small text-nowrap" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'attachment_id' => $attachment->id, 'download' => 1]) }}"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="visually-hidden">Download {{ $attachment->original_filename }}</span></a>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
                             <div class="d-flex gap-2 mt-3">
                                 @if($order->pulled_out_at && $order->items->isNotEmpty())
                                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#fullyBookedItemsModal{{ $order->id }}"><i class="fa-solid fa-boxes-stacked me-1"></i>View Items</button>
                                 @endif
-                                <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.fully-booked.attachment', $order) }}" target="_blank" rel="noopener">View Attachment</a>
-                                <a class="btn btn-sm btn-outline-secondary" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'download' => 1]) }}">Download</a>
+                                <div class="fully-booked-attachment-gallery" aria-label="Order attachments">
+                                    @foreach($order->attachments as $attachment)
+                                        @php($attachmentUrl = route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'attachment_id' => $attachment->id]))
+                                        <div>
+                                            <button type="button" class="fully-booked-attachment-thumb" data-fully-booked-preview data-preview-url="{{ $attachmentUrl }}" data-preview-type="{{ str_starts_with($attachment->mime_type, 'image/') ? 'image' : 'pdf' }}" data-preview-title="{{ $attachment->original_filename }}" aria-label="Magnify {{ $attachment->original_filename }}">
+                                                @if(str_starts_with($attachment->mime_type, 'image/'))
+                                                    <img src="{{ $attachmentUrl }}" alt="" loading="lazy">
+                                                @else
+                                                    <i class="fa-solid fa-file-pdf fa-2x text-danger" aria-hidden="true"></i>
+                                                @endif
+                                                <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+                                            </button>
+                                            <div class="small text-muted text-truncate mt-1" style="max-width:150px" title="{{ $attachment->original_filename }}">{{ $attachment->original_filename }}</div>
+                                        </div>
+                                    @endforeach
+                                </div>
                             </div>
                         </article>
 
@@ -349,15 +400,25 @@
                     <div class="row g-3 align-items-stretch">
                         <div class="col-lg-5">
                             <div class="fully-booked-attachment-preview">
-                                @if(str_starts_with($order->mime_type, 'image/'))
-                                    <img src="{{ route('inventory-transactions.fully-booked.attachment', $order) }}" alt="Attachment for Fully Booked order {{ $order->order_number }}" class="img-fluid rounded" style="max-height:330px;object-fit:contain">
-                                @else
-                                    <iframe src="{{ route('inventory-transactions.fully-booked.attachment', $order) }}" title="Attachment for Fully Booked order {{ $order->order_number }}" class="w-100 border rounded bg-white" style="height:330px"></iframe>
-                                @endif
-                            </div>
-                            <div class="d-flex flex-wrap gap-2 mt-2">
-                                <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.fully-booked.attachment', $order) }}" target="_blank" rel="noopener"><i class="fa-solid fa-eye me-1"></i>Preview Attachment</a>
-                                <a class="btn btn-sm btn-outline-secondary" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'download' => 1]) }}"><i class="fa-solid fa-download me-1"></i>Download</a>
+                                <div class="fully-booked-attachment-gallery" aria-label="Order attachments for {{ $order->order_number }}">
+                                    @foreach($order->attachments as $attachment)
+                                        @php($attachmentUrl = route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'attachment_id' => $attachment->id]))
+                                        <div>
+                                            <button type="button" class="fully-booked-attachment-thumb" data-fully-booked-preview data-preview-url="{{ $attachmentUrl }}" data-preview-type="{{ str_starts_with($attachment->mime_type, 'image/') ? 'image' : 'pdf' }}" data-preview-title="{{ $attachment->original_filename }}" aria-label="Magnify {{ $attachment->original_filename }}">
+                                                @if(str_starts_with($attachment->mime_type, 'image/'))
+                                                    <img src="{{ $attachmentUrl }}" alt="" loading="lazy">
+                                                @else
+                                                    <i class="fa-solid fa-file-pdf fa-2x text-danger" aria-hidden="true"></i>
+                                                @endif
+                                                <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+                                            </button>
+                                            <div class="d-flex align-items-center justify-content-between gap-1 mt-1">
+                                                <span class="small text-muted text-truncate" style="max-width:115px" title="{{ $attachment->original_filename }}">{{ $attachment->original_filename }}</span>
+                                                <a class="small text-nowrap" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'attachment_id' => $attachment->id, 'download' => 1]) }}"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="visually-hidden">Download {{ $attachment->original_filename }}</span></a>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
                             </div>
                         </div>
                         <div class="col-lg-7">
@@ -595,43 +656,130 @@
     updateOtherStore();
 
     const fileInput = document.getElementById('fullyBookedAttachment');
-    const preview = document.getElementById('fullyBookedPreview');
-    const image = document.getElementById('fullyBookedImagePreview');
-    const pdf = document.getElementById('fullyBookedPdfPreview');
-    let previewUrl = null;
+    const uploadList = document.getElementById('fullyBookedUploadList');
+    const viewer = document.getElementById('fullyBookedAttachmentViewer');
+    const viewerImage = viewer?.querySelector('img');
+    const viewerFrame = viewer?.querySelector('iframe');
+    const viewerCount = viewer?.querySelector('.fully-booked-viewer-count');
+    const viewerPrevious = viewer?.querySelector('.fully-booked-viewer-previous');
+    const viewerNext = viewer?.querySelector('.fully-booked-viewer-next');
+    const viewerClose = viewer?.querySelector('.fully-booked-viewer-close');
+    let uploadPreviewUrls = [];
+    let activePreviewButtons = [];
+    let activePreviewIndex = 0;
+    const renderAttachmentPreview = index => {
+        if (!activePreviewButtons.length) return;
+        activePreviewIndex = (index + activePreviewButtons.length) % activePreviewButtons.length;
+        const button = activePreviewButtons[activePreviewIndex];
+        const isPdf = button.dataset.previewType === 'pdf';
+        viewerImage.hidden = isPdf;
+        viewerFrame.hidden = !isPdf;
+        viewerCount.textContent = `${activePreviewIndex + 1} / ${activePreviewButtons.length} · ${button.dataset.previewTitle}`;
+        viewerPrevious.hidden = activePreviewButtons.length < 2;
+        viewerNext.hidden = activePreviewButtons.length < 2;
+        if (isPdf) {
+            viewerImage.removeAttribute('src');
+            viewerFrame.src = button.dataset.previewUrl;
+        } else {
+            viewerFrame.removeAttribute('src');
+            viewerImage.src = button.dataset.previewUrl;
+            viewerImage.alt = button.dataset.previewTitle;
+        }
+    };
+    document.addEventListener('click', event => {
+        const trigger = event.target.closest('[data-fully-booked-preview]');
+        if (!trigger || !viewer) return;
+        activePreviewButtons = [...trigger.closest('.fully-booked-attachment-gallery').querySelectorAll('[data-fully-booked-preview]')];
+        renderAttachmentPreview(activePreviewButtons.indexOf(trigger));
+        viewer.showModal();
+    });
+    viewerClose?.addEventListener('click', () => viewer.close());
+    viewerPrevious?.addEventListener('click', () => renderAttachmentPreview(activePreviewIndex - 1));
+    viewerNext?.addEventListener('click', () => renderAttachmentPreview(activePreviewIndex + 1));
+    viewer?.addEventListener('click', event => {
+        if (event.target === viewer) viewer.close();
+    });
+    viewer?.addEventListener('keydown', event => {
+        if (event.key === 'ArrowLeft' && activePreviewButtons.length > 1) renderAttachmentPreview(activePreviewIndex - 1);
+        if (event.key === 'ArrowRight' && activePreviewButtons.length > 1) renderAttachmentPreview(activePreviewIndex + 1);
+    });
+    viewer?.addEventListener('close', () => {
+        viewerImage.removeAttribute('src');
+        viewerImage.alt = '';
+        viewerFrame.removeAttribute('src');
+        activePreviewButtons = [];
+    });
+    const clearUploadPreviews = () => {
+        uploadPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+        uploadPreviewUrls = [];
+        uploadList?.replaceChildren();
+    };
     fileInput?.addEventListener('change', () => {
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-        previewUrl = null;
-        image.hidden = true;
-        pdf.hidden = true;
-        preview.hidden = true;
-        image.removeAttribute('src');
-        pdf.removeAttribute('src');
-        const file = fileInput.files?.[0];
-        if (!file) return;
-        const extension = file.name.toLowerCase().split('.').pop();
-        const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
-            || ['jpg', 'jpeg', 'png', 'webp'].includes(extension);
-        const isPdf = file.type === 'application/pdf' || extension === 'pdf';
-        if (file.size > 10 * 1024 * 1024 || (!isImage && !isPdf)) {
-            fileInput.setCustomValidity('Choose a JPEG, PNG, WebP, or PDF attachment no larger than 10 MB.');
+        clearUploadPreviews();
+        const files = [...(fileInput.files || [])];
+        if (!files.length) return;
+        if (files.length > 10) {
+            fileInput.setCustomValidity('Choose no more than 10 attachments.');
+            fileInput.reportValidity();
+            fileInput.value = '';
+            return;
+        }
+        const validFiles = files.every(file => {
+            const extension = file.name.toLowerCase().split('.').pop();
+            const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+                || ['jpg', 'jpeg', 'png', 'webp'].includes(extension);
+            const isPdf = file.type === 'application/pdf' || extension === 'pdf';
+            return file.size <= 10 * 1024 * 1024 && (isImage || isPdf);
+        });
+        if (!validFiles) {
+            fileInput.setCustomValidity('Choose JPEG, PNG, WebP, or PDF attachments no larger than 10 MB each.');
             fileInput.reportValidity();
             fileInput.value = '';
             return;
         }
         fileInput.setCustomValidity('');
-        previewUrl = URL.createObjectURL(file);
-        preview.hidden = false;
-        if (isImage) {
-            image.src = previewUrl;
-            image.hidden = false;
-        } else {
-            pdf.src = previewUrl;
-            pdf.hidden = false;
-        }
+        const gallery = document.createElement('div');
+        gallery.className = 'fully-booked-attachment-gallery';
+        uploadList.appendChild(gallery);
+        files.forEach(file => {
+            const url = URL.createObjectURL(file);
+            uploadPreviewUrls.push(url);
+            const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+            const item = document.createElement('div');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'fully-booked-attachment-thumb';
+            button.dataset.fullyBookedPreview = '';
+            button.dataset.previewUrl = url;
+            button.dataset.previewType = isPdf ? 'pdf' : 'image';
+            button.dataset.previewTitle = file.name;
+            button.setAttribute('aria-label', `Magnify ${file.name}`);
+            if (isPdf) {
+                const icon = document.createElement('i');
+                icon.className = 'fa-solid fa-file-pdf fa-2x text-danger';
+                icon.setAttribute('aria-hidden', 'true');
+                button.appendChild(icon);
+            } else {
+                const image = document.createElement('img');
+                image.src = url;
+                image.alt = '';
+                button.appendChild(image);
+            }
+            const magnifier = document.createElement('i');
+            magnifier.className = 'fa-solid fa-magnifying-glass-plus';
+            magnifier.setAttribute('aria-hidden', 'true');
+            button.appendChild(magnifier);
+            const filename = document.createElement('div');
+            filename.className = 'small text-muted text-truncate mt-1';
+            filename.style.maxWidth = '150px';
+            filename.title = file.name;
+            filename.textContent = file.name;
+            item.append(button, filename);
+            gallery.appendChild(item);
+        });
     });
     window.addEventListener('beforeunload', () => {
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        clearUploadPreviews();
     });
 })();
 </script>

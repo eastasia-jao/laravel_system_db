@@ -912,7 +912,7 @@ class InventoryTransactionController extends Controller
         $fullyBookedOrders = in_array($user?->role, ['admin', 'inventory_staff'], true)
             && (! $request->filled('type') || $request->input('type') === 'fully_booked')
             && (! in_array($request->input('status'), ['approved'], true))
-            ? FullyBookedOrder::with(['storeHub', 'salesStaff', 'submitter', 'reviewer', 'pullOutBy', 'items.product'])
+            ? FullyBookedOrder::with(['storeHub', 'salesStaff', 'submitter', 'reviewer', 'pullOutBy', 'items.product', 'attachments'])
                 ->whereIn('status', ['reviewed', 'rejected'])
                 ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
                 ->when($request->filled('month'), function ($query) use ($request) {
@@ -982,7 +982,7 @@ class InventoryTransactionController extends Controller
             ->merge($fullyBookedReturnReferences)
             ->filter()
             ->unique();
-        $linkedFullyBookedOrders = FullyBookedOrder::with(['storeHub', 'salesStaff', 'submitter', 'reviewer', 'pullOutBy', 'items.product'])
+        $linkedFullyBookedOrders = FullyBookedOrder::with(['storeHub', 'salesStaff', 'submitter', 'reviewer', 'pullOutBy', 'items.product', 'attachments'])
             ->whereIn('order_number', $fullyBookedReferences)
             ->get();
         $fullyBookedOrders = $fullyBookedOrders->merge($linkedFullyBookedOrders)->unique('id')->values();
@@ -1433,13 +1433,13 @@ class InventoryTransactionController extends Controller
             ? 'fully_booked'
             : ($request->input('activity_type') === 'fully_booked' && $canUseFullyBookedForm ? 'fully_booked' : 'event');
         $fullyBookedOrders = $canManageEvent
-            ? FullyBookedOrder::with(['storeHub', 'salesStaff'])
+            ? FullyBookedOrder::with(['storeHub', 'salesStaff', 'attachments'])
                 ->whereNull('pulled_out_at')
                 ->where('status', '!=', 'rejected')
                 ->latest()
                 ->get()
             : ($canSubmitFullyBooked
-                ? FullyBookedOrder::with(['storeHub', 'items'])
+                ? FullyBookedOrder::with(['storeHub', 'items', 'attachments'])
                     ->where('submitted_by', $user->id)
                     ->latest()
                     ->orderByDesc('id')

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FullyBookedOrder extends Model
 {
@@ -58,5 +59,10 @@ class FullyBookedOrder extends Model
     public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(FullyBookedOrderItem::class);
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(FullyBookedOrderAttachment::class);
     }
 }

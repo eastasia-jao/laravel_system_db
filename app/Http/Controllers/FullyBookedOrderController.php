@@ -51,6 +51,7 @@ class FullyBookedOrderController extends Controller
             ->when($user->role !== 'admin', fn ($query) => $query->where('submitted_by', $user->id))
             ->where('status', 'rejected')
             ->latest()
+            ->with('attachments')
             ->paginate(20)
             ->withQueryString();
 
@@ -72,7 +73,9 @@ class FullyBookedOrderController extends Controller
         );
         $activeStoreIds = StoreHub::where('status', 'active')->pluck('id')->map(fn ($id) => (string) $id);
         $validated = $request->validate([
-            'attachment' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'attachments' => ['required_without:attachment', 'array', 'min:1', 'max:10'],
+            'attachments.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'attachment' => ['required_without:attachments', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
             'inventory_hub_id' => ['nullable', 'integer', Rule::exists('store_hubs', 'id')->where('status', 'active')],
             'store_selection' => ['required', Rule::in($activeStoreIds->push('other')->all())],
             'other_store_name' => ['nullable', 'required_if:store_selection,other', 'string', 'max:255'],
@@ -86,35 +89,57 @@ class FullyBookedOrderController extends Controller
             ? (int) ($validated['inventory_hub_id'] ?? $user->hub_id)
             : (int) $user->hub_id;
 
-        $file = $validated['attachment'];
-        $path = $file->store(
-            'fully-booked-orders',
-            AttachmentStorage::diskName(AttachmentStorage::INVENTORY)
-        );
-        if (! $path) {
-            throw new \RuntimeException('The Fully Booked attachment could not be stored.');
+        $files = array_values(array_merge(
+            $validated['attachments'] ?? [],
+            isset($validated['attachment']) ? [$validated['attachment']] : []
+        ));
+        $disk = AttachmentStorage::disk(AttachmentStorage::INVENTORY);
+        $storedAttachments = [];
+        try {
+            foreach ($files as $file) {
+                $path = $file->store('fully-booked-orders', AttachmentStorage::diskName(AttachmentStorage::INVENTORY));
+                if (! $path) {
+                    throw new \RuntimeException('A Fully Booked attachment could not be stored.');
+                }
+                $storedAttachments[] = [
+                    'path' => $path,
+                    'original_filename' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                ];
+            }
+        } catch (\Throwable $exception) {
+            foreach ($storedAttachments as $storedAttachment) {
+                $disk->delete($storedAttachment['path']);
+            }
+            throw $exception;
         }
+        $primaryAttachment = $storedAttachments[0];
 
         try {
-            $order = DB::transaction(function () use ($salesStaff, $user, $path, $file, $validated, $storeName, $inventoryHubId) {
+            $order = DB::transaction(function () use ($salesStaff, $user, $storedAttachments, $primaryAttachment, $validated, $storeName, $inventoryHubId) {
                 $order = FullyBookedOrder::create([
                     'order_number' => 'PENDING-'.Str::uuid(),
                     'store_hub_id' => $inventoryHubId,
                     'store_name' => $storeName,
                     'sales_staff_id' => $salesStaff->id,
                     'submitted_by' => $user->id,
-                    'attachment_path' => $path,
-                    'original_filename' => $file->getClientOriginalName(),
-                    'mime_type' => $file->getMimeType(),
+                    'attachment_path' => $primaryAttachment['path'],
+                    'original_filename' => $primaryAttachment['original_filename'],
+                    'mime_type' => $primaryAttachment['mime_type'],
                     'remarks' => $validated['remarks'] ?? null,
                     'status' => 'pending',
                 ]);
+                foreach ($storedAttachments as $attachment) {
+                    $order->attachments()->create($attachment);
+                }
                 $order->update(['order_number' => 'FB-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT)]);
 
                 return $order;
             });
         } catch (\Throwable $exception) {
-            AttachmentStorage::disk(AttachmentStorage::INVENTORY)->delete($path);
+            foreach ($storedAttachments as $attachment) {
+                $disk->delete($attachment['path']);
+            }
             throw $exception;
         }
 
@@ -156,15 +181,24 @@ class FullyBookedOrderController extends Controller
     {
         abort_unless($this->canViewOrder($request->user(), $fullyBookedOrder), 403);
 
+        $attachment = null;
+        if ($request->filled('attachment_id')) {
+            $request->validate(['attachment_id' => ['required', 'integer']]);
+            $attachment = $fullyBookedOrder->attachments()->findOrFail($request->integer('attachment_id'));
+        } else {
+            $attachment = $fullyBookedOrder->attachments()->oldest('id')->first();
+        }
+        $attachmentPath = $attachment?->path ?? $fullyBookedOrder->attachment_path;
+        $originalFilename = $attachment?->original_filename ?? $fullyBookedOrder->original_filename;
         $diskName = AttachmentStorage::diskName(AttachmentStorage::INVENTORY);
         $disk = Storage::disk($diskName);
         $availability = config("filesystems.disks.{$diskName}.driver") === 's3'
             ? true
-            : AttachmentAvailability::check($disk, $fullyBookedOrder->attachment_path);
+            : AttachmentAvailability::check($disk, $attachmentPath);
         abort_if($availability === null, 503, 'Attachment storage is temporarily unavailable.');
         abort_unless($availability, 404, 'The Fully Booked attachment is no longer available.');
 
-        $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', $fullyBookedOrder->original_filename) ?: 'fully-booked-attachment';
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalFilename) ?: 'fully-booked-attachment';
 
         $headers = [
             'X-Content-Type-Options' => 'nosniff',
@@ -172,8 +206,8 @@ class FullyBookedOrderController extends Controller
         ];
 
         $response = $request->boolean('download')
-            ? AttachmentResponse::download($disk, $fullyBookedOrder->attachment_path, $filename, $headers)
-            : AttachmentResponse::inline($disk, $fullyBookedOrder->attachment_path, $filename, $headers);
+            ? AttachmentResponse::download($disk, $attachmentPath, $filename, $headers)
+            : AttachmentResponse::inline($disk, $attachmentPath, $filename, $headers);
 
         if ($request->boolean('download')) {
             $response->headers->set('Content-Disposition', 'attachment; filename="'.$filename.'"');

@@ -305,6 +305,11 @@ class FullyBookedOrderTest extends TestCase
             'remarks' => 'Please pull these items carefully.',
             'status' => 'pending',
         ]);
+        $attachment = $order->attachments()->create([
+            'path' => $path,
+            'original_filename' => 'order-attachment.pdf',
+            'mime_type' => 'application/pdf',
+        ]);
 
         $this->actingAs($inventoryStaff)
             ->get(route('inventory-transactions.sponsor.create', [
@@ -327,9 +332,16 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('FB-FORM-001')
             ->assertSee('Request remarks:')
             ->assertSee('Please pull these items carefully.')
-            ->assertSee('Preview Attachment')
+            ->assertSee('data-fully-booked-preview', false)
+            ->assertDontSee('Preview Attachment')
+            ->assertSee('fullyBookedAttachmentViewer')
+            ->assertSee('fully-booked-viewer-previous', false)
+            ->assertSee('fully-booked-viewer-next', false)
             ->assertSee('Download')
-            ->assertSee(route('inventory-transactions.fully-booked.attachment', $order), false)
+            ->assertSee(route('inventory-transactions.fully-booked.attachment', [
+                'fullyBookedOrder' => $order,
+                'attachment_id' => $attachment->id,
+            ]), false)
             ->assertSee(route('inventory-transactions.fully-booked.pull-out', $order), false)
             ->assertDontSee('id="fullyBookedPageCancel"', false)
             ->assertSee('Complete Order & Update Stock', false)
@@ -918,6 +930,50 @@ class FullyBookedOrderTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $this->assertSame('Downtown Bookshop', FullyBookedOrder::sole()->store_name);
+    }
+
+    public function test_fully_booked_submission_accepts_multiple_attachments_for_gallery_preview(): void
+    {
+        Storage::fake('local');
+        $hub = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['fully_booked'],
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('inventory-transactions.sponsor.create', [
+                'hub_id' => $hub->id,
+                'activity_type' => 'fully_booked',
+            ]))
+            ->assertOk()
+            ->assertSee('name="attachments[]"', false)
+            ->assertSee('multiple required', false)
+            ->assertSee('fullyBookedUploadList')
+            ->assertSee('fullyBookedAttachmentViewer');
+
+        $this->post(route('fully-booked-orders.store'), [
+            'store_selection' => (string) $hub->id,
+            'attachments' => [
+                $this->fakePdf('first-order-page.pdf'),
+                $this->fakePdf('second-order-page.pdf'),
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $order = FullyBookedOrder::with('attachments')->sole();
+        $this->assertCount(2, $order->attachments);
+        $this->assertSame('first-order-page.pdf', $order->attachments[0]->original_filename);
+        $this->assertSame($order->attachments[0]->path, $order->attachment_path);
+        foreach ($order->attachments as $attachment) {
+            Storage::disk('local')->assertExists($attachment->path);
+            $this->actingAs($staff)->get(route('inventory-transactions.fully-booked.attachment', [
+                'fullyBookedOrder' => $order,
+                'attachment_id' => $attachment->id,
+            ]))->assertOk();
+        }
     }
 
     public function test_designated_staff_can_submit_an_attachment_for_private_inventory_review(): void

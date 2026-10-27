@@ -36,8 +36,9 @@
     .review-items-modal .order-slip-panel,
     .review-items-modal .order-summary-panel { height: 100%; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; padding: 1rem; }
     .review-items-modal .order-slip-content { display: flex; align-items: center; gap: 1rem; }
-    .review-items-modal .order-slip-preview { display: flex; width: 190px; height: 132px; flex: 0 0 190px; align-items: center; justify-content: center; overflow: hidden; padding: .35rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f1f5f9; cursor: zoom-in; }
+    .review-items-modal .order-slip-preview { position: relative; display: flex; width: 190px; height: 132px; flex: 0 0 190px; align-items: center; justify-content: center; overflow: hidden; padding: .35rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f1f5f9; cursor: zoom-in; }
     .review-items-modal .order-slip-image { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+    .review-items-modal .order-slip-magnifier { position: absolute; right: .5rem; bottom: .5rem; display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .78); }
     .review-items-modal .order-slip-pdf-placeholder { display: grid; width: 100%; height: 100%; place-items: center; color: #dc3545; font-size: 2.5rem; }
     .review-items-modal .order-slip-action { min-width: 0; }
     .pending-attachment-viewer { position: relative; width: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); padding: 1rem; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
@@ -403,11 +404,11 @@
                                         @else
                                             <img src="{{ route('sales.order-slip', $sale->id) }}" class="order-slip-image" alt="" loading="lazy">
                                         @endif
+                                        <span class="order-slip-magnifier" aria-hidden="true"><i class="fa-solid fa-magnifying-glass-plus"></i></span>
                                     </button>
                                     <div class="order-slip-action">
                                         <div class="fw-semibold mb-1">{{ $orderSlipIsPdf ? 'PDF order attachment' : 'Order image' }}</div>
-                                        <div class="small text-muted mb-2">Preview the attachment without leaving this page.</div>
-                                        <button type="button" class="btn btn-sm btn-outline-primary" data-order-attachment-preview data-attachment-type="{{ $orderSlipIsPdf ? 'pdf' : 'image' }}" data-attachment-url="{{ route('sales.order-slip', $sale->id) }}" data-attachment-title="Order attachment for {{ $sale->invoice_number ?: 'Order #'.$sale->id }}"><i class="fa-solid fa-magnifying-glass-plus me-1"></i>Preview attachment</button>
+                                        <div class="small text-muted">Select the thumbnail to magnify.</div>
                                     </div>
                                 </div>
                             </div>
