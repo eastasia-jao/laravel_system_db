@@ -71,7 +71,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('Other')
             ->assertSee('value="Designated Staff — HEAD OFFICE"', false)
             ->assertDontSee('name="sales_staff_id"', false)
-            ->assertSee('Generated automatically when submitted')
+            ->assertSee('The order number is assigned after submission and shown in My Fully Booked Orders.')
+            ->assertDontSee('Generated automatically when submitted')
             ->assertSee('href="'.route('hub.dashboard', $hub->id).'" class="btn btn-outline-secondary">Cancel</a>', false);
         $this->actingAs($admin)
             ->get(route('inventory-transactions.sponsor.create', [
@@ -955,7 +956,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('fullyBookedUploadList')
             ->assertSee('fullyBookedAttachmentViewer');
 
-        $this->post(route('fully-booked-orders.store'), [
+        $response = $this->post(route('fully-booked-orders.store'), [
             'store_selection' => (string) $hub->id,
             'attachments' => [
                 $this->fakePdf('first-order-page.pdf'),
@@ -964,9 +965,12 @@ class FullyBookedOrderTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $order = FullyBookedOrder::with('attachments')->sole();
+        $orderNumber = 'FB-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
         $this->assertCount(2, $order->attachments);
+        $this->assertSame($orderNumber, $order->order_number);
         $this->assertSame('first-order-page.pdf', $order->attachments[0]->original_filename);
         $this->assertSame($order->attachments[0]->path, $order->attachment_path);
+        $response->assertSessionHas('success', 'Fully Booked order '.$orderNumber.' submitted for review.');
         foreach ($order->attachments as $attachment) {
             Storage::disk('local')->assertExists($attachment->path);
             $this->actingAs($staff)->get(route('inventory-transactions.fully-booked.attachment', [
@@ -974,6 +978,13 @@ class FullyBookedOrderTest extends TestCase
                 'attachment_id' => $attachment->id,
             ]))->assertOk();
         }
+        $trackingResponse = $this->actingAs($staff)->get(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'fully_booked',
+        ]))->assertOk()
+            ->assertSee($orderNumber)
+            ->assertDontSee('Generated automatically when submitted');
+        $this->assertSame(2, substr_count($trackingResponse->getContent(), 'class="fully-booked-attachment-thumb"'));
     }
 
     public function test_designated_staff_can_submit_an_attachment_for_private_inventory_review(): void

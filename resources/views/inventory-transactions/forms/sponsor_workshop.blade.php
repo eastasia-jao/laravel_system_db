@@ -188,9 +188,8 @@
             @if($canSubmitFullyBooked)
             <input type="hidden" name="inventory_hub_id" value="{{ $hubId }}">
             <div class="row g-3">
-                <div class="col-md-8">
-                    <label class="form-label fw-semibold" for="fullyBookedOrderNumber">Fully Booked Order Number</label>
-                    <input id="fullyBookedOrderNumber" class="form-control" value="Generated automatically when submitted" readonly>
+                <div class="col-12">
+                    <div class="small text-muted">The order number is assigned after submission and shown in My Fully Booked Orders.</div>
                 </div>
                 <div class="col-md-8">
                     <label class="form-label fw-semibold" for="fullyBookedStaff">Sales / Marketing Staff</label>
@@ -213,7 +212,7 @@
                 <div class="col-12">
                     <label class="form-label fw-semibold" for="fullyBookedAttachment">Order Attachments</label>
                     <input id="fullyBookedAttachment" name="attachments[]" type="file" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" multiple required>
-                    <div class="form-text">Upload up to 10 JPEG, PNG, WebP, or PDF files (maximum 10 MB each). Your order number will be generated automatically.</div>
+                    <div class="form-text">Upload up to 10 JPEG, PNG, WebP, or PDF files (maximum 10 MB each).</div>
                     <div id="fullyBookedUploadList" class="fully-booked-upload-list" aria-live="polite"></div>
                 </div>
                 <div class="col-12">
@@ -305,22 +304,6 @@
                                 @if($order->pulled_out_at && $order->items->isNotEmpty())
                                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#fullyBookedItemsModal{{ $order->id }}"><i class="fa-solid fa-boxes-stacked me-1"></i>View Items</button>
                                 @endif
-                                <div class="fully-booked-attachment-gallery" aria-label="Order attachments">
-                                    @foreach($order->attachments as $attachment)
-                                        @php($attachmentUrl = route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $order, 'attachment_id' => $attachment->id]))
-                                        <div>
-                                            <button type="button" class="fully-booked-attachment-thumb" data-fully-booked-preview data-preview-url="{{ $attachmentUrl }}" data-preview-type="{{ str_starts_with($attachment->mime_type, 'image/') ? 'image' : 'pdf' }}" data-preview-title="{{ $attachment->original_filename }}" aria-label="Magnify {{ $attachment->original_filename }}">
-                                                @if(str_starts_with($attachment->mime_type, 'image/'))
-                                                    <img src="{{ $attachmentUrl }}" alt="" loading="lazy">
-                                                @else
-                                                    <i class="fa-solid fa-file-pdf fa-2x text-danger" aria-hidden="true"></i>
-                                                @endif
-                                                <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
-                                            </button>
-                                            <div class="small text-muted text-truncate mt-1" style="max-width:150px" title="{{ $attachment->original_filename }}">{{ $attachment->original_filename }}</div>
-                                        </div>
-                                    @endforeach
-                                </div>
                             </div>
                         </article>
 
