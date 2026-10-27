@@ -18,7 +18,7 @@
            && $sidebarPendingVerificationCountsByHub->sum() > 0;
     @endphp
     
-    <div class="sidebar-header d-flex align-items-center gap-2 mb-3 pb-3 border-bottom text-primary fw-bold">
+    <div class="sidebar-header d-flex align-items-center gap-1 mb-3 pb-3 border-bottom text-primary fw-bold">
        <div class="brand-copy d-flex align-items-center gap-2 flex-shrink-0">
            <svg width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                <path d="M20 7H4C2.89543 7 2 7.89543 2 9V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19V9C22 7.89543 21.1046 7 20 7Z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -27,7 +27,7 @@
            <span class="brand-label" style="font-size: 1rem; white-space: nowrap;">Art Caravan PH</span>
        </div>
 
-       <div class="dropdown ms-auto flex-shrink-0">
+       <div class="dropdown flex-shrink-0">
            <button id="notificationToggle" type="button" class="btn btn-link p-0 border-0 text-primary position-relative" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
                <i class="fa-solid fa-bell"></i>
                <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {{ $unreadNotificationCount ? '' : 'd-none' }}">
@@ -175,11 +175,14 @@
         @can('access-sales')
         <li>
             <a class="nav-link text-secondary d-flex align-items-center gap-3 py-2 px-3 rounded-3" data-bs-toggle="collapse" href="#storeHubDropdown" role="button">
-                <i class="fa-solid fa-shop"></i> Store Hub
-                @if($hasPendingHubVerification)
-                    <span class="rounded-circle bg-danger flex-shrink-0" style="width:.65rem;height:.65rem" aria-label="Pending inventory verification" title="Pending inventory verification"></span>
-                @endif
-                <i class="fa-solid fa-chevron-down ms-auto small"></i>
+                <i class="fa-solid fa-shop"></i>
+                <span class="d-inline-flex align-items-center gap-2">
+                    <span>Store Hub</span>
+                    @if($hasPendingHubVerification)
+                        <span class="rounded-circle bg-danger flex-shrink-0" style="width:.65rem;height:.65rem" aria-label="Pending inventory verification" title="Pending inventory verification"></span>
+                    @endif
+                    <i class="fa-solid fa-chevron-down small"></i>
+                </span>
             </a>
             <div class="collapse ps-2" id="storeHubDropdown">
                 <ul class="list-unstyled fw-normal pb-1 small d-flex flex-column gap-1 pt-1" style="max-height: 250px; overflow-y: auto; overflow-x: hidden;">
