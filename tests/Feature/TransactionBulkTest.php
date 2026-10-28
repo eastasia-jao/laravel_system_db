@@ -173,9 +173,9 @@ class TransactionBulkTest extends TestCase
             ->assertSee('class="log-type-badge fully-booked"', false)
             ->assertSee('class="log-type-badge restock"', false)
             ->assertSee('class="log-type-badge national-bookstore"', false)
-            ->assertSee('.log-type-badge.fully-booked { color: #5b21b6; background: #ede9fe; }', false)
+            ->assertSee('.log-type-badge.fully-booked { color: #3730a3; background: #e0e7ff; }', false)
             ->assertSee('.log-type-badge.restock { color: #0f766e; background: #ccfbf1; }', false)
-            ->assertSee('.log-type-badge.national-bookstore { color: #b91c1c; background: #fee2e2; }', false);
+            ->assertSee('.log-type-badge.national-bookstore { color: #9a3412; background: #ffedd5; }', false);
     }
 
     public function test_transaction_worksheets_download_as_excel_with_exact_identifiers(): void
@@ -1175,6 +1175,7 @@ class TransactionBulkTest extends TestCase
             ->assertDontSee('Showing 1–15 of 25 logs')
             ->assertSee('class="log-modal-row"', false);
         $firstPage = $firstResponse->viewData('transactions');
+        $this->assertSame(1, substr_count($firstResponse->getContent(), 'pagination-summary'));
         $this->assertSame(15, $firstPage->count());
         $this->assertSame(25, $firstPage->total());
 

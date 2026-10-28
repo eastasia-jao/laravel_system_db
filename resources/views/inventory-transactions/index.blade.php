@@ -55,9 +55,9 @@
     .log-type-badge.sold { color: #166534; background: #dcfce7; }
     .log-type-badge.rejected { color: #b91c1c; background: #fee2e2; }
     .log-type-badge.transfer { max-width: 100%; justify-content: center; color: #6b21a8; background: #f3e8ff; white-space: normal; text-align: center; }
-    .log-type-badge.fully-booked { color: #5b21b6; background: #ede9fe; }
+    .log-type-badge.fully-booked { color: #3730a3; background: #e0e7ff; }
     .log-type-badge.restock { color: #0f766e; background: #ccfbf1; }
-    .log-type-badge.national-bookstore { color: #b91c1c; background: #fee2e2; }
+    .log-type-badge.national-bookstore { color: #9a3412; background: #ffedd5; }
     .log-type-badge.other { color: #475569; background: #e2e8f0; }
     .channel-source-column { text-align: center; }
     .channel-source { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; max-width: 100%; font-weight: 600; overflow-wrap: anywhere; }
