@@ -68,6 +68,10 @@ class FullyBookedOrderTest extends TestCase
             ->assertDontSee('id="sponsorItems"', false)
             ->assertSee('id="fullyBookedAttachment"', false)
             ->assertSee('id="fullyBookedStore"', false)
+            ->assertSee('name="customer_name"', false)
+            ->assertSee('name="contact_number"', false)
+            ->assertSee('Customer Name')
+            ->assertSee('Contact #')
             ->assertSee('Other')
             ->assertSee('value="Designated Staff — HEAD OFFICE"', false)
             ->assertDontSee('name="sales_staff_id"', false)
@@ -1046,16 +1050,27 @@ class FullyBookedOrderTest extends TestCase
             'sales_staff_id' => $otherStaff->id,
             'store_selection' => (string) $hub->id,
             'attachment' => $this->fakePdf(),
+            'customer_name' => 'Juan Dela Cruz',
+            'contact_number' => '09171234567',
             'remarks' => 'Please prioritize this order.',
         ])->assertSessionHasNoErrors();
 
         $order = FullyBookedOrder::sole();
+        $secondAttachmentPath = $this->fakePdf('second-order-page.pdf')
+            ->store('fully-booked-orders', 'inventory-attachments');
+        $secondAttachment = $order->attachments()->create([
+            'path' => $secondAttachmentPath,
+            'original_filename' => 'second-order-page.pdf',
+            'mime_type' => 'application/pdf',
+        ]);
         $orderNumber = 'FB-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
         $this->assertSame($orderNumber, $order->order_number);
         Storage::disk('inventory-attachments')->assertExists($order->attachment_path);
         $this->assertSame($staff->id, $order->sales_staff_id);
         $this->assertSame($staff->id, $order->submitted_by);
         $this->assertSame('HEAD OFFICE', $order->store_name);
+        $this->assertSame('Juan Dela Cruz', $order->customer_name);
+        $this->assertSame('09171234567', $order->contact_number);
         $this->assertSame('Please prioritize this order.', $order->remarks);
         $this->assertSame('pending', $order->status);
         $this->assertSame(12, $product->fresh()->stock);
@@ -1132,6 +1147,8 @@ class FullyBookedOrderTest extends TestCase
         ]);
         $fullyBookedSale = \App\Models\SalesTransaction::where('order_number', $orderNumber)->sole();
         $this->assertSame('fully_booked', $fullyBookedSale->channel_type);
+        $this->assertSame('Juan Dela Cruz', $fullyBookedSale->customer_name);
+        $this->assertSame('09171234567', $fullyBookedSale->contact_number);
         $this->assertDatabaseHas('transaction_items', [
             'transaction_id' => $fullyBookedSale->id,
             'product_id' => $product->id,
@@ -1155,11 +1172,23 @@ class FullyBookedOrderTest extends TestCase
             ->assertJsonPath('transaction.fully_booked_attachment.url', $previewUrl)
             ->assertJsonPath('transaction.fully_booked_attachment.file_name', $order->original_filename)
             ->assertJsonPath('transaction.fully_booked_attachment.mime_type', 'application/pdf');
-        $this->get(route('inventory-transactions.index', ['type' => 'fully_booked']))
+        $transactionLogResponse = $this->get(route('inventory-transactions.index', ['type' => 'fully_booked']))
             ->assertOk()
             ->assertSee('fully-booked-detail-summary', false)
             ->assertSee('fully-booked-detail-meta', false)
-            ->assertSee('fully-booked-attachment-row', false)
+            ->assertSee('Juan Dela Cruz')
+            ->assertSee('09171234567')
+            ->assertSee('fully-booked-log-attachment-gallery', false)
+            ->assertSee('fullyBookedLogAttachmentViewer', false)
+            ->assertSee('fully-booked-log-viewer-previous', false)
+            ->assertSee('fully-booked-log-viewer-next', false)
+            ->assertSee('data-fully-booked-log-preview', false)
+            ->assertSee('second-order-page.pdf')
+            ->assertSee(route('inventory-transactions.fully-booked.attachment', [
+                'fullyBookedOrder' => $order,
+                'attachment_id' => $secondAttachment->id,
+            ]), false)
+            ->assertDontSee('target="_blank" rel="noopener"><i class="fa-solid fa-eye me-1"></i>Preview</a>', false)
             ->assertSee('fully-booked-detail-items', false)
             ->assertSee('aria-label="Items pulled out"', false)
             ->assertSee('scrollbar-gutter: stable', false)
@@ -1175,6 +1204,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertDontSee('<img src="'.$previewUrl.'"', false)
             ->assertDontSee('PENDING PULL-OUT')
             ->assertDontSee('Pending inventory pull-out');
+        $this->assertSame(2, substr_count($transactionLogResponse->getContent(), 'data-fully-booked-log-preview data-preview-url'));
         $this->assertSame(1, $staff->notifications()->where('data->event', 'fully_booked_completed')->count());
         $completionNotification = $staff->notifications()->where('data->event', 'fully_booked_completed')->first();
         $this->assertSame($orderNumber, $completionNotification->data['reference']);
@@ -1188,6 +1218,8 @@ class FullyBookedOrderTest extends TestCase
         ]))->assertOk()
             ->assertSee('Stock updated')
             ->assertSee($orderNumber)
+            ->assertSee('Juan Dela Cruz')
+            ->assertSee('09171234567')
             ->assertSee('View Items')
             ->assertSee('data-bs-target="#fullyBookedItemsModal'.$order->id.'"', false)
             ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)

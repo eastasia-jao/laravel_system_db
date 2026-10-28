@@ -12,6 +12,8 @@ class FullyBookedOrder extends Model
         'order_number',
         'store_hub_id',
         'store_name',
+        'customer_name',
+        'contact_number',
         'sales_staff_id',
         'submitted_by',
         'reviewed_by',
@@ -56,7 +58,7 @@ class FullyBookedOrder extends Model
         return $this->belongsTo(User::class, 'pulled_out_by');
     }
 
-    public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function items(): HasMany
     {
         return $this->hasMany(FullyBookedOrderItem::class);
     }

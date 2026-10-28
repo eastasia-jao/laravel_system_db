@@ -79,6 +79,8 @@ class FullyBookedOrderController extends Controller
             'inventory_hub_id' => ['nullable', 'integer', Rule::exists('store_hubs', 'id')->where('status', 'active')],
             'store_selection' => ['required', Rule::in($activeStoreIds->push('other')->all())],
             'other_store_name' => ['nullable', 'required_if:store_selection,other', 'string', 'max:255'],
+            'customer_name' => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'max:50'],
             'remarks' => ['nullable', 'string', 'max:150'],
         ]);
         $storeName = $validated['store_selection'] === 'other'
@@ -121,6 +123,8 @@ class FullyBookedOrderController extends Controller
                     'order_number' => 'PENDING-'.Str::uuid(),
                     'store_hub_id' => $inventoryHubId,
                     'store_name' => $storeName,
+                    'customer_name' => $validated['customer_name'] ?? null,
+                    'contact_number' => $validated['contact_number'] ?? null,
                     'sales_staff_id' => $salesStaff->id,
                     'submitted_by' => $user->id,
                     'attachment_path' => $primaryAttachment['path'],
@@ -307,7 +311,8 @@ class FullyBookedOrderController extends Controller
                 'order_number' => $order->order_number,
             ], [
                 'order_date' => now()->toDateString(),
-                'customer_name' => 'Fully Booked',
+                'customer_name' => $order->customer_name ?: 'Fully Booked',
+                'contact_number' => $order->contact_number,
                 'status' => 'confirmed',
                 'user_id' => $order->submitted_by,
             ]);

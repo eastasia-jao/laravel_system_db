@@ -99,6 +99,25 @@
     .fully-booked-attachment-file { display: flex; align-items: center; gap: .65rem; min-width: 0; color: #334155; }
     .fully-booked-attachment-file i { color: #64748b; }
     .fully-booked-attachment-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fully-booked-log-attachment-gallery { display: flex; flex-wrap: wrap; gap: .85rem; padding: 1rem; }
+    .fully-booked-log-attachment-card { width: 132px; min-width: 0; }
+    .fully-booked-log-attachment-thumb { position: relative; display: grid; width: 132px; height: 96px; place-items: center; overflow: hidden; border: 1px solid #dbeafe; border-radius: 12px; color: #64748b; background: #f8fafc; cursor: zoom-in; }
+    .fully-booked-log-attachment-thumb img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+    .fully-booked-log-attachment-thumb .fa-magnifying-glass-plus { position: absolute; right: .4rem; bottom: .4rem; display: grid; width: 1.8rem; height: 1.8rem; place-items: center; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .8); }
+    .fully-booked-log-attachment-name { display: block; margin-top: .35rem; overflow: hidden; color: #64748b; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+    .fully-booked-log-attachment-download { display: inline-block; margin-top: .2rem; font-size: .75rem; text-decoration: none; }
+    .fully-booked-log-viewer { position: relative; width: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); padding: 2.75rem 3.5rem 1rem; border: 0; border-radius: 14px; background: #0f172a; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+    .fully-booked-log-viewer::backdrop { background: rgba(15, 23, 42, .88); }
+    .fully-booked-log-viewer img, .fully-booked-log-viewer iframe { display: block; width: auto; max-width: calc(100vw - 9rem); height: auto; max-height: calc(100vh - 6rem); border: 0; object-fit: contain; background: #fff; }
+    .fully-booked-log-viewer iframe { width: min(1000px, calc(100vw - 9rem)); height: min(800px, calc(100vh - 6rem)); }
+    .fully-booked-log-viewer [hidden] { display: none !important; }
+    .fully-booked-log-viewer-close, .fully-booked-log-viewer-nav { position: absolute; z-index: 1; display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .18); }
+    .fully-booked-log-viewer-close { top: .5rem; right: .5rem; }
+    .fully-booked-log-viewer-nav { top: 50%; transform: translateY(-50%); }
+    .fully-booked-log-viewer-previous { left: .5rem; }
+    .fully-booked-log-viewer-next { right: .5rem; }
+    .fully-booked-log-viewer-close:hover, .fully-booked-log-viewer-nav:hover { background: #2563eb; }
+    .fully-booked-log-viewer-count { position: absolute; top: 1.25rem; left: 50%; color: #fff; font-size: .85rem; transform: translateX(-50%); }
     .fully-booked-detail-items { max-height: min(42vh, 360px); overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #94a3b8 #f1f5f9; }
     .fully-booked-detail-items::-webkit-scrollbar { width: 8px; }
     .fully-booked-detail-items::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -619,6 +638,14 @@
                                                 <div class="fully-booked-detail-label">Submitted</div>
                                                 <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->created_at?->format('M d, Y h:i A') ?? '—' }}</div>
                                             </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Customer Name</div>
+                                                <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->customer_name ?: 'Not provided' }}</div>
+                                            </div>
+                                            <div class="fully-booked-detail-meta-item">
+                                                <div class="fully-booked-detail-label">Contact #</div>
+                                                <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->contact_number ?: 'Not provided' }}</div>
+                                            </div>
                                         </section>
 
                                         @if($fullyBookedOrder?->status === 'rejected')
@@ -636,18 +663,36 @@
                                         @endif
 
                                         <section class="fully-booked-detail-section">
+                                            @php
+                                                $fullyBookedAttachments = $fullyBookedOrder?->attachments ?? collect();
+                                            @endphp
                                             <div class="fully-booked-detail-section-header">
-                                                <span class="fully-booked-detail-section-title"><i class="fa-solid fa-paperclip me-2 text-primary"></i>Order attachment</span>
+                                                <span class="fully-booked-detail-section-title"><i class="fa-solid fa-paperclip me-2 text-primary"></i>Order attachments</span>
+                                                <span class="small text-muted">{{ $fullyBookedAttachments->count() }} file(s)</span>
                                             </div>
-                                            <div class="fully-booked-attachment-row">
-                                                <div class="fully-booked-attachment-file">
-                                                    <i class="fa-solid {{ str_starts_with($fullyBookedOrder?->mime_type ?? '', 'image/') ? 'fa-file-image' : 'fa-file-pdf' }}"></i>
-                                                    <span title="{{ $fullyBookedOrder?->original_filename }}">{{ $fullyBookedOrder?->original_filename ?? 'Attachment' }}</span>
-                                                </div>
-                                                <div class="d-flex flex-wrap gap-2">
-                                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('inventory-transactions.fully-booked.attachment', $fullyBookedOrder) }}" target="_blank" rel="noopener"><i class="fa-solid fa-eye me-1"></i>Preview</a>
-                                                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $fullyBookedOrder, 'download' => 1]) }}"><i class="fa-solid fa-download me-1"></i>Download</a>
-                                                </div>
+                                            <div class="fully-booked-log-attachment-gallery" aria-label="Order attachments for {{ $fullyBookedOrder?->order_number }}">
+                                                @forelse($fullyBookedAttachments as $attachment)
+                                                    @php
+                                                        $attachmentUrl = route('inventory-transactions.fully-booked.attachment', [
+                                                            'fullyBookedOrder' => $fullyBookedOrder,
+                                                            'attachment_id' => $attachment->id,
+                                                        ]);
+                                                    @endphp
+                                                    <div class="fully-booked-log-attachment-card">
+                                                        <button type="button" class="fully-booked-log-attachment-thumb" data-fully-booked-log-preview data-preview-url="{{ $attachmentUrl }}" data-preview-type="{{ str_starts_with($attachment->mime_type, 'image/') ? 'image' : 'pdf' }}" data-preview-title="{{ $attachment->original_filename }}" aria-label="Magnify {{ $attachment->original_filename }}">
+                                                            @if(str_starts_with($attachment->mime_type, 'image/'))
+                                                                <img src="{{ $attachmentUrl }}" alt="" loading="lazy">
+                                                            @else
+                                                                <i class="fa-solid fa-file-pdf fa-2x text-danger" aria-hidden="true"></i>
+                                                            @endif
+                                                            <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+                                                        </button>
+                                                        <span class="fully-booked-log-attachment-name" title="{{ $attachment->original_filename }}">{{ $attachment->original_filename }}</span>
+                                                        <a class="fully-booked-log-attachment-download" href="{{ route('inventory-transactions.fully-booked.attachment', ['fullyBookedOrder' => $fullyBookedOrder, 'attachment_id' => $attachment->id, 'download' => 1]) }}"><i class="fa-solid fa-download me-1"></i>Download</a>
+                                                    </div>
+                                                @empty
+                                                    <div class="small text-muted">No order attachment is available.</div>
+                                                @endforelse
                                             </div>
                                         </section>
 
@@ -1077,6 +1122,14 @@
         <div class="p-3">{{ $transactions->links() }}</div>
     </div>
 </div>
+<dialog class="fully-booked-log-viewer" id="fullyBookedLogAttachmentViewer" aria-label="Fully Booked attachment preview">
+    <button type="button" class="fully-booked-log-viewer-close" aria-label="Close attachment preview"><i class="fa-solid fa-xmark"></i></button>
+    <button type="button" class="fully-booked-log-viewer-nav fully-booked-log-viewer-previous" aria-label="Previous attachment"><i class="fa-solid fa-chevron-left"></i></button>
+    <span class="fully-booked-log-viewer-count" aria-live="polite"></span>
+    <img alt="" hidden>
+    <iframe title="Fully Booked attachment preview" hidden></iframe>
+    <button type="button" class="fully-booked-log-viewer-nav fully-booked-log-viewer-next" aria-label="Next attachment"><i class="fa-solid fa-chevron-right"></i></button>
+</dialog>
 <dialog class="inventory-order-image-viewer" id="inventoryOrderImageViewer" aria-label="Order attachment preview">
     <button type="button" class="inventory-order-image-viewer-close" aria-label="Close image preview">
         <i class="fa-solid fa-xmark"></i>
@@ -1088,6 +1141,64 @@
 
 @push('scripts')
 <script src="{{ asset('js/fully-booked-pullout.js') }}?v={{ filemtime(public_path('js/fully-booked-pullout.js')) }}"></script>
+<script>
+    (() => {
+        const viewer = document.getElementById('fullyBookedLogAttachmentViewer');
+        const viewerImage = viewer?.querySelector('img');
+        const viewerFrame = viewer?.querySelector('iframe');
+        const viewerCount = viewer?.querySelector('.fully-booked-log-viewer-count');
+        const viewerPrevious = viewer?.querySelector('.fully-booked-log-viewer-previous');
+        const viewerNext = viewer?.querySelector('.fully-booked-log-viewer-next');
+        const viewerClose = viewer?.querySelector('.fully-booked-log-viewer-close');
+        let activePreviewButtons = [];
+        let activePreviewIndex = 0;
+
+        const renderAttachmentPreview = index => {
+            if (!activePreviewButtons.length) return;
+            activePreviewIndex = (index + activePreviewButtons.length) % activePreviewButtons.length;
+            const button = activePreviewButtons[activePreviewIndex];
+            const isPdf = button.dataset.previewType === 'pdf';
+            viewerImage.hidden = isPdf;
+            viewerFrame.hidden = !isPdf;
+            viewerCount.textContent = `${activePreviewIndex + 1} / ${activePreviewButtons.length} · ${button.dataset.previewTitle}`;
+            viewerPrevious.hidden = activePreviewButtons.length < 2;
+            viewerNext.hidden = activePreviewButtons.length < 2;
+            if (isPdf) {
+                viewerImage.removeAttribute('src');
+                viewerImage.alt = '';
+                viewerFrame.src = button.dataset.previewUrl;
+            } else {
+                viewerFrame.removeAttribute('src');
+                viewerImage.src = button.dataset.previewUrl;
+                viewerImage.alt = button.dataset.previewTitle;
+            }
+        };
+
+        document.addEventListener('click', event => {
+            const trigger = event.target.closest('[data-fully-booked-log-preview]');
+            if (!trigger || !viewer) return;
+            activePreviewButtons = [...trigger.closest('.fully-booked-log-attachment-gallery').querySelectorAll('[data-fully-booked-log-preview]')];
+            renderAttachmentPreview(activePreviewButtons.indexOf(trigger));
+            viewer.showModal();
+        });
+        viewerClose?.addEventListener('click', () => viewer.close());
+        viewerPrevious?.addEventListener('click', () => renderAttachmentPreview(activePreviewIndex - 1));
+        viewerNext?.addEventListener('click', () => renderAttachmentPreview(activePreviewIndex + 1));
+        viewer?.addEventListener('click', event => {
+            if (event.target === viewer) viewer.close();
+        });
+        viewer?.addEventListener('keydown', event => {
+            if (event.key === 'ArrowLeft' && activePreviewButtons.length > 1) renderAttachmentPreview(activePreviewIndex - 1);
+            if (event.key === 'ArrowRight' && activePreviewButtons.length > 1) renderAttachmentPreview(activePreviewIndex + 1);
+        });
+        viewer?.addEventListener('close', () => {
+            viewerImage.removeAttribute('src');
+            viewerImage.alt = '';
+            viewerFrame.removeAttribute('src');
+            activePreviewButtons = [];
+        });
+    })();
+</script>
 <script>
     (() => {
         const viewer = document.getElementById('inventoryOrderImageViewer');

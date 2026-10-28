@@ -209,6 +209,14 @@
                     <label class="form-label fw-semibold" for="fullyBookedOtherStore">Specify store</label>
                     <input id="fullyBookedOtherStore" name="other_store_name" class="form-control" value="{{ old('other_store_name') }}" maxlength="255" @required(old('store_selection') === 'other')>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="fullyBookedCustomerName">Customer Name <span class="text-muted fw-normal">(Optional)</span></label>
+                    <input id="fullyBookedCustomerName" name="customer_name" class="form-control" value="{{ old('customer_name') }}" maxlength="255" autocomplete="name" placeholder="Enter customer name">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="fullyBookedContactNumber">Contact # <span class="text-muted fw-normal">(Optional)</span></label>
+                    <input id="fullyBookedContactNumber" name="contact_number" type="tel" class="form-control" value="{{ old('contact_number') }}" maxlength="50" autocomplete="tel" placeholder="Enter contact number">
+                </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold" for="fullyBookedAttachment">Order Attachments</label>
                     <input id="fullyBookedAttachment" name="attachments[]" type="file" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" multiple required>
@@ -280,6 +288,13 @@
                             @endif
                             @if($order->remarks)
                                 <div class="small mt-2"><strong>Remarks:</strong> {{ $order->remarks }}</div>
+                            @endif
+                            @if($order->customer_name || $order->contact_number)
+                                <div class="small mt-2">
+                                    @if($order->customer_name)<strong>Customer:</strong> {{ $order->customer_name }}@endif
+                                    @if($order->customer_name && $order->contact_number)<span class="mx-1">&middot;</span>@endif
+                                    @if($order->contact_number)<strong>Contact #:</strong> {{ $order->contact_number }}@endif
+                                </div>
                             @endif
                             <div class="fully-booked-attachment-gallery mt-3" aria-label="Attachments for {{ $order->order_number }}">
                                 @foreach($order->attachments as $attachment)
@@ -373,6 +388,13 @@
                                     <span class="badge rounded-pill text-bg-warning">Awaiting stock update</span>
                                 </div>
                                 <div class="small text-muted mt-1">{{ $order->salesStaff?->name ?? 'Deleted staff' }} · {{ $order->storeHub?->name ?? '—' }} · Order store: {{ $order->store_name ?? '—' }} · Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
+                                @if($order->customer_name || $order->contact_number)
+                                    <div class="small text-muted mt-1">
+                                        @if($order->customer_name)<strong>Customer:</strong> {{ $order->customer_name }}@endif
+                                        @if($order->customer_name && $order->contact_number)<span class="mx-1">&middot;</span>@endif
+                                        @if($order->contact_number)<strong>Contact #:</strong> {{ $order->contact_number }}@endif
+                                    </div>
+                                @endif
                             </div>
                         </div>
                         @if($order->remarks)
