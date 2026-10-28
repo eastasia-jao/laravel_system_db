@@ -63,6 +63,16 @@
     .sales-dashboard .section-kicker { color: #17345d; font-size: .78rem; font-weight: 750; letter-spacing: .02em; }
     .sales-dashboard .dashboard-subtitle { color: #64748b; font-size: .72rem; }
     .sales-dashboard .product-panel { min-height: 300px; }
+    .sales-dashboard .inventory-health-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+    .sales-dashboard .inventory-health-card { min-width: 0; padding: .85rem 1rem; border: 1px solid #e2e8f0; border-radius: 12px; color: #17345d; background: #fff; text-decoration: none; }
+    .sales-dashboard .inventory-health-card:hover { border-color: #93c5fd; box-shadow: 0 6px 18px rgba(15, 23, 42, .08); }
+    .sales-dashboard .inventory-health-card.is-out { border-left: 4px solid #991b1b; background: #fff7f7; }
+    .sales-dashboard .inventory-health-card.is-critical { border-left: 4px solid #dc2626; background: #fff8f8; }
+    .sales-dashboard .inventory-health-card.is-low { border-left: 4px solid #f59e0b; background: #fffbeb; }
+    .sales-dashboard .inventory-health-card.is-healthy { border-left: 4px solid #16a34a; background: #f0fdf4; }
+    .sales-dashboard .inventory-health-label { color: #64748b; font-size: .68rem; font-weight: 750; letter-spacing: .035em; text-transform: uppercase; }
+    .sales-dashboard .inventory-health-value { margin-top: .2rem; color: #17345d; font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .sales-dashboard .inventory-health-help { color: #64748b; font-size: .67rem; }
     .sales-dashboard .branch-snapshot { padding: 1rem; border-left: 3px solid #2563eb; background: linear-gradient(145deg, #fff, #f8fbff); }
     .sales-dashboard .branch-snapshot-total { color: #1d4ed8; font-size: 1.65rem; font-weight: 800; font-variant-numeric: tabular-nums; }
     .sales-dashboard .branch-snapshot-stat { padding: .7rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
@@ -106,7 +116,7 @@
     .sales-dashboard .store-sales-name { min-height: 2.5rem; color: #334155; font-size: .72rem; font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
     .sales-dashboard .store-sales-meta { margin-top: .35rem; color: #64748b; font-size: .66rem; }
     .sales-dashboard .store-sales-meta .badge { font-size: .6rem; }
-    @media (max-width: 767.98px) { .sales-dashboard { padding: 0 .1rem; } .sales-dashboard .metric { min-height: 68px; } .sales-dashboard .marketplace-comparison-grid { gap: .35rem; } }
+    @media (max-width: 767.98px) { .sales-dashboard { padding: 0 .1rem; } .sales-dashboard .metric { min-height: 68px; } .sales-dashboard .marketplace-comparison-grid { gap: .35rem; } .sales-dashboard .inventory-health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 <div class="sales-dashboard">
     @php
@@ -236,7 +246,11 @@
                     <div class="store-sales-chart" role="img" aria-label="Vertical bar chart comparing net sales across accessible stores">
                         <div class="store-sales-chart-grid" style="--store-count: {{ $storeSalesOverview->count() }}">
                             @foreach($storeSalesOverview as $storeSales)
-                                @php($storeBarHeight = $storeSales['total'] > 0 ? max(2, ($storeSales['total'] / $allStoreMaxSales) * 100) : 0)
+                                @php
+                                    $storeBarHeight = $storeSales['total'] > 0
+                                        ? max(2, ($storeSales['total'] / $allStoreMaxSales) * 100)
+                                        : 0;
+                                @endphp
                                 <div class="store-sales-column" title="{{ $storeSales['name'] }}: ₱{{ number_format($storeSales['total'], 2) }}, {{ number_format($storeSales['transactions']) }} transactions">
                                     <div class="store-sales-value">₱{{ number_format($storeSales['total'], 2) }}</div>
                                     <div class="store-sales-bar-area" aria-hidden="true">
@@ -256,8 +270,10 @@
         </section>
     @endif
     @if($isBranchDashboard)
-        @php($branchSummary = $channelSummaries->first())
-        @php($branchPayment = $matrix->first())
+        @php
+            $branchSummary = $channelSummaries->first();
+            $branchPayment = $matrix->first();
+        @endphp
         <div class="row g-3 align-items-stretch mb-4">
             <div class="col-xl-4">
                 <section class="panel branch-snapshot h-100">
@@ -335,21 +351,27 @@
                         <div class="small text-danger mt-1">Refund cost ₱{{ number_format($summary['refund_total'], 2) }}</div>
                             </div>
                         @if($marketplaceSalesComparison->has($summary['key']))
-                            @php($channelSalesComparison = $marketplaceSalesComparison->get($summary['key']))
-                            @php($channelCustomerComparison = $marketplaceCustomerComparison->get($summary['key']))
-                            @php($comparisonBars = ['last_year' => ['label' => 'Last Year', 'color' => '#94a3b8'], 'this_year' => ['label' => 'This Year', 'color' => '#2563eb']])
+                            @php
+                                $channelSalesComparison = $marketplaceSalesComparison->get($summary['key']);
+                                $channelCustomerComparison = $marketplaceCustomerComparison->get($summary['key']);
+                                $comparisonBars = ['last_year' => ['label' => 'Last Year', 'color' => '#94a3b8'], 'this_year' => ['label' => 'This Year', 'color' => '#2563eb']];
+                            @endphp
                             <div class="marketplace-comparison-grid">
                                 @foreach([
                                     ['title' => 'Sales · selected range', 'values' => $channelSalesComparison, 'money' => true, 'description' => 'sales'],
                                     ['title' => 'No. of Customers', 'values' => $channelCustomerComparison, 'money' => false, 'description' => 'unique customers'],
                                 ] as $comparison)
-                                    @php($maxComparisonValue = max(1, (float) $comparison['values']->max()))
+                                    @php
+                                        $maxComparisonValue = max(1, (float) $comparison['values']->max());
+                                    @endphp
                                     <div>
                                         <div class="marketplace-comparison-title">{{ $comparison['title'] }}</div>
                                         <div class="marketplace-sales-chart" role="img" aria-label="{{ $summary['label'] }} {{ $comparison['description'] }} comparison: last year and this year for the selected date range">
                                             @foreach($comparisonBars as $marketplaceKey => $marketplaceStyle)
-                                                @php($comparisonValue = (float) $comparison['values']->get($marketplaceKey, 0))
-                                                @php($barHeight = $comparisonValue > 0 ? max(4, ($comparisonValue / $maxComparisonValue) * 58) : 2)
+                                                @php
+                                                    $comparisonValue = (float) $comparison['values']->get($marketplaceKey, 0);
+                                                    $barHeight = $comparisonValue > 0 ? max(4, ($comparisonValue / $maxComparisonValue) * 58) : 2;
+                                                @endphp
                                                 <div class="marketplace-sales-bar-group">
                                                     <span class="marketplace-sales-bar-value">{{ $comparison['money'] ? '₱'.number_format($comparisonValue, 2) : number_format($comparisonValue) }}</span>
                                                     <div class="marketplace-sales-bar" style="height: {{ $barHeight }}px; background: {{ $marketplaceStyle['color'] }};" aria-hidden="true"></div>
@@ -382,7 +404,10 @@
                             @if($dashboardChannel === 'online')<div class="marketplace-mop-count">Before refunds · refunds shown separately</div>@endif
                         </div>
                     </div>
-                    @php($activePaymentMethods = collect($channelPaymentOverview['amounts'])->filter(fn ($amount, $method) => $channelPaymentOverview['counts'][$method] > 0))
+                    @php
+                        $activePaymentMethods = collect($channelPaymentOverview['amounts'])
+                            ->filter(fn ($amount, $method) => $channelPaymentOverview['counts'][$method] > 0);
+                    @endphp
                     @if($activePaymentMethods->isNotEmpty())
                         <div class="row row-cols-2 row-cols-md-3 g-2">
                             @foreach($activePaymentMethods as $method => $amount)
@@ -424,51 +449,38 @@
     </div>
     @if($isBranchDashboard || !in_array(auth()->user()?->role, ['sales_marketing_staff', 'sales_associate'], true))
     <section class="panel p-3 p-lg-4">
-        <div class="d-flex justify-content-between gap-2"><div><h3 class="mb-1"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Live Inventory Alerts</h3><p class="small text-muted mb-3">{{ $isBranchDashboard ? $scopeName.' · ' : '' }}{{ $dashboardStockChannel && $dashboardStockChannel !== 'unassigned' ? \Illuminate\Support\Str::headline($dashboardStockChannel).' stock allocation' : ($dashboardStockChannel ? 'Assigned channel stock allocation' : 'Physical stock only; channel allocations are excluded') }} · Red: 0–10 pcs · Orange: 11–30 pcs · {{ $alertCount }} alerts</p></div></div>
+        @php
+            $inventoryAlertParams = array_filter([
+                'hub_id' => $hubId,
+                'channel' => auth()->user()?->role === 'sales_marketing_staff' ? $dashboardChannel : null,
+            ], fn ($value) => $value !== null && $value !== '');
+        @endphp
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+            <div><h3 class="mb-1"><i class="fa-solid fa-heart-pulse text-primary me-2"></i>Inventory Health</h3><p class="small text-muted mb-0">{{ $isBranchDashboard ? $scopeName.' · ' : '' }}{{ $dashboardStockChannel && $dashboardStockChannel !== 'unassigned' ? \Illuminate\Support\Str::headline($dashboardStockChannel).' stock allocation' : ($dashboardStockChannel ? 'Assigned channel stock allocation' : 'Physical stock only; channel allocations are excluded') }}</p></div>
+            <a class="btn btn-outline-primary btn-sm" href="{{ route('dashboard.inventory-alerts', $inventoryAlertParams) }}"><i class="fa-solid fa-list-check me-1"></i>View all alerts</a>
+        </div>
+        <div class="inventory-health-grid mb-4">
+            <a class="inventory-health-card is-out" href="{{ route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'out_of_stock'])) }}"><div class="inventory-health-label">Out of stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['out_of_stock']) }}</div><div class="inventory-health-help">products at 0 pcs</div></a>
+            <a class="inventory-health-card is-critical" href="{{ route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'critical'])) }}"><div class="inventory-health-label">Critical stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['critical']) }}</div><div class="inventory-health-help">1–10 pcs remaining</div></a>
+            <a class="inventory-health-card is-low" href="{{ route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'low'])) }}"><div class="inventory-health-label">Low stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['low']) }}</div><div class="inventory-health-help">11–30 pcs remaining</div></a>
+            <a class="inventory-health-card is-healthy" href="{{ route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'healthy'])) }}"><div class="inventory-health-label">Healthy</div><div class="inventory-health-value">{{ number_format($inventoryHealth['healthy']) }}</div><div class="inventory-health-help">more than 30 pcs</div></a>
+        </div>
         <div id="inventoryAlertResults" aria-live="polite">
-            @if($alerts->isEmpty())<div class="empty-state">No active products in the selected stores.</div>@else
-            <div class="table-responsive"><table class="table mb-0"><thead><tr><th>Product</th><th>Store</th><th class="text-end">{{ $dashboardStockChannel && $dashboardStockChannel !== 'unassigned' ? \Illuminate\Support\Str::headline($dashboardStockChannel).' Available' : ($dashboardStockChannel ? 'Allocated Stock' : 'Stock') }}</th><th>Status</th></tr></thead><tbody>@foreach($alerts as $product)@php($stockStatus = $product->stock <= 10 ? ['class' => 'bg-danger', 'label' => 'Critical stock'] : ['class' => 'bg-warning text-dark', 'label' => 'Low stock'])<tr><td class="fw-semibold">{{ $product->name }}<span class="d-block small text-muted">{{ $product->item_id }}</span></td><td>{{ $product->storeHub?->name }}</td><td class="text-end">{{ $product->stock }} pcs</td><td><span class="badge {{ $stockStatus['class'] }}">{{ $stockStatus['label'] }}</span></td></tr>@endforeach</tbody></table></div>
-            @if($alerts->hasPages())
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                    <small class="text-muted">Showing {{ $alerts->firstItem() }}–{{ $alerts->lastItem() }} of {{ $alertCount }} alerts</small>
-                    <nav aria-label="Live inventory alert pages">
-                        <ul class="pagination mb-0">
-                            @if($alerts->onFirstPage())
-                                <li class="page-item disabled" aria-disabled="true"><span class="page-link" aria-hidden="true">&lsaquo;</span></li>
-                            @else
-                                <li class="page-item"><a class="page-link" href="{{ $alerts->previousPageUrl() }}" rel="prev" aria-label="Previous page">&lsaquo;</a></li>
-                            @endif
-                            @php($alertPageWindow = \Illuminate\Pagination\UrlWindow::make($alerts->onEachSide(1)))
-                            @foreach(array_filter([
-                                $alertPageWindow['first'],
-                                is_array($alertPageWindow['slider']) ? '...' : null,
-                                $alertPageWindow['slider'],
-                                is_array($alertPageWindow['last']) ? '...' : null,
-                                $alertPageWindow['last'],
-                            ]) as $element)
-                                @if(is_string($element))
-                                    <li class="page-item disabled" aria-disabled="true"><span class="page-link">{{ $element }}</span></li>
-                                @endif
-                                @if(is_array($element))
-                                    @foreach($element as $page => $url)
-                                        @if($page === $alerts->currentPage())
-                                            <li class="page-item active" aria-current="page"><span class="page-link">{{ $page }}</span></li>
-                                        @else
-                                            <li class="page-item"><a class="page-link" href="{{ $url }}">{{ $page }}</a></li>
-                                        @endif
-                                    @endforeach
-                                @endif
-                            @endforeach
-                            @if($alerts->hasMorePages())
-                                <li class="page-item"><a class="page-link" href="{{ $alerts->nextPageUrl() }}" rel="next" aria-label="Next page">&rsaquo;</a></li>
-                            @else
-                                <li class="page-item disabled" aria-disabled="true"><span class="page-link" aria-hidden="true">&rsaquo;</span></li>
-                            @endif
-                        </ul>
-                    </nav>
-                </div>
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2"><h4 class="h6 mb-0">Most urgent</h4><span class="small text-muted">Showing up to 10 of {{ number_format($alertCount) }} alerts</span></div>
+            @if($alerts->isEmpty())<div class="empty-state">No products require attention.</div>@else
+            <div class="table-responsive"><table class="table mb-0"><thead><tr><th>Product</th><th>Store</th><th class="text-end">{{ $dashboardStockChannel && $dashboardStockChannel !== 'unassigned' ? \Illuminate\Support\Str::headline($dashboardStockChannel).' Available' : ($dashboardStockChannel ? 'Allocated Stock' : 'Stock') }}</th><th>Status</th></tr></thead><tbody>
+                @foreach($alerts as $product)
+                    @php
+                        $stockStatus = (int) $product->alert_stock === 0
+                            ? ['class' => 'bg-dark', 'label' => 'Out of stock']
+                            : ((int) $product->alert_stock <= 10
+                                ? ['class' => 'bg-danger', 'label' => 'Critical']
+                                : ['class' => 'bg-warning text-dark', 'label' => 'Low stock']);
+                    @endphp
+                    <tr><td class="fw-semibold">{{ $product->name }}<span class="d-block small text-muted">{{ $product->item_id }}</span></td><td>{{ $product->storeHub?->name }}</td><td class="text-end">{{ number_format($product->alert_stock) }} pcs</td><td><span class="badge {{ $stockStatus['class'] }}">{{ $stockStatus['label'] }}</span></td></tr>
+                @endforeach
+            </tbody></table></div>
             @endif
-        @endif
         </div>
     </section>
     @endif
@@ -509,7 +521,7 @@
 </script>
 <script>
     (() => {
-        const resultsContainers = ['inventoryAlertResults', 'slowProductsResults']
+        const resultsContainers = ['slowProductsResults']
             .map(id => document.getElementById(id))
             .filter(element => element instanceof HTMLElement);
         if (!resultsContainers.length) return;

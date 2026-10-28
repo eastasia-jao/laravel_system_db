@@ -9,16 +9,73 @@ use App\Models\ProductReplacement;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Services\StockAllocationSales;
+use App\Support\KeywordSearch;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class HubController extends Controller
 {
     use AuthorizesRequests;
+
+    private const DASHBOARD_STOCK_CHANNELS = ['online', 'wholesale', 'walk_in', 'shopee', 'lazada', 'tiktok'];
+
+    private function inventoryHealthQuery(array $scopeIds, ?string $stockChannel)
+    {
+        $query = Product::query()
+            ->select('products.*')
+            ->whereIn('products.store_hub_id', $scopeIds)
+            ->where('products.status', 'active');
+
+        if ($stockChannel === 'unassigned') {
+            $query->whereRaw('1 = 0');
+
+            return [$query->selectRaw('(products.stock * 0) AS alert_stock'), '(products.stock * 0)'];
+        }
+
+        if (! $stockChannel) {
+            return [$query->selectRaw('products.stock AS alert_stock'), 'products.stock'];
+        }
+
+        $query->leftJoin('product_stock_allocations', 'product_stock_allocations.product_id', '=', 'products.id');
+        if ($stockChannel === 'walk_in') {
+            $allocated = implode(' + ', array_map(
+                fn ($channel) => "COALESCE(product_stock_allocations.{$channel}, 0)",
+                ['online', 'wholesale', 'shopee', 'lazada', 'tiktok']
+            ));
+            $remaining = "products.stock - ({$allocated})";
+            $stockExpression = "CASE WHEN {$remaining} > 0 THEN {$remaining} ELSE 0 END";
+        } else {
+            abort_unless(in_array($stockChannel, self::DASHBOARD_STOCK_CHANNELS, true), 422);
+            $stockExpression = "COALESCE(product_stock_allocations.{$stockChannel}, 0)";
+        }
+
+        return [$query->selectRaw("{$stockExpression} AS alert_stock"), $stockExpression];
+    }
+
+    private function inventoryHealthCounts($query, string $stockExpression): array
+    {
+        $countQuery = clone $query;
+        $countQuery->getQuery()->columns = [];
+
+        $counts = $countQuery
+            ->reorder()
+            ->selectRaw("SUM(CASE WHEN {$stockExpression} = 0 THEN 1 ELSE 0 END) AS out_of_stock")
+            ->selectRaw("SUM(CASE WHEN {$stockExpression} BETWEEN 1 AND 10 THEN 1 ELSE 0 END) AS critical")
+            ->selectRaw("SUM(CASE WHEN {$stockExpression} BETWEEN 11 AND 30 THEN 1 ELSE 0 END) AS low")
+            ->selectRaw("SUM(CASE WHEN {$stockExpression} > 30 THEN 1 ELSE 0 END) AS healthy")
+            ->first();
+
+        return [
+            'out_of_stock' => (int) ($counts?->out_of_stock ?? 0),
+            'critical' => (int) ($counts?->critical ?? 0),
+            'low' => (int) ($counts?->low ?? 0),
+            'healthy' => (int) ($counts?->healthy ?? 0),
+        ];
+    }
 
     public function dashboard($id)
     {
@@ -57,7 +114,7 @@ class HubController extends Controller
         }
 
         $user = auth()->user();
-        $allowedDashboardChannels = ['online', 'wholesale', 'walk_in', 'shopee', 'lazada', 'tiktok'];
+        $allowedDashboardChannels = self::DASHBOARD_STOCK_CHANNELS;
         $dashboardChannelValues = $user?->role === 'sales_marketing_staff'
             ? collect($user->sales_channels ?? [])
                 ->map(fn ($channel) => strtolower(str_replace(['-', ' '], '_', (string) $channel)))
@@ -467,7 +524,11 @@ class HubController extends Controller
             );
             $soldItemCount = (int) $yearToDateUnits->sum(fn ($channelUnits) => $channelUnits->sum());
         }
+        $slowProductIds = $soldUnits
+            ->filter(fn ($units) => (int) $units > 0)
+            ->keys();
         $slowProductsQuery = Product::with('stockAllocation')
+            ->whereIn('products.id', $slowProductIds)
             ->whereIn('store_hub_id', $scopeIds)
             ->where('status', 'active')
             ->when(! $dashboardStockChannel, fn ($query) => $query->where('stock', '>', 0));
@@ -498,38 +559,16 @@ class HubController extends Controller
             LengthAwarePaginator::resolveCurrentPage('slow_page'),
             ['path' => $request->url(), 'pageName' => 'slow_page']
         ))->withQueryString();
-        $alertsQuery = Product::with(['storeHub', 'stockAllocation'])
-            ->whereIn('store_hub_id', $scopeIds)
-            ->where('status', 'active');
-        if ($dashboardStockChannel) {
-            $alertProducts = ($dashboardStockChannel === 'unassigned' ? collect() : $alertsQuery->get())
-                ->each(function ($product) use ($dashboardStockChannel) {
-                    $stock = $dashboardStockChannel === 'walk_in'
-                        ? $product->unallocatedStock()
-                        : $product->channelAvailableStock($dashboardStockChannel, false);
-                    $product->setAttribute('stock', $stock);
-                })
-                ->filter(fn ($product) => (int) $product->stock <= 30)
-                ->sortBy('stock')
-                ->values();
-            $alertsPage = LengthAwarePaginator::resolveCurrentPage('alerts_page');
-            $alerts = new LengthAwarePaginator(
-                $alertProducts->forPage($alertsPage, 10)->values(),
-                $alertProducts->count(),
-                10,
-                $alertsPage,
-                ['path' => $request->url(), 'pageName' => 'alerts_page']
-            );
-            $alerts->withQueryString();
-        } else {
-            $alerts = $alertsQuery
-                ->whereBetween('stock', [0, 30])
-                ->orderBy('stock')
-                ->orderByCatalog()
-                ->paginate(10, ['*'], 'alerts_page')
-                ->withQueryString();
-        }
-        $alertCount = $alerts->total();
+        [$inventoryHealthQuery, $alertStockExpression] = $this->inventoryHealthQuery($scopeIds, $dashboardStockChannel);
+        $inventoryHealth = $this->inventoryHealthCounts($inventoryHealthQuery, $alertStockExpression);
+        $alertCount = $inventoryHealth['out_of_stock'] + $inventoryHealth['critical'] + $inventoryHealth['low'];
+        $alerts = (clone $inventoryHealthQuery)
+            ->with('storeHub')
+            ->whereRaw("{$alertStockExpression} <= ?", [30])
+            ->orderByRaw("{$alertStockExpression} ASC")
+            ->orderByCatalog('item_id')
+            ->limit(10)
+            ->get();
         $pendingVerificationCount = $user?->role === 'admin'
             ? PendingSale::whereIn('store_hub_id', $scopeIds)->where('status', 'pending')->count()
                 + ProductReplacement::where('status', 'pending')->whereHas('transaction', fn ($query) => $query->whereIn('store_hub_id', $scopeIds))->count()
@@ -540,7 +579,86 @@ class HubController extends Controller
         $isBranchDashboard = $scopedDashboardHubs->count() === 1
             && ! $scopedDashboardHubs->first()->is_head_office;
 
-        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'showSalesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'alerts', 'alertCount', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'dashboardStockChannel', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
+        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'showSalesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'alerts', 'alertCount', 'inventoryHealth', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'dashboardStockChannel', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
+    }
+
+    public function inventoryAlerts(Request $request)
+    {
+        $user = $request->user();
+        $hubsQuery = StoreHub::where('status', 'active');
+        if ($user && ! in_array($user->role, ['admin', 'inventory_staff'], true)) {
+            $hubsQuery->whereIn('id', $user->accessibleStoreHubIds());
+        }
+        $dashboardHubs = $hubsQuery->orderBy('name')->get();
+
+        $assignedChannels = $user?->role === 'sales_marketing_staff'
+            ? collect($user->sales_channels ?? [])
+                ->map(fn ($channel) => strtolower(str_replace(['-', ' '], '_', (string) $channel)))
+                ->filter(fn ($channel) => in_array($channel, self::DASHBOARD_STOCK_CHANNELS, true))
+                ->unique()
+                ->values()
+            : collect();
+        $filters = $request->validate([
+            'hub_id' => ['nullable', 'integer'],
+            'channel' => ['nullable', Rule::in($assignedChannels->all())],
+            'severity' => ['nullable', Rule::in(['alerts', 'out_of_stock', 'critical', 'low', 'healthy', 'all'])],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $hubId = $filters['hub_id'] ?? null;
+        if (! $request->has('hub_id') && $user?->role !== 'admin') {
+            $hubId = $dashboardHubs->contains('id', (int) $user?->hub_id)
+                ? (int) $user->hub_id
+                : $dashboardHubs->first()?->id;
+        }
+        if ($hubId) {
+            abort_unless($dashboardHubs->contains('id', (int) $hubId), 403);
+        } elseif ($dashboardHubs->count() === 1) {
+            $hubId = (int) $dashboardHubs->first()->id;
+        }
+        $scopeIds = $hubId ? [(int) $hubId] : $dashboardHubs->modelKeys();
+
+        $selectedChannel = $filters['channel'] ?? $assignedChannels->first();
+        $stockChannel = match ($user?->role) {
+            'sales_associate' => 'walk_in',
+            'sales_marketing_staff' => $selectedChannel ?? 'unassigned',
+            default => null,
+        };
+        [$baseQuery, $stockExpression] = $this->inventoryHealthQuery($scopeIds, $stockChannel);
+        $inventoryHealth = $this->inventoryHealthCounts($baseQuery, $stockExpression);
+
+        $severity = $filters['severity'] ?? 'alerts';
+        $alertsQuery = (clone $baseQuery)->with('storeHub');
+        match ($severity) {
+            'out_of_stock' => $alertsQuery->whereRaw("{$stockExpression} = 0"),
+            'critical' => $alertsQuery->whereRaw("{$stockExpression} BETWEEN 1 AND 10"),
+            'low' => $alertsQuery->whereRaw("{$stockExpression} BETWEEN 11 AND 30"),
+            'healthy' => $alertsQuery->whereRaw("{$stockExpression} > 30"),
+            'all' => null,
+            default => $alertsQuery->whereRaw("{$stockExpression} <= 30"),
+        };
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $alertsQuery->whereHas('catalogProduct', fn ($catalog) => KeywordSearch::apply(
+                $catalog,
+                $search,
+                ['name', 'item_id', 'barcode', 'brand']
+            ));
+        }
+        $products = $alertsQuery
+            ->orderByRaw("{$stockExpression} ASC")
+            ->orderByCatalog('item_id')
+            ->paginate(50)
+            ->withQueryString();
+        $scopeName = $hubId ? $dashboardHubs->firstWhere('id', (int) $hubId)?->name : 'All accessible stores';
+        $stockLabel = $stockChannel && $stockChannel !== 'unassigned'
+            ? ($stockChannel === 'walk_in' ? 'Walk-In available stock' : str($stockChannel)->headline().' allocated stock')
+            : 'Physical stock';
+
+        return view('inventory-alerts.index', compact(
+            'dashboardHubs', 'hubId', 'selectedChannel', 'assignedChannels', 'stockChannel', 'inventoryHealth',
+            'products', 'severity', 'scopeName', 'stockLabel'
+        ));
     }
 
     public function destroy($id)

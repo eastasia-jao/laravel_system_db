@@ -149,6 +149,9 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [HubController::class, 'index'])->middleware('can:access-dashboard')->name('dashboard');
+    Route::get('/dashboard/inventory-alerts', [HubController::class, 'inventoryAlerts'])
+        ->middleware('can:access-dashboard')
+        ->name('dashboard.inventory-alerts');
 
     // Configuration Panel & Master Data (admin only)
     Route::middleware(['can:manage-master-data'])->group(function () {

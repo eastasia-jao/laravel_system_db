@@ -501,7 +501,7 @@ class DashboardTest extends TestCase
             ->assertSee('Branch Sales Snapshot')
             ->assertSee('Walk-In sales in selected range')
             ->assertSee('Payment Methods')
-            ->assertSee('Live Inventory Alerts')
+            ->assertSee('Inventory Health')
             ->assertSee('North Low Stock')
             ->assertDontSee('South Low Stock')
             ->assertSee('NORTH BRANCH')
@@ -528,13 +528,14 @@ class DashboardTest extends TestCase
         $response = $this->actingAs($staff)->get(route('dashboard'));
 
         $response->assertOk()
-            ->assertSee('Live Inventory Alerts')
+            ->assertSee('Inventory Health')
             ->assertSee('Staff Low Stock')
-            ->assertSee('Critical stock');
+            ->assertSee('Critical stock')
+            ->assertSee('Critical');
         $this->assertSame(1, $response->viewData('alertCount'));
     }
 
-    public function test_live_inventory_alerts_are_paginated_ten_per_page_and_keep_dashboard_filters(): void
+    public function test_inventory_health_keeps_the_dashboard_compact_and_links_to_the_filtered_alert_page(): void
     {
         $hub = StoreHub::create(['name' => 'Alerts Hub', 'code' => 'ALERTS-HUB', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -552,33 +553,35 @@ class DashboardTest extends TestCase
             'hub_id' => $hub->id,
             'date' => '2026-09-28',
         ]))->assertOk()
-            ->assertSee('Showing 1–10 of 12 alerts')
-            ->assertDontSee('Showing 1 to 10 of 12 results')
-            ->assertSee('alerts_page=2', false)
-            ->assertSee('aria-label="Live inventory alert pages"', false)
-            ->assertSee('hub_id='.$hub->id, false)
-            ->assertSee('date=2026-09-28', false)
+            ->assertSee('Inventory Health')
+            ->assertSee('Out of stock')
+            ->assertSee('Critical stock')
+            ->assertSee('Low stock')
+            ->assertSee('Healthy')
+            ->assertSee('Showing up to 10 of 12 alerts')
+            ->assertSee(route('dashboard.inventory-alerts', ['hub_id' => $hub->id]), false)
             ->assertSee('id="inventoryAlertResults"', false)
-            ->assertSee('loadDashboardResults', false)
-            ->assertSee('window.addEventListener(\'popstate\'', false);
+            ->assertDontSee('aria-label="Live inventory alert pages"', false);
 
         $this->assertCount(10, $pageOne->viewData('alerts'));
         $this->assertSame(12, $pageOne->viewData('alertCount'));
-        $pageOne->assertSee('Alert Product 0')->assertDontSee('Alert Product 11');
+        $this->assertSame([
+            'out_of_stock' => 1,
+            'critical' => 10,
+            'low' => 1,
+            'healthy' => 0,
+        ], $pageOne->viewData('inventoryHealth'));
+        $pageOne->assertSee('Alert Product 0')->assertDontSee('Alert Product 10');
 
-        $pageTwo = $this->get(route('dashboard', [
+        $lowStockPage = $this->get(route('dashboard.inventory-alerts', [
             'hub_id' => $hub->id,
-            'date' => '2026-09-28',
-            'alerts_page' => 2,
+            'severity' => 'low',
         ]))->assertOk()
-            ->assertSee('Showing 11–12 of 12 alerts')
-            ->assertDontSee('Showing 11 to 12 of 12 results')
-            ->assertSee('Alert Product 10')
             ->assertSee('Alert Product 11')
-            ->assertDontSee('Alert Product 0');
+            ->assertDontSee('Alert Product 10')
+            ->assertSee('1 product');
 
-        $this->assertCount(2, $pageTwo->viewData('alerts'));
-        $this->assertSame(12, $pageTwo->viewData('alertCount'));
+        $this->assertSame(1, $lowStockPage->viewData('products')->total());
     }
 
     public function test_dashboard_hides_store_selector_when_only_one_branch_is_accessible(): void
