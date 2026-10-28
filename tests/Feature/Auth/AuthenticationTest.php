@@ -199,7 +199,16 @@ class AuthenticationTest extends TestCase
             ->assertOk()
             ->assertSee('<meta name="csrf-token" content="'.csrf_token().'">', false)
             ->assertSee('const csrfToken = document.querySelector(\'meta[name="csrf-token"]\')?.content;', false)
-            ->assertSee('if (!csrfToken) return;', false);
+            ->assertSee('if (!csrfToken) return;', false)
+            ->assertSee('id="inactivityWarningModal"', false)
+            ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
+            ->assertSee('You are about to be signed out because of inactivity.')
+            ->assertSee('id="inactivityCountdown"', false)
+            ->assertSee('Sign Out Now')
+            ->assertSee('id="staySignedInButton"', false)
+            ->assertSee('const warningLeadMilliseconds = Math.min(60 * 1000', false)
+            ->assertSee('const showInactivityWarning = () => {', false)
+            ->assertSee('if (warningVisible && !force) return;', false);
     }
 
     public function test_activity_heartbeat_keeps_an_authenticated_session_alive_after_three_minutes(): void

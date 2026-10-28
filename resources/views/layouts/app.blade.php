@@ -100,6 +100,28 @@
         <button id="mobileMoreToggle" type="button" aria-label="Open more navigation"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i><span>More</span></button>
     </nav>
 
+    <div class="modal fade" id="inactivityWarningModal" tabindex="-1" aria-labelledby="inactivityWarningTitle" aria-describedby="inactivityWarningMessage" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-body p-4 p-md-5 text-center">
+                    <span class="d-inline-grid place-items-center rounded-circle bg-warning-subtle text-warning-emphasis mb-3" style="width:4rem;height:4rem;place-items:center;font-size:1.5rem" aria-hidden="true">
+                        <i class="fa-solid fa-clock"></i>
+                    </span>
+                    <h2 class="h4 fw-bold text-dark" id="inactivityWarningTitle">Are you still there?</h2>
+                    <p class="text-muted mb-2" id="inactivityWarningMessage">You are about to be signed out because of inactivity.</p>
+                    <p class="mb-0 fw-semibold text-danger">Signing out in <span id="inactivityCountdown">60 seconds</span>.</p>
+                </div>
+                <div class="modal-footer justify-content-center gap-2 border-0 bg-light px-4 py-3">
+                    <form method="POST" action="{{ route('logout') }}" class="m-0">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-secondary">Sign Out Now</button>
+                    </form>
+                    <button type="button" class="btn btn-primary" id="staySignedInButton"><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i>Stay Signed In</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
      @stack('scripts')
 <script src="{{ asset('js/app-alert.js') }}?v=20260929-branch-transfer-popup2"></script>
@@ -127,13 +149,27 @@
     })();
     (() => {
         const timeoutMilliseconds = {{ (int) config('session.lifetime') * 60 * 1000 }};
+        const warningLeadMilliseconds = Math.min(60 * 1000, Math.max(1000, Math.floor(timeoutMilliseconds / 2)));
         const activityUrl = @json(route('session.activity'));
         const timeoutUrl = @json(route('session.timeout'));
         const activeSessionToken = @json(session('active_user_session_token'));
         const activityStorageKey = 'art-caravan-last-activity-{{ auth()->id() }}';
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        const warningElement = document.getElementById('inactivityWarningModal');
+        const warningCountdown = document.getElementById('inactivityCountdown');
+        const staySignedInButton = document.getElementById('staySignedInButton');
         if (!csrfToken) return;
+        if (!warningElement || !warningCountdown || !staySignedInButton || !window.bootstrap?.Modal) return;
+
+        const warningModal = window.bootstrap.Modal.getOrCreateInstance(warningElement, {
+            backdrop: 'static',
+            keyboard: false,
+        });
         let logoutTimer;
+        let warningTimer;
+        let countdownTimer;
+        let warningVisible = false;
+        let signingOut = false;
         let lastActivitySync = Date.now();
         let lastSharedActivityWrite = 0;
         let localLastActivity = Date.now();
@@ -146,19 +182,63 @@
             }
         };
 
-        const scheduleInactivityCheck = () => {
-            window.clearTimeout(logoutTimer);
-            const remaining = Math.max(0, timeoutMilliseconds - (Date.now() - sharedLastActivity()));
-            logoutTimer = window.setTimeout(checkInactivity, Math.max(250, remaining));
+        const hideInactivityWarning = () => {
+            window.clearInterval(countdownTimer);
+            warningVisible = false;
+            warningModal.hide();
         };
 
         const signOutForInactivity = () => {
+            if (signingOut) return;
+            signingOut = true;
+            window.clearTimeout(logoutTimer);
+            window.clearTimeout(warningTimer);
+            window.clearInterval(countdownTimer);
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = timeoutUrl;
             form.innerHTML = `<input type="hidden" name="active_session_token" value="${activeSessionToken}">`;
             document.body.appendChild(form);
             form.submit();
+        };
+
+        const updateInactivityCountdown = () => {
+            const remaining = Math.max(0, timeoutMilliseconds - (Date.now() - sharedLastActivity()));
+            const seconds = Math.ceil(remaining / 1000);
+            warningCountdown.textContent = `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+            if (remaining <= 0) signOutForInactivity();
+        };
+
+        const showInactivityWarning = () => {
+            const remaining = timeoutMilliseconds - (Date.now() - sharedLastActivity());
+            if (remaining <= 0) {
+                signOutForInactivity();
+                return;
+            }
+            if (remaining > warningLeadMilliseconds) {
+                scheduleInactivityCheck();
+                return;
+            }
+            if (!warningVisible) {
+                warningVisible = true;
+                warningModal.show();
+            }
+            updateInactivityCountdown();
+            window.clearInterval(countdownTimer);
+            countdownTimer = window.setInterval(updateInactivityCountdown, 1000);
+        };
+
+        const scheduleInactivityCheck = () => {
+            window.clearTimeout(logoutTimer);
+            window.clearTimeout(warningTimer);
+            const remaining = Math.max(0, timeoutMilliseconds - (Date.now() - sharedLastActivity()));
+            const untilWarning = remaining - warningLeadMilliseconds;
+            if (untilWarning <= 0) {
+                showInactivityWarning();
+            } else {
+                warningTimer = window.setTimeout(showInactivityWarning, Math.max(250, untilWarning));
+            }
+            logoutTimer = window.setTimeout(checkInactivity, Math.max(250, remaining));
         };
 
         const checkInactivity = () => {
@@ -170,7 +250,9 @@
             scheduleInactivityCheck();
         };
 
-        const recordActivity = () => {
+        const recordActivity = (force = false) => {
+            if (warningVisible && !force) return;
+            if (force) hideInactivityWarning();
             const now = Date.now();
             localLastActivity = now;
             if (now - lastSharedActivityWrite >= 1000) {
@@ -181,7 +263,7 @@
             }
             scheduleInactivityCheck();
 
-            if (now - lastActivitySync < 60000) return;
+            if (!force && now - lastActivitySync < 60000) return;
 
             lastActivitySync = now;
             fetch(activityUrl, {
@@ -196,6 +278,8 @@
             }).catch(() => {});
         };
 
+        staySignedInButton.addEventListener('click', () => recordActivity(true));
+
         ['click', 'keydown', 'scroll', 'touchstart', 'mousemove'].forEach(eventName => {
             window.addEventListener(eventName, recordActivity, { passive: true });
         });
@@ -203,6 +287,7 @@
         window.addEventListener('storage', event => {
             if (event.key !== activityStorageKey || !event.newValue) return;
             localLastActivity = Math.max(localLastActivity, Number(event.newValue) || 0);
+            if (warningVisible) hideInactivityWarning();
             scheduleInactivityCheck();
         });
         document.addEventListener('visibilitychange', () => {
