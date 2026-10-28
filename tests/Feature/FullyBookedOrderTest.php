@@ -330,6 +330,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('<div class="alert alert-light border small mb-0 fully-booked-request-remarks">', false)
             ->assertSee('.fully-booked-pullout-rows', false)
             ->assertSee('Orders Awaiting Inventory Pull-Out')
+            ->assertSee('The stock shown is physical Good stock only; allocations for other sales channels are not used in this pull-out.')
             ->assertSee('FB-FORM-001')
             ->assertSee('Request remarks:')
             ->assertSee('Please pull these items carefully.')
@@ -358,6 +359,8 @@ class FullyBookedOrderTest extends TestCase
         $this->assertStringContainsString('exportFullyBookedExcel', $exportScript);
         $this->assertStringNotContainsString('exportFullyBookedCsv', $exportScript);
         $this->assertStringContainsString('selectedProductIds(row)', $exportScript);
+        $this->assertStringContainsString('(physical stock: ${physicalStockFor(product)})', $exportScript);
+        $this->assertStringContainsString('quantity.max = String(physicalStock)', $exportScript);
         $this->assertStringContainsString("allRows.length >= 5", $exportScript);
         $this->assertStringContainsString('method: \'GET\'', $exportScript);
         $this->assertStringContainsString('/js/fully-booked-pullout.js?v=', $this->get(route('inventory-transactions.sponsor.create', [
@@ -380,6 +383,12 @@ class FullyBookedOrderTest extends TestCase
             'stock' => 15,
             'status' => 'active',
         ]);
+        ProductStockAllocation::create([
+            'product_id' => $matchingProduct->id,
+            'online' => 8,
+            'wholesale' => 2,
+            'shopee' => 1,
+        ]);
         Product::create([
             'store_hub_id' => $hub->id,
             'item_id' => 'BLUE-001',
@@ -399,7 +408,10 @@ class FullyBookedOrderTest extends TestCase
             ->assertJsonCount(1)
             ->assertJsonPath('0.id', $matchingProduct->id)
             ->assertJsonPath('0.name', 'Cadmium Red')
-            ->assertJsonPath('0.barcode', '123456789');
+            ->assertJsonPath('0.barcode', '123456789')
+            ->assertJsonPath('0.stock', 15)
+            ->assertJsonPath('0.physical_stock_available', 15)
+            ->assertJsonMissingPath('0.stock_allocation');
     }
 
     public function test_pending_fully_booked_export_uses_the_national_pullout_excel_template(): void

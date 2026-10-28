@@ -74,6 +74,11 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
     const endpoint = form.dataset.endpoint;
     const resultPanels = new WeakMap();
     let nextIndex = 1;
+    const physicalStockFor = product => Math.max(0, Number(
+        product.physical_stock_available ?? product.good_stock_available ?? product.stock ?? 0
+    ));
+    const physicalStockLabel = product =>
+        `${product.item_id || product.id} — ${product.name || product.description || 'Unnamed product'}${product.barcode ? ' · ' + product.barcode : ''} (physical stock: ${physicalStockFor(product)})`;
 
     const updateRemoveButtons = () => {
         const allRows = rows.querySelectorAll('.fully-booked-pullout-row');
@@ -92,6 +97,7 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
     const bindSearch = row => {
         const input = row.querySelector('.product-search');
         const hidden = row.querySelector('.product-id');
+        const quantity = row.querySelector('input[type="number"]');
         const results = row.querySelector('.product-search-results');
         resultPanels.set(row, results);
         results.id = `fully-booked-search-results-${++fullyBookedSearchPanelIndex}`;
@@ -124,6 +130,8 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
 
         input.addEventListener('input', () => {
             hidden.value = '';
+            delete hidden.dataset.stock;
+            quantity.removeAttribute('max');
             input.setCustomValidity('Choose a product from the search results.');
             clearTimeout(timer);
             controller?.abort();
@@ -174,7 +182,7 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
                         option.type = 'button';
                         option.className = 'list-group-item list-group-item-action text-start';
                         option.setAttribute('role', 'option');
-                        option.textContent = window.transactionProductLabel(product);
+                        option.textContent = physicalStockLabel(product);
                         option.addEventListener('mousedown', event => event.preventDefault());
                         option.addEventListener('click', () => {
                             if (selectedProductIds(row).has(String(product.id))) {
@@ -182,12 +190,14 @@ document.querySelectorAll('.fully-booked-pullout-form').forEach(form => {
                                 closeResults();
                                 return;
                             }
-                            input.value = window.transactionProductLabel(product);
+                            const physicalStock = physicalStockFor(product);
+                            input.value = physicalStockLabel(product);
                             hidden.value = product.id;
                             hidden.dataset.itemId = product.item_id || '';
                             hidden.dataset.description = product.description || product.name || '';
                             hidden.dataset.barcode = product.barcode || '';
-                            hidden.dataset.stock = product.stock ?? '';
+                            hidden.dataset.stock = physicalStock;
+                            quantity.max = String(physicalStock);
                             input.setCustomValidity('');
                             closeResults();
                         });
