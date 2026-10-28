@@ -2,17 +2,17 @@
 
 @section('content')
 <style>
-    .inventory-log-table { width: 100%; min-width: 1450px; table-layout: fixed; font-size: .875rem; }
-    .inventory-log-table th, .inventory-log-table td { padding: .75rem .7rem; vertical-align: middle; }
-    .inventory-log-table .log-column-date { width: 120px; }
-    .inventory-log-table .log-column-type { width: 215px; }
-    .inventory-log-table .log-column-details { width: 350px; }
-    .inventory-log-table .log-column-hub { width: 170px; }
-    .inventory-log-table .log-column-channel { width: 175px; }
-    .inventory-log-table .log-column-quantity { width: 70px; }
-    .inventory-log-table .log-column-transfer { width: 230px; }
-    .inventory-log-table .log-column-user { width: 160px; }
-    .inventory-log-table .log-column-actions { width: 130px; }
+    .inventory-log-table { width: 100%; min-width: 1270px; table-layout: fixed; font-size: .84rem; }
+    .inventory-log-table th, .inventory-log-table td { padding: .7rem .65rem; vertical-align: middle; }
+    .inventory-log-table .log-column-date { width: 110px; }
+    .inventory-log-table .log-column-type { width: 180px; }
+    .inventory-log-table .log-column-details { width: 300px; }
+    .inventory-log-table .log-column-hub { width: 145px; }
+    .inventory-log-table .log-column-channel { width: 145px; }
+    .inventory-log-table .log-column-quantity { width: 65px; }
+    .inventory-log-table .log-column-transfer { width: 200px; }
+    .inventory-log-table .log-column-user { width: 145px; }
+    .inventory-log-table .log-column-actions { width: 125px; }
     .fully-booked-preview { display: block; max-width: min(100%, 680px); max-height: 560px; margin-top: .75rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; }
     .fully-booked-pdf { width: min(100%, 760px); height: 560px; margin-top: .75rem; border: 1px solid #e2e8f0; border-radius: .75rem; }
     .return-detail-hero { background: linear-gradient(135deg, #eff6ff, #f8fafc); border-bottom: 1px solid #dbeafe; }
@@ -40,9 +40,15 @@
     .log-filter-card { border: 1px solid #e2e8f0; background: linear-gradient(135deg, #ffffff, #f8fafc); }
     .log-filter-card .form-label { letter-spacing: .05em; font-size: .7rem; }
     .log-table-card { border: 1px solid #e2e8f0; }
-    .inventory-log-table thead th { background: #eff6ff; color: #1e3a8a; border-bottom: 2px solid #bfdbfe; font-size: .72rem; letter-spacing: .04em; white-space: nowrap; }
-    .inventory-log-table tbody tr { transition: background .15s ease, transform .15s ease; }
+    .log-table-heading { padding: 1rem 1.15rem; border-bottom: 1px solid #e2e8f0; background: linear-gradient(135deg, #fff, #f8fafc); }
+    .log-table-heading h2 { color: #0f172a; font-size: 1rem; font-weight: 700; }
+    .log-table-heading p { color: #64748b; font-size: .82rem; }
+    .log-table-count { display: inline-flex; align-items: center; gap: .35rem; padding: .45rem .7rem; border: 1px solid #dbeafe; border-radius: 999px; color: #1e40af; background: #eff6ff; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+    .inventory-log-table thead th { padding-top: .8rem; padding-bottom: .8rem; background: #eff6ff; color: #1e3a8a; border-bottom: 2px solid #bfdbfe; font-size: .7rem; letter-spacing: .04em; white-space: nowrap; }
+    .inventory-log-table tbody tr { transition: background .15s ease; }
     .inventory-log-table tbody tr:hover { background: #f8fbff; }
+    .inventory-log-table tbody tr:not(.log-modal-row) > td { border-color: #edf2f7; }
+    .inventory-log-table .log-modal-row > td { padding: 0; border: 0; }
     .log-type-badge { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .3rem .6rem; font-size: .7rem; font-weight: 700; white-space: nowrap; }
     .log-type-badge.replacement { color: #1d4ed8; background: #dbeafe; }
     .log-type-badge.return { color: #92400e; background: #fef3c7; }
@@ -51,7 +57,7 @@
     .log-type-badge.transfer { max-width: 100%; justify-content: center; color: #6b21a8; background: #f3e8ff; white-space: normal; text-align: center; }
     .log-type-badge.other { color: #475569; background: #e2e8f0; }
     .channel-source-column { text-align: center; }
-    .channel-source { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-width: 7rem; font-weight: 600; }
+    .channel-source { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; max-width: 100%; font-weight: 600; overflow-wrap: anywhere; }
     .channel-source-icon { display: inline-grid; width: 1.65rem; height: 1.65rem; flex: 0 0 1.65rem; place-items: center; border-radius: .5rem; color: #475569; background: #f1f5f9; }
     .channel-source-icon.tiktok { color: #fff; background: #111827; }
     .channel-source-icon.shopee { color: #fff; background: #ee4d2d; }
@@ -75,6 +81,8 @@
     .log-transfer-route.is-single { display: block; }
     .log-cell-empty { color: #94a3b8; }
     .log-view-button { border-radius: 999px; white-space: nowrap; }
+    .log-pagination { padding: .75rem 1rem; border-top: 1px solid #e2e8f0; }
+    .log-pagination .pagination { margin-bottom: 0; }
     .inventory-log-modal .modal-header { background: linear-gradient(135deg, #eff6ff, #ffffff); border-bottom: 1px solid #dbeafe; }
     .inventory-log-modal .modal-title { color: #1e3a8a; font-weight: 700; }
     .inventory-log-modal .modal-body { background: #f8fafc; }
@@ -331,6 +339,16 @@
     </div>
 
     <div class="card log-table-card shadow-sm rounded-4 overflow-hidden">
+        <div class="log-table-heading d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <h2 class="mb-1">Transaction activity</h2>
+                <p class="mb-0">Review grouped inventory movements and open a log for full details.</p>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="log-table-count"><i class="fa-solid fa-list" aria-hidden="true"></i>{{ $transactions->total() }} {{ \Illuminate\Support\Str::plural('log', $transactions->total()) }}</span>
+                <span class="small text-muted">15 per page</span>
+            </div>
+        </div>
         <div class="table-responsive"><table class="table table-hover align-middle mb-0 inventory-log-table">
             <colgroup>
                 <col class="log-column-date">
@@ -551,6 +569,7 @@
                     <td class="log-user-cell">{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</td>
                     <td class="log-actions-cell"><button type="button" class="btn btn-sm btn-outline-primary log-view-button" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}"><i class="fa-solid fa-eye me-1"></i>View details</button></td>
                 </tr>
+                <tr class="log-modal-row"><td colspan="{{ $hubId ? 8 : 9 }}">
                 <div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
                     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content inventory-log-modal">
                         <div class="modal-header"><h5 class="modal-title">{{ $modalTitle }}</h5></div>
@@ -1169,12 +1188,22 @@
                         </div>
                     </div></div>
                 </div>
+                </td></tr>
             @empty
                 <tr><td colspan="{{ $hubId ? 8 : 9 }}" class="text-center text-muted py-5">No transaction logs found.</td></tr>
             @endforelse
             </tbody>
         </table></div>
-        <div class="p-3">{{ $transactions->links() }}</div>
+        <div class="log-pagination d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="small text-muted">
+                @if($transactions->total())
+                    Showing {{ $transactions->firstItem() }}–{{ $transactions->lastItem() }} of {{ $transactions->total() }} logs
+                @else
+                    No logs to display
+                @endif
+            </span>
+            {{ $transactions->links() }}
+        </div>
     </div>
 </div>
 <dialog class="fully-booked-log-viewer" id="fullyBookedLogAttachmentViewer" aria-label="Fully Booked attachment preview">

@@ -1264,9 +1264,9 @@ class InventoryTransactionController extends Controller
             ->values();
         $page = LengthAwarePaginator::resolveCurrentPage();
         $transactions = new LengthAwarePaginator(
-            $transactionGroups->forPage($page, 20),
+            $transactionGroups->forPage($page, 15),
             $transactionGroups->count(),
-            20,
+            15,
             $page,
             ['path' => $request->url(), 'query' => $request->query()]
         );

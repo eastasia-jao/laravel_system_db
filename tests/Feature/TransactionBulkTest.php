@@ -1071,7 +1071,7 @@ class TransactionBulkTest extends TestCase
             ->assertDontSee('<strong>Condition</strong>', false);
     }
 
-    public function test_transaction_log_paginates_twenty_grouped_display_rows(): void
+    public function test_transaction_log_paginates_fifteen_grouped_display_rows(): void
     {
         $hub = StoreHub::create([
             'name' => 'Pagination Hub', 'code' => 'PAGE-HUB', 'status' => 'active', 'is_head_office' => true,
@@ -1094,17 +1094,30 @@ class TransactionBulkTest extends TestCase
             ]);
         }
 
-        $firstPage = $this->actingAs($admin)->get(route('inventory-transactions.index', ['hub_id' => $hub->id]))
+        $firstResponse = $this->actingAs($admin)->get(route('inventory-transactions.index', [
+            'hub_id' => $hub->id,
+            'type' => 'sponsor_workshop',
+        ]))
             ->assertOk()
-            ->viewData('transactions');
-        $this->assertSame(20, $firstPage->count());
+            ->assertSee('Transaction activity')
+            ->assertSee('15 per page')
+            ->assertSee('Showing 1–15 of 25 logs')
+            ->assertSee('class="log-modal-row"', false);
+        $firstPage = $firstResponse->viewData('transactions');
+        $this->assertSame(15, $firstPage->count());
         $this->assertSame(25, $firstPage->total());
 
-        $secondPage = $this->get(route('inventory-transactions.index', ['hub_id' => $hub->id, 'page' => 2]))
-            ->assertOk()
+        $secondResponse = $this->get(route('inventory-transactions.index', [
+            'hub_id' => $hub->id,
+            'type' => 'sponsor_workshop',
+            'page' => 2,
+        ]))->assertOk()
+            ->assertSee('Showing 16–25 of 25 logs');
+        $secondPage = $secondResponse
             ->viewData('transactions');
-        $this->assertSame(5, $secondPage->count());
+        $this->assertSame(10, $secondPage->count());
         $this->assertSame(25, $secondPage->total());
+        $this->assertStringContainsString('type=sponsor_workshop', $secondPage->url(1));
     }
 
     public function test_transaction_logs_are_sorted_by_date_then_time_descending(): void
