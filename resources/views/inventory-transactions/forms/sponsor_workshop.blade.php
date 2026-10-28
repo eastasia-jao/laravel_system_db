@@ -56,7 +56,7 @@
     }
     .fully-booked-attachment-gallery { display: flex; flex-wrap: wrap; gap: .65rem; }
     .fully-booked-attachment-thumb { position: relative; display: grid; width: 150px; height: 112px; place-items: center; overflow: hidden; padding: .25rem; border: 1px solid #dbe3ee; border-radius: .65rem; color: #64748b; background: #fff; cursor: zoom-in; }
-    .fully-booked-attachment-thumb img { width: 100%; height: 100%; border-radius: .4rem; object-fit: cover; }
+    .fully-booked-attachment-thumb img { width: 100%; height: 100%; border-radius: .4rem; object-fit: contain; }
     .fully-booked-attachment-thumb .fa-magnifying-glass-plus { position: absolute; right: .4rem; bottom: .4rem; display: grid; width: 1.8rem; height: 1.8rem; place-items: center; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .78); }
     .fully-booked-upload-list { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: .75rem; }
     .fully-booked-viewer { position: relative; width: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); padding: 2.75rem 3.5rem 1rem; border: 0; border-radius: 14px; background: #0f172a; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
@@ -91,9 +91,35 @@
     .fully-booked-tracking-item-name { color: #1e293b; font-weight: 700; }
     .fully-booked-tracking-item-id { margin-top: .15rem; color: #64748b; font-size: .78rem; }
     .fully-booked-tracking-item-qty { flex: 0 0 auto; border-radius: 999px; padding: .3rem .65rem; color: #1d4ed8; background: #eff6ff; font-size: .78rem; font-weight: 800; }
+    .fully-booked-sales-workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(360px, .8fr); gap: 1.25rem; align-items: start; }
+    .fully-booked-sales-workspace > .transaction-form-card { min-width: 0; margin: 0; }
+    .fully-booked-submission-intro { display: flex; align-items: center; gap: .85rem; padding: .9rem 1rem; border: 1px solid #bfdbfe; border-radius: .9rem; background: linear-gradient(135deg, #eff6ff, #fff); }
+    .fully-booked-submission-intro-icon { display: grid; width: 2.6rem; height: 2.6rem; flex: 0 0 2.6rem; place-items: center; border-radius: .75rem; color: #fff; background: #2563eb; }
+    .fully-booked-submission-intro-title { color: #1e3a8a; font-weight: 800; }
+    .fully-booked-form-section { margin-top: 1rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: .9rem; background: #fff; }
+    .fully-booked-form-section-heading { display: flex; align-items: center; gap: .65rem; margin-bottom: .9rem; color: #1e293b; font-weight: 800; }
+    .fully-booked-form-section-heading i { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: .6rem; color: #2563eb; background: #eff6ff; }
+    .fully-booked-form-section .form-label { margin-bottom: .35rem; }
+    .fully-booked-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+    .fully-booked-tracking-panel { min-width: 0; margin-top: 0 !important; padding: 1rem; border: 1px solid #dbeafe; border-radius: 1rem; background: linear-gradient(180deg, #f8fbff, #fff); box-shadow: 0 .35rem 1.25rem rgba(30, 64, 175, .08); }
+    .fully-booked-tracking-panel-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding-bottom: .85rem; border-bottom: 1px solid #dbeafe; }
+    .fully-booked-tracking-list { display: grid; gap: .85rem; max-height: min(72vh, 760px); margin-top: .9rem; padding-right: .25rem; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #93c5fd #eff6ff; }
+    .fully-booked-tracking-card { overflow: hidden; border: 1px solid #dbeafe !important; background: #fff; }
+    .fully-booked-tracking-card-order { color: #1e3a8a; font-size: 1rem; font-weight: 800; }
+    .fully-booked-tracking-empty { display: grid; min-height: 240px; place-items: center; padding: 2rem 1rem; text-align: center; }
+    .fully-booked-tracking-empty-icon { display: grid; width: 3.25rem; height: 3.25rem; margin: 0 auto .75rem; place-items: center; border-radius: 1rem; color: #2563eb; background: #dbeafe; font-size: 1.2rem; }
+    .fully-booked-sales-workspace .fully-booked-attachment-thumb { width: 112px; height: 84px; }
+    .fully-booked-sales-workspace .fully-booked-attachment-gallery { gap: .5rem; }
     @media (max-width: 575.98px) {
         .transaction-page-heading { align-items: flex-start; padding: 1rem; }
         .transaction-page-heading-icon { flex-basis: 2.5rem; width: 2.5rem; height: 2.5rem; }
+    }
+    @media (max-width: 1199.98px) {
+        .fully-booked-sales-workspace { grid-template-columns: 1fr; }
+        .fully-booked-tracking-list { max-height: none; }
+    }
+    @media (min-width: 1200px) {
+        .fully-booked-sales-workspace .fully-booked-tracking-panel { position: sticky; top: 1rem; }
     }
     #sponsorItems {
         max-height: 430px;
@@ -137,7 +163,7 @@
             </div>
         </div>
     </header>
-    
+    <div class="{{ $canSubmitFullyBooked && ! $canManageEvent ? 'fully-booked-sales-workspace' : '' }}">
     <form id="eventFullyBookedForm" method="POST" action="{{ $activityType === 'fully_booked' ? route('fully-booked-orders.store') : route('inventory-transactions.store') }}" enctype="multipart/form-data" data-event-action="{{ route('inventory-transactions.store') }}" data-fully-booked-action="{{ route('fully-booked-orders.store') }}" data-can-manage-event="{{ $canManageEvent ? '1' : '0' }}" data-can-submit-fully-booked="{{ $canSubmitFullyBooked ? '1' : '0' }}" class="card transaction-form-card shadow-sm rounded-4 p-4">
         @csrf
         <input type="hidden" id="activityType" name="activity_type" value="{{ $activityType }}">
@@ -187,48 +213,69 @@
         <section id="fullyBookedFields" @if(old('activity_type', $activityType) !== 'fully_booked') hidden @endif>
             @if($canSubmitFullyBooked)
             <input type="hidden" name="inventory_hub_id" value="{{ $hubId }}">
-            <div class="row g-3">
-                <div class="col-12">
+            <div class="fully-booked-submission-intro">
+                <span class="fully-booked-submission-intro-icon" aria-hidden="true"><i class="fa-solid fa-file-circle-plus"></i></span>
+                <div>
+                    <div class="fully-booked-submission-intro-title">New Fully Booked order request</div>
                     <div class="small text-muted">The order number is assigned after submission and shown in My Fully Booked Orders.</div>
                 </div>
-                <div class="col-md-8">
-                    <label class="form-label fw-semibold" for="fullyBookedStaff">Sales / Marketing Staff</label>
-                    <input id="fullyBookedStaff" class="form-control" value="{{ auth()->user()->name }}{{ auth()->user()->storeHub ? ' — '.auth()->user()->storeHub->name : '' }}" readonly>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold" for="fullyBookedStore">Store</label>
-                    <select id="fullyBookedStore" name="store_selection" class="form-select" required>
-                        <option value="">Select a store</option>
-                        @foreach($fullyBookedStores as $store)
-                            <option value="{{ $store->id }}" @selected(old('store_selection', (string) auth()->user()->hub_id) === (string) $store->id)>{{ $store->name }}</option>
-                        @endforeach
-                        <option value="other" @selected(old('store_selection') === 'other')>Other</option>
-                    </select>
-                </div>
-                <div class="col-md-6" id="fullyBookedOtherStoreField" @if(old('store_selection') !== 'other') hidden @endif>
-                    <label class="form-label fw-semibold" for="fullyBookedOtherStore">Specify store</label>
-                    <input id="fullyBookedOtherStore" name="other_store_name" class="form-control" value="{{ old('other_store_name') }}" maxlength="255" @required(old('store_selection') === 'other')>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold" for="fullyBookedCustomerName">Customer Name <span class="text-muted fw-normal">(Optional)</span></label>
-                    <input id="fullyBookedCustomerName" name="customer_name" class="form-control" value="{{ old('customer_name') }}" maxlength="255" autocomplete="name" placeholder="Enter customer name">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold" for="fullyBookedContactNumber">Contact # <span class="text-muted fw-normal">(Optional)</span></label>
-                    <input id="fullyBookedContactNumber" name="contact_number" type="tel" class="form-control" value="{{ old('contact_number') }}" maxlength="50" autocomplete="tel" placeholder="Enter contact number">
-                </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold" for="fullyBookedAttachment">Order Attachments</label>
-                    <input id="fullyBookedAttachment" name="attachments[]" type="file" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" multiple required>
-                    <div class="form-text">Upload up to 10 JPEG, PNG, WebP, or PDF files (maximum 10 MB each).</div>
-                    <div id="fullyBookedUploadList" class="fully-booked-upload-list" aria-live="polite"></div>
-                </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold" for="fullyBookedRemarks">Remarks</label>
-                    <textarea id="fullyBookedRemarks" name="remarks" class="form-control" rows="3" maxlength="150" placeholder="Add any details or instructions for Inventory Staff">{{ old('remarks') }}</textarea>
-                </div>
             </div>
-            <div class="d-flex justify-content-end gap-2 mt-4">
+
+            <section class="fully-booked-form-section" aria-labelledby="fullyBookedAssignmentHeading">
+                <div class="fully-booked-form-section-heading" id="fullyBookedAssignmentHeading"><i class="fa-solid fa-user-tag" aria-hidden="true"></i>Order assignment</div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="fullyBookedStaff">Sales / Marketing Staff</label>
+                        <input id="fullyBookedStaff" class="form-control bg-light" value="{{ auth()->user()->name }}{{ auth()->user()->storeHub ? ' — '.auth()->user()->storeHub->name : '' }}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="fullyBookedStore">Store</label>
+                        <select id="fullyBookedStore" name="store_selection" class="form-select" required>
+                            <option value="">Select a store</option>
+                            @foreach($fullyBookedStores as $store)
+                                <option value="{{ $store->id }}" @selected(old('store_selection', (string) auth()->user()->hub_id) === (string) $store->id)>{{ $store->name }}</option>
+                            @endforeach
+                            <option value="other" @selected(old('store_selection') === 'other')>Other</option>
+                        </select>
+                    </div>
+                    <div class="col-12" id="fullyBookedOtherStoreField" @if(old('store_selection') !== 'other') hidden @endif>
+                        <label class="form-label fw-semibold" for="fullyBookedOtherStore">Specify store</label>
+                        <input id="fullyBookedOtherStore" name="other_store_name" class="form-control" value="{{ old('other_store_name') }}" maxlength="255" @required(old('store_selection') === 'other')>
+                    </div>
+                </div>
+            </section>
+
+            <section class="fully-booked-form-section" aria-labelledby="fullyBookedCustomerHeading">
+                <div class="fully-booked-form-section-heading" id="fullyBookedCustomerHeading"><i class="fa-solid fa-address-card" aria-hidden="true"></i>Customer details <span class="badge rounded-pill text-bg-light border text-muted ms-auto">Optional</span></div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="fullyBookedCustomerName">Customer Name</label>
+                        <input id="fullyBookedCustomerName" name="customer_name" class="form-control" value="{{ old('customer_name') }}" maxlength="255" autocomplete="name" placeholder="Enter customer name">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="fullyBookedContactNumber">Contact #</label>
+                        <input id="fullyBookedContactNumber" name="contact_number" type="tel" class="form-control" value="{{ old('contact_number') }}" maxlength="50" autocomplete="tel" placeholder="Enter contact number">
+                    </div>
+                </div>
+            </section>
+
+            <section class="fully-booked-form-section" aria-labelledby="fullyBookedDocumentsHeading">
+                <div class="fully-booked-form-section-heading" id="fullyBookedDocumentsHeading"><i class="fa-solid fa-paperclip" aria-hidden="true"></i>Attachments and instructions</div>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" for="fullyBookedAttachment">Order Attachments</label>
+                        <input id="fullyBookedAttachment" name="attachments[]" type="file" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" multiple required>
+                        <div class="form-text">Upload up to 10 JPEG, PNG, WebP, or PDF files (maximum 10 MB each).</div>
+                        <div id="fullyBookedUploadList" class="fully-booked-upload-list" aria-live="polite"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" for="fullyBookedRemarks">Remarks <span class="text-muted fw-normal">(Optional)</span></label>
+                        <textarea id="fullyBookedRemarks" name="remarks" class="form-control" rows="3" maxlength="150" placeholder="Add any details or instructions for Inventory Staff">{{ old('remarks') }}</textarea>
+                    </div>
+                </div>
+            </section>
+
+            <div class="fully-booked-form-actions">
                 <button id="submitFullyBooked" class="btn btn-primary"><i class="fa-solid fa-paper-plane me-1" aria-hidden="true"></i>Send for Review</button>
                 @if(auth()->user()->role === 'sales_marketing_staff')
                     <a href="{{ route('hub.dashboard', auth()->user()->hub_id) }}" class="btn btn-outline-secondary">Cancel</a>
@@ -250,22 +297,31 @@
         <iframe title="Fully Booked attachment preview" hidden></iframe>
         <button type="button" class="fully-booked-viewer-nav fully-booked-viewer-next" aria-label="Next attachment"><i class="fa-solid fa-chevron-right"></i></button>
     </dialog>
-    @if($canSubmitFullyBooked && $fullyBookedOrders->isNotEmpty())
-        <section class="mt-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    @if($canSubmitFullyBooked)
+        @php
+            $fullyBookedOrderCount = method_exists($fullyBookedOrders, 'total')
+                ? $fullyBookedOrders->total()
+                : $fullyBookedOrders->count();
+            $fullyBookedOrdersHavePages = method_exists($fullyBookedOrders, 'hasPages')
+                && $fullyBookedOrders->hasPages();
+        @endphp
+        <section id="fullyBookedTrackingPanel" class="fully-booked-tracking-panel mt-4" aria-labelledby="fullyBookedTrackingHeading" @if(old('activity_type', $activityType) !== 'fully_booked') hidden @endif>
+            <div class="fully-booked-tracking-panel-header">
                 <div>
                     <div class="small text-uppercase fw-bold text-primary">Order tracking</div>
-                    <h5 class="fw-bold mb-0">My Fully Booked Orders</h5>
+                    <h5 class="fw-bold mb-0" id="fullyBookedTrackingHeading">My Fully Booked Orders</h5>
                 </div>
+                <span class="badge rounded-pill text-bg-primary">{{ $fullyBookedOrderCount }} total</span>
             </div>
-            <div class="row g-3">
-                @foreach($fullyBookedOrders as $order)
-                    <div class="col-12 col-xl-6">
-                        <article class="card border-0 shadow-sm rounded-4 p-3 h-100">
+            <div class="fully-booked-tracking-list">
+                @forelse($fullyBookedOrders as $order)
+                    <div>
+                        <article class="card rounded-4 p-3 fully-booked-tracking-card">
                             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                                 <div>
-                                    <strong>{{ $order->order_number }}</strong>
-                                    <div class="small text-muted">Store: {{ $order->store_name ?? '—' }} · Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
+                                    <div class="fully-booked-tracking-card-order">{{ $order->order_number }}</div>
+                                    <div class="small text-muted mt-1"><i class="fa-solid fa-store me-1" aria-hidden="true"></i>Store: {{ $order->store_name ?? '—' }}</div>
+                                    <div class="small text-muted"><i class="fa-regular fa-clock me-1" aria-hidden="true"></i>Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
                                 </div>
                                 <span class="badge rounded-pill {{ $order->status === 'rejected' ? 'text-bg-danger' : ($order->pulled_out_at ? 'text-bg-success' : 'text-bg-warning') }}">
                                     {{ $order->status === 'rejected' ? 'Rejected' : ($order->pulled_out_at ? 'Stock updated' : 'Pending inventory pull-out') }}
@@ -358,11 +414,19 @@
                             </div>
                         @endif
                     </div>
-                @endforeach
+                @empty
+                    <div class="fully-booked-tracking-empty">
+                        <div>
+                            <span class="fully-booked-tracking-empty-icon" aria-hidden="true"><i class="fa-solid fa-inbox"></i></span>
+                            <div class="fw-bold text-primary">No Fully Booked orders yet</div>
+                            <div class="small text-muted mt-1">Submitted requests will appear here for private tracking.</div>
+                        </div>
+                    </div>
+                @endforelse
             </div>
-            <div class="mt-3">
-                {{ $fullyBookedOrders->links() }}
-            </div>
+            @if($fullyBookedOrdersHavePages)
+                <div class="mt-3">{{ $fullyBookedOrders->links() }}</div>
+            @endif
         </section>
     @endif
     @if($canManageEvent)
@@ -488,6 +552,7 @@
             @endforelse
         </section>
     @endif
+    </div>
 </div>
 @endsection
 
@@ -604,6 +669,7 @@
     const eventFields = document.getElementById('eventFields');
     const fullyBookedFields = document.getElementById('fullyBookedFields');
     const fullyBookedOrders = document.getElementById('fullyBookedOrders');
+    const fullyBookedTrackingPanel = document.getElementById('fullyBookedTrackingPanel');
     const headingTitle = document.getElementById('activityHeadingTitle');
     const headingDescription = document.getElementById('activityHeadingDescription');
     const headingIcon = document.getElementById('activityHeadingIcon');
@@ -626,6 +692,7 @@
         setSectionState(eventFields, !isFullyBooked);
         setSectionState(fullyBookedFields, isFullyBooked);
         if (fullyBookedOrders) fullyBookedOrders.hidden = !isFullyBooked;
+        if (fullyBookedTrackingPanel) fullyBookedTrackingPanel.hidden = !isFullyBooked;
         if (headingTitle) headingTitle.textContent = isFullyBooked ? 'Fully Booked' : 'Event';
         if (headingDescription) {
             headingDescription.textContent = isFullyBooked
