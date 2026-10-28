@@ -28,6 +28,11 @@ final class ActiveUserSession
         return true;
     }
 
+    public static function takeOver(int $userId, string $sessionToken): bool
+    {
+        return Cache::put(self::key($userId), $sessionToken, self::expiresAt());
+    }
+
     public static function ownsOrCanClaim(int $userId, string $sessionToken): bool
     {
         $currentSessionToken = Cache::get(self::key($userId));

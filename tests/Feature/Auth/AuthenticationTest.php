@@ -60,7 +60,8 @@ class AuthenticationTest extends TestCase
         $this->get('/login')
             ->assertOk()
             ->assertSee('Account already logged in')
-            ->assertSee(ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE);
+            ->assertSee(ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE)
+            ->assertSee('Sign in and end other session');
     }
 
     public function test_an_abandoned_session_stops_blocking_login_after_the_inactivity_window(): void
@@ -77,7 +78,25 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_a_transient_session_lock_mismatch_does_not_log_out_an_authenticated_user(): void
+    public function test_a_user_can_take_over_an_active_session_after_reentering_their_password(): void
+    {
+        $user = User::factory()->create();
+        ActiveUserSession::claim($user->id, 'another-device-session');
+
+        $this->from('/login')->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+            'take_over_sessions' => '1',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame(
+            session('active_user_session_token'),
+            \Illuminate\Support\Facades\Cache::get('auth:active-session:user:'.$user->id)
+        );
+    }
+
+    public function test_a_previous_session_is_signed_out_after_another_device_takes_over(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
 
@@ -86,12 +105,13 @@ class AuthenticationTest extends TestCase
             'password' => 'password',
         ])->assertRedirect(route('dashboard', absolute: false));
         $activeSessionToken = (string) session('active_user_session_token');
-        ActiveUserSession::release($user->id, $activeSessionToken);
-        ActiveUserSession::claim($user->id, 'temporary-conflicting-lock');
+        ActiveUserSession::takeOver($user->id, 'replacement-device-session');
 
-        $this->get('/dashboard')->assertOk();
+        $this->get('/dashboard')->assertRedirect('/login')->assertSessionHas('warning');
 
-        $this->assertAuthenticatedAs($user);
+        $this->assertGuest();
+        $this->assertTrue(ActiveUserSession::hasActiveSession($user->id));
+        $this->assertNotSame('replacement-device-session', $activeSessionToken);
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void

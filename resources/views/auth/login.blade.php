@@ -75,6 +75,23 @@
             </button>
         </form>
 
+        @if(collect($errors->all())->contains(\App\Support\ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE))
+            <div class="mt-3 pt-3 border-top">
+                <p class="small text-muted mb-2">If you don't recognize the other session, you can end it and sign in here. If you did not sign in elsewhere, change your password after signing in.</p>
+                <form method="POST" action="{{ route('login') }}">
+                    @csrf
+                    <input type="hidden" name="username" value="{{ old('username') }}">
+                    <input type="hidden" name="email" value="{{ old('email') }}">
+                    <input type="hidden" name="take_over_sessions" value="1">
+                    <div class="mb-2">
+                        <label for="takeover-password" class="form-label small fw-semibold text-secondary">Confirm your password</label>
+                        <input type="password" id="takeover-password" name="password" class="form-control" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-outline-danger w-100 small">Sign in and end other session</button>
+                </form>
+            </div>
+        @endif
+
         <!-- Daily Wisdom Quote -->
         <div class="mt-3 pt-3 border-top text-center">
             <p class="fst-italic text-muted small mb-1">"{{ $quoteText }}"</p>

@@ -38,6 +38,7 @@ class LoginRequest extends FormRequest
             'username' => ['nullable', 'required_without:email', 'string'],
             'email' => ['nullable', 'required_without:username', 'string'],
             'password' => ['required', 'string'],
+            'take_over_sessions' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -84,7 +85,7 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if (ActiveUserSession::hasActiveSession((int) Auth::id())) {
+        if (ActiveUserSession::hasActiveSession((int) Auth::id()) && ! $this->boolean('take_over_sessions')) {
             Auth::guard('web')->logout();
             RateLimiter::clear($this->throttleKey());
 

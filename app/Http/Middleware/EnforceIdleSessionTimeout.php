@@ -43,6 +43,17 @@ class EnforceIdleSessionTimeout
         $ownsActiveSession = ! $request->user()
             || ActiveUserSession::ownsOrCanClaim((int) $request->user()->id, $activeSessionToken);
 
+        if ($request->user() && ! $ownsActiveSession) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->with(
+                'warning',
+                'This account was signed in from another device. If this was unexpected, change your password and contact the administrator.'
+            );
+        }
+
         // Notification/import polling is automatic and must not keep a staff session alive.
         if (! $request->routeIs('notifications.feed', 'hub.products.import-status', 'api.notifications.index', 'api.hubs.products.import-status')) {
             $request->session()->put('last_user_activity_at', now()->timestamp);

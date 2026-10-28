@@ -34,7 +34,10 @@ class AuthenticatedSessionController extends Controller
         $activeSessionToken = Str::random(64);
         $request->session()->put('active_user_session_token', $activeSessionToken);
 
-        if (! ActiveUserSession::claim((int) $request->user()->id, $activeSessionToken)) {
+        $sessionClaimed = $request->boolean('take_over_sessions')
+            ? ActiveUserSession::takeOver((int) $request->user()->id, $activeSessionToken)
+            : ActiveUserSession::claim((int) $request->user()->id, $activeSessionToken);
+        if (! $sessionClaimed) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
