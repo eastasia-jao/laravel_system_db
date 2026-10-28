@@ -2,9 +2,17 @@
 
 @section('content')
 <style>
-    .inventory-log-table { font-size: .875rem; }
-    .inventory-log-table th, .inventory-log-table td { padding: .55rem .65rem; white-space: nowrap; }
-    .inventory-log-table td:nth-child(3), .inventory-log-table td:nth-child(8) { white-space: normal; }
+    .inventory-log-table { width: 100%; min-width: 1450px; table-layout: fixed; font-size: .875rem; }
+    .inventory-log-table th, .inventory-log-table td { padding: .75rem .7rem; vertical-align: middle; }
+    .inventory-log-table .log-column-date { width: 120px; }
+    .inventory-log-table .log-column-type { width: 215px; }
+    .inventory-log-table .log-column-details { width: 350px; }
+    .inventory-log-table .log-column-hub { width: 170px; }
+    .inventory-log-table .log-column-channel { width: 175px; }
+    .inventory-log-table .log-column-quantity { width: 70px; }
+    .inventory-log-table .log-column-transfer { width: 230px; }
+    .inventory-log-table .log-column-user { width: 160px; }
+    .inventory-log-table .log-column-actions { width: 130px; }
     .fully-booked-preview { display: block; max-width: min(100%, 680px); max-height: 560px; margin-top: .75rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; }
     .fully-booked-pdf { width: min(100%, 760px); height: 560px; margin-top: .75rem; border: 1px solid #e2e8f0; border-radius: .75rem; }
     .return-detail-hero { background: linear-gradient(135deg, #eff6ff, #f8fafc); border-bottom: 1px solid #dbeafe; }
@@ -32,7 +40,7 @@
     .log-filter-card { border: 1px solid #e2e8f0; background: linear-gradient(135deg, #ffffff, #f8fafc); }
     .log-filter-card .form-label { letter-spacing: .05em; font-size: .7rem; }
     .log-table-card { border: 1px solid #e2e8f0; }
-    .inventory-log-table thead th { background: #eff6ff; color: #1e3a8a; border-bottom: 2px solid #bfdbfe; font-size: .72rem; letter-spacing: .04em; }
+    .inventory-log-table thead th { background: #eff6ff; color: #1e3a8a; border-bottom: 2px solid #bfdbfe; font-size: .72rem; letter-spacing: .04em; white-space: nowrap; }
     .inventory-log-table tbody tr { transition: background .15s ease, transform .15s ease; }
     .inventory-log-table tbody tr:hover { background: #f8fbff; }
     .log-type-badge { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .3rem .6rem; font-size: .7rem; font-weight: 700; white-space: nowrap; }
@@ -40,7 +48,7 @@
     .log-type-badge.return { color: #92400e; background: #fef3c7; }
     .log-type-badge.sold { color: #166534; background: #dcfce7; }
     .log-type-badge.rejected { color: #b91c1c; background: #fee2e2; }
-    .log-type-badge.transfer { width: 14.5rem; justify-content: center; color: #6b21a8; background: #f3e8ff; }
+    .log-type-badge.transfer { max-width: 100%; justify-content: center; color: #6b21a8; background: #f3e8ff; white-space: normal; text-align: center; }
     .log-type-badge.other { color: #475569; background: #e2e8f0; }
     .channel-source-column { text-align: center; }
     .channel-source { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-width: 7rem; font-weight: 600; }
@@ -55,9 +63,18 @@
     .channel-source-icon.event { color: #7e22ce; background: #f3e8ff; }
     .channel-source-icon.national-bookstore { color: #b91c1c; background: #fee2e2; }
     .channel-source-icon.warehouse { color: #475569; background: #e2e8f0; }
-    .log-detail-title { max-width: 360px; }
-    .log-detail-title strong { display: block; overflow: hidden; text-overflow: ellipsis; }
-    .log-view-button { border-radius: 999px; }
+    .log-date-cell, .log-type-cell, .log-user-cell { white-space: normal; overflow-wrap: anywhere; }
+    .log-detail-title { white-space: normal; overflow-wrap: anywhere; }
+    .log-detail-title strong { display: block; line-height: 1.35; }
+    .log-detail-title small { line-height: 1.35; }
+    .log-quantity-cell, .log-actions-cell { text-align: center; }
+    .log-transfer-cell { white-space: normal; }
+    .log-transfer-route { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: .45rem; color: #334155; font-size: .78rem; font-weight: 700; line-height: 1.25; }
+    .log-transfer-route-hub { min-width: 0; overflow-wrap: anywhere; }
+    .log-transfer-route-arrow { display: grid; width: 1.65rem; height: 1.65rem; place-items: center; border-radius: 50%; color: #6d28d9; background: #f3e8ff; }
+    .log-transfer-route.is-single { display: block; }
+    .log-cell-empty { color: #94a3b8; }
+    .log-view-button { border-radius: 999px; white-space: nowrap; }
     .inventory-log-modal .modal-header { background: linear-gradient(135deg, #eff6ff, #ffffff); border-bottom: 1px solid #dbeafe; }
     .inventory-log-modal .modal-title { color: #1e3a8a; font-weight: 700; }
     .inventory-log-modal .modal-body { background: #f8fafc; }
@@ -315,7 +332,30 @@
 
     <div class="card log-table-card shadow-sm rounded-4 overflow-hidden">
         <div class="table-responsive"><table class="table table-hover align-middle mb-0 inventory-log-table">
-            <thead class="table-light small text-uppercase"><tr><th>Date / Time</th><th>Type</th><th>Transaction Details</th>@if(!$hubId)<th class="transaction-log-hub-column">Hub</th>@endif<th class="channel-source-column">Channel / Source</th><th class="text-end">Qty</th><th>Transfer</th><th>User</th><th>Actions</th></tr></thead>
+            <colgroup>
+                <col class="log-column-date">
+                <col class="log-column-type">
+                <col class="log-column-details">
+                @if(!$hubId)<col class="log-column-hub">@endif
+                <col class="log-column-channel">
+                <col class="log-column-quantity">
+                <col class="log-column-transfer">
+                <col class="log-column-user">
+                <col class="log-column-actions">
+            </colgroup>
+            <thead class="table-light small text-uppercase">
+                <tr>
+                    <th>Date / Time</th>
+                    <th>Type</th>
+                    <th>Transaction Details</th>
+                    @if(!$hubId)<th class="transaction-log-hub-column">Hub</th>@endif
+                    <th class="channel-source-column">Channel / Source</th>
+                    <th class="text-center">Qty</th>
+                    <th>Transfer Route</th>
+                    <th>User</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
             <tbody>
             @forelse($transactions as $groupKey => $group)
                 @php
@@ -420,7 +460,7 @@
                     };
                 @endphp
                 <tr>
-                    <td>
+                    <td class="log-date-cell">
                         <span class="d-block">{{ $transaction->occurred_on->format('M d, Y') }}</span>
                         <small class="text-muted">{{ $transaction->created_at?->format('h:i A') ?? 'Time unavailable' }}</small>
                     </td>
@@ -446,7 +486,7 @@
                             default => $typeLabel.' Details',
                         };
                     @endphp
-                    <td><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
+                    <td class="log-type-cell"><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
                         @if($transaction->type === 'branch_transfer' && $transaction->status !== 'approved')
                             <span class="badge mt-1 d-table {{ $transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning' }}">{{ strtoupper($transaction->status ?? 'pending') }}</span>
                         @endif
@@ -494,10 +534,22 @@
                             <span>{{ $channelSourceLabel }}</span>
                         </span>
                     </td>
-                    <td class="text-end fw-bold">{{ ($isFullyBookedGroup && ! $fullyBookedOrder->pulled_out_at) || $isRejectedSaleGroup ? '—' : $group->sum('quantity') }}</td>
-                    <td>{{ $transaction->sourceHub?->name }}{{ $transaction->targetHub ? ' → '.$transaction->targetHub->name : '' }}</td>
-                    <td>{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</td>
-                    <td><button type="button" class="btn btn-sm btn-outline-primary log-view-button" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}"><i class="fa-solid fa-eye me-1"></i>View details</button></td>
+                    <td class="log-quantity-cell fw-bold">{{ ($isFullyBookedGroup && ! $fullyBookedOrder->pulled_out_at) || $isRejectedSaleGroup ? '—' : $group->sum('quantity') }}</td>
+                    <td class="log-transfer-cell">
+                        @if($transaction->sourceHub && $transaction->targetHub)
+                            <div class="log-transfer-route" aria-label="Transfer from {{ $transaction->sourceHub->name }} to {{ $transaction->targetHub->name }}">
+                                <span class="log-transfer-route-hub">{{ $transaction->sourceHub->name }}</span>
+                                <span class="log-transfer-route-arrow" aria-hidden="true"><i class="fa-solid fa-arrow-right-long"></i></span>
+                                <span class="log-transfer-route-hub">{{ $transaction->targetHub->name }}</span>
+                            </div>
+                        @elseif($transaction->sourceHub || $transaction->targetHub)
+                            <div class="log-transfer-route is-single"><span class="log-transfer-route-hub">{{ $transaction->sourceHub?->name ?? $transaction->targetHub?->name }}</span></div>
+                        @else
+                            <span class="log-cell-empty">—</span>
+                        @endif
+                    </td>
+                    <td class="log-user-cell">{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</td>
+                    <td class="log-actions-cell"><button type="button" class="btn btn-sm btn-outline-primary log-view-button" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}"><i class="fa-solid fa-eye me-1"></i>View details</button></td>
                 </tr>
                 <div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
                     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content inventory-log-modal">

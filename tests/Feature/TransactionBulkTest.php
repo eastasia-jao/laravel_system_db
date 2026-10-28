@@ -68,6 +68,46 @@ class TransactionBulkTest extends TestCase
             ->assertSee('<td class="transaction-log-hub-column">'.$hub->name.'</td>', false);
     }
 
+    public function test_transaction_log_uses_aligned_columns_and_a_structured_transfer_route(): void
+    {
+        $source = StoreHub::create([
+            'name' => 'Transfer Source Hub', 'code' => 'TRANSFER-SOURCE', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $target = StoreHub::create([
+            'name' => 'Transfer Destination Hub', 'code' => 'TRANSFER-TARGET', 'status' => 'active', 'is_head_office' => false,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $product = Product::create([
+            'name' => 'Transfer Layout Product', 'item_id' => 'TRANSFER-LAYOUT-1',
+            'store_hub_id' => $source->id, 'stock' => 5, 'status' => 'active',
+        ]);
+
+        InventoryTransaction::create([
+            'type' => 'stock_transfer',
+            'store_hub_id' => $source->id,
+            'source_hub_id' => $source->id,
+            'target_hub_id' => $target->id,
+            'product_id' => $product->id,
+            'reference' => 'TRF-LAYOUT-001',
+            'source' => 'stock_transfer',
+            'quantity' => 2,
+            'occurred_on' => '2026-10-28',
+            'created_by' => $admin->id,
+            'status' => 'approved',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.index', ['hub_id' => $source->id]))
+            ->assertOk()
+            ->assertSee('<col class="log-column-details">', false)
+            ->assertSee('<col class="log-column-transfer">', false)
+            ->assertSee('<th>Transfer Route</th>', false)
+            ->assertSee('class="log-transfer-cell"', false)
+            ->assertSee('class="log-transfer-route"', false)
+            ->assertSee('aria-label="Transfer from TRANSFER SOURCE HUB to TRANSFER DESTINATION HUB"', false)
+            ->assertSee('fa-arrow-right-long', false);
+    }
+
     public function test_transaction_worksheets_download_as_excel_with_exact_identifiers(): void
     {
         foreach ([true, false] as $isHeadOffice) {
