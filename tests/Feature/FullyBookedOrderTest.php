@@ -1018,7 +1018,7 @@ class FullyBookedOrderTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $order = FullyBookedOrder::with('attachments')->sole();
-        $orderNumber = 'FB-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
+        $orderNumber = 'FB-'.$order->created_at->format('Ym').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT);
         $this->assertCount(2, $order->attachments);
         $this->assertSame($orderNumber, $order->order_number);
         $this->assertSame('first-order-page.pdf', $order->attachments[0]->original_filename);
@@ -1087,7 +1087,7 @@ class FullyBookedOrderTest extends TestCase
             'original_filename' => 'second-order-page.pdf',
             'mime_type' => 'application/pdf',
         ]);
-        $orderNumber = 'FB-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
+        $orderNumber = 'FB-'.$order->created_at->format('Ym').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT);
         $this->assertSame($orderNumber, $order->order_number);
         Storage::disk('inventory-attachments')->assertExists($order->attachment_path);
         $this->assertSame($staff->id, $order->sales_staff_id);

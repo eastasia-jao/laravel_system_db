@@ -136,7 +136,9 @@ class FullyBookedOrderController extends Controller
                 foreach ($storedAttachments as $attachment) {
                     $order->attachments()->create($attachment);
                 }
-                $order->update(['order_number' => 'FB-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT)]);
+                $order->update([
+                    'order_number' => 'FB-'.$order->created_at->format('Ym').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT),
+                ]);
 
                 return $order;
             });
