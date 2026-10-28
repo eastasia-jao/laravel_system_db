@@ -144,6 +144,7 @@ textarea[name="delivery_address"] { resize: none; }
 #appSidebar .nav-link.active-link > i:first-child { color: var(--ac-primary); }
 #appSidebar a[href="#storeHubDropdown"] .fa-chevron-down { transition: transform 200ms ease; }
 #appSidebar a[href="#storeHubDropdown"][aria-expanded="true"] .fa-chevron-down { transform: rotate(180deg); }
+#appSidebar #storeHubDropdown.collapsing { display: block !important; overflow: hidden !important; visibility: visible; transition: height 220ms ease; }
 #appSidebar #storeHubDropdown > ul,
 #appSidebar #storeHubDropdown > ul > li { opacity: 1; transform: none; }
 #appSidebar .brand-copy { overflow: hidden; white-space: nowrap; }
@@ -159,10 +160,10 @@ body.sidebar-collapsed #appSidebar { width: var(--ac-sidebar-rail) !important; }
 body.sidebar-collapsed .app-main { margin-left: var(--ac-sidebar-rail); width: calc(100% - var(--ac-sidebar-rail)); }
 body.sidebar-collapsed #appSidebar .brand-label, body.sidebar-collapsed #appSidebar .nav-link .badge, body.sidebar-collapsed #appSidebar .sidebar-user-copy, body.sidebar-collapsed #appSidebar #sidebarClock { display: none !important; }
 body.sidebar-collapsed #appSidebar .nav-link { width: 44px; padding-inline: 12px !important; overflow: hidden; gap: 1rem !important; }
-body.sidebar-collapsed #appSidebar .collapse { display: none !important; }
-body.sidebar-collapsed #appSidebar #storeHubDropdown { display: none !important; height: 0 !important; visibility: hidden; overflow: hidden !important; }
 
 @media (min-width: 1200px) {
+    body.sidebar-collapsed #appSidebar:not(:hover):not(:focus-within) .collapse { display: none !important; }
+    body.sidebar-collapsed #appSidebar:not(:hover):not(:focus-within) #storeHubDropdown { display: none !important; height: 0 !important; visibility: hidden; overflow: hidden !important; }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) { width: var(--ac-sidebar-width) !important; box-shadow: 18px 0 50px rgba(15, 23, 42, .14); }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) ~ .app-main { margin-left: var(--ac-sidebar-width); width: calc(100% - var(--ac-sidebar-width)); }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .sidebar-header { flex-direction: row; align-items: center !important; }
@@ -174,7 +175,8 @@ body.sidebar-collapsed #appSidebar #storeHubDropdown { display: none !important;
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .nav-link > i:first-child { font-size: inherit; }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .nav-link > i:not(:first-child) { display: inline-block !important; }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) .collapse.show { display: block !important; }
-    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) #storeHubDropdown.show { display: block !important; height: auto !important; visibility: visible; overflow: visible !important; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) #storeHubDropdown:is(.show, .collapsing) { display: block !important; visibility: visible; }
+    body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) #storeHubDropdown.show { overflow: visible !important; }
     body.sidebar-collapsed #appSidebar .sidebar-header { flex-direction: column; align-items: center !important; }
     body.sidebar-collapsed #appSidebar .nav-link { justify-content: center; padding-inline: 0 !important; gap: 0 !important; font-size: 0 !important; }
     body.sidebar-collapsed #appSidebar .nav-link > i:first-child { font-size: .95rem; }
@@ -220,7 +222,8 @@ body.sidebar-collapsed #appSidebar #storeHubDropdown { display: none !important;
     body.sidebar-collapsed #appSidebar #sidebarClock { display: inline !important; }
     body.sidebar-collapsed #appSidebar .nav-link { width: auto; padding-inline: 1rem !important; overflow: visible; }
     body.sidebar-collapsed #appSidebar .collapse.show { display: block !important; }
-    body.sidebar-collapsed #appSidebar #storeHubDropdown.show { display: block !important; height: auto !important; visibility: visible; overflow: visible !important; }
+    body.sidebar-collapsed #appSidebar #storeHubDropdown:is(.show, .collapsing) { display: block !important; visibility: visible; }
+    body.sidebar-collapsed #appSidebar #storeHubDropdown.show { overflow: visible !important; }
 }
 
 @media (max-width: 767.98px) {
