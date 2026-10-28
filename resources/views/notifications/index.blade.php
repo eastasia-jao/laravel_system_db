@@ -6,6 +6,12 @@
     .notification-card { border: 0; border-left: 4px solid transparent; border-radius: 12px; box-shadow: 0 5px 16px rgba(15,23,42,.06); }
     .notification-card.unread { border-left-color: #2563eb; background: #eff6ff; }
     .notification-icon { width: 40px; height: 40px; flex: 0 0 40px; }
+    .notifications-list { display: grid; gap: .5rem; max-height: min(65vh, 680px); padding: .15rem .4rem .15rem 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #94a3b8 #f1f5f9; }
+    .notifications-list::-webkit-scrollbar { width: 8px; }
+    .notifications-list::-webkit-scrollbar-track { background: #f1f5f9; }
+    .notifications-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
+    .notifications-list::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    .notifications-load-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
 </style>
 
 <div class="container-fluid p-4 notifications-page">
@@ -20,7 +26,7 @@
         <span class="small text-muted">{{ $notifications->total() }} total</span>
     </div>
 
-    <div class="d-grid gap-2">
+    <div id="notificationList" class="notifications-list" aria-label="Notification history">
         @forelse($notifications as $notification)
             @php
                 $notificationData = $notification->data ?? [];
@@ -88,6 +94,62 @@
         @endforelse
     </div>
 
-    <div class="mt-4">{{ $notifications->links() }}</div>
+    @if($notifications->total() > 0)
+        <div class="notifications-load-more">
+            <span id="notificationLoadedCount" class="small text-muted" data-total="{{ $notifications->total() }}" aria-live="polite">
+                Showing {{ $notifications->count() }} of {{ $notifications->total() }} notifications
+            </span>
+            <button type="button" id="loadMoreNotifications" class="btn btn-outline-primary btn-sm" data-next-url="{{ $notifications->nextPageUrl() }}" @if(!$notifications->hasMorePages()) hidden @endif>
+                <i class="fa-solid fa-angles-down me-1" aria-hidden="true"></i>Load more notifications
+            </button>
+        </div>
+    @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    (() => {
+        const list = document.getElementById('notificationList');
+        const button = document.getElementById('loadMoreNotifications');
+        const count = document.getElementById('notificationLoadedCount');
+        if (!list || !button || !count) return;
+
+        let loading = false;
+        const defaultButtonHtml = button.innerHTML;
+
+        button.addEventListener('click', async () => {
+            const nextUrl = button.dataset.nextUrl;
+            if (loading || !nextUrl) return;
+
+            loading = true;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading notifications';
+
+            try {
+                const response = await fetch(nextUrl, {
+                    credentials: 'same-origin',
+                    headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!response.ok) throw new Error(`Notification request failed with ${response.status}`);
+
+                const documentPage = new DOMParser().parseFromString(await response.text(), 'text/html');
+                const nextList = documentPage.getElementById('notificationList');
+                const nextButton = documentPage.getElementById('loadMoreNotifications');
+                nextList?.querySelectorAll('.notification-card').forEach(card => list.append(card));
+
+                button.dataset.nextUrl = nextButton?.dataset.nextUrl || '';
+                button.hidden = !button.dataset.nextUrl;
+                const loaded = list.querySelectorAll('.notification-card').length;
+                count.textContent = `Showing ${loaded} of ${count.dataset.total} notifications`;
+                button.innerHTML = defaultButtonHtml;
+            } catch (error) {
+                button.innerHTML = '<i class="fa-solid fa-rotate-right me-1" aria-hidden="true"></i>Retry load more';
+            } finally {
+                loading = false;
+                button.disabled = false;
+            }
+        });
+    })();
+</script>
+@endpush

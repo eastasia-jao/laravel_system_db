@@ -105,6 +105,34 @@ class NotificationAccessTest extends TestCase
         $this->assertNotNull($user->notifications()->first()->read_at);
     }
 
+    public function test_activity_center_scrolls_and_loads_more_notifications_without_pagination_links(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        foreach (range(1, 25) as $number) {
+            $user->notify(new InventoryWorkflowNotification('inventory_verification', 'Notification '.$number));
+        }
+        $otherUser->notify(new InventoryWorkflowNotification('inventory_verification', 'Another users private notification.'));
+
+        $firstPage = $this->actingAs($user)->get(route('notifications.index'))
+            ->assertOk()
+            ->assertSee('id="notificationList" class="notifications-list"', false)
+            ->assertSee('max-height: min(65vh, 680px)', false)
+            ->assertSee('overflow-y: auto', false)
+            ->assertSee('Load more notifications')
+            ->assertSee('page=2', false)
+            ->assertSee('Showing 20 of 25 notifications')
+            ->assertDontSee('class="pagination"', false)
+            ->assertDontSee('Another users private notification.');
+        $this->assertSame(20, substr_count($firstPage->getContent(), 'class="notification-card card'));
+
+        $secondPage = $this->get(route('notifications.index', ['page' => 2]))
+            ->assertOk()
+            ->assertSee('Showing 5 of 25 notifications')
+            ->assertSee('data-next-url=""', false);
+        $this->assertSame(5, substr_count($secondPage->getContent(), 'class="notification-card card'));
+    }
+
     public function test_notification_feed_returns_only_the_signed_in_users_notifications(): void
     {
         $user = User::factory()->create();
