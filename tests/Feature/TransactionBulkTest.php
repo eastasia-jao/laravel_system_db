@@ -104,6 +104,7 @@ class TransactionBulkTest extends TestCase
             ->assertSee('<col class="log-column-details">', false)
             ->assertSee('<col class="log-column-transfer">', false)
             ->assertSee('<th>Transfer Route</th>', false)
+            ->assertSee('.log-transfer-route { display: flex; width: fit-content; max-width: 100%;', false)
             ->assertSee('class="log-transfer-cell"', false)
             ->assertSee('class="log-transfer-route"', false)
             ->assertSee('aria-label="Transfer from TRANSFER SOURCE HUB (TRANSFER-SOURCE) to TRANSFER DESTINATION HUB (TRANSFER-TARGET)"', false)

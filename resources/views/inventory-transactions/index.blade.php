@@ -78,7 +78,7 @@
     .log-detail-title small { line-height: 1.35; }
     .log-quantity-cell, .log-actions-cell { text-align: center; }
     .log-transfer-cell { white-space: normal; }
-    .log-transfer-route { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: .45rem; color: #334155; font-size: .78rem; font-weight: 700; line-height: 1.25; }
+    .log-transfer-route { display: flex; width: fit-content; max-width: 100%; align-items: center; gap: .45rem; color: #334155; font-size: .78rem; font-weight: 700; line-height: 1.25; }
     .log-transfer-route-hub { min-width: 0; overflow-wrap: anywhere; }
     .log-transfer-route-arrow { display: grid; width: 1.65rem; height: 1.65rem; place-items: center; border-radius: 50%; color: #6d28d9; background: #f3e8ff; }
     .log-transfer-route.is-single { display: block; }
