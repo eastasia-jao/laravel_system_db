@@ -408,7 +408,7 @@
                             <form method="POST" action="{{ route('inventory-transactions.fully-booked.pull-out', $order) }}" class="fully-booked-pullout-form" data-order-number="{{ $order->order_number }}" data-endpoint="{{ route('hub.products.search.ajax', $order->store_hub_id) }}">
                                 @csrf
                                 <h6 class="fw-bold mb-1">Items for this order</h6>
-                                <p class="small text-muted mb-3">Choose the products and quantities from {{ $order->storeHub?->name ?? 'this hub' }}. The stock shown is physical Good stock only; allocations for other sales channels are not used in this pull-out.</p>
+                                <p class="small text-muted mb-3">Choose the products and quantities from {{ $order->storeHub?->name ?? 'this hub' }}. Available stock is physical Good stock minus quantities allocated to other sales channels.</p>
                                 <div class="fully-booked-pullout-rows">
                                     <div class="row g-2 align-items-center fully-booked-pullout-row mb-2">
                                         <div class="col-md-8">

@@ -322,9 +322,12 @@ class FullyBookedOrderController extends Controller
                 $quantity = (int) $entry['quantity'];
                 $stockCondition = $entry['stock_condition'] ?? 'good';
                 $stockColumn = $stockCondition === 'damaged' ? 'damaged_stock' : 'stock';
-                if ((int) $product->{$stockColumn} < $quantity) {
+                $availableStock = $stockCondition === 'good'
+                    ? $product->unallocatedStock()
+                    : max(0, (int) $product->{$stockColumn});
+                if ($availableStock < $quantity) {
                     throw ValidationException::withMessages([
-                        'items' => "Not enough {$stockCondition} stock for {$product->name}. Available: {$product->{$stockColumn}}.",
+                        'items' => "Not enough unallocated {$stockCondition} stock for {$product->name}. Available: {$availableStock}.",
                     ]);
                 }
 

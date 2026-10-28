@@ -330,7 +330,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('<div class="alert alert-light border small mb-0 fully-booked-request-remarks">', false)
             ->assertSee('.fully-booked-pullout-rows', false)
             ->assertSee('Orders Awaiting Inventory Pull-Out')
-            ->assertSee('The stock shown is physical Good stock only; allocations for other sales channels are not used in this pull-out.')
+            ->assertSee('Available stock is physical Good stock minus quantities allocated to other sales channels.')
             ->assertSee('FB-FORM-001')
             ->assertSee('Request remarks:')
             ->assertSee('Please pull these items carefully.')
@@ -359,8 +359,9 @@ class FullyBookedOrderTest extends TestCase
         $this->assertStringContainsString('exportFullyBookedExcel', $exportScript);
         $this->assertStringNotContainsString('exportFullyBookedCsv', $exportScript);
         $this->assertStringContainsString('selectedProductIds(row)', $exportScript);
-        $this->assertStringContainsString('(physical stock: ${physicalStockFor(product)})', $exportScript);
-        $this->assertStringContainsString('quantity.max = String(physicalStock)', $exportScript);
+        $this->assertStringContainsString('(available stock: ${availableStockFor(product)})', $exportScript);
+        $this->assertStringContainsString("url.searchParams.set('stock_channel', 'walk_in')", $exportScript);
+        $this->assertStringContainsString('quantity.max = String(availableStock)', $exportScript);
         $this->assertStringContainsString("allRows.length >= 5", $exportScript);
         $this->assertStringContainsString('method: \'GET\'', $exportScript);
         $this->assertStringContainsString('/js/fully-booked-pullout.js?v=', $this->get(route('inventory-transactions.sponsor.create', [
@@ -403,6 +404,7 @@ class FullyBookedOrderTest extends TestCase
                 'q' => 'cadmium',
                 'active_only' => 1,
                 'sort' => 'item_id',
+                'stock_channel' => 'walk_in',
             ]))
             ->assertOk()
             ->assertJsonCount(1)
@@ -410,8 +412,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertJsonPath('0.name', 'Cadmium Red')
             ->assertJsonPath('0.barcode', '123456789')
             ->assertJsonPath('0.stock', 15)
-            ->assertJsonPath('0.physical_stock_available', 15)
-            ->assertJsonMissingPath('0.stock_allocation');
+            ->assertJsonPath('0.channel_available_stock', 4);
     }
 
     public function test_pending_fully_booked_export_uses_the_national_pullout_excel_template(): void
@@ -567,6 +568,15 @@ class FullyBookedOrderTest extends TestCase
             'mime_type' => 'application/pdf',
             'status' => 'pending',
         ]);
+
+        $this->actingAs($inventoryStaff)->post(route('inventory-transactions.fully-booked.pull-out', $order), [
+            'items' => [['product_id' => $product->id, 'quantity' => 8]],
+        ])->assertSessionHasErrors([
+            'items' => 'Not enough unallocated good stock for Fully Booked Allocated Product. Available: 7.',
+        ]);
+
+        $this->assertSame(20, (int) $product->fresh()->stock);
+        $this->assertNull($order->fresh()->pulled_out_at);
 
         $this->actingAs($inventoryStaff)->post(route('inventory-transactions.fully-booked.pull-out', $order), [
             'items' => [['product_id' => $product->id, 'quantity' => 3]],
