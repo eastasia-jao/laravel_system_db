@@ -87,6 +87,30 @@
             cursor: pointer;
             color: #94a3b8;
         }
+        .active-session-notice {
+            padding: 12px 14px;
+            border: 1px solid #cfe0fb;
+            border-radius: 10px;
+            background: #f5f8ff;
+        }
+        .active-session-notice-heading {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: #1e3a8a;
+        }
+        .active-session-notice-icon {
+            display: grid;
+            width: 30px;
+            height: 30px;
+            flex: 0 0 30px;
+            place-items: center;
+            border-radius: 8px;
+            color: #2563eb;
+            background: #e3edff;
+        }
+        .active-session-notice-heading strong { display: block; font-size: .88rem; }
+        .active-session-notice-heading p { margin-top: 3px; color: #536783; font-size: .78rem; line-height: 1.45; }
     </style>
 <link rel="stylesheet" href="{{ asset('app-alert.css') }}"><script src="{{ asset('js/app-alert.js') }}"></script>
 </head>

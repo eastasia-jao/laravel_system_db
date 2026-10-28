@@ -50,6 +50,7 @@
         <!-- Validation Errors -->
         
 
+        @php($activeSessionConflict = collect($errors->all())->contains(\App\Support\ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE))
         <form method="POST" action="{{ route('login') }}">
             @csrf
 
@@ -63,37 +64,35 @@
             <div class="mb-3">
                 <label for="password" class="form-label small fw-semibold text-secondary">Password</label>
                 <div class="password-wrapper">
-                    <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password" required autocomplete="current-password">
+                    <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password" required autocomplete="current-password" @if($activeSessionConflict) autofocus @endif>
                     <span class="password-toggle" onclick="togglePassword()">
                     </span>
                 </div>
             </div>
 
+            @if($activeSessionConflict)
+                <section class="active-session-notice mb-3" role="alert" aria-live="assertive">
+                    <div class="active-session-notice-heading">
+                        <span class="active-session-notice-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+                        <div>
+                            <strong>{{ old('username') ?: old('email') ?: 'This account' }} is already signed in</strong>
+                            <p class="mb-0">If that wasn't you, enter your password above and end the other session.</p>
+                        </div>
+                    </div>
+                </section>
+            @endif
+
             <!-- Submit Login Action -->
             <button type="submit" class="btn btn-blue w-100 text-uppercase tracking-wide small mb-3">
                 Sign In
             </button>
+            @if($activeSessionConflict)
+                <button type="submit" name="take_over_sessions" value="1" class="btn btn-outline-primary w-100">
+                    <i class="fa-solid fa-arrow-right-to-bracket me-1" aria-hidden="true"></i>This wasn't me — end other session
+                </button>
+                <p class="small text-muted text-center mt-2 mb-0">Only use this if you don't recognize the active session.</p>
+            @endif
         </form>
-
-        @if(collect($errors->all())->contains(\App\Support\ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE))
-            <div class="mt-3 pt-3 border-top" role="alert" aria-live="assertive">
-                <div class="alert alert-warning py-2 mb-3">
-                    <strong>The account you entered is already active elsewhere.</strong>
-                    <div class="small mt-1">If you don't recognize that session, confirm your password below to sign in here and end it. Change your password afterward if you suspect someone else accessed your account.</div>
-                </div>
-                <form method="POST" action="{{ route('login') }}">
-                    @csrf
-                    <input type="hidden" name="username" value="{{ old('username') }}">
-                    <input type="hidden" name="email" value="{{ old('email') }}">
-                    <input type="hidden" name="take_over_sessions" value="1">
-                    <div class="mb-2">
-                        <label for="takeover-password" class="form-label small fw-semibold text-secondary">Confirm your password</label>
-                        <input type="password" id="takeover-password" name="password" class="form-control" required autocomplete="current-password">
-                    </div>
-                    <button type="submit" class="btn btn-outline-danger w-100 small">Sign in and end other session</button>
-                </form>
-            </div>
-        @endif
 
         <!-- Daily Wisdom Quote -->
         <div class="mt-3 pt-3 border-top text-center">

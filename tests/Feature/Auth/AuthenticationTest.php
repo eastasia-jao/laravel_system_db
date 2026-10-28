@@ -59,8 +59,10 @@ class AuthenticationTest extends TestCase
 
         $this->get('/login')
             ->assertOk()
-            ->assertSee('The account you entered is already active elsewhere.')
-            ->assertSee('Sign in and end other session')
+            ->assertSee($user->username.' is already signed in')
+            ->assertSee('end other session')
+            ->assertSee('name="take_over_sessions" value="1"', false)
+            ->assertDontSee('takeover-password')
             ->assertSee('const messages = [];');
     }
 
