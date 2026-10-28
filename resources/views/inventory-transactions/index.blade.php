@@ -55,6 +55,9 @@
     .log-type-badge.sold { color: #166534; background: #dcfce7; }
     .log-type-badge.rejected { color: #b91c1c; background: #fee2e2; }
     .log-type-badge.transfer { max-width: 100%; justify-content: center; color: #6b21a8; background: #f3e8ff; white-space: normal; text-align: center; }
+    .log-type-badge.fully-booked { color: #5b21b6; background: #ede9fe; }
+    .log-type-badge.restock { color: #0f766e; background: #ccfbf1; }
+    .log-type-badge.national-bookstore { color: #b91c1c; background: #fee2e2; }
     .log-type-badge.other { color: #475569; background: #e2e8f0; }
     .channel-source-column { text-align: center; }
     .channel-source { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; max-width: 100%; font-weight: 600; overflow-wrap: anywhere; }
@@ -483,7 +486,17 @@
                         <small class="text-muted">{{ $transaction->created_at?->format('h:i A') ?? 'Time unavailable' }}</small>
                     </td>
                     @php
-                        $typeClass = $isRejectedSaleGroup ? 'rejected' : ($isReplacementGroup ? 'replacement' : ($isReturnGroup ? 'return' : ($isSoldOrder ? 'sold' : ($isTransferGroup ? 'transfer' : 'other'))));
+                        $typeClass = match (true) {
+                            $isFullyBookedGroup => 'fully-booked',
+                            $isRestockGroup => 'restock',
+                            $isNationalPulloutGroup => 'national-bookstore',
+                            $isRejectedSaleGroup => 'rejected',
+                            $isReplacementGroup => 'replacement',
+                            $isReturnGroup => 'return',
+                            $isSoldOrder => 'sold',
+                            $isTransferGroup => 'transfer',
+                            default => 'other',
+                        };
                         $typeIcon = match (true) {
                             $isRejectedSaleGroup => 'fa-ban',
                             $isNationalPulloutGroup => 'fa-book-open',
@@ -555,13 +568,13 @@
                     <td class="log-quantity-cell fw-bold">{{ ($isFullyBookedGroup && ! $fullyBookedOrder->pulled_out_at) || $isRejectedSaleGroup ? '—' : $group->sum('quantity') }}</td>
                     <td class="log-transfer-cell">
                         @if($transaction->sourceHub && $transaction->targetHub)
-                            <div class="log-transfer-route" aria-label="Transfer from {{ $transaction->sourceHub->name }} to {{ $transaction->targetHub->name }}">
-                                <span class="log-transfer-route-hub">{{ $transaction->sourceHub->name }}</span>
+                            <div class="log-transfer-route" aria-label="Transfer from {{ $transaction->sourceHub->name }} ({{ $transaction->sourceHub->code ?: $transaction->sourceHub->name }}) to {{ $transaction->targetHub->name }} ({{ $transaction->targetHub->code ?: $transaction->targetHub->name }})">
+                                <span class="log-transfer-route-hub" title="{{ $transaction->sourceHub->name }}">{{ $transaction->sourceHub->code ?: $transaction->sourceHub->name }}</span>
                                 <span class="log-transfer-route-arrow" aria-hidden="true"><i class="fa-solid fa-arrow-right-long"></i></span>
-                                <span class="log-transfer-route-hub">{{ $transaction->targetHub->name }}</span>
+                                <span class="log-transfer-route-hub" title="{{ $transaction->targetHub->name }}">{{ $transaction->targetHub->code ?: $transaction->targetHub->name }}</span>
                             </div>
                         @elseif($transaction->sourceHub || $transaction->targetHub)
-                            <div class="log-transfer-route is-single"><span class="log-transfer-route-hub">{{ $transaction->sourceHub?->name ?? $transaction->targetHub?->name }}</span></div>
+                            <div class="log-transfer-route is-single"><span class="log-transfer-route-hub" title="{{ $transaction->sourceHub?->name ?? $transaction->targetHub?->name }}">{{ ($transaction->sourceHub?->code ?: $transaction->targetHub?->code) ?: ($transaction->sourceHub?->name ?? $transaction->targetHub?->name) }}</span></div>
                         @else
                             <span class="log-cell-empty">—</span>
                         @endif
@@ -1195,13 +1208,6 @@
             </tbody>
         </table></div>
         <div class="log-pagination d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <span class="small text-muted">
-                @if($transactions->total())
-                    Showing {{ $transactions->firstItem() }}–{{ $transactions->lastItem() }} of {{ $transactions->total() }} logs
-                @else
-                    No logs to display
-                @endif
-            </span>
             {{ $transactions->links() }}
         </div>
     </div>

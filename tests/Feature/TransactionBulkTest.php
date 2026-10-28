@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Product;
 use App\Models\ProductStockAllocation;
+use App\Models\FullyBookedOrder;
 use App\Models\InventoryTransaction;
+use App\Models\NationalPullout;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -104,8 +106,76 @@ class TransactionBulkTest extends TestCase
             ->assertSee('<th>Transfer Route</th>', false)
             ->assertSee('class="log-transfer-cell"', false)
             ->assertSee('class="log-transfer-route"', false)
-            ->assertSee('aria-label="Transfer from TRANSFER SOURCE HUB to TRANSFER DESTINATION HUB"', false)
+            ->assertSee('aria-label="Transfer from TRANSFER SOURCE HUB (TRANSFER-SOURCE) to TRANSFER DESTINATION HUB (TRANSFER-TARGET)"', false)
+            ->assertSee('<span class="log-transfer-route-hub" title="TRANSFER SOURCE HUB">TRANSFER-SOURCE</span>', false)
+            ->assertSee('<span class="log-transfer-route-hub" title="TRANSFER DESTINATION HUB">TRANSFER-TARGET</span>', false)
             ->assertSee('fa-arrow-right-long', false);
+    }
+
+    public function test_transaction_log_uses_distinct_badge_colors_for_fully_booked_restock_and_national_pullout(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Transaction Color Hub', 'code' => 'COLOR-HUB', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $hub->id]);
+        $product = Product::create([
+            'name' => 'Transaction Color Product', 'item_id' => 'COLOR-1',
+            'store_hub_id' => $hub->id, 'stock' => 12, 'status' => 'active',
+        ]);
+        $fullyBookedOrder = FullyBookedOrder::create([
+            'order_number' => 'FB-COLOR-1',
+            'store_hub_id' => $hub->id,
+            'sales_staff_id' => $admin->id,
+            'submitted_by' => $admin->id,
+            'attachment_path' => 'fully-booked-orders/color.pdf',
+            'original_filename' => 'color.pdf',
+            'mime_type' => 'application/pdf',
+            'status' => 'reviewed',
+        ]);
+        InventoryTransaction::create([
+            'type' => 'sponsor_workshop',
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'channel' => 'fully_booked',
+            'reference' => $fullyBookedOrder->order_number,
+            'quantity' => 1,
+            'occurred_on' => '2026-10-28',
+            'created_by' => $admin->id,
+        ]);
+        InventoryTransaction::create([
+            'type' => 'restock',
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'reference' => 'RST-COLOR-1',
+            'source' => 'warehouse',
+            'quantity' => 2,
+            'occurred_on' => '2026-10-27',
+            'created_by' => $admin->id,
+        ]);
+        $pullout = NationalPullout::create([
+            'po_number' => 'PO-COLOR-1',
+            'occurred_on' => '2026-10-26',
+            'store_hub_id' => $hub->id,
+            'created_by' => $admin->id,
+        ]);
+        $pullout->items()->create([
+            'item_id' => 'COLOR-NB-1',
+            'product_name' => 'National pullout product',
+            'quantity' => 3,
+            'purpose' => 'National Bookstore Pullout',
+            'physical_stock' => 6,
+            'actual_pullout' => 2,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('class="log-type-badge fully-booked"', false)
+            ->assertSee('class="log-type-badge restock"', false)
+            ->assertSee('class="log-type-badge national-bookstore"', false)
+            ->assertSee('.log-type-badge.fully-booked { color: #5b21b6; background: #ede9fe; }', false)
+            ->assertSee('.log-type-badge.restock { color: #0f766e; background: #ccfbf1; }', false)
+            ->assertSee('.log-type-badge.national-bookstore { color: #b91c1c; background: #fee2e2; }', false);
     }
 
     public function test_transaction_worksheets_download_as_excel_with_exact_identifiers(): void
@@ -1101,7 +1171,8 @@ class TransactionBulkTest extends TestCase
             ->assertOk()
             ->assertSee('Transaction activity')
             ->assertSee('15 per page')
-            ->assertSee('Showing 1–15 of 25 logs')
+            ->assertSee('pagination-summary')
+            ->assertDontSee('Showing 1–15 of 25 logs')
             ->assertSee('class="log-modal-row"', false);
         $firstPage = $firstResponse->viewData('transactions');
         $this->assertSame(15, $firstPage->count());
@@ -1112,7 +1183,8 @@ class TransactionBulkTest extends TestCase
             'type' => 'sponsor_workshop',
             'page' => 2,
         ]))->assertOk()
-            ->assertSee('Showing 16–25 of 25 logs');
+            ->assertSee('pagination-summary')
+            ->assertDontSee('Showing 16–25 of 25 logs');
         $secondPage = $secondResponse
             ->viewData('transactions');
         $this->assertSame(10, $secondPage->count());
