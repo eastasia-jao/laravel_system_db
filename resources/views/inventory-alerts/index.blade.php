@@ -22,7 +22,8 @@
     .inventory-alert-summary-card:hover { border-color: #93c5fd; box-shadow: var(--ac-shadow); }
     .inventory-alert-summary-label { color: var(--ac-muted); font-size: .7rem; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
     .inventory-alert-summary-value { margin-top: .25rem; font-size: 1.45rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-    .inventory-alert-table th { white-space: nowrap; }
+    .inventory-alert-table-scroll { max-height: 60vh; overflow: auto; }
+    .inventory-alert-table th { position: sticky; top: 0; z-index: 1; white-space: nowrap; background: #f1f5f9; }
     @media (max-width: 767.98px) { .inventory-alert-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 
@@ -74,7 +75,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <div><h3 class="h5 mb-1">{{ $severityLabels[$severity] }}</h3><p class="small text-muted mb-0">{{ number_format($products->total()) }} {{ \Illuminate\Support\Str::plural('product', $products->total()) }}</p></div>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive inventory-alert-table-scroll">
             <table class="table inventory-alert-table align-middle mb-0">
                 <thead><tr><th>Product</th><th>Item ID</th><th>Store</th><th class="text-end">{{ $stockLabel }}</th><th>Status</th></tr></thead>
                 <tbody>

@@ -584,6 +584,41 @@ class DashboardTest extends TestCase
         $this->assertSame(1, $lowStockPage->viewData('products')->total());
     }
 
+    public function test_inventory_alerts_show_thirty_products_per_scrollable_page(): void
+    {
+        $hub = StoreHub::create(['name' => 'Scrollable Alerts Hub', 'code' => 'SCROLL-ALERTS', 'status' => 'active', 'is_head_office' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        foreach (range(1, 35) as $index) {
+            Product::create([
+                'store_hub_id' => $hub->id,
+                'item_id' => 'SCROLL-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT),
+                'name' => 'Scrollable Alert Product '.$index,
+                'stock' => 0,
+                'status' => 'active',
+            ]);
+        }
+
+        $firstPage = $this->actingAs($admin)->get(route('dashboard.inventory-alerts', [
+            'hub_id' => $hub->id,
+            'severity' => 'out_of_stock',
+        ]))->assertOk()
+            ->assertSee('inventory-alert-table-scroll')
+            ->assertSee('max-height: 60vh; overflow: auto;', false)
+            ->assertSee('position: sticky; top: 0;', false);
+        $this->assertSame(30, $firstPage->viewData('products')->perPage());
+        $this->assertCount(30, $firstPage->viewData('products'));
+        $this->assertSame(35, $firstPage->viewData('products')->total());
+
+        $secondPage = $this->get(route('dashboard.inventory-alerts', [
+            'hub_id' => $hub->id,
+            'severity' => 'out_of_stock',
+            'page' => 2,
+        ]))->assertOk();
+        $this->assertCount(5, $secondPage->viewData('products'));
+        $this->assertSame(2, $secondPage->viewData('products')->currentPage());
+        $this->assertSame(35, $secondPage->viewData('products')->total());
+    }
+
     public function test_dashboard_hides_store_selector_when_only_one_branch_is_accessible(): void
     {
         $branch = StoreHub::create(['name' => 'Only Branch', 'code' => 'ONLY-BRANCH', 'status' => 'active']);

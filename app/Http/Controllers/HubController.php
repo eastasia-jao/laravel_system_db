@@ -648,7 +648,7 @@ class HubController extends Controller
         $products = $alertsQuery
             ->orderByRaw("{$stockExpression} ASC")
             ->orderByCatalog('item_id')
-            ->paginate(50)
+            ->paginate(30)
             ->withQueryString();
         $scopeName = $hubId ? $dashboardHubs->firstWhere('id', (int) $hubId)?->name : 'All accessible stores';
         $stockLabel = $stockChannel && $stockChannel !== 'unassigned'
