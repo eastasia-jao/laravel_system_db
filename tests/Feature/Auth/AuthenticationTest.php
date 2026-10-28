@@ -208,7 +208,10 @@ class AuthenticationTest extends TestCase
             ->assertSee('id="staySignedInButton"', false)
             ->assertSee('const warningLeadMilliseconds = Math.min(60 * 1000', false)
             ->assertSee('const showInactivityWarning = () => {', false)
-            ->assertSee('if (warningVisible && !force) return;', false);
+            ->assertSee('if (warningVisible && !force) return;', false)
+            ->assertSee('force = force === true;', false)
+            ->assertSee('window.addEventListener(eventName, () => recordActivity(), { passive: true });', false)
+            ->assertDontSee('window.addEventListener(eventName, recordActivity, { passive: true });', false);
     }
 
     public function test_activity_heartbeat_keeps_an_authenticated_session_alive_after_three_minutes(): void

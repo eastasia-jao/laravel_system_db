@@ -172,6 +172,7 @@
         let signingOut = false;
         let lastActivitySync = Date.now();
         let lastSharedActivityWrite = 0;
+        let lastTimerRefresh = 0;
         let localLastActivity = Date.now();
 
         const sharedLastActivity = () => {
@@ -251,6 +252,7 @@
         };
 
         const recordActivity = (force = false) => {
+            force = force === true;
             if (warningVisible && !force) return;
             if (force) hideInactivityWarning();
             const now = Date.now();
@@ -261,7 +263,10 @@
                 } catch (error) {}
                 lastSharedActivityWrite = now;
             }
-            scheduleInactivityCheck();
+            if (force || now - lastTimerRefresh >= 1000) {
+                scheduleInactivityCheck();
+                lastTimerRefresh = now;
+            }
 
             if (!force && now - lastActivitySync < 60000) return;
 
@@ -281,9 +286,9 @@
         staySignedInButton.addEventListener('click', () => recordActivity(true));
 
         ['click', 'keydown', 'scroll', 'touchstart', 'mousemove'].forEach(eventName => {
-            window.addEventListener(eventName, recordActivity, { passive: true });
+            window.addEventListener(eventName, () => recordActivity(), { passive: true });
         });
-        window.addEventListener('focus', recordActivity);
+        window.addEventListener('focus', () => recordActivity());
         window.addEventListener('storage', event => {
             if (event.key !== activityStorageKey || !event.newValue) return;
             localLastActivity = Math.max(localLastActivity, Number(event.newValue) || 0);
