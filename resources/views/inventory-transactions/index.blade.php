@@ -530,7 +530,17 @@
                             <strong>{{ $fullyBookedOrder->order_number }}</strong>
                             <small class="d-block text-muted">{{ $fullyBookedOrder->salesStaff?->name ?? 'Deleted staff' }} · {{ $fullyBookedOrder->status === 'rejected' ? 'Order rejected' : ($fullyBookedOrder->pulled_out_at ? $group->count().' item line(s) · '.$group->sum('quantity').' total pulled out' : 'Attachment submitted for review') }}</small>
                         @elseif($isReplacementGroup)
-                            <strong>{{ $transaction->productReplacement->originalProduct?->name ?? 'Original item' }} → {{ $transaction->productReplacement->replacementProduct?->name ?? 'Replacement item' }}</strong>
+                            @php
+                                $originalReplacementProduct = $transaction->productReplacement->originalProduct;
+                                $newReplacementProduct = $transaction->productReplacement->replacementProduct;
+                                $originalReplacementLabel = filled($originalReplacementProduct?->description)
+                                    ? $originalReplacementProduct->description
+                                    : ($originalReplacementProduct?->name ?? 'Original item');
+                                $newReplacementLabel = filled($newReplacementProduct?->description)
+                                    ? $newReplacementProduct->description
+                                    : ($newReplacementProduct?->name ?? 'Replacement item');
+                            @endphp
+                            <strong>{{ $originalReplacementLabel }} → {{ $newReplacementLabel }}</strong>
                             <small class="d-block text-muted">Returned {{ $transaction->productReplacement->quantity }} · Replaced with {{ $transaction->productReplacement->replacement_quantity ?: $transaction->productReplacement->quantity }}</small>
                         @elseif($isReturnGroup)
                             <strong>{{ $isNationalReturn ? 'Return P.O. #' : ($isEventReturn ? 'Event return' : 'Return order') }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</strong>

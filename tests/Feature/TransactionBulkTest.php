@@ -7,6 +7,7 @@ use App\Models\ProductStockAllocation;
 use App\Models\FullyBookedOrder;
 use App\Models\InventoryTransaction;
 use App\Models\NationalPullout;
+use App\Models\ProductReplacement;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -111,6 +112,46 @@ class TransactionBulkTest extends TestCase
             ->assertSee('<span class="log-transfer-route-hub" title="TRANSFER SOURCE HUB">TRANSFER-SOURCE</span>', false)
             ->assertSee('<span class="log-transfer-route-hub" title="TRANSFER DESTINATION HUB">TRANSFER-TARGET</span>', false)
             ->assertSee('fa-arrow-right-long', false);
+    }
+
+    public function test_transaction_log_replacement_uses_product_descriptions_with_name_fallback(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Replacement Description Hub', 'code' => 'REPL-DESC', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $original = Product::create([
+            'name' => 'Original Product Name', 'description' => 'Original product description',
+            'item_id' => 'REPL-ORIGINAL', 'store_hub_id' => $hub->id, 'stock' => 5, 'status' => 'active',
+        ]);
+        $replacement = Product::create([
+            'name' => 'Replacement Product Name', 'description' => '',
+            'item_id' => 'REPL-NEW', 'store_hub_id' => $hub->id, 'stock' => 5, 'status' => 'active',
+        ]);
+        $sale = SalesTransaction::create([
+            'user_id' => $admin->id, 'store_hub_id' => $hub->id, 'order_number' => 'REPL-DESC-ORDER',
+            'customer_name' => 'Replacement Customer', 'order_date' => '2026-10-28',
+            'channel_type' => 'online', 'status' => 'completed',
+        ]);
+        $item = $sale->items()->create([
+            'product_id' => $original->id, 'quantity' => 1, 'unit_price' => 100, 'line_total' => 100,
+        ]);
+        $record = ProductReplacement::create([
+            'transaction_id' => $sale->id, 'transaction_item_id' => $item->id,
+            'original_product_id' => $original->id, 'replacement_product_id' => $replacement->id,
+            'quantity' => 1, 'replacement_quantity' => 1, 'status' => 'approved',
+        ]);
+        InventoryTransaction::create([
+            'type' => 'replacement_out', 'store_hub_id' => $hub->id, 'product_id' => $replacement->id,
+            'product_replacement_id' => $record->id, 'reference' => $sale->order_number,
+            'quantity' => 1, 'occurred_on' => '2026-10-28', 'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'replacement']))
+            ->assertOk()
+            ->assertSee('<strong>Original product description → Replacement Product Name</strong>', false)
+            ->assertDontSee('<strong>Original Product Name → Replacement Product Name</strong>', false);
     }
 
     public function test_transaction_log_uses_distinct_badge_colors_for_fully_booked_restock_and_national_pullout(): void
