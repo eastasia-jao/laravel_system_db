@@ -56,10 +56,16 @@ class TransactionBulkTest extends TestCase
         $this->actingAs($admin)
             ->get(route('inventory-transactions.index', ['hub_id' => $hub->id]))
             ->assertOk()
+            ->assertDontSee('transaction-log-hub-column', false)
             ->assertSee('<th class="channel-source-column">Channel / Source</th>', false)
             ->assertSee('channel-source-icon tiktok', false)
             ->assertSee('fa-brands fa-tiktok', false)
             ->assertSee('TikTok');
+
+        $this->get(route('inventory-transactions.index'))
+            ->assertOk()
+            ->assertSee('<th class="transaction-log-hub-column">Hub</th>', false)
+            ->assertSee('<td class="transaction-log-hub-column">'.$hub->name.'</td>', false);
     }
 
     public function test_transaction_worksheets_download_as_excel_with_exact_identifiers(): void

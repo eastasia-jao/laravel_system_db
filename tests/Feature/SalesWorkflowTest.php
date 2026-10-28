@@ -760,6 +760,7 @@ class SalesWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('ORDER-001')
             ->assertSee('READY')
+            ->assertDontSee('<div class="small text-muted">Total Amount</div>', false)
             ->assertSee('Test Product')
             ->assertSee('Review Inventory (1)')
             ->assertSee('data-bs-target="#itemsModal'.$pendingSale->id.'"', false)

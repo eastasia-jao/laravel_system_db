@@ -300,10 +300,6 @@
                     @php
                         $inventory = $sale->inventory_availability;
                         $isWholesale = str_replace(['-', ' '], '_', strtolower((string) $sale->sales_channel)) === 'wholesale';
-                        $isTiktok = strtolower((string) $sale->sales_channel) === 'tiktok';
-                        $rowGrandTotal = $isTiktok && $sale->sales_after_transaction_fee !== null
-                            ? (float) $sale->sales_after_transaction_fee
-                            : (float) ($sale->grand_total ?? 0);
                     @endphp
                     <div class="verification-card">
                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
@@ -321,10 +317,6 @@
                                 </div>
                                 <h5 class="mb-1">{{ $sale->customer_name ?: 'N/A' }}</h5>
                                 <div class="small text-muted">{{ $sale->invoice_number ?: 'Order #'.$sale->id }}</div>
-                            </div>
-                            <div class="text-md-end">
-                                <div class="small text-muted">Total Amount</div>
-                                <div class="fs-5 fw-bold text-success">₱{{ number_format($rowGrandTotal, 2) }}</div>
                             </div>
                         </div>
                         <div class="row g-3 mt-2">

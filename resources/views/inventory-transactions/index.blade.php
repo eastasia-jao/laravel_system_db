@@ -315,7 +315,7 @@
 
     <div class="card log-table-card shadow-sm rounded-4 overflow-hidden">
         <div class="table-responsive"><table class="table table-hover align-middle mb-0 inventory-log-table">
-            <thead class="table-light small text-uppercase"><tr><th>Date / Time</th><th>Type</th><th>Transaction Details</th><th>Hub</th><th class="channel-source-column">Channel / Source</th><th class="text-end">Qty</th><th>Transfer</th><th>User</th><th>Actions</th></tr></thead>
+            <thead class="table-light small text-uppercase"><tr><th>Date / Time</th><th>Type</th><th>Transaction Details</th>@if(!$hubId)<th class="transaction-log-hub-column">Hub</th>@endif<th class="channel-source-column">Channel / Source</th><th class="text-end">Qty</th><th>Transfer</th><th>User</th><th>Actions</th></tr></thead>
             <tbody>
             @forelse($transactions as $groupKey => $group)
                 @php
@@ -487,7 +487,7 @@
                             <small class="d-block text-muted">{{ $transaction->product?->item_id ?? '—' }}</small>
                         @endif
                     </td>
-                    <td>{{ $transaction->storeHub?->name ?? '—' }}</td>
+                    @if(!$hubId)<td class="transaction-log-hub-column">{{ $transaction->storeHub?->name ?? '—' }}</td>@endif
                     <td class="channel-source-column">
                         <span class="channel-source">
                             <span class="channel-source-icon {{ $channelSourceKey }}" aria-hidden="true"><i class="{{ $channelIconFamily }} {{ $channelIcon }}"></i></span>
@@ -1118,7 +1118,7 @@
                     </div></div>
                 </div>
             @empty
-                <tr><td colspan="9" class="text-center text-muted py-5">No transaction logs found.</td></tr>
+                <tr><td colspan="{{ $hubId ? 8 : 9 }}" class="text-center text-muted py-5">No transaction logs found.</td></tr>
             @endforelse
             </tbody>
         </table></div>
