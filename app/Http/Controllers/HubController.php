@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\NationalProduct;
 use App\Models\PendingSale;
 use App\Models\Product;
 use App\Models\ProductFileRequest;
@@ -129,6 +130,7 @@ class HubController extends Controller
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
             'channel' => ['nullable', Rule::in($dashboardChannelValues)],
+            'inventory_scope' => ['nullable', Rule::in(['store', 'national'])],
         ]);
         $endDateInput = $filters['to'] ?? $filters['date'] ?? now()->toDateString();
         if (isset($filters['from']) && $filters['from'] > $endDateInput) {
@@ -150,6 +152,19 @@ class HubController extends Controller
             $hubId = (int) $dashboardHubs->first()->id;
         }
         $scopeIds = $hubId ? [(int) $hubId] : $dashboardHubs->modelKeys();
+        $canViewNationalInventory = in_array($user?->role, ['admin', 'inventory_staff'], true);
+        $nationalInventoryHubQuery = StoreHub::query()
+            ->where('status', 'active')
+            ->where('is_head_office', true);
+        if ($user?->role === 'inventory_staff') {
+            $nationalInventoryHubQuery->whereKey($user->hub_id);
+        }
+        $nationalInventoryHubId = $canViewNationalInventory
+            ? $nationalInventoryHubQuery->value('id')
+            : null;
+        $canViewNationalInventory = $canViewNationalInventory && $nationalInventoryHubId !== null;
+        $isNationalInventoryDashboard = ($filters['inventory_scope'] ?? 'store') === 'national';
+        abort_unless(! $isNationalInventoryDashboard || ($canViewNationalInventory && $nationalInventoryHubId), 403);
         $asOf = Carbon::parse($filters['to'] ?? $filters['date'] ?? now()->toDateString())->startOfDay();
         $fromDate = Carbon::parse($filters['from'] ?? $asOf->copy()->startOfMonth())->startOfDay();
         $periods = [
@@ -561,14 +576,12 @@ class HubController extends Controller
         ))->withQueryString();
         [$inventoryHealthQuery, $alertStockExpression] = $this->inventoryHealthQuery($scopeIds, $dashboardStockChannel);
         $inventoryHealth = $this->inventoryHealthCounts($inventoryHealthQuery, $alertStockExpression);
-        $alertCount = $inventoryHealth['out_of_stock'] + $inventoryHealth['critical'] + $inventoryHealth['low'];
-        $alerts = (clone $inventoryHealthQuery)
-            ->with('storeHub')
-            ->whereRaw("{$alertStockExpression} <= ?", [30])
-            ->orderByRaw("{$alertStockExpression} ASC")
-            ->orderByCatalog('item_id')
-            ->limit(10)
-            ->get();
+        if ($isNationalInventoryDashboard) {
+            $inventoryHealth = $this->inventoryHealthCounts(
+                NationalProduct::query()->where('status', 'active'),
+                'stock'
+            );
+        }
         $pendingVerificationCount = $user?->role === 'admin'
             ? PendingSale::whereIn('store_hub_id', $scopeIds)->where('status', 'pending')->count()
                 + ProductReplacement::where('status', 'pending')->whereHas('transaction', fn ($query) => $query->whereIn('store_hub_id', $scopeIds))->count()
@@ -579,7 +592,7 @@ class HubController extends Controller
         $isBranchDashboard = $scopedDashboardHubs->count() === 1
             && ! $scopedDashboardHubs->first()->is_head_office;
 
-        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'showSalesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'alerts', 'alertCount', 'inventoryHealth', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'dashboardStockChannel', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview'));
+        return view('dashboard', compact('dashboardHubs', 'hubId', 'fromDate', 'asOf', 'salesTotals', 'showSalesTotals', 'paymentColumns', 'matrix', 'channelPaymentOverview', 'topProducts', 'soldItemCount', 'slowProducts', 'inventoryHealth', 'scopeName', 'channelSummaries', 'pendingVerificationCount', 'isTikTokDashboard', 'tiktokOverview', 'dashboardChannel', 'dashboardChannelOptions', 'dashboardStockChannel', 'marketplaceOverviews', 'marketplaceSalesComparison', 'marketplaceCustomerComparison', 'isBranchDashboard', 'isAllStoresAdminDashboard', 'storeSalesOverview', 'canViewNationalInventory', 'nationalInventoryHubId', 'isNationalInventoryDashboard'));
     }
 
     public function inventoryAlerts(Request $request)

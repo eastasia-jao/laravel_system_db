@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Product;
 use App\Models\ProductStockAllocation;
+use App\Models\NationalProduct;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -502,7 +503,7 @@ class DashboardTest extends TestCase
             ->assertSee('Walk-In sales in selected range')
             ->assertSee('Payment Methods')
             ->assertSee('Inventory Health')
-            ->assertSee('North Low Stock')
+            ->assertDontSee('North Low Stock')
             ->assertDontSee('South Low Stock')
             ->assertSee('NORTH BRANCH')
             ->assertSee('GCash')
@@ -514,8 +515,6 @@ class DashboardTest extends TestCase
             ->assertDontSee('Branch Transaction Matrix')
             ->assertDontSee('Sales Channels');
         $this->assertTrue($response->viewData('isBranchDashboard'));
-        $this->assertSame(1, $response->viewData('alertCount'));
-        $this->assertSame(8, $response->viewData('alerts')->first()->stock);
         $this->assertSame(450.0, $response->viewData('channelSummaries')->first()['total']);
     }
 
@@ -529,13 +528,13 @@ class DashboardTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Inventory Health')
-            ->assertSee('Staff Low Stock')
             ->assertSee('Critical stock')
-            ->assertSee('Critical');
-        $this->assertSame(1, $response->viewData('alertCount'));
+            ->assertDontSee('Staff Low Stock')
+            ->assertDontSee('Most urgent');
+        $this->assertFalse($response->viewData('canViewNationalInventory'));
     }
 
-    public function test_inventory_health_keeps_the_dashboard_compact_and_links_to_the_filtered_alert_page(): void
+    public function test_inventory_health_omits_urgent_preview_and_links_to_the_filtered_alert_page(): void
     {
         $hub = StoreHub::create(['name' => 'Alerts Hub', 'code' => 'ALERTS-HUB', 'status' => 'active', 'is_head_office' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -558,21 +557,17 @@ class DashboardTest extends TestCase
             ->assertSee('Critical stock')
             ->assertSee('Low stock')
             ->assertSee('Healthy')
-            ->assertSee('Showing up to 10 of 12 alerts')
             ->assertSee(route('dashboard.inventory-alerts', ['hub_id' => $hub->id]), false)
-            ->assertSee('id="inventoryAlertResults"', false)
+            ->assertDontSee('Most urgent')
+            ->assertDontSee('Alert Product 0')
             ->assertDontSee('aria-label="Live inventory alert pages"', false);
 
-        $this->assertCount(10, $pageOne->viewData('alerts'));
-        $this->assertSame(12, $pageOne->viewData('alertCount'));
         $this->assertSame([
             'out_of_stock' => 1,
             'critical' => 10,
             'low' => 1,
             'healthy' => 0,
         ], $pageOne->viewData('inventoryHealth'));
-        $pageOne->assertSee('Alert Product 0')->assertDontSee('Alert Product 10');
-
         $lowStockPage = $this->get(route('dashboard.inventory-alerts', [
             'hub_id' => $hub->id,
             'severity' => 'low',
@@ -582,6 +577,52 @@ class DashboardTest extends TestCase
             ->assertSee('1 product');
 
         $this->assertSame(1, $lowStockPage->viewData('products')->total());
+    }
+
+    public function test_admin_can_toggle_inventory_health_to_national_stock(): void
+    {
+        $headOffice = StoreHub::create([
+            'name' => 'National Health Head Office', 'code' => 'NATIONAL-HEALTH', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        foreach ([
+            ['NAT-0', 0, 'Out of stock National Product'],
+            ['NAT-1', 1, 'Critical National Product One'],
+            ['NAT-10', 10, 'Critical National Product Ten'],
+            ['NAT-11', 11, 'Low National Product Eleven'],
+            ['NAT-30', 30, 'Low National Product Thirty'],
+            ['NAT-31', 31, 'Healthy National Product'],
+            ['NAT-INACTIVE', 0, 'Inactive National Product', 'inactive'],
+        ] as $productData) {
+            NationalProduct::create([
+                'item_id' => $productData[0],
+                'stock' => $productData[1],
+                'name' => $productData[2],
+                'status' => $productData[3] ?? 'active',
+            ]);
+        }
+
+        $response = $this->actingAs($admin)->get(route('dashboard', [
+            'hub_id' => $headOffice->id,
+            'inventory_scope' => 'national',
+            'date' => '2026-10-28',
+        ]))->assertOk()
+            ->assertSee('National Inventory · Good stock only; damaged stock is excluded')
+            ->assertSee(route('national-inventory.index', ['hub_id' => $headOffice->id]), false)
+            ->assertSee('inventory_scope=national', false)
+            ->assertSee('inventory_scope=store', false)
+            ->assertDontSee('Most urgent');
+
+        $this->assertTrue($response->viewData('isNationalInventoryDashboard'));
+        $this->assertSame([
+            'out_of_stock' => 1,
+            'critical' => 2,
+            'low' => 2,
+            'healthy' => 1,
+        ], $response->viewData('inventoryHealth'));
+
+        $staff = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $headOffice->id]);
+        $this->actingAs($staff)->get(route('dashboard', ['inventory_scope' => 'national']))->assertForbidden();
     }
 
     public function test_inventory_alerts_show_thirty_products_per_scrollable_page(): void
@@ -946,7 +987,7 @@ class DashboardTest extends TestCase
         $this->assertEquals(150, $response->viewData('salesTotals')['Weekly']);
         $this->assertEquals(150, $response->viewData('matrix')->first()['amounts']['GCash']);
         $this->assertEquals(2, $response->viewData('topProducts')->first()['units']);
-        $this->assertEquals(1, $response->viewData('alertCount'));
+        $this->assertSame(1, $response->viewData('inventoryHealth')['critical']);
 
         $staff = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $hub->id]);
         $this->actingAs($staff)->get(route('dashboard', ['hub_id' => $other->id]))->assertForbidden();

@@ -454,33 +454,50 @@
                 'hub_id' => $hubId,
                 'channel' => auth()->user()?->role === 'sales_marketing_staff' ? $dashboardChannel : null,
             ], fn ($value) => $value !== null && $value !== '');
+            $inventoryScopeParams = request()->query();
+            $inventoryScopeParams['inventory_scope'] = 'store';
+            $nationalInventoryScopeParams = request()->query();
+            $nationalInventoryScopeParams['inventory_scope'] = 'national';
+            $nationalInventoryUrl = $canViewNationalInventory
+                ? route('national-inventory.index', ['hub_id' => $nationalInventoryHubId])
+                : null;
+            $inventoryHealthCardUrls = $isNationalInventoryDashboard
+                ? array_fill_keys(['out_of_stock', 'critical', 'low', 'healthy'], $nationalInventoryUrl)
+                : [
+                    'out_of_stock' => route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'out_of_stock'])),
+                    'critical' => route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'critical'])),
+                    'low' => route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'low'])),
+                    'healthy' => route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'healthy'])),
+                ];
         @endphp
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-            <div><h3 class="mb-1"><i class="fa-solid fa-heart-pulse text-primary me-2"></i>Inventory Health</h3><p class="small text-muted mb-0">{{ $isBranchDashboard ? $scopeName.' · ' : '' }}{{ $dashboardStockChannel && $dashboardStockChannel !== 'unassigned' ? \Illuminate\Support\Str::headline($dashboardStockChannel).' stock allocation' : ($dashboardStockChannel ? 'Assigned channel stock allocation' : 'Physical stock only; channel allocations are excluded') }}</p></div>
-            <a class="btn btn-outline-primary btn-sm" href="{{ route('dashboard.inventory-alerts', $inventoryAlertParams) }}"><i class="fa-solid fa-list-check me-1"></i>View all alerts</a>
+            <div>
+                <h3 class="mb-1"><i class="fa-solid fa-heart-pulse text-primary me-2"></i>Inventory Health</h3>
+                <p class="small text-muted mb-0">
+                    @if($isNationalInventoryDashboard)
+                        National Inventory · Good stock only; damaged stock is excluded
+                    @else
+                        {{ $isBranchDashboard ? $scopeName.' · ' : '' }}{{ $dashboardStockChannel && $dashboardStockChannel !== 'unassigned' ? \Illuminate\Support\Str::headline($dashboardStockChannel).' stock allocation' : ($dashboardStockChannel ? 'Assigned channel stock allocation' : 'Physical stock only; channel allocations are excluded') }}
+                    @endif
+                </p>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                @if($canViewNationalInventory)
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Inventory health scope">
+                        <a class="btn {{ $isNationalInventoryDashboard ? 'btn-outline-primary' : 'btn-primary' }}" href="{{ route('dashboard', $inventoryScopeParams) }}" aria-pressed="{{ $isNationalInventoryDashboard ? 'false' : 'true' }}">Store Inventory</a>
+                        <a class="btn {{ $isNationalInventoryDashboard ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('dashboard', $nationalInventoryScopeParams) }}" aria-pressed="{{ $isNationalInventoryDashboard ? 'true' : 'false' }}">National Inventory</a>
+                    </div>
+                @endif
+                <a class="btn btn-outline-primary btn-sm" href="{{ $isNationalInventoryDashboard ? $nationalInventoryUrl : route('dashboard.inventory-alerts', $inventoryAlertParams) }}">
+                    <i class="fa-solid {{ $isNationalInventoryDashboard ? 'fa-earth-asia' : 'fa-list-check' }} me-1"></i>{{ $isNationalInventoryDashboard ? 'View National Inventory' : 'View all alerts' }}
+                </a>
+            </div>
         </div>
         <div class="inventory-health-grid mb-4">
-            <a class="inventory-health-card is-out" href="{{ route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'out_of_stock'])) }}"><div class="inventory-health-label">Out of stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['out_of_stock']) }}</div><div class="inventory-health-help">products at 0 pcs</div></a>
-            <a class="inventory-health-card is-critical" href="{{ route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'critical'])) }}"><div class="inventory-health-label">Critical stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['critical']) }}</div><div class="inventory-health-help">1–10 pcs remaining</div></a>
-            <a class="inventory-health-card is-low" href="{{ route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'low'])) }}"><div class="inventory-health-label">Low stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['low']) }}</div><div class="inventory-health-help">11–30 pcs remaining</div></a>
-            <a class="inventory-health-card is-healthy" href="{{ route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'healthy'])) }}"><div class="inventory-health-label">Healthy</div><div class="inventory-health-value">{{ number_format($inventoryHealth['healthy']) }}</div><div class="inventory-health-help">more than 30 pcs</div></a>
-        </div>
-        <div id="inventoryAlertResults" aria-live="polite">
-            <div class="d-flex justify-content-between align-items-center gap-2 mb-2"><h4 class="h6 mb-0">Most urgent</h4><span class="small text-muted">Showing up to 10 of {{ number_format($alertCount) }} alerts</span></div>
-            @if($alerts->isEmpty())<div class="empty-state">No products require attention.</div>@else
-            <div class="table-responsive"><table class="table mb-0"><thead><tr><th>Product</th><th>Store</th><th class="text-end">{{ $dashboardStockChannel && $dashboardStockChannel !== 'unassigned' ? \Illuminate\Support\Str::headline($dashboardStockChannel).' Available' : ($dashboardStockChannel ? 'Allocated Stock' : 'Stock') }}</th><th>Status</th></tr></thead><tbody>
-                @foreach($alerts as $product)
-                    @php
-                        $stockStatus = (int) $product->alert_stock === 0
-                            ? ['class' => 'bg-dark', 'label' => 'Out of stock']
-                            : ((int) $product->alert_stock <= 10
-                                ? ['class' => 'bg-danger', 'label' => 'Critical']
-                                : ['class' => 'bg-warning text-dark', 'label' => 'Low stock']);
-                    @endphp
-                    <tr><td class="fw-semibold">{{ $product->name }}<span class="d-block small text-muted">{{ $product->item_id }}</span></td><td>{{ $product->storeHub?->name }}</td><td class="text-end">{{ number_format($product->alert_stock) }} pcs</td><td><span class="badge {{ $stockStatus['class'] }}">{{ $stockStatus['label'] }}</span></td></tr>
-                @endforeach
-            </tbody></table></div>
-            @endif
+            <a class="inventory-health-card is-out" href="{{ $inventoryHealthCardUrls['out_of_stock'] }}"><div class="inventory-health-label">Out of stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['out_of_stock']) }}</div><div class="inventory-health-help">products at 0 pcs</div></a>
+            <a class="inventory-health-card is-critical" href="{{ $inventoryHealthCardUrls['critical'] }}"><div class="inventory-health-label">Critical stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['critical']) }}</div><div class="inventory-health-help">1–10 pcs remaining</div></a>
+            <a class="inventory-health-card is-low" href="{{ $inventoryHealthCardUrls['low'] }}"><div class="inventory-health-label">Low stock</div><div class="inventory-health-value">{{ number_format($inventoryHealth['low']) }}</div><div class="inventory-health-help">11–30 pcs remaining</div></a>
+            <a class="inventory-health-card is-healthy" href="{{ $inventoryHealthCardUrls['healthy'] }}"><div class="inventory-health-label">Healthy</div><div class="inventory-health-value">{{ number_format($inventoryHealth['healthy']) }}</div><div class="inventory-health-help">more than 30 pcs</div></a>
         </div>
     </section>
     @endif
