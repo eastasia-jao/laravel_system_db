@@ -1117,6 +1117,7 @@ class DashboardTest extends TestCase
             ['TT-NORMAL', 100, 1, 0],
             ['TT-PARTIAL', 90, 2, 1],
             ['TT-RETURNED', 80, 1, 1],
+            ['TT-AWAITING-PAYOUT', null, 3, 0],
         ] as [$number, $payout, $quantity, $returned]) {
             $sale = SalesTransaction::create([
                 'user_id' => $user->id, 'store_hub_id' => $hub->id, 'customer_name' => 'TikTok Customer',
@@ -1155,7 +1156,10 @@ class DashboardTest extends TestCase
             ->assertDontSee('<h3 class="mb-1">Sales Channels</h3>', false);
         $this->assertSame(['tiktok'], $tiktokDashboard->viewData('dashboardChannelOptions')->all());
         $this->assertSame([], $tiktokDashboard->viewData('channelSummaries')->all());
-        $this->assertSame([['name' => 'TikTok Product', 'units' => 2]], $tiktokDashboard->viewData('topProducts')->all());
+        $this->assertSame([['name' => 'TikTok Product', 'units' => 5]], $tiktokDashboard->viewData('topProducts')->all());
+        $this->assertSame(5, $tiktokDashboard->viewData('soldItemCount'));
+        $this->assertSame(4, $tiktokDashboard->viewData('tiktokOverview')['orders']);
+        $this->assertSame(1, $tiktokDashboard->viewData('tiktokOverview')['awaiting']);
         $this->assertFalse($tiktokDashboard->viewData('showSalesTotals'));
         $this->assertEquals(190, $tiktokDashboard->viewData('salesTotals')['Daily']);
         $tiktokDashboard->assertDontSee('Daily Sales')

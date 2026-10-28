@@ -429,7 +429,10 @@ class HubController extends Controller
 
             return $units;
         };
-        $soldUnits = $buildSoldUnits($monthlySales);
+        $monthlyItemSales = $monthlyTransactions
+            ->reject(fn ($sale) => $normalizeChannel($sale->channel_type) === 'tiktok' && $sale->isTikTokFullyReturned())
+            ->values();
+        $soldUnits = $buildSoldUnits($monthlyItemSales);
         $topUnits = $soldUnits->filter(fn ($units) => (int) $units > 0)->sortDesc()->take(10);
         $topNames = Product::whereIn('id', $topUnits->keys())->get()->keyBy('id');
         $topProducts = $topUnits->map(fn ($units, $productId) => [
@@ -441,7 +444,7 @@ class HubController extends Controller
             ->with($dashboardRelations)
             ->get()
             ->reject(fn ($sale) => $normalizeChannel($sale->channel_type) === 'tiktok'
-                && ($sale->sales_after_transaction_fee === null || $sale->isTikTokFullyReturned()))
+                && $sale->isTikTokFullyReturned())
             ->values();
         $soldItemCount = (int) $buildSoldUnits($yearToDateSales)->sum();
         if ($user?->role === 'inventory_staff') {
