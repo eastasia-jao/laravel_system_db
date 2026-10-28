@@ -499,9 +499,9 @@
                     <td>{{ $displayUser?->name ?? $displayUser?->username ?? 'System' }}</td>
                     <td><button type="button" class="btn btn-sm btn-outline-primary log-view-button" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}"><i class="fa-solid fa-eye me-1"></i>View details</button></td>
                 </tr>
-                <div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-hidden="true">
+                <div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
                     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content inventory-log-modal">
-                        <div class="modal-header"><h5 class="modal-title">{{ $modalTitle }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                        <div class="modal-header"><h5 class="modal-title">{{ $modalTitle }}</h5></div>
                         <div class="modal-body"><div class="row g-3">
                             @if($isRejectedSaleGroup)
                                 <div class="col-12">
@@ -1112,6 +1112,9 @@
                                 @endif
                             @endif
                         </div></div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
                     </div></div>
                 </div>
             @empty
