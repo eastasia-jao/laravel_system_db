@@ -308,7 +308,7 @@
                         </article>
 
                         @if($order->pulled_out_at && $order->items->isNotEmpty())
-                            <div class="modal fade" id="fullyBookedItemsModal{{ $order->id }}" tabindex="-1" aria-labelledby="fullyBookedItemsModalTitle{{ $order->id }}" aria-hidden="true">
+                            <div class="modal fade" id="fullyBookedItemsModal{{ $order->id }}" tabindex="-1" aria-labelledby="fullyBookedItemsModalTitle{{ $order->id }}" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
                                 <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                                     <div class="modal-content">
                                         <div class="modal-header">
@@ -316,11 +316,10 @@
                                                 <div class="small text-uppercase fw-bold text-primary">Fully Booked order</div>
                                                 <h5 class="modal-title fw-bold" id="fullyBookedItemsModalTitle{{ $order->id }}">Items for {{ $order->order_number }}</h5>
                                             </div>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
                                             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                                                <div class="small text-muted">{{ $order->items->count() }} item line(s) Â· {{ $order->items->sum('quantity') }} total quantity</div>
+                                                <div class="small text-muted">{{ $order->items->count() }} item line(s) &middot; {{ $order->items->sum('quantity') }} total quantity</div>
                                                 <span class="badge rounded-pill text-bg-success">Stock updated</span>
                                             </div>
                                             <div class="fully-booked-tracking-items" aria-label="Items pulled out for {{ $order->order_number }}">
@@ -358,7 +357,10 @@
                     <div class="small text-uppercase fw-bold text-primary">Inventory processing</div>
                     <h5 class="fw-bold mb-0">Orders Awaiting Inventory Pull-Out</h5>
                 </div>
-                <span class="badge rounded-pill text-bg-warning">{{ $fullyBookedOrders->count() }} pending</span>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <a id="fullyBookedPageBack" href="{{ route('inventory-transactions.index', ['hub_id' => $hubId]) }}" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>Back to Transaction Logs</a>
+                    <span class="badge rounded-pill text-bg-warning">{{ $fullyBookedOrders->count() }} pending</span>
+                </div>
             </div>
             @forelse($fullyBookedOrders as $order)
                 <article class="card border-0 shadow-sm rounded-4 p-3 p-lg-4 mb-3 fully-booked-review-card">

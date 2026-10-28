@@ -346,6 +346,9 @@ class FullyBookedOrderTest extends TestCase
             ]), false)
             ->assertSee(route('inventory-transactions.fully-booked.pull-out', $order), false)
             ->assertDontSee('id="fullyBookedPageCancel"', false)
+            ->assertSee('id="fullyBookedPageBack"', false)
+            ->assertSee('Back to Transaction Logs')
+            ->assertSee(route('inventory-transactions.index', ['hub_id' => $hub->id]), false)
             ->assertSee('Complete Order & Update Stock', false)
             ->assertSee('Export Excel')
             ->assertSee(route('inventory-transactions.fully-booked.export-worksheet', $order), false)
@@ -1187,13 +1190,24 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee($orderNumber)
             ->assertSee('View Items')
             ->assertSee('data-bs-target="#fullyBookedItemsModal'.$order->id.'"', false)
+            ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
             ->assertSee('Items for '.$orderNumber)
+            ->assertSee('1 item line(s) &middot; 3 total quantity', false)
             ->assertSee('fully-booked-tracking-items', false)
             ->assertSee('Items pulled out for '.$orderNumber)
             ->assertSee('Unaffected Product')
             ->assertSee('Item ID: FB-1')
             ->assertSee('Qty 3')
+            ->assertDontSee('class="btn-close"', false)
             ->assertDontSee('Pending inventory pull-out');
+        $this->actingAs($inventoryStaff)->get(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'fully_booked',
+        ]))->assertOk()
+            ->assertSee('0 pending')
+            ->assertSee('There are no Fully Booked attachments awaiting pull-out.')
+            ->assertSee('id="fullyBookedPageBack"', false)
+            ->assertSee(route('inventory-transactions.index', ['hub_id' => $hub->id]), false);
         $this->actingAs($otherStaff)->get(route('inventory-transactions.sponsor.create', [
             'hub_id' => $hub->id,
             'activity_type' => 'fully_booked',
