@@ -14,10 +14,15 @@
                     : null))
             : null];
     }
-    $popupErrors = collect($errors->getBags())->flatMap(fn ($bag) => $bag->all())->unique()->values()->all();
+    $alreadyLoggedInMessage = \App\Support\ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE;
+    $popupErrors = collect($errors->getBags())
+        ->flatMap(fn ($bag) => $bag->all())
+        ->unique()
+        ->reject(fn ($message) => request()->routeIs('login') && $message === $alreadyLoggedInMessage)
+        ->values()
+        ->all();
     if ($popupErrors) {
         $inactiveAccountMessage = 'This account is inactive. Please contact the administrator to restore access.';
-        $alreadyLoggedInMessage = \App\Support\ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE;
         $popupMessages[] = [
             'text' => implode("\n", $popupErrors),
             'type' => 'error',

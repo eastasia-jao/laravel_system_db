@@ -59,9 +59,9 @@ class AuthenticationTest extends TestCase
 
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Account already logged in')
-            ->assertSee(ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE)
-            ->assertSee('Sign in and end other session');
+            ->assertSee('The account you entered is already active elsewhere.')
+            ->assertSee('Sign in and end other session')
+            ->assertSee('const messages = [];');
     }
 
     public function test_an_abandoned_session_stops_blocking_login_after_the_inactivity_window(): void

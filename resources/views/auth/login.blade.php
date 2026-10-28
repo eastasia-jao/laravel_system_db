@@ -76,8 +76,11 @@
         </form>
 
         @if(collect($errors->all())->contains(\App\Support\ActiveUserSession::ALREADY_LOGGED_IN_MESSAGE))
-            <div class="mt-3 pt-3 border-top">
-                <p class="small text-muted mb-2">If you don't recognize the other session, you can end it and sign in here. If you did not sign in elsewhere, change your password after signing in.</p>
+            <div class="mt-3 pt-3 border-top" role="alert" aria-live="assertive">
+                <div class="alert alert-warning py-2 mb-3">
+                    <strong>The account you entered is already active elsewhere.</strong>
+                    <div class="small mt-1">If you don't recognize that session, confirm your password below to sign in here and end it. Change your password afterward if you suspect someone else accessed your account.</div>
+                </div>
                 <form method="POST" action="{{ route('login') }}">
                     @csrf
                     <input type="hidden" name="username" value="{{ old('username') }}">
