@@ -1432,15 +1432,18 @@ class InventoryTransactionController extends Controller
         $activityType = $canSubmitFullyBooked && ! $canManageEvent
             ? 'fully_booked'
             : ($request->input('activity_type') === 'fully_booked' && $canUseFullyBookedForm ? 'fully_booked' : 'event');
+        $fullyBookedOrderSearch = trim((string) $request->query('fully_booked_order_search', ''));
         $fullyBookedOrders = $canManageEvent
             ? FullyBookedOrder::with(['storeHub', 'salesStaff', 'attachments'])
                 ->whereNull('pulled_out_at')
                 ->where('status', '!=', 'rejected')
+                ->when($fullyBookedOrderSearch !== '', fn ($query) => $query->where('order_number', 'like', '%'.$fullyBookedOrderSearch.'%'))
                 ->latest()
                 ->get()
             : ($canSubmitFullyBooked
                 ? FullyBookedOrder::with(['storeHub', 'items', 'attachments'])
                     ->where('submitted_by', $user->id)
+                    ->when($fullyBookedOrderSearch !== '', fn ($query) => $query->where('order_number', 'like', '%'.$fullyBookedOrderSearch.'%'))
                     ->latest()
                     ->orderByDesc('id')
                     ->paginate(6)
@@ -1452,7 +1455,7 @@ class InventoryTransactionController extends Controller
             'selectedHub', 'transferReference', 'sponsorReference', 'restockReference',
             'transferDirection', 'fullyBookedStaff', 'canManageEvent', 'canSubmitFullyBooked',
             'canUseFullyBookedForm', 'activityType', 'fullyBookedOrders', 'fullyBookedStores',
-            'sponsorProductOptions'
+            'sponsorProductOptions', 'fullyBookedOrderSearch'
         ));
     }
 

@@ -277,7 +277,9 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('FB-PAGE-007')
             ->assertSee('FB-PAGE-002')
             ->assertDontSee('FB-PAGE-001')
-            ->assertSee('page=2');
+            ->assertSee('page=2')
+            ->assertSee('placeholder="Search Order #"', false)
+            ->assertSee('Page 1 of 2');
         $firstPageText = preg_replace('/\s+/', ' ', strip_tags($firstPage->getContent()));
         $this->assertSame(1, substr_count($firstPageText, 'Showing 1 to 6 of 7 results'));
 
@@ -291,6 +293,20 @@ class FullyBookedOrderTest extends TestCase
             ->assertDontSee('FB-PAGE-002');
         $secondPageText = preg_replace('/\s+/', ' ', strip_tags($secondPage->getContent()));
         $this->assertSame(1, substr_count($secondPageText, 'Showing 7 to 7 of 7 results'));
+
+        $searchResults = $this->get(route('inventory-transactions.sponsor.create', [
+            'hub_id' => $hub->id,
+            'activity_type' => 'fully_booked',
+            'fully_booked_order_search' => 'PAGE-001',
+        ]))
+            ->assertOk()
+            ->assertViewHas('fullyBookedOrders', fn ($orders) => $orders->total() === 1 && $orders->perPage() === 6)
+            ->assertSee('FB-PAGE-001')
+            ->assertDontSee('FB-PAGE-002')
+            ->assertSee('value="PAGE-001"', false)
+            ->assertSee('Page 1 of 1');
+        $searchResultsText = preg_replace('/\s+/', ' ', strip_tags($searchResults->getContent()));
+        $this->assertSame(1, substr_count($searchResultsText, 'Showing 1 to 1 of 1 results'));
     }
 
     public function test_inventory_staff_selecting_fully_booked_can_preview_and_download_pending_attachments(): void

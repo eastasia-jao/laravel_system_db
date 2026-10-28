@@ -91,7 +91,7 @@
     .fully-booked-tracking-item-name { color: #1e293b; font-weight: 700; }
     .fully-booked-tracking-item-id { margin-top: .15rem; color: #64748b; font-size: .78rem; }
     .fully-booked-tracking-item-qty { flex: 0 0 auto; border-radius: 999px; padding: .3rem .65rem; color: #1d4ed8; background: #eff6ff; font-size: .78rem; font-weight: 800; }
-    .fully-booked-sales-workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(360px, .8fr); gap: 1.25rem; align-items: start; }
+    .fully-booked-sales-workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(360px, .8fr); gap: 1.25rem; align-items: stretch; }
     .fully-booked-sales-workspace > .transaction-form-card { min-width: 0; margin: 0; }
     .fully-booked-submission-intro { display: flex; align-items: center; gap: .85rem; padding: .9rem 1rem; border: 1px solid #bfdbfe; border-radius: .9rem; background: linear-gradient(135deg, #eff6ff, #fff); }
     .fully-booked-submission-intro-icon { display: grid; width: 2.6rem; height: 2.6rem; flex: 0 0 2.6rem; place-items: center; border-radius: .75rem; color: #fff; background: #2563eb; }
@@ -101,13 +101,16 @@
     .fully-booked-form-section-heading i { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: .6rem; color: #2563eb; background: #eff6ff; }
     .fully-booked-form-section .form-label { margin-bottom: .35rem; }
     .fully-booked-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
-    .fully-booked-tracking-panel { min-width: 0; margin-top: 0 !important; padding: 1rem; border: 1px solid #dbeafe; border-radius: 1rem; background: linear-gradient(180deg, #f8fbff, #fff); box-shadow: 0 .35rem 1.25rem rgba(30, 64, 175, .08); }
+    .fully-booked-tracking-panel { display: flex; min-width: 0; min-height: 0; height: 100%; flex-direction: column; margin-top: 0 !important; padding: 1rem; border: 1px solid #dbeafe; border-radius: 1rem; background: linear-gradient(180deg, #f8fbff, #fff); box-shadow: 0 .35rem 1.25rem rgba(30, 64, 175, .08); }
     .fully-booked-tracking-panel-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding-bottom: .85rem; border-bottom: 1px solid #dbeafe; }
-    .fully-booked-tracking-list { display: grid; gap: .85rem; max-height: min(72vh, 760px); margin-top: .9rem; padding-right: .25rem; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #93c5fd #eff6ff; }
+    .fully-booked-tracking-search { padding-top: .85rem; }
+    .fully-booked-tracking-search .input-group { flex-wrap: nowrap; }
+    .fully-booked-tracking-list { display: grid; min-height: 0; flex: 1 1 auto; gap: .85rem; max-height: min(72vh, 760px); margin-top: .9rem; padding-right: .25rem; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #93c5fd #eff6ff; }
     .fully-booked-tracking-card { overflow: hidden; border: 1px solid #dbeafe !important; background: #fff; }
     .fully-booked-tracking-card-order { color: #1e3a8a; font-size: 1rem; font-weight: 800; }
     .fully-booked-tracking-empty { display: grid; min-height: 240px; place-items: center; padding: 2rem 1rem; text-align: center; }
     .fully-booked-tracking-empty-icon { display: grid; width: 3.25rem; height: 3.25rem; margin: 0 auto .75rem; place-items: center; border-radius: 1rem; color: #2563eb; background: #dbeafe; font-size: 1.2rem; }
+    .fully-booked-tracking-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .85rem; padding-top: .85rem; border-top: 1px solid #dbeafe; }
     .fully-booked-sales-workspace .fully-booked-attachment-thumb { width: 112px; height: 84px; }
     .fully-booked-sales-workspace .fully-booked-attachment-gallery { gap: .5rem; }
     @media (max-width: 575.98px) {
@@ -116,10 +119,12 @@
     }
     @media (max-width: 1199.98px) {
         .fully-booked-sales-workspace { grid-template-columns: 1fr; }
-        .fully-booked-tracking-list { max-height: none; }
+        .fully-booked-tracking-panel { height: auto; }
+        .fully-booked-tracking-list { flex: none; max-height: none; }
     }
     @media (min-width: 1200px) {
-        .fully-booked-sales-workspace .fully-booked-tracking-panel { position: sticky; top: 1rem; }
+        .fully-booked-sales-workspace .fully-booked-tracking-panel { position: sticky; top: 1rem; min-height: 100%; height: 0; overflow: hidden; }
+        .fully-booked-sales-workspace .fully-booked-tracking-list { max-height: none; }
     }
     #sponsorItems {
         max-height: 430px;
@@ -302,8 +307,7 @@
             $fullyBookedOrderCount = method_exists($fullyBookedOrders, 'total')
                 ? $fullyBookedOrders->total()
                 : $fullyBookedOrders->count();
-            $fullyBookedOrdersHavePages = method_exists($fullyBookedOrders, 'hasPages')
-                && $fullyBookedOrders->hasPages();
+            $fullyBookedOrdersArePaginated = method_exists($fullyBookedOrders, 'currentPage');
         @endphp
         <section id="fullyBookedTrackingPanel" class="fully-booked-tracking-panel mt-4" aria-labelledby="fullyBookedTrackingHeading" @if(old('activity_type', $activityType) !== 'fully_booked') hidden @endif>
             <div class="fully-booked-tracking-panel-header">
@@ -313,6 +317,19 @@
                 </div>
                 <span class="badge rounded-pill text-bg-primary">{{ $fullyBookedOrderCount }} total</span>
             </div>
+            <form method="GET" action="{{ route('inventory-transactions.sponsor.create') }}" class="fully-booked-tracking-search" role="search">
+                <input type="hidden" name="hub_id" value="{{ $hubId }}">
+                <input type="hidden" name="activity_type" value="fully_booked">
+                <label class="visually-hidden" for="fullyBookedOrderSearch">Search by order number</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white" aria-hidden="true"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="search" class="form-control" id="fullyBookedOrderSearch" name="fully_booked_order_search" value="{{ $fullyBookedOrderSearch }}" placeholder="Search Order #" maxlength="50">
+                    @if($fullyBookedOrderSearch !== '')
+                        <a class="btn btn-outline-secondary" href="{{ request()->fullUrlWithoutQuery(['fully_booked_order_search', 'page']) }}" aria-label="Clear order number search"><i class="fa-solid fa-xmark" aria-hidden="true"></i></a>
+                    @endif
+                    <button type="submit" class="btn btn-primary">Search</button>
+                </div>
+            </form>
             <div class="fully-booked-tracking-list">
                 @forelse($fullyBookedOrders as $order)
                     <div>
@@ -418,14 +435,36 @@
                     <div class="fully-booked-tracking-empty">
                         <div>
                             <span class="fully-booked-tracking-empty-icon" aria-hidden="true"><i class="fa-solid fa-inbox"></i></span>
-                            <div class="fw-bold text-primary">No Fully Booked orders yet</div>
-                            <div class="small text-muted mt-1">Submitted requests will appear here for private tracking.</div>
+                            @if($fullyBookedOrderSearch !== '')
+                                <div class="fw-bold text-primary">No matching order found</div>
+                                <div class="small text-muted mt-1">Try another order number or clear the search.</div>
+                            @else
+                                <div class="fw-bold text-primary">No Fully Booked orders yet</div>
+                                <div class="small text-muted mt-1">Submitted requests will appear here for private tracking.</div>
+                            @endif
                         </div>
                     </div>
                 @endforelse
             </div>
-            @if($fullyBookedOrdersHavePages)
-                <div class="mt-3">{{ $fullyBookedOrders->links() }}</div>
+            @if($fullyBookedOrdersArePaginated)
+                <nav class="fully-booked-tracking-pagination" aria-label="Fully Booked order pages">
+                    <span class="small text-muted">
+                        Showing {{ $fullyBookedOrders->firstItem() ?? 0 }} to {{ $fullyBookedOrders->lastItem() ?? 0 }} of {{ $fullyBookedOrders->total() }} results
+                    </span>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Pagination controls">
+                        @if($fullyBookedOrders->onFirstPage())
+                            <span class="btn btn-outline-secondary disabled" aria-disabled="true"><i class="fa-solid fa-chevron-left me-1" aria-hidden="true"></i>Previous</span>
+                        @else
+                            <a class="btn btn-outline-secondary" href="{{ $fullyBookedOrders->previousPageUrl() }}" rel="prev"><i class="fa-solid fa-chevron-left me-1" aria-hidden="true"></i>Previous</a>
+                        @endif
+                        <span class="btn btn-outline-secondary disabled" aria-current="page">Page {{ $fullyBookedOrders->currentPage() }} of {{ $fullyBookedOrders->lastPage() }}</span>
+                        @if($fullyBookedOrders->hasMorePages())
+                            <a class="btn btn-outline-secondary" href="{{ $fullyBookedOrders->nextPageUrl() }}" rel="next">Next<i class="fa-solid fa-chevron-right ms-1" aria-hidden="true"></i></a>
+                        @else
+                            <span class="btn btn-outline-secondary disabled" aria-disabled="true">Next<i class="fa-solid fa-chevron-right ms-1" aria-hidden="true"></i></span>
+                        @endif
+                    </div>
+                </nav>
             @endif
         </section>
     @endif
