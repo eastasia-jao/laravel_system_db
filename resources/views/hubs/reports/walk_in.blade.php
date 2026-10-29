@@ -32,6 +32,7 @@
     .walk-in-order-modal .modal-header { padding: .7rem 1rem; background: linear-gradient(135deg, #fff7ed, #fffbeb); border-bottom: 1px solid #fed7aa; }
     .walk-in-order-modal .modal-body { padding: .85rem 1rem; background: #fafaf9; }
     .walk-in-order-modal .walk-in-order-items { display: grid; gap: 0; overflow: hidden; border: 1px solid #e7e5e4; border-radius: 12px; background: #fff; }
+    .walk-in-order-modal .walk-in-item-scroll { max-height: 340px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
     .walk-in-order-modal .walk-in-item-card { border: 0; border-bottom: 1px solid #e7e5e4; border-radius: 0; background: #fff; padding: .65rem .75rem; }
     .walk-in-order-modal .walk-in-item-name { font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
     .walk-in-order-modal .walk-in-item-meta { color: #78716c; font-size: .76rem; }
@@ -222,6 +223,7 @@
                     </div>
                 @endif
                 <div class="walk-in-order-items">
+                    <div class="walk-in-item-scroll">
                     @forelse($transaction->items as $item)
                         @php
                             $walkReturns = $item->inventoryReturns;
@@ -356,6 +358,7 @@
                     @empty
                         <div class="text-center text-muted py-4">No items recorded.</div>
                     @endforelse
+                    </div>
                     <div class="walk-in-order-total d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <div class="fw-bold text-uppercase">Net order total <span class="d-block small fw-normal">After discounts and approved replacements</span>@if($walkInReplacementShippingFee > 0)<span class="d-block small fw-normal text-muted">Includes ₱{{ number_format($walkInReplacementShippingFee, 2) }} replacement shipping fee</span>@endif</div>
                         <div class="fs-5 fw-bold">₱{{ number_format($walkInNet, 2) }}</div>

@@ -9,6 +9,8 @@
     .online-order-card .row { --bs-gutter-y: .55rem; }
     .online-order-card [data-online-delivery-form] { max-width: 260px; }
     .online-order-remarks { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+    .online-order-items-scroll { max-height: 340px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    .online-order-items-scroll thead th { position: sticky; top: 0; z-index: 2; }
     @media (min-width: 768px) {
         .online-order-card { height: 240px; }
         .online-order-card .order-heading { flex: 0 0 100px; min-height: 100px; overflow: hidden; }
@@ -256,7 +258,7 @@
                     </div>
 
                     <h6 class="fw-bold mb-2">Product items</h6>
-                    <div class="table-responsive">
+                    <div class="table-responsive online-order-items-scroll">
                         <table class="table table-bordered align-middle mb-0">
                             <thead class="table-light"><tr><th>Product</th><th class="text-center">Quantity</th><th class="text-end">Unit price</th><th class="text-end">Item total</th><th>Return / refund</th><th>Replacement status</th><th>Action</th></tr></thead>
                             <tbody>

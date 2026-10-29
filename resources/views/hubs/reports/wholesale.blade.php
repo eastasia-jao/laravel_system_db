@@ -84,7 +84,7 @@
     .wholesale-item-name { color: #111827; font-size: .82rem; font-weight: 650; }
     .wholesale-item-status { display: block; margin-top: .2rem; color: var(--wholesale-muted); font-size: .7rem; }
     .wholesale-item-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .45rem .85rem; padding: .7rem .8rem; background: #f8fafc; font-size: .76rem; }
-    .wholesale-item-list { max-height: 340px; overflow: auto; overscroll-behavior: contain; }
+    .wholesale-item-list { max-height: 340px; overflow-x: auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
     .wholesale-items-table thead { position: sticky; top: 0; z-index: 1; }
     .wholesale-item-list.is-collapsed .wholesale-item-row:nth-child(n+6) { display: none; }
     .wholesale-show-all { margin: .55rem .7rem; padding: 0; border: 0; color: var(--wholesale-blue); background: none; font-size: .78rem; font-weight: 650; }

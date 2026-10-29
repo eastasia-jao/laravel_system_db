@@ -222,6 +222,8 @@ class HeadOfficeWalkInProofTest extends TestCase
             ->assertSee('walk-in-proof-panel', false)
             ->assertSee('.walk-in-proof-panel .online-proof-stage { height: 120px;', false)
             ->assertSee('.walk-in-order-modal .walk-in-item-stat { height: 100%; padding: .25rem .45rem; border: 0;', false)
+            ->assertSee('walk-in-item-scroll', false)
+            ->assertSee('.walk-in-order-modal .walk-in-item-scroll { max-height: 340px; overflow-y: auto;', false)
             ->assertSee('.online-proof-arrow,', false)
             ->assertSee("[data-online-proof-gallery]:not([data-proof-gallery-ready])", false);
     }
