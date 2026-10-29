@@ -1133,6 +1133,7 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('name="contact_number" id="onlineContactNumber"', false)
             ->assertSee('class="form-control online-input philippine-contact-number"', false)
             ->assertSee('pattern="\+639[0-9]{9}"', false)
+            ->assertDontSee('Use +63 followed by the mobile number')
             ->assertSee('Proof of Payment <span class="text-muted fw-normal">(Optional)</span>', false)
             ->assertSee('sessionStorage.setItem(recordSaleDraftKey', false)
             ->assertSee('window.bootstrap.Modal.getOrCreateInstance(modalElement).show()', false)

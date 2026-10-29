@@ -24,4 +24,22 @@ class SidebarAnimationTest extends TestCase
             $css
         );
     }
+
+    public function test_collapsed_sidebar_uses_small_dots_for_all_notification_indicators(): void
+    {
+        $css = file_get_contents(resource_path('css/app.css'));
+        $sidebar = file_get_contents(resource_path('views/layouts/sidebar.blade.php'));
+
+        $this->assertStringContainsString(
+            '#appSidebar:not(:hover):not(:focus-within) .sidebar-notification-indicator:not(.d-none)',
+            $css
+        );
+        $this->assertStringContainsString('width: 8px !important;', $css);
+        $this->assertStringContainsString('font-size: 0 !important;', $css);
+        $this->assertSame(4, substr_count($sidebar, 'sidebar-notification-indicator'));
+        $this->assertStringContainsString(
+            'sidebar-notification-indicator badge rounded-pill bg-danger ms-auto',
+            $sidebar
+        );
+    }
 }

@@ -30,7 +30,7 @@
        <div class="dropdown flex-shrink-0">
            <button id="notificationToggle" type="button" class="btn btn-link p-0 border-0 text-primary position-relative" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
                <i class="fa-solid fa-bell"></i>
-               <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {{ $unreadNotificationCount ? '' : 'd-none' }}">
+               <span id="notificationBadge" class="sidebar-notification-indicator position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {{ $unreadNotificationCount ? '' : 'd-none' }}">
                    {{ $unreadNotificationCount }}
                </span>
            </button>
@@ -151,7 +151,7 @@
             <a href="{{ route('inventory-transactions.index', $sidebarContextHubId ? ['hub_id' => $sidebarContextHubId] : []) }}" class="nav-link {{ request()->routeIs('inventory-transactions.index') ? 'active-link text-primary fw-semibold' : 'text-secondary' }} d-flex align-items-center gap-3 py-2 px-3 rounded-3">
                 <i class="fa-solid fa-clipboard-list"></i> Transaction Logs
                 @if($sidebarPendingTransactionCount > 0)
-                    <span class="badge rounded-pill bg-danger ms-auto" aria-label="{{ $sidebarPendingTransactionCount }} unprocessed Fully Booked order(s) in Transaction Logs" title="Unprocessed Fully Booked orders">{{ $sidebarPendingTransactionCount }}</span>
+                    <span class="sidebar-notification-indicator badge rounded-pill bg-danger ms-auto" aria-label="{{ $sidebarPendingTransactionCount }} unprocessed Fully Booked order(s) in Transaction Logs" title="Unprocessed Fully Booked orders">{{ $sidebarPendingTransactionCount }}</span>
                 @endif
             </a>
         </li>
@@ -179,7 +179,7 @@
                 <span class="d-inline-flex align-items-center gap-2">
                     <span>Store Hub</span>
                     @if($hasPendingHubVerification)
-                        <span class="rounded-circle bg-danger flex-shrink-0" style="width:.65rem;height:.65rem" aria-label="Pending inventory verification" title="Pending inventory verification"></span>
+                        <span class="sidebar-notification-indicator rounded-circle bg-danger flex-shrink-0" style="width:.65rem;height:.65rem" aria-label="Pending inventory verification" title="Pending inventory verification"></span>
                     @endif
                     <i class="fa-solid fa-chevron-down small"></i>
                 </span>
@@ -204,7 +204,7 @@
                                 <i class="fa-solid fa-location-dot me-2 {{ $isActive ? 'text-primary' : '' }}"></i> {{ strtoupper($hub->name) }}
                             </a>
                             @if($pendingHubCount > 0)
-                                <span class="badge rounded-pill bg-danger ms-2 flex-shrink-0" aria-label="{{ $pendingHubCount }} inventory item(s) awaiting verification">{{ $pendingHubCount }}</span>
+                                <span class="sidebar-notification-indicator badge rounded-pill bg-danger ms-2 flex-shrink-0" aria-label="{{ $pendingHubCount }} inventory item(s) awaiting verification">{{ $pendingHubCount }}</span>
                             @endif
                         </div>
                     </li>

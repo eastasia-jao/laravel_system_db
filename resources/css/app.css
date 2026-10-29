@@ -162,6 +162,9 @@ body.sidebar-collapsed #appSidebar .brand-label, body.sidebar-collapsed #appSide
 body.sidebar-collapsed #appSidebar .nav-link { width: 44px; padding-inline: 12px !important; overflow: hidden; gap: 1rem !important; }
 
 @media (min-width: 1200px) {
+    body.sidebar-collapsed #appSidebar:not(:hover):not(:focus-within) .sidebar-notification-indicator:not(.d-none) { display: inline-block !important; width: 8px !important; min-width: 8px !important; height: 8px !important; min-height: 8px !important; padding: 0 !important; overflow: hidden; border: 0 !important; border-radius: 50% !important; color: transparent !important; font-size: 0 !important; line-height: 0 !important; }
+    body.sidebar-collapsed #appSidebar:not(:hover):not(:focus-within) .nav-link .sidebar-notification-indicator { position: absolute; top: 8px; right: 6px; margin: 0 !important; }
+    body.sidebar-collapsed #appSidebar:not(:hover):not(:focus-within) #notificationBadge { top: 4px !important; right: 4px !important; }
     body.sidebar-collapsed #appSidebar:not(:hover):not(:focus-within) .collapse { display: none !important; }
     body.sidebar-collapsed #appSidebar:not(:hover):not(:focus-within) #storeHubDropdown { display: none !important; height: 0 !important; visibility: hidden; overflow: hidden !important; }
     body.sidebar-collapsed #appSidebar:is(:hover, :focus-within) { width: var(--ac-sidebar-width) !important; box-shadow: 18px 0 50px rgba(15, 23, 42, .14); }

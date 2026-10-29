@@ -861,7 +861,6 @@
                             <div class="col-md-4">
                                 <label class="form-label fw-bold" for="onlineContactNumber">Contact #</label>
                                 <input type="tel" name="contact_number" id="onlineContactNumber" class="form-control online-input philippine-contact-number" maxlength="13" inputmode="tel" autocomplete="tel" placeholder="+639123456789" pattern="\+639[0-9]{9}" title="Use +63 followed by 10 mobile digits, for example +639123456789" disabled>
-                                <div class="form-text">Use +63 followed by the mobile number, for example +639123456789.</div>
                             </div>
                             <div class="col-md-8">
                                 <label class="form-label fw-bold">Delivery Address</label>
