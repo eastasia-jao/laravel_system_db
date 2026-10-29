@@ -323,6 +323,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('data-replacement-price', false)
             ->assertSee('align-items: stretch;', false)
             ->assertSee('min-height: 100%;', false)
+            ->assertSee('.walk-in-replacement-modal textarea { resize: none; }', false)
             ->assertSee('Additional replacement products')
             ->assertSee('data-walk-in-amount-due', false)
             ->assertSee('<option value="QRPH">QRPH</option>', false)

@@ -95,7 +95,7 @@
     .walk-in-replacement-modal [data-exchange-lines] p { margin-bottom: .5rem !important; }
     .walk-in-replacement-modal .form-label { margin-bottom: .25rem; }
     .walk-in-replacement-modal .form-text { font-size: .72rem; }
-    .walk-in-replacement-modal textarea { resize: vertical; }
+    .walk-in-replacement-modal textarea { resize: none; }
     @media (max-width: 900px) { .walk-in-replacement-layout { grid-template-columns: 1fr; } .walk-in-replacement-modal .exchange-total-card { min-height: 0; } }
     @media (max-width: 900px) { .walk-in-report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 1100px) {
