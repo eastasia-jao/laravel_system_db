@@ -321,6 +321,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Exchange overview')
             ->assertSee('Type an Item ID, barcode, or product name')
             ->assertSee('data-replacement-price', false)
+            ->assertSee('align-items: stretch;', false)
+            ->assertSee('min-height: 100%;', false)
             ->assertSee('Additional replacement products')
             ->assertSee('data-walk-in-amount-due', false)
             ->assertSee('<option value="QRPH">QRPH</option>', false)

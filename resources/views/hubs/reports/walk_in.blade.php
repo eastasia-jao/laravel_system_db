@@ -68,7 +68,7 @@
     .walk-in-replacement-modal .modal-body > .alert { margin-bottom: .85rem; padding: .6rem .8rem; }
     .walk-in-replacement-title-icon { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border-radius: 10px; color: #b45309; background: #fef3c7; }
     .walk-in-replacement-modal .modal-title { font-size: 1.05rem; font-weight: 800; }
-    .walk-in-replacement-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(290px, .75fr); gap: .9rem; align-items: start; }
+    .walk-in-replacement-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(290px, .75fr); gap: .9rem; align-items: stretch; }
     .walk-in-replacement-modal .replacement-form-section { border: 1px solid #e2e8f0; border-radius: 12px; padding: .9rem; background: #fff; }
     .walk-in-replacement-modal .replacement-form-section-title { margin-bottom: .65rem; color: #475569; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
     .walk-in-returned-item { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .85rem; padding: .65rem .75rem; border-radius: 10px; background: #f1f5f9; }
@@ -79,14 +79,14 @@
     .walk-in-replacement-search .form-control:focus { border-color: #3b82f6; box-shadow: 0 0 0 .2rem rgba(59, 130, 246, .14); }
     .walk-in-selected-price { min-height: 1.25rem; color: #15803d; font-size: .78rem; font-weight: 700; }
     .walk-in-replacement-fields { margin-top: .85rem; padding-top: .85rem; border-top: 1px solid #e2e8f0; }
-    .walk-in-replacement-modal .exchange-total-card { position: sticky; top: 0; overflow: hidden; border: 1px solid #bfdbfe; border-radius: 12px; background: #fff; }
+    .walk-in-replacement-modal .exchange-total-card { display: flex; min-height: 100%; overflow: hidden; border: 1px solid #bfdbfe; border-radius: 12px; background: #fff; flex-direction: column; }
     .walk-in-exchange-heading { padding: .75rem .85rem; color: #1e3a8a; border-bottom: 1px solid #dbeafe; background: #eff6ff; font-weight: 800; }
-    .walk-in-exchange-body { padding: .3rem .85rem .8rem; }
+    .walk-in-exchange-body { display: flex; padding: .3rem .85rem .8rem; flex: 1; flex-direction: column; }
     .walk-in-exchange-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; padding: .7rem 0; border-bottom: 1px solid #e2e8f0; }
     .walk-in-exchange-row:last-of-type { border-bottom: 0; }
     .walk-in-replacement-modal .exchange-total-card .exchange-total-value { color: #1d4ed8; font-size: 1.15rem; font-weight: 800; }
     .walk-in-replacement-modal .exchange-total-card .exchange-total-label { color: #64748b; font-size: .7rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; }
-    .walk-in-exchange-status { margin-top: .45rem; padding: .6rem .7rem; border-radius: 8px; color: #475569; background: #f8fafc; }
+    .walk-in-exchange-status { margin-top: auto; padding: .6rem .7rem; border-radius: 8px; color: #475569; background: #f8fafc; }
     .walk-in-exchange-options { margin-top: .9rem; }
     .walk-in-replacement-modal [data-exchange-lines] { margin-top: 0 !important; }
     .walk-in-replacement-modal [data-exchange-lines] > .alert { margin-bottom: .5rem !important; padding: .45rem .75rem; }
@@ -96,7 +96,7 @@
     .walk-in-replacement-modal .form-label { margin-bottom: .25rem; }
     .walk-in-replacement-modal .form-text { font-size: .72rem; }
     .walk-in-replacement-modal textarea { resize: vertical; }
-    @media (max-width: 900px) { .walk-in-replacement-layout { grid-template-columns: 1fr; } .walk-in-replacement-modal .exchange-total-card { position: static; } }
+    @media (max-width: 900px) { .walk-in-replacement-layout { grid-template-columns: 1fr; } .walk-in-replacement-modal .exchange-total-card { min-height: 0; } }
     @media (max-width: 900px) { .walk-in-report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 1100px) {
         .walk-in-order-overview { grid-template-columns: 1fr; }
