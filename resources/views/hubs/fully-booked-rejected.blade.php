@@ -18,7 +18,7 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-3">Order number</th>
+                            <th class="ps-3">PO Number</th>
                             <th>Order store</th>
                             <th>Submitted</th>
                             <th>Rejected</th>
@@ -29,7 +29,7 @@
                     <tbody>
                         @foreach($orders as $order)
                             <tr>
-                                <td class="ps-3 fw-semibold">{{ $order->order_number }}</td>
+                                <td class="ps-3 fw-semibold">P.O. # {{ $order->order_number }}</td>
                                 <td>{{ $order->store_name ?: '—' }}</td>
                                 <td>{{ $order->created_at?->format('M d, Y h:i A') ?: '—' }}</td>
                                 <td>{{ $order->reviewed_at?->format('M d, Y h:i A') ?: '—' }}</td>

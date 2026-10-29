@@ -71,6 +71,7 @@ class FullyBookedOrderController extends Controller
             403,
             'Fully Booked order submission is only available to an active Administrator or designated Sales/Marketing staff.'
         );
+        $request->merge(['po_number' => trim((string) $request->input('po_number'))]);
         $activeStoreIds = StoreHub::where('status', 'active')->pluck('id')->map(fn ($id) => (string) $id);
         $validated = $request->validate([
             'attachments' => ['required_without:attachment', 'array', 'min:1', 'max:10'],
@@ -79,6 +80,7 @@ class FullyBookedOrderController extends Controller
             'inventory_hub_id' => ['nullable', 'integer', Rule::exists('store_hubs', 'id')->where('status', 'active')],
             'store_selection' => ['required', Rule::in($activeStoreIds->push('other')->all())],
             'other_store_name' => ['nullable', 'required_if:store_selection,other', 'string', 'max:255'],
+            'po_number' => ['required', 'string', 'max:100', Rule::unique('fully_booked_orders', 'order_number')],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'contact_number' => ['nullable', 'string', 'max:50'],
             'remarks' => ['nullable', 'string', 'max:150'],
@@ -120,7 +122,7 @@ class FullyBookedOrderController extends Controller
         try {
             $order = DB::transaction(function () use ($salesStaff, $user, $storedAttachments, $primaryAttachment, $validated, $storeName, $inventoryHubId) {
                 $order = FullyBookedOrder::create([
-                    'order_number' => 'PENDING-'.Str::uuid(),
+                    'order_number' => trim($validated['po_number']),
                     'store_hub_id' => $inventoryHubId,
                     'store_name' => $storeName,
                     'customer_name' => $validated['customer_name'] ?? null,
@@ -136,9 +138,6 @@ class FullyBookedOrderController extends Controller
                 foreach ($storedAttachments as $attachment) {
                     $order->attachments()->create($attachment);
                 }
-                $order->update([
-                    'order_number' => 'FB-'.$order->created_at->format('Ym').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT),
-                ]);
 
                 return $order;
             });
@@ -157,7 +156,7 @@ class FullyBookedOrderController extends Controller
             $reviewer->notify(new InventoryWorkflowNotification(
                 'fully_booked_order',
                 sprintf(
-                    '%s submitted Fully Booked order %s for attachment review and item pull-out.',
+                    '%s submitted Fully Booked P.O. %s for attachment review and item pull-out.',
                     $salesStaff->name,
                     $order->order_number
                 ),
@@ -174,7 +173,7 @@ class FullyBookedOrderController extends Controller
             return redirect()->route('inventory-transactions.sponsor.create', [
                 'hub_id' => $salesStaff->hub_id,
                 'activity_type' => 'fully_booked',
-            ])->with('success', 'Fully Booked order '.$order->order_number.' submitted for review.');
+            ])->with('success', 'Fully Booked P.O. '.$order->order_number.' submitted for review.');
         }
 
         return redirect()->route('inventory-transactions.fully-booked.index', [
@@ -277,7 +276,7 @@ class FullyBookedOrderController extends Controller
 
         $path = NationalPulloutWorkbook::create($items, [
             'brand' => 'FULLY BOOKED',
-            'reference_label' => 'Order #:',
+            'reference_label' => 'P.O. #:',
             'po_number' => $fullyBookedOrder->order_number,
             'occurred_on' => ($fullyBookedOrder->pulled_out_at ?? $fullyBookedOrder->created_at)?->format('Y-m-d') ?? '',
             'remarks' => $fullyBookedOrder->remarks ?? '',
@@ -383,7 +382,7 @@ class FullyBookedOrderController extends Controller
             $submitter->notify(new InventoryWorkflowNotification(
                 'fully_booked_completed',
                 sprintf(
-                    'Inventory staff completed the stock update for your Fully Booked order %s.',
+                    'Inventory staff completed the stock update for your Fully Booked P.O. %s.',
                     $fullyBookedOrder->order_number
                 ),
                 $fullyBookedOrder->store_hub_id,
@@ -442,7 +441,7 @@ class FullyBookedOrderController extends Controller
             $submitter->notify(new InventoryWorkflowNotification(
                 'fully_booked_rejected',
                 sprintf(
-                    'Your Fully Booked order %s was rejected. Reason: %s',
+                    'Your Fully Booked P.O. %s was rejected. Reason: %s',
                     $fullyBookedOrder->order_number,
                     trim($validated['rejection_reason'])
                 ),

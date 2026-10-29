@@ -222,7 +222,7 @@
                 <span class="fully-booked-submission-intro-icon" aria-hidden="true"><i class="fa-solid fa-file-circle-plus"></i></span>
                 <div>
                     <div class="fully-booked-submission-intro-title">New Fully Booked order request</div>
-                    <div class="small text-muted">The order number is assigned after submission and shown in My Fully Booked Orders.</div>
+                    <div class="small text-muted">Enter the store's PO number. It will be used for tracking, inventory processing, and returns.</div>
                 </div>
             </div>
 
@@ -243,6 +243,10 @@
                             <option value="other" @selected(old('store_selection') === 'other')>Other</option>
                         </select>
                     </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="fullyBookedPoNumber">PO Number</label>
+                        <input id="fullyBookedPoNumber" name="po_number" class="form-control" value="{{ old('po_number') }}" maxlength="100" autocomplete="off" placeholder="Enter PO number" required>
+                    </div>
                     <div class="col-12" id="fullyBookedOtherStoreField" @if(old('store_selection') !== 'other') hidden @endif>
                         <label class="form-label fw-semibold" for="fullyBookedOtherStore">Specify store</label>
                         <input id="fullyBookedOtherStore" name="other_store_name" class="form-control" value="{{ old('other_store_name') }}" maxlength="255" @required(old('store_selection') === 'other')>
@@ -251,11 +255,11 @@
             </section>
 
             <section class="fully-booked-form-section" aria-labelledby="fullyBookedCustomerHeading">
-                <div class="fully-booked-form-section-heading" id="fullyBookedCustomerHeading"><i class="fa-solid fa-address-card" aria-hidden="true"></i>Customer details <span class="badge rounded-pill text-bg-light border text-muted ms-auto">Optional</span></div>
+                <div class="fully-booked-form-section-heading" id="fullyBookedCustomerHeading"><i class="fa-solid fa-address-card" aria-hidden="true"></i>Store contact details <span class="badge rounded-pill text-bg-light border text-muted ms-auto">Optional</span></div>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold" for="fullyBookedCustomerName">Customer Name</label>
-                        <input id="fullyBookedCustomerName" name="customer_name" class="form-control" value="{{ old('customer_name') }}" maxlength="255" autocomplete="name" placeholder="Enter customer name">
+                        <label class="form-label fw-semibold" for="fullyBookedCustomerName">Store In-Charge</label>
+                        <input id="fullyBookedCustomerName" name="customer_name" class="form-control" value="{{ old('customer_name') }}" maxlength="255" autocomplete="name" placeholder="Enter store in-charge">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="fullyBookedContactNumber">Contact #</label>
@@ -320,12 +324,12 @@
             <form method="GET" action="{{ route('inventory-transactions.sponsor.create') }}" class="fully-booked-tracking-search" role="search">
                 <input type="hidden" name="hub_id" value="{{ $hubId }}">
                 <input type="hidden" name="activity_type" value="fully_booked">
-                <label class="visually-hidden" for="fullyBookedOrderSearch">Search by order number</label>
+                <label class="visually-hidden" for="fullyBookedOrderSearch">Search by PO number</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text bg-white" aria-hidden="true"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-                    <input type="search" class="form-control" id="fullyBookedOrderSearch" name="fully_booked_order_search" value="{{ $fullyBookedOrderSearch }}" placeholder="Search Order #" maxlength="50">
+                    <input type="search" class="form-control" id="fullyBookedOrderSearch" name="fully_booked_order_search" value="{{ $fullyBookedOrderSearch }}" placeholder="Search PO #" maxlength="100">
                     @if($fullyBookedOrderSearch !== '')
-                        <a class="btn btn-outline-secondary" href="{{ request()->fullUrlWithoutQuery(['fully_booked_order_search', 'page']) }}" aria-label="Clear order number search"><i class="fa-solid fa-xmark" aria-hidden="true"></i></a>
+                        <a class="btn btn-outline-secondary" href="{{ request()->fullUrlWithoutQuery(['fully_booked_order_search', 'page']) }}" aria-label="Clear PO number search"><i class="fa-solid fa-xmark" aria-hidden="true"></i></a>
                     @endif
                     <button type="submit" class="btn btn-primary">Search</button>
                 </div>
@@ -336,7 +340,7 @@
                         <article class="card rounded-4 p-3 fully-booked-tracking-card">
                             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                                 <div>
-                                    <div class="fully-booked-tracking-card-order">{{ $order->order_number }}</div>
+                                    <div class="fully-booked-tracking-card-order">P.O. # {{ $order->order_number }}</div>
                                     <div class="small text-muted mt-1"><i class="fa-solid fa-store me-1" aria-hidden="true"></i>Store: {{ $order->store_name ?? '—' }}</div>
                                     <div class="small text-muted"><i class="fa-regular fa-clock me-1" aria-hidden="true"></i>Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
                                 </div>
@@ -364,7 +368,7 @@
                             @endif
                             @if($order->customer_name || $order->contact_number)
                                 <div class="small mt-2">
-                                    @if($order->customer_name)<strong>Customer:</strong> {{ $order->customer_name }}@endif
+                                    @if($order->customer_name)<strong>Store In-Charge:</strong> {{ $order->customer_name }}@endif
                                     @if($order->customer_name && $order->contact_number)<span class="mx-1">&middot;</span>@endif
                                     @if($order->contact_number)<strong>Contact #:</strong> {{ $order->contact_number }}@endif
                                 </div>
@@ -402,7 +406,7 @@
                                         <div class="modal-header">
                                             <div>
                                                 <div class="small text-uppercase fw-bold text-primary">Fully Booked order</div>
-                                                <h5 class="modal-title fw-bold" id="fullyBookedItemsModalTitle{{ $order->id }}">Items for {{ $order->order_number }}</h5>
+                                                <h5 class="modal-title fw-bold" id="fullyBookedItemsModalTitle{{ $order->id }}">Items for P.O. # {{ $order->order_number }}</h5>
                                             </div>
                                         </div>
                                         <div class="modal-body">
@@ -487,13 +491,13 @@
                             <span class="transaction-page-heading-icon" aria-hidden="true"><i class="fa-solid fa-file-circle-check"></i></span>
                             <div>
                                 <div class="d-flex flex-wrap align-items-center gap-2">
-                                    <h6 class="fw-bold mb-0">{{ $order->order_number }}</h6>
+                                    <h6 class="fw-bold mb-0">P.O. # {{ $order->order_number }}</h6>
                                     <span class="badge rounded-pill text-bg-warning">Awaiting stock update</span>
                                 </div>
                                 <div class="small text-muted mt-1">{{ $order->salesStaff?->name ?? 'Deleted staff' }} · {{ $order->storeHub?->name ?? '—' }} · Order store: {{ $order->store_name ?? '—' }} · Submitted {{ $order->created_at?->format('M d, Y h:i A') }}</div>
                                 @if($order->customer_name || $order->contact_number)
                                     <div class="small text-muted mt-1">
-                                        @if($order->customer_name)<strong>Customer:</strong> {{ $order->customer_name }}@endif
+                                        @if($order->customer_name)<strong>Store In-Charge:</strong> {{ $order->customer_name }}@endif
                                         @if($order->customer_name && $order->contact_number)<span class="mx-1">&middot;</span>@endif
                                         @if($order->contact_number)<strong>Contact #:</strong> {{ $order->contact_number }}@endif
                                     </div>
@@ -574,7 +578,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <p class="small text-muted">Reject order <strong>{{ $order->order_number }}</strong>? The submitting staff member will be notified.</p>
+                                    <p class="small text-muted">Reject P.O. <strong>{{ $order->order_number }}</strong>? The submitting staff member will be notified.</p>
                                     <label class="form-label fw-semibold" for="rejectionReason{{ $order->id }}">Reason for rejection</label>
                                     <textarea id="rejectionReason{{ $order->id }}" name="rejection_reason" class="form-control" rows="4" maxlength="2000" required placeholder="Explain why this order is being rejected"></textarea>
                                 </div>

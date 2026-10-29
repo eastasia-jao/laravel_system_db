@@ -11,9 +11,11 @@ use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\TransactionItem;
 use App\Models\User;
+use App\Notifications\InventoryWorkflowNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class FullyBookedOrderTest extends TestCase
@@ -65,7 +67,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('<div class="fully-booked-sales-workspace">', false)
             ->assertSee('New Fully Booked order request')
             ->assertSee('Order assignment')
-            ->assertSee('Customer details')
+            ->assertSee('Store contact details')
             ->assertSee('Attachments and instructions')
             ->assertSee('id="fullyBookedTrackingPanel"', false)
             ->assertSee('fully-booked-tracking-list', false)
@@ -78,12 +80,14 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('id="fullyBookedStore"', false)
             ->assertSee('name="customer_name"', false)
             ->assertSee('name="contact_number"', false)
-            ->assertSee('Customer Name')
+            ->assertSee('name="po_number"', false)
+            ->assertSee('PO Number')
+            ->assertSee('Store In-Charge')
             ->assertSee('Contact #')
             ->assertSee('Other')
             ->assertSee('value="Designated Staff — HEAD OFFICE"', false)
             ->assertDontSee('name="sales_staff_id"', false)
-            ->assertSee('The order number is assigned after submission and shown in My Fully Booked Orders.')
+            ->assertSee("Enter the store's PO number. It will be used for tracking, inventory processing, and returns.", false)
             ->assertDontSee('Generated automatically when submitted')
             ->assertSee('href="'.route('hub.dashboard', $hub->id).'" class="btn btn-outline-secondary">Cancel</a>', false);
         $this->actingAs($admin)
@@ -99,6 +103,7 @@ class FullyBookedOrderTest extends TestCase
         $this->post(route('fully-booked-orders.store'), [
             'inventory_hub_id' => $hub->id,
             'store_selection' => (string) $hub->id,
+            'po_number' => 'PO-ADMIN-001',
             'attachment' => $this->fakePdf('admin-order.pdf'),
         ])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('fully_booked_orders', [
@@ -278,7 +283,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('FB-PAGE-002')
             ->assertDontSee('FB-PAGE-001')
             ->assertSee('page=2')
-            ->assertSee('placeholder="Search Order #"', false)
+            ->assertSee('placeholder="Search PO #"', false)
             ->assertSee('Page 1 of 2');
         $firstPageText = preg_replace('/\s+/', ' ', strip_tags($firstPage->getContent()));
         $this->assertSame(1, substr_count($firstPageText, 'Showing 1 to 6 of 7 results'));
@@ -393,7 +398,7 @@ class FullyBookedOrderTest extends TestCase
         $this->assertStringContainsString('(available stock: ${availableStockFor(product)})', $exportScript);
         $this->assertStringContainsString("url.searchParams.set('stock_channel', 'walk_in')", $exportScript);
         $this->assertStringContainsString('quantity.max = String(availableStock)', $exportScript);
-        $this->assertStringContainsString("allRows.length >= 5", $exportScript);
+        $this->assertStringContainsString('allRows.length >= 5', $exportScript);
         $this->assertStringContainsString('method: \'GET\'', $exportScript);
         $this->assertStringContainsString('/js/fully-booked-pullout.js?v=', $this->get(route('inventory-transactions.sponsor.create', [
             'hub_id' => $hub->id,
@@ -489,7 +494,7 @@ class FullyBookedOrderTest extends TestCase
             $sheet = $workbook['xl/worksheets/sheet1.xml']->getContent();
             $styles = $workbook['xl/styles.xml']->getContent();
             $this->assertStringContainsString('FULLY BOOKED', $sheet);
-            $this->assertStringContainsString('Order #: FB-EXPORT-001', $sheet);
+            $this->assertStringContainsString('P.O. #: FB-EXPORT-001', $sheet);
             $this->assertStringContainsString('<c r="B1" s="6"', $sheet);
             $this->assertStringContainsString('<c r="D1" s="6"', $sheet);
             $this->assertStringContainsString('<c r="E1" s="6"', $sheet);
@@ -723,7 +728,7 @@ class FullyBookedOrderTest extends TestCase
         $this->actingAs($admin)
             ->get(route('inventory-transactions.index', ['hub_id' => $hub->id, 'type' => 'return']))
             ->assertOk()
-            ->assertSee('Return order '.$order->order_number)
+            ->assertSee('Return P.O. # '.$order->order_number)
             ->assertSee('Fully Booked attachment')
             ->assertSee(route('inventory-transactions.fully-booked.attachment', $order), false)
             ->assertSee('fully-booked-return.pdf')
@@ -831,8 +836,8 @@ class FullyBookedOrderTest extends TestCase
         $this->assertStringContainsString('Fully Booked Returns', $notification->data['message']);
 
         $legacyNotification = $staff->notifications()->create([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
-            'type' => \App\Notifications\InventoryWorkflowNotification::class,
+            'id' => (string) Str::uuid(),
+            'type' => InventoryWorkflowNotification::class,
             'data' => [
                 'event' => 'return_recorded',
                 'channel' => 'fully_booked',
@@ -974,16 +979,51 @@ class FullyBookedOrderTest extends TestCase
 
         $this->actingAs($staff)->post(route('fully-booked-orders.store'), [
             'store_selection' => 'other',
+            'po_number' => 'PO-OTHER-VALIDATION',
             'attachment' => $this->fakePdf(),
         ])->assertSessionHasErrors('other_store_name');
 
         $this->post(route('fully-booked-orders.store'), [
             'store_selection' => 'other',
             'other_store_name' => 'Downtown Bookshop',
+            'po_number' => 'PO-OTHER-001',
             'attachment' => $this->fakePdf(),
         ])->assertSessionHasNoErrors();
 
         $this->assertSame('Downtown Bookshop', FullyBookedOrder::sole()->store_name);
+    }
+
+    public function test_fully_booked_submission_requires_a_unique_po_number(): void
+    {
+        Storage::fake('local');
+        $hub = StoreHub::create([
+            'name' => 'Head Office', 'code' => 'HO', 'status' => 'active', 'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['fully_booked'],
+        ]);
+
+        $this->actingAs($staff)->post(route('fully-booked-orders.store'), [
+            'store_selection' => (string) $hub->id,
+            'attachment' => $this->fakePdf('missing-po.pdf'),
+        ])->assertSessionHasErrors('po_number');
+
+        $this->post(route('fully-booked-orders.store'), [
+            'store_selection' => (string) $hub->id,
+            'po_number' => 'PO-UNIQUE-001',
+            'attachment' => $this->fakePdf('first-po.pdf'),
+        ])->assertSessionHasNoErrors();
+
+        $this->post(route('fully-booked-orders.store'), [
+            'store_selection' => (string) $hub->id,
+            'po_number' => 'PO-UNIQUE-001',
+            'attachment' => $this->fakePdf('duplicate-po.pdf'),
+        ])->assertSessionHasErrors('po_number');
+
+        $this->assertDatabaseCount('fully_booked_orders', 1);
+        $this->assertSame('PO-UNIQUE-001', FullyBookedOrder::sole()->order_number);
     }
 
     public function test_fully_booked_submission_accepts_multiple_attachments_for_gallery_preview(): void
@@ -1009,8 +1049,10 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('fullyBookedUploadList')
             ->assertSee('fullyBookedAttachmentViewer');
 
+        $poNumber = 'PO-GALLERY-001';
         $response = $this->post(route('fully-booked-orders.store'), [
             'store_selection' => (string) $hub->id,
+            'po_number' => $poNumber,
             'attachments' => [
                 $this->fakePdf('first-order-page.pdf'),
                 $this->fakePdf('second-order-page.pdf'),
@@ -1018,12 +1060,11 @@ class FullyBookedOrderTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $order = FullyBookedOrder::with('attachments')->sole();
-        $orderNumber = 'FB-'.$order->created_at->format('Ym').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT);
         $this->assertCount(2, $order->attachments);
-        $this->assertSame($orderNumber, $order->order_number);
+        $this->assertSame($poNumber, $order->order_number);
         $this->assertSame('first-order-page.pdf', $order->attachments[0]->original_filename);
         $this->assertSame($order->attachments[0]->path, $order->attachment_path);
-        $response->assertSessionHas('success', 'Fully Booked order '.$orderNumber.' submitted for review.');
+        $response->assertSessionHas('success', 'Fully Booked P.O. '.$poNumber.' submitted for review.');
         foreach ($order->attachments as $attachment) {
             Storage::disk('local')->assertExists($attachment->path);
             $this->actingAs($staff)->get(route('inventory-transactions.fully-booked.attachment', [
@@ -1035,7 +1076,7 @@ class FullyBookedOrderTest extends TestCase
             'hub_id' => $hub->id,
             'activity_type' => 'fully_booked',
         ]))->assertOk()
-            ->assertSee($orderNumber)
+            ->assertSee('P.O. # '.$poNumber)
             ->assertDontSee('Generated automatically when submitted');
         $this->assertSame(2, substr_count($trackingResponse->getContent(), 'class="fully-booked-attachment-thumb"'));
     }
@@ -1073,6 +1114,7 @@ class FullyBookedOrderTest extends TestCase
         $response = $this->actingAs($staff)->post(route('fully-booked-orders.store'), [
             'sales_staff_id' => $otherStaff->id,
             'store_selection' => (string) $hub->id,
+            'po_number' => 'PO-PRIVATE-001',
             'attachment' => $this->fakePdf(),
             'customer_name' => 'Juan Dela Cruz',
             'contact_number' => '09171234567',
@@ -1087,7 +1129,7 @@ class FullyBookedOrderTest extends TestCase
             'original_filename' => 'second-order-page.pdf',
             'mime_type' => 'application/pdf',
         ]);
-        $orderNumber = 'FB-'.$order->created_at->format('Ym').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT);
+        $orderNumber = 'PO-PRIVATE-001';
         $this->assertSame($orderNumber, $order->order_number);
         Storage::disk('inventory-attachments')->assertExists($order->attachment_path);
         $this->assertSame($staff->id, $order->sales_staff_id);
@@ -1111,7 +1153,7 @@ class FullyBookedOrderTest extends TestCase
             'hub_id' => $hub->id,
             'activity_type' => 'fully_booked',
         ]));
-        $response->assertSessionHas('success', 'Fully Booked order '.$orderNumber.' submitted for review.');
+        $response->assertSessionHas('success', 'Fully Booked P.O. '.$orderNumber.' submitted for review.');
         $this->actingAs($staff)->get(route('inventory-transactions.sponsor.create', [
             'hub_id' => $hub->id,
             'activity_type' => 'fully_booked',
@@ -1169,7 +1211,7 @@ class FullyBookedOrderTest extends TestCase
             'channel' => 'fully_booked',
             'quantity' => 3,
         ]);
-        $fullyBookedSale = \App\Models\SalesTransaction::where('order_number', $orderNumber)->sole();
+        $fullyBookedSale = SalesTransaction::where('order_number', $orderNumber)->sole();
         $this->assertSame('fully_booked', $fullyBookedSale->channel_type);
         $this->assertSame('Juan Dela Cruz', $fullyBookedSale->customer_name);
         $this->assertSame('09171234567', $fullyBookedSale->contact_number);
@@ -1253,7 +1295,7 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('View Items')
             ->assertSee('data-bs-target="#fullyBookedItemsModal'.$order->id.'"', false)
             ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
-            ->assertSee('Items for '.$orderNumber)
+            ->assertSee('Items for P.O. # '.$orderNumber)
             ->assertSee('1 item line(s) &middot; 3 total quantity', false)
             ->assertSee('fully-booked-tracking-items', false)
             ->assertSee('Items pulled out for '.$orderNumber)
@@ -1311,6 +1353,7 @@ class FullyBookedOrderTest extends TestCase
         $this->actingAs($authorizedStaff)->post(route('fully-booked-orders.store'), [
             'sales_staff_id' => $unauthorizedStaff->id,
             'store_selection' => (string) $hub->id,
+            'po_number' => 'PO-AUTHORIZED-001',
             'attachment' => $this->fakePdf(),
         ])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('fully_booked_orders', [

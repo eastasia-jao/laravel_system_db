@@ -26,8 +26,8 @@
         <div class="card-body border-bottom">
             <form class="row g-2 align-items-end">
                 <div class="col-md-6">
-                    <label for="fullyBookedSearch" class="form-label small fw-bold text-muted">ORDER NUMBER</label>
-                    <input id="fullyBookedSearch" type="search" name="search" value="{{ request('search') }}" class="form-control" placeholder="Search Fully Booked order number">
+                    <label for="fullyBookedSearch" class="form-label small fw-bold text-muted">PO NUMBER</label>
+                    <input id="fullyBookedSearch" type="search" name="search" value="{{ request('search') }}" class="form-control" placeholder="Search Fully Booked PO number">
                 </div>
                 <div class="col-md-3">
                     <label for="fullyBookedStatus" class="form-label small fw-bold text-muted">STATUS</label>
@@ -42,11 +42,11 @@
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-light"><tr><th>Order Number</th><th>Sales / Marketing Staff</th><th>Submitted By</th><th>Store Hub</th><th>Order Store</th><th>Submitted</th><th>Status / Review</th></tr></thead>
+                <thead class="table-light"><tr><th>PO Number</th><th>Sales / Marketing Staff</th><th>Submitted By</th><th>Store Hub</th><th>Order Store</th><th>Submitted</th><th>Status / Review</th></tr></thead>
                 <tbody>
                     @forelse($orders as $order)
                         <tr class="fully-booked-order-row">
-                            <td><strong>{{ $order->order_number }}</strong></td>
+                            <td><strong>P.O. # {{ $order->order_number }}</strong></td>
                             <td>{{ $order->salesStaff?->name ?? 'Deleted staff' }}</td>
                             <td>{{ $order->submitter?->name ?? 'Deleted user' }}</td>
                             <td>{{ $order->storeHub?->name ?? '—' }}</td>

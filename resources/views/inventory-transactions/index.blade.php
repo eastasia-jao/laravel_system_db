@@ -527,7 +527,7 @@
                             <strong>{{ $rejectedSale?->invoice_number ?: ($rejectedSale?->order_number ?? $transaction->reference) }}</strong>
                             <small class="d-block text-muted">{{ $rejectedSale?->customer_name ?: 'Customer not specified' }} · {{ $group->count() }} item line(s) rejected</small>
                         @elseif($isFullyBookedGroup)
-                            <strong>{{ $fullyBookedOrder->order_number }}</strong>
+                            <strong>P.O. # {{ $fullyBookedOrder->order_number }}</strong>
                             <small class="d-block text-muted">{{ $fullyBookedOrder->salesStaff?->name ?? 'Deleted staff' }} · {{ $fullyBookedOrder->status === 'rejected' ? 'Order rejected' : ($fullyBookedOrder->pulled_out_at ? $group->count().' item line(s) · '.$group->sum('quantity').' total pulled out' : 'Attachment submitted for review') }}</small>
                         @elseif($isReplacementGroup)
                             @php
@@ -543,7 +543,7 @@
                             <strong>{{ $originalReplacementLabel }} → {{ $newReplacementLabel }}</strong>
                             <small class="d-block text-muted">Returned {{ $transaction->productReplacement->quantity }} · Replaced with {{ $transaction->productReplacement->replacement_quantity ?: $transaction->productReplacement->quantity }}</small>
                         @elseif($isReturnGroup)
-                            <strong>{{ $isNationalReturn ? 'Return P.O. #' : ($isEventReturn ? 'Event return' : 'Return order') }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</strong>
+                            <strong>{{ ($isNationalReturn || $fullyBookedReturnOrder) ? 'Return P.O. #' : ($isEventReturn ? 'Event return' : 'Return order') }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</strong>
                             <small class="d-block text-muted">
                                 {{ $isNationalReturn ? 'National Bookstore' : ($isEventReturn ? ($transaction->source ?: 'Event') : ($transaction->salesTransaction?->customer_name ?? 'Customer —')) }}
                                 · {{ $group->where('condition', 'good')->sum('quantity') }} good
@@ -709,8 +709,8 @@
                                         <section class="fully-booked-detail-summary">
                                             <span class="fully-booked-detail-icon"><i class="fa-solid fa-book-open"></i></span>
                                             <div>
-                                                <div class="fully-booked-detail-eyebrow">Fully Booked order</div>
-                                                <h4 class="fully-booked-detail-order">{{ $fullyBookedOrder?->order_number ?? $transaction->reference }}</h4>
+                                                <div class="fully-booked-detail-eyebrow">Fully Booked P.O.</div>
+                                                <h4 class="fully-booked-detail-order">P.O. # {{ $fullyBookedOrder?->order_number ?? $transaction->reference }}</h4>
                                             </div>
                                             <span class="badge rounded-pill {{ $fullyBookedStatusClass }} fully-booked-detail-status">{{ $fullyBookedStatusLabel }}</span>
                                         </section>
@@ -733,7 +733,7 @@
                                                 <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->created_at?->format('M d, Y h:i A') ?? '—' }}</div>
                                             </div>
                                             <div class="fully-booked-detail-meta-item">
-                                                <div class="fully-booked-detail-label">Customer Name</div>
+                                                <div class="fully-booked-detail-label">Store In-Charge</div>
                                                 <div class="fully-booked-detail-value">{{ $fullyBookedOrder?->customer_name ?: 'Not provided' }}</div>
                                             </div>
                                             <div class="fully-booked-detail-meta-item">
@@ -853,7 +853,7 @@
                                             <div>
                                                 <div class="text-uppercase small fw-bold text-primary">Return record</div>
                                                 <h5 class="mb-1">{{ $isNationalReturn ? 'National Bookstore' : ($isEventReturn ? ($transaction->source ?: 'Event') : ($transaction->salesTransaction?->customer_name ?? 'Customer —')) }}</h5>
-                                                <div class="return-detail-meta">{{ $isNationalReturn ? 'P.O. #' : ($isEventReturn ? 'Event reference' : 'Order') }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</div>
+                                                <div class="return-detail-meta">{{ ($isNationalReturn || $fullyBookedReturnOrder) ? 'P.O. #' : ($isEventReturn ? 'Event reference' : 'Order') }} {{ $transaction->salesTransaction?->order_number ?? $transaction->reference ?? '—' }}</div>
                                             </div>
                                             <span class="badge text-bg-info">RETURN ITEMS</span>
                                         </div>
