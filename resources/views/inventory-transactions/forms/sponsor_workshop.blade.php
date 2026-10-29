@@ -400,7 +400,7 @@
                         </article>
 
                         @if($order->pulled_out_at && $order->items->isNotEmpty())
-                            <div class="modal fade" id="fullyBookedItemsModal{{ $order->id }}" tabindex="-1" aria-labelledby="fullyBookedItemsModalTitle{{ $order->id }}" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+                            <div class="modal fade fully-booked-items-modal" id="fullyBookedItemsModal{{ $order->id }}" tabindex="-1" aria-labelledby="fullyBookedItemsModalTitle{{ $order->id }}" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
                                 <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                                     <div class="modal-content">
                                         <div class="modal-header">
@@ -604,6 +604,11 @@
 <script src="{{ asset('js/fully-booked-pullout.js') }}?v={{ filemtime(public_path('js/fully-booked-pullout.js')) }}"></script>
 <script>
 (() => {
+    // Bootstrap backdrops are appended to <body>. Keep these modals there too
+    // so the sticky, scrollable tracking panel cannot place them underneath
+    // the backdrop and leave the page gray and unclickable.
+    document.querySelectorAll('.fully-booked-items-modal').forEach(modal => document.body.appendChild(modal));
+
     const container = document.getElementById('sponsorItems');
     const addButton = document.getElementById('addSponsorItem');
     if (!container || !addButton) return;

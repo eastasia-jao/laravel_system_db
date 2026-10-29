@@ -1295,6 +1295,8 @@ class FullyBookedOrderTest extends TestCase
             ->assertSee('View Items')
             ->assertSee('data-bs-target="#fullyBookedItemsModal'.$order->id.'"', false)
             ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
+            ->assertSee('modal fade fully-booked-items-modal', false)
+            ->assertSee("document.querySelectorAll('.fully-booked-items-modal').forEach(modal => document.body.appendChild(modal));", false)
             ->assertSee('Items for P.O. # '.$orderNumber)
             ->assertSee('1 item line(s) &middot; 3 total quantity', false)
             ->assertSee('fully-booked-tracking-items', false)
