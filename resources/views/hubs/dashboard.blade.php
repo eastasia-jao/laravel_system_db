@@ -16,6 +16,7 @@
 
     $hubActionGroups = [];
     $salesActions = [];
+    $returnActions = [];
     $canRecordSale = $currentUser?->can('record-channel-sales')
         && (($hub->is_head_office && $currentUser?->role !== 'sales_associate')
             || (! $hub->is_head_office && in_array($currentUser?->role, ['admin', 'sales_associate'], true))
@@ -34,7 +35,7 @@
     if ($hub->is_head_office && $currentUser?->can('view-sales-reports')) {
         foreach (['online' => 'Online Returns', 'wholesale' => 'Wholesale Returns', 'walk_in' => 'Walk-In Returns'] as $channel => $label) {
             if ($currentUser->hasSalesChannel($channel)) {
-                $salesActions[] = [
+                $returnActions[] = [
                     'label' => $label,
                     'icon' => 'fa-rotate-left',
                     'url' => route('hub.'.str_replace('_', '-', $channel).'-returns', ['hub' => $hub->id]),
@@ -49,10 +50,13 @@
         $salesActions[] = ['label' => 'Rejected Sales', 'icon' => 'fa-circle-xmark', 'url' => route('sales.rejected', ['hub_id' => $hub->id])];
     }
     if (! $hub->is_head_office && $currentUser?->can('manage-branch-returns')) {
-        $salesActions[] = ['label' => 'Return Items', 'icon' => 'fa-rotate-left', 'url' => route('hub.branch-returns', ['hub' => $hub->id])];
+        $returnActions[] = ['label' => 'Return Items', 'icon' => 'fa-rotate-left', 'url' => route('hub.branch-returns', ['hub' => $hub->id])];
     }
     if ($salesActions !== []) {
         $hubActionGroups[] = ['title' => 'Sales operations', 'description' => 'Record, verify, and review store sales.', 'actions' => $salesActions];
+    }
+    if ($returnActions !== []) {
+        $hubActionGroups[] = ['title' => 'Returns operations', 'description' => 'Review returned items by sales channel.', 'actions' => $returnActions];
     }
 
     if ($hub->is_head_office && in_array($currentUser?->role, ['admin', 'sales_marketing_staff'], true)) {

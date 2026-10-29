@@ -282,7 +282,14 @@ class TikTokReturnsTest extends TestCase
         }
 
         $dashboard = $this->actingAs($staff)->get(route('hub.dashboard', $hub->id));
-        $dashboard->assertOk();
+        $dashboard
+            ->assertOk()
+            ->assertSee('Sales operations')
+            ->assertSee('Returns operations');
+        $this->assertLessThan(
+            strpos($dashboard->getContent(), 'Returns operations'),
+            strpos($dashboard->getContent(), 'Sales operations')
+        );
 
         foreach (['online' => 'Online', 'wholesale' => 'Wholesale', 'walk_in' => 'Walk-In'] as $channel => $label) {
             $returnsRoute = route('hub.'.str_replace('_', '-', $channel).'-returns', ['hub' => $hub->id]);
@@ -322,6 +329,7 @@ class TikTokReturnsTest extends TestCase
             ->assertOk()
             ->assertSee('data-admin-hub-action-groups', false)
             ->assertSee('Sales operations')
+            ->assertSee('Returns operations')
             ->assertSee('Marketplace operations')
             ->assertSee('Fully Booked operations')
             ->assertSee('Inventory management')
@@ -382,6 +390,7 @@ class TikTokReturnsTest extends TestCase
             ->assertDontSee('Inventory management')
             ->assertSee('Record Walk-In')
             ->assertSee('Return Items')
+            ->assertSee('Returns operations')
             ->assertSee('Sales Report')
             ->assertDontSee('Verify Sales')
             ->assertDontSee('Import Excel')
@@ -405,6 +414,7 @@ class TikTokReturnsTest extends TestCase
             ->assertOk()
             ->assertSee('data-admin-hub-action-groups', false)
             ->assertSee('Return Items')
+            ->assertSee('Returns operations')
             ->assertSee(route('hub.branch-returns', ['hub' => $hub->id]), false)
             ->assertDontSee(route('inventory-transactions.return.create', ['hub_id' => $hub->id]), false)
             ->assertDontSee('Fully Booked operations')
