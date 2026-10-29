@@ -501,6 +501,13 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->assertCount(1, $replacementRequest->exchange_payment_proofs);
         Storage::disk('sales-attachments')->assertExists($replacementRequest->exchange_payment_proofs[0]);
         $this->assertSame('10.00', $replacementRequest->replacement_shipping_fee_amount);
+        $this->get(route('hub.sales.pending', $hub->id))
+            ->assertOk()
+            ->assertSee('Replacement total (including shipping) ₱130.00')
+            ->assertDontSee('Estimated total adjustment')
+            ->assertDontSee('Additional payment:')
+            ->assertDontSee('GCASH-WALK-IN-001')
+            ->assertDontSee('Head Office walk-in exchange.');
         $this->post(route('wholesale-replacements.approve', $replacementRequest))
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success');

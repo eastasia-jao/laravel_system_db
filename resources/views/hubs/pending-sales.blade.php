@@ -102,7 +102,6 @@
                         $returnedQty = (int) $exchangeLines->sum('quantity');
                         $credit = (float) ($replacement->exchange_credit ?: ((float) $replacement->original_unit_price * $returnedQty));
                         $charge = (float) ($replacement->exchange_total ?: $exchangeLines->sum(fn ($line) => (float) $line->replacement_unit_price * (1 - ((float) ($line->replacement_discount_percentage ?? 0) / 100)) * (int) ($line->replacement_quantity ?: $line->quantity)));
-                        $difference = $charge - $credit;
                         $replacementChannel = $replacement->replacement_channel ?: 'wholesale';
                         $exchangeStockReady = (bool) ($replacement->exchange_stock_ready ?? false);
                         $exchangeReturnReady = (bool) ($replacement->exchange_return_ready ?? false);
@@ -114,11 +113,10 @@
                                 <h5 class="mb-1">{{ $replacement->transaction?->order_number }} · {{ $replacement->transaction?->customer_name }}</h5>
                                 <div class="small text-muted">{{ $replacement->transaction?->storeHub?->name }} · {{ ucfirst(str_replace('_', ' ', $replacementChannel)) }} · Requested by {{ $replacement->creator?->name ?? 'N/A' }}</div>
                             </div>
-                            <div class="text-end"><div class="small text-muted">Estimated total adjustment</div><div class="fw-bold {{ $difference > 0 ? 'text-danger' : 'text-success' }}">{{ $difference >= 0 ? '+' : '−' }}₱{{ number_format(abs($difference), 2) }}</div></div>
                         </div>
                         <div class="row g-3 mt-2">
-                            <div class="col-md-5"><div class="meta-label">Return to inventory</div><div class="meta-value">{{ $returnedQty }} × {{ $replacement->originalProduct?->name }}</div><small class="text-muted">Exchange credit ₱{{ number_format($credit, 2) }}</small></div>
-                            <div class="col-md-5">
+                            <div class="col-md-6"><div class="meta-label">Return to inventory</div><div class="meta-value">{{ $returnedQty }} × {{ $replacement->originalProduct?->name }}</div><small class="text-muted">Exchange credit ₱{{ number_format($credit, 2) }}</small></div>
+                            <div class="col-md-6">
                                 <div class="meta-label">Release to customer</div>
                                 @if($replacementChannel === 'online')
                                     <div class="small text-muted mt-2">Replacement items, stock, and totals are available in the inventory review.</div>
@@ -141,7 +139,7 @@
                                             @endif
                                         </div>
                                     @endforeach
-                                    <div class="small fw-semibold mt-2">Replacement total (including shipping) ₱{{ number_format($charge, 2) }} · Additional payment ₱{{ number_format(max(0, $difference), 2) }}</div>
+                                    <div class="small fw-semibold mt-2">Replacement total (including shipping) ₱{{ number_format($charge, 2) }}</div>
                                     @if((float) ($replacement->replacement_shipping_fee_amount ?? 0) > 0)
                                         <div class="small text-muted">Replacement shipping ({{ $replacement->replacement_shipping_fee_type ?: 'Custom Amount' }}): ₱{{ number_format($replacement->replacement_shipping_fee_amount, 2) }}</div>
                                     @else
@@ -149,18 +147,7 @@
                                     @endif
                                 @endif
                             </div>
-                            <div class="col-md-2"><div class="meta-label">Reason</div><div class="meta-value">{{ $replacement->reason ?: '—' }}</div></div>
                         </div>
-                        @if((float) ($replacement->additional_payment_due ?? 0) > 0)
-                            <div class="alert alert-info small mt-3 mb-0">
-                                <strong>Additional payment:</strong> ₱{{ number_format($replacement->exchange_payment_amount, 2) }} via {{ str_replace('_', ' ', $replacement->exchange_payment_method ?: 'Unspecified') }}
-                                @if($replacement->exchange_custom_mop)<span class="d-block">Specified MOP: {{ $replacement->exchange_custom_mop }}</span>@endif
-                                @if($replacement->exchange_bank_name)<span class="d-block">Bank: {{ $replacement->exchange_bank_name === 'OTHERS' ? $replacement->exchange_custom_bank_name : str_replace('_', ' ', $replacement->exchange_bank_name) }}</span>@endif
-                                @if($replacement->exchange_check_number)<span class="d-block">Check #: {{ $replacement->exchange_check_number }} · Date: {{ optional($replacement->exchange_check_date)->format('M d, Y') }}</span>@endif
-                                @if($replacement->exchange_payment_reference)<span class="d-block">Reference: {{ $replacement->exchange_payment_reference }}</span>@endif
-                                @if($replacement->exchange_payment_proofs)<span class="d-block">{{ count($replacement->exchange_payment_proofs) }} proof file(s) attached</span>@endif
-                            </div>
-                        @endif
                         @if($replacement->replacement_order_slip)
                             <div class="mt-3">
                                 <a href="{{ route('sales.pending-replacement-attachment', ['hub' => $replacement->transaction->store_hub_id, 'replacement' => $replacement->id, 'type' => 'replacement-slip', 'index' => 0]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
