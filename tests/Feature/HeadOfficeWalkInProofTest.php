@@ -216,5 +216,9 @@ class HeadOfficeWalkInProofTest extends TestCase
         $this->get(route('hub.report.sales-attachment', [
             'hub' => $hub->id, 'transaction' => $sale->id, 'type' => 'walkin-payment-proof', 'index' => 0,
         ]))->assertOk();
+        $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'walk_in']))
+            ->assertOk()
+            ->assertSee('.online-proof-arrow,', false)
+            ->assertSee("[data-online-proof-gallery]:not([data-proof-gallery-ready])", false);
     }
 }

@@ -98,6 +98,158 @@
         );
     }
 @endphp
+@once
+    @push('styles')
+        <style>
+            .online-proof-gallery { display: grid; gap: .55rem; }
+            .online-proof-stage { position: relative; display: grid; height: 180px; place-items: center; overflow: hidden; padding: .5rem 3rem; border: 1px solid #dbe3ee; border-radius: .6rem; background: #eef2f7; }
+            .online-proof-slide { position: relative; display: grid; width: 100%; height: 100%; min-width: 0; place-items: center; overflow: hidden; }
+            .online-proof-slide[hidden], .online-proof-lightbox[hidden] { display: none !important; }
+            .online-proof-image, .online-proof-document { display: block; max-width: 100%; border: 0; background: #fff; }
+            .online-proof-image { width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; }
+            .online-proof-document { width: 100%; height: 100%; min-height: 0; }
+            .online-proof-arrow,
+            .online-proof-magnifier { position: absolute; z-index: 3; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .75); border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .82); box-shadow: 0 4px 14px rgba(15, 23, 42, .25); transition: background-color .15s ease, transform .15s ease; }
+            .online-proof-arrow { top: 50%; width: 38px; height: 38px; transform: translateY(-50%); }
+            .online-proof-magnifier { right: .65rem; bottom: .65rem; width: 40px; height: 40px; }
+            .online-proof-arrow:hover:not(:disabled),
+            .online-proof-magnifier:hover { background: #2563eb; }
+            .online-proof-arrow:hover:not(:disabled) { transform: translateY(-50%) scale(1.06); }
+            .online-proof-magnifier:hover { transform: scale(1.06); }
+            .online-proof-arrow:focus-visible,
+            .online-proof-magnifier:focus-visible,
+            .online-proof-lightbox-close:focus-visible { outline: 3px solid rgba(37, 99, 235, .3); outline-offset: 2px; }
+            .online-proof-arrow:disabled { display: none; }
+            .online-proof-arrow.is-previous { left: .6rem; }
+            .online-proof-arrow.is-next { right: .6rem; }
+            .online-proof-caption { display: flex; height: 3.25rem; min-width: 0; align-items: flex-start; justify-content: space-between; gap: .75rem; overflow: hidden; color: #475569; font-size: .78rem; }
+            .online-proof-caption > :first-child { min-width: 0; overflow-wrap: anywhere; }
+            .online-proof-caption strong { color: #1e3a8a; }
+            .online-proof-caption [data-online-proof-amount] { min-height: 1rem; }
+            .online-proof-lightbox { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .9); }
+            .online-proof-lightbox-content { position: relative; display: grid; width: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); place-items: center; gap: .65rem; padding: 3.25rem 3.25rem 1rem; border-radius: .8rem; background: #fff; box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+            .online-proof-lightbox-media { display: grid; width: fit-content; max-width: calc(100vw - 8.5rem); max-height: calc(100dvh - 6.5rem); place-items: center; overflow: hidden; }
+            .online-proof-lightbox-image, .online-proof-lightbox-document { display: block; max-width: 100%; border: 0; }
+            .online-proof-lightbox-image { width: auto; height: auto; max-height: calc(100dvh - 7.5rem); object-fit: contain; }
+            .online-proof-lightbox-document { width: min(900px, calc(100vw - 8.5rem)); height: min(75dvh, 720px); }
+            .online-proof-lightbox-close { position: absolute; top: .55rem; right: .55rem; z-index: 4; display: grid; width: 38px; height: 38px; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .82); }
+            .online-proof-lightbox-close:hover { background: #2563eb; }
+            .online-proof-lightbox-caption { color: #1e3a8a; font-size: .85rem; font-weight: 700; text-align: center; }
+        </style>
+    @endpush
+
+    @push('scripts')
+        <script>
+            (() => {
+                document.querySelectorAll('[data-online-proof-gallery]:not([data-proof-gallery-ready])').forEach(gallery => {
+                    gallery.dataset.proofGalleryReady = 'true';
+                    const slides = [...gallery.querySelectorAll('[data-online-proof-slide]')];
+                    const previous = gallery.querySelector('[data-online-proof-previous]');
+                    const next = gallery.querySelector('[data-online-proof-next]');
+                    const label = gallery.querySelector('[data-online-proof-label]');
+                    const amount = gallery.querySelector('[data-online-proof-amount]');
+                    const count = gallery.querySelector('[data-online-proof-count]');
+                    const lightbox = gallery.querySelector('[data-online-proof-lightbox]');
+                    const lightboxImage = gallery.querySelector('.online-proof-lightbox-image');
+                    const lightboxDocument = gallery.querySelector('.online-proof-lightbox-document');
+                    const lightboxCaption = gallery.querySelector('[data-online-proof-lightbox-caption]');
+                    const lightboxPrevious = gallery.querySelector('[data-online-proof-lightbox-previous]');
+                    const lightboxNext = gallery.querySelector('[data-online-proof-lightbox-next]');
+                    const lightboxClose = gallery.querySelector('[data-online-proof-close]');
+                    let activeIndex = 0;
+                    let lightboxTrigger = null;
+
+                    if (!slides.length || !lightbox) return;
+                    document.body.appendChild(lightbox);
+
+                    const activeAttachment = () => ({
+                        url: slides[activeIndex].dataset.proofUrl,
+                        label: slides[activeIndex].dataset.proofLabel,
+                        kind: slides[activeIndex].dataset.proofKind,
+                        amount: Number(slides[activeIndex].dataset.proofAmount || 0),
+                    });
+                    const updateCaption = () => {
+                        const attachment = activeAttachment();
+                        label.textContent = attachment.label;
+                        amount.textContent = attachment.amount > 0
+                            ? `Amount: ₱${attachment.amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : '';
+                        count.textContent = `${activeIndex + 1} of ${slides.length}`;
+                        [previous, next, lightboxPrevious, lightboxNext].forEach(button => {
+                            if (button) button.disabled = slides.length < 2;
+                        });
+                    };
+                    const showSlide = index => {
+                        activeIndex = (index + slides.length) % slides.length;
+                        slides.forEach((slide, slideIndex) => { slide.hidden = slideIndex !== activeIndex; });
+                        updateCaption();
+                    };
+                    const renderLightbox = () => {
+                        const attachment = activeAttachment();
+                        const amountText = attachment.amount > 0
+                            ? ` · ₱${attachment.amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : '';
+                        lightboxCaption.textContent = `${attachment.label}${amountText} · ${activeIndex + 1} of ${slides.length}`;
+                        lightboxImage.hidden = attachment.kind !== 'image';
+                        lightboxDocument.hidden = attachment.kind === 'image';
+                        if (attachment.kind === 'image') {
+                            lightboxDocument.removeAttribute('src');
+                            lightboxImage.src = attachment.url;
+                            lightboxImage.alt = attachment.label;
+                        } else {
+                            lightboxImage.removeAttribute('src');
+                            lightboxDocument.src = attachment.url;
+                            lightboxDocument.title = attachment.label;
+                        }
+                    };
+                    const openLightbox = trigger => {
+                        lightboxTrigger = trigger;
+                        renderLightbox();
+                        lightbox.hidden = false;
+                        lightboxClose.focus();
+                    };
+                    const closeLightbox = () => {
+                        lightbox.hidden = true;
+                        lightboxImage.removeAttribute('src');
+                        lightboxDocument.removeAttribute('src');
+                        lightboxTrigger?.focus();
+                        lightboxTrigger = null;
+                    };
+                    const move = step => {
+                        showSlide(activeIndex + step);
+                        if (!lightbox.hidden) renderLightbox();
+                    };
+
+                    previous?.addEventListener('click', () => move(-1));
+                    next?.addEventListener('click', () => move(1));
+                    lightboxPrevious?.addEventListener('click', () => move(-1));
+                    lightboxNext?.addEventListener('click', () => move(1));
+                    lightboxClose.addEventListener('click', closeLightbox);
+                    slides.forEach(slide => {
+                        const image = slide.querySelector('.online-proof-image');
+                        const magnifier = slide.querySelector('[data-online-proof-magnifier]');
+                        [image, magnifier].forEach(trigger => {
+                            trigger?.addEventListener('click', () => openLightbox(trigger));
+                        });
+                        image?.addEventListener('keydown', event => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                openLightbox(image);
+                            }
+                        });
+                    });
+                    document.addEventListener('keydown', event => {
+                        if (lightbox.hidden) return;
+                        if (event.key === 'Escape') closeLightbox();
+                        if (event.key === 'ArrowLeft') move(-1);
+                        if (event.key === 'ArrowRight') move(1);
+                    });
+                    showSlide(0);
+                });
+            })();
+        </script>
+    @endpush
+@endonce
 <div class="border rounded-3 p-3 h-100">
     <div class="fw-semibold mb-2"><i class="fa-solid fa-money-check-dollar me-1"></i>Payment proofs</div>
     <div class="small text-muted">
@@ -137,6 +289,9 @@
                     >
                         @if($attachment['kind'] === 'image')
                             <img src="{{ $attachment['url'] }}" alt="{{ $attachment['label'] }}" class="online-proof-image" role="button" tabindex="0" aria-label="Enlarge {{ $attachment['label'] }}">
+                            <button type="button" class="online-proof-magnifier" data-online-proof-magnifier aria-label="Preview {{ $attachment['label'] }}">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i>
+                            </button>
                         @else
                             <iframe src="{{ $attachment['url'] }}" title="{{ $attachment['label'] }}" class="online-proof-document"></iframe>
                         @endif

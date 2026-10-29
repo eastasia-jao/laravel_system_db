@@ -766,6 +766,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('data-proof-label="Replacement additional payment proof"', false)
             ->assertSee('Previous payment proof')
             ->assertSee('Next payment proof')
+            ->assertSee('data-online-proof-magnifier', false)
+            ->assertSee('fa-magnifying-glass-plus', false)
             ->assertDontSee('View larger')
             ->assertSee('.online-proof-stage { position: relative; display: grid; height: 180px;', false)
             ->assertSee('.online-proof-image { width: 100%; height: 100%; object-fit: contain;', false)
@@ -779,11 +781,13 @@ class OnlineWalkInReplacementTest extends TestCase
         @$document->loadHTML($html);
         $xpath = new \DOMXPath($document);
         $slides = $xpath->query('//*[@data-online-proof-gallery]//*[@data-online-proof-slide]');
+        $magnifiers = $xpath->query('//*[@data-online-proof-gallery]//*[@data-online-proof-magnifier]');
         $externalLinks = $xpath->query('//*[@data-online-proof-gallery]//*[@target="_blank"]');
 
         $this->assertSame(2, $slides->length);
         $this->assertSame('Original sales payment proof', $slides->item(0)->getAttribute('data-proof-label'));
         $this->assertSame('Replacement additional payment proof', $slides->item(1)->getAttribute('data-proof-label'));
+        $this->assertSame(2, $magnifiers->length);
         $this->assertSame(0, $externalLinks->length);
 
         $this->get(route('hub.report.sales-attachment', [
