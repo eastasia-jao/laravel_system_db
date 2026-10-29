@@ -43,11 +43,12 @@ class WalkInOrderSlipTest extends TestCase
             'order_slip' => UploadedFile::fake()->createWithContent('order-slip.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5ZkAAAAASUVORK5CYII=')),
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
         $sale = PendingSale::sole();
+        $sale->update(['walkin_payment_proofs' => ['proofs/payment.pdf']]);
         $this->assertSame('WALK-IN001', $sale->invoice_number);
         Storage::disk('sales-attachments')->assertExists($sale->order_slip);
         $this->assertEquals(10, $product->fresh()->stock);
         $inventory = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
-        $this->actingAs($inventory)->get(route('sales.pending'))->assertOk()
+        $pendingPage = $this->actingAs($inventory)->get(route('sales.pending'))->assertOk()
             ->assertSee('Select the thumbnail to magnify.')
             ->assertDontSee('Open full size')
             ->assertSee('data-order-attachment-preview', false)
@@ -55,8 +56,15 @@ class WalkInOrderSlipTest extends TestCase
             ->assertDontSee('Preview Order Attachment')
             ->assertSee('Awaiting Inventory Verification')
             ->assertSee('review-items-modal', false)
+            ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
+            ->assertDontSee('Proof of payment')
             ->assertSee('Order Items')
             ->assertSee('Order Summary');
+        $document = new \DOMDocument;
+        @$document->loadHTML($pendingPage->getContent());
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(0, $xpath->query('//*[@id="itemsModal'.$sale->id.'"]//*[contains(concat(" ", normalize-space(@class), " "), " btn-close ")]')->length);
+        $this->assertSame(1, $xpath->query('//*[@id="itemsModal'.$sale->id.'"]//button[@data-bs-dismiss="modal" and normalize-space()="Close"]')->length);
         $this->get(route('sales.order-slip', $sale->id))->assertOk()->assertHeader('Content-Type', 'image/png');
         $sale->update(['invoice_number' => null]);
         $this->post(route('sales.confirmPending', $sale->id))->assertSessionHas('success');

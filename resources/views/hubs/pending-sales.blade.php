@@ -354,27 +354,22 @@
 @if(!$pendingSales->isEmpty())
     @foreach($pendingSales as $sale)
         @php $inventory = $sale->inventory_availability; @endphp
-        <div class="modal fade review-items-modal" id="itemsModal{{ $sale->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal fade review-items-modal" id="itemsModal{{ $sale->id }}" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
             <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                 <div class="modal-content">
                     <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title">Order Items & Summary - {{ $sale->invoice_number ?: 'Order #' . $sale->id }}</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        @if($sale->quotation_proofs || $sale->walkin_payment_proofs)
+                        @if($sale->quotation_proofs)
                             <div class="border rounded p-3 mb-3">
-                                @foreach(['quotation_proofs' => 'Proof of quotation', 'walkin_payment_proofs' => 'Proof of payment'] as $proofField => $proofLabel)
-                                    @if($sale->{$proofField})
-                                        <div class="fw-semibold">{{ $proofLabel }}</div>
-                                        @foreach($sale->{$proofField} as $proofIndex => $attachment)
-                                            <a class="d-inline-block me-2 mb-2" href="{{ route('sales.pending-attachment', [
-                                                'id' => $sale->id,
-                                                'type' => $proofField === 'quotation_proofs' ? 'quotation-proof' : 'walkin-payment-proof',
-                                                'index' => $proofIndex,
-                                            ]) }}" target="_blank" rel="noopener">Open attachment {{ $proofIndex + 1 }}</a>
-                                        @endforeach
-                                    @endif
+                                <div class="fw-semibold">Proof of quotation</div>
+                                @foreach($sale->quotation_proofs as $proofIndex => $attachment)
+                                    <a class="d-inline-block me-2 mb-2" href="{{ route('sales.pending-attachment', [
+                                        'id' => $sale->id,
+                                        'type' => 'quotation-proof',
+                                        'index' => $proofIndex,
+                                    ]) }}" target="_blank" rel="noopener">Open attachment {{ $proofIndex + 1 }}</a>
                                 @endforeach
                             </div>
                         @endif
