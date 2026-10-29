@@ -501,6 +501,12 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->assertCount(1, $replacementRequest->exchange_payment_proofs);
         Storage::disk('sales-attachments')->assertExists($replacementRequest->exchange_payment_proofs[0]);
         $this->assertSame('10.00', $replacementRequest->replacement_shipping_fee_amount);
+        $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'walk_in']))
+            ->assertOk()
+            ->assertSee('Returned / refunded')
+            ->assertSee('Refund Locked')
+            ->assertSee('Resolve the pending replacement before refunding.')
+            ->assertDontSee('Replacement payment history');
         $this->get(route('hub.sales.pending', $hub->id))
             ->assertOk()
             ->assertSee('Replacement total (including shipping) ₱130.00')
@@ -517,6 +523,9 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Replacement history')
             ->assertSee('APPROVED')
             ->assertSee('WALK_IN-ORDER')
+            ->assertDontSee('Returned / refunded')
+            ->assertDontSee('Refund Locked')
+            ->assertDontSee('Replacement payment history')
             ->assertSee('Includes ₱10.00 replacement shipping fee');
         $this->assertSame(1, $report->viewData('totalTransactions'));
         $this->assertSame('130.00', $sale->fresh()->grand_total);

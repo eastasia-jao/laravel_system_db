@@ -173,6 +173,8 @@
 @foreach($transactions as $transaction)
     @php
         $approvedWalkInReplacements = $transaction->replacements->where('status', 'approved');
+        $hasApprovedWalkInReplacement = $approvedWalkInReplacements->isNotEmpty();
+        $hasPendingWalkInReplacement = $transaction->replacements->contains(fn ($replacement) => $replacement->status === 'pending');
         $walkInReplacementShippingFee = round((float) $approvedWalkInReplacements->sum('replacement_shipping_fee_amount'), 2);
         $walkInOriginalGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * (int) $item->quantity);
         $walkInReplacementTotal = $approvedWalkInReplacements->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
@@ -205,7 +207,9 @@
                     <div class="walk-in-order-ledger">
                         <div class="walk-in-order-ledger-card"><div class="label">Original order</div><div class="value">₱{{ number_format($walkInOriginalGross, 2) }}</div><div class="detail">{{ number_format($transaction->items->sum('quantity')) }} item(s) ordered</div></div>
                         <div class="walk-in-order-ledger-card is-replacement"><div class="label">Replacement value</div><div class="value">₱{{ number_format($walkInReplacementTotal, 2) }}</div><div class="detail">Adjustment: {{ $walkInReplacementAdjustment >= 0 ? '+' : '' }}₱{{ number_format($walkInReplacementAdjustment, 2) }}</div></div>
-                        <div class="walk-in-order-ledger-card is-refund"><div class="label">Returned / refunded</div><div class="value">-₱{{ number_format($walkInRefund, 2) }}</div><div class="detail">{{ number_format($walkInReturnedQty) }} item(s) returned</div></div>
+                        @unless($hasApprovedWalkInReplacement)
+                            <div class="walk-in-order-ledger-card is-refund"><div class="label">Returned / refunded</div><div class="value">-₱{{ number_format($walkInRefund, 2) }}</div><div class="detail">{{ number_format($walkInReturnedQty) }} item(s) returned</div></div>
+                        @endunless
                         <div class="walk-in-order-ledger-card is-net"><div class="label">Current order value</div><div class="value">₱{{ number_format($walkInNet, 2) }}</div><div class="detail">After returns and approved replacements</div></div>
                         <div class="walk-in-order-ledger-card"><div class="label">Amount paid</div><div class="value text-primary">₱{{ number_format($walkInPaid, 2) }}</div><div class="detail">{{ $walkInBalance > 0 ? 'Balance: ₱'.number_format($walkInBalance, 2) : 'No outstanding balance' }}</div></div>
                     </div>
@@ -224,16 +228,6 @@
                             <div class="d-none" data-replacement-check-field><label class="form-label small mb-1">Check date</label><input type="date" name="check_date" class="form-control form-control-sm"></div>
                             <button class="btn btn-sm btn-warning">Record payment</button>
                         </form>
-                    </div>
-                @endif
-                @if($transaction->paymentRecords->isNotEmpty())
-                    <div class="border rounded-3 bg-white p-3 mb-4">
-                        <div class="fw-semibold mb-2"><i class="fa-solid fa-clock-rotate-left me-1"></i>Replacement payment history</div>
-                        <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>Date</th><th>Method</th><th>Amount</th><th>Check details</th><th>Proof</th></tr></thead><tbody>
-                            @foreach($transaction->paymentRecords as $payment)
-                                <tr><td>{{ optional($payment->created_at)->format('M d, Y h:i A') }}</td><td>{{ strtoupper($payment->mode_of_payment ?: $payment->custom_mop ?: '—') }}</td><td>₱{{ number_format($payment->amount, 2) }}</td><td>{{ $payment->check_number ?: '—' }}@if($payment->check_date)<small class="d-block text-muted">{{ $payment->check_date->format('M d, Y') }}</small>@endif</td><td>@foreach($payment->walkin_payment_proofs ?? [] as $proofIndex => $proof)<a href="{{ route('hub.report.payment-record-attachment', ['hub' => $hub->id, 'paymentRecord' => $payment->id, 'index' => $proofIndex]) }}" target="_blank" rel="noopener" class="d-block">Open proof</a>@endforeach</td></tr>
-                            @endforeach
-                        </tbody></table></div>
                     </div>
                 @endif
                 <div class="walk-in-order-items">
@@ -379,7 +373,12 @@
                     </div>
                 </div>
                 @if($transaction->note)<div class="alert alert-light border mt-3 mb-0"><strong>Remarks:</strong> {{ $transaction->note }}</div>@endif
-            </div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+            </div><div class="modal-footer {{ $hasPendingWalkInReplacement ? 'justify-content-between' : '' }}">
+                @if($hasPendingWalkInReplacement)
+                    <div><button type="button" class="btn btn-outline-secondary" disabled><i class="fa-solid fa-lock me-1"></i>Refund Locked</button><small class="text-muted d-block mt-1">Resolve the pending replacement before refunding.</small></div>
+                @endif
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
         </div></div>
     </div>
 @endforeach
