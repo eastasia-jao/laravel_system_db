@@ -86,7 +86,6 @@
                                 <h5 class="modal-title fw-bold" id="return-items-title-{{ $transaction->id }}">{{ $channel }} Order #{{ $transaction->order_number }}</h5>
                                 <div class="small text-muted">{{ $transaction->customer_name ?: $channel.' Customer' }} · {{ optional($transaction->order_date)->format('M d, Y') }}</div>
                             </div>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
                             <p class="small text-muted">Return quantities and item conditions below are recorded by inventory staff.</p>

@@ -216,6 +216,7 @@
         $detailRefundHasActiveReplacement = $transaction->items->contains(
             fn ($item) => $item->replacements->contains(fn ($replacement) => in_array($replacement->status, ['pending', 'approved'], true))
         );
+        $detailSummaryColumn = $detailRefundHasActiveReplacement ? 'col-4' : 'col-6';
         $detailRefundEligible = ! $detailIsRefunded
             && in_array($transaction->status, ['confirmed', 'completed'], true)
             && $detailRefundItemsComplete
@@ -249,10 +250,12 @@
                         </div>
                         <div class="col-12 col-lg-6">
                             <div class="row g-3 h-100">
-                                <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Product subtotal</div><div class="fs-5 fw-bold">₱{{ number_format($detailSaleAmount, 2) }}</div></div></div>
-                                <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Shipping fee</div><div class="fs-5 fw-bold">₱{{ number_format($detailShippingFee, 2) }}</div>@if($detailReplacementDeliveryFee > 0)<div class="small text-muted">Includes ₱{{ number_format($detailReplacementDeliveryFee, 2) }} replacement shipping</div>@endif</div></div>
-                                <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Total cost</div><div class="fs-5 fw-bold text-success">₱{{ number_format($detailOrderTotal, 2) }}</div></div></div>
-                                <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Return/refund cost</div><div class="fs-5 fw-bold text-danger">₱{{ number_format($detailRefundTotal, 2) }}</div></div></div>
+                                <div class="{{ $detailSummaryColumn }}"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Product subtotal</div><div class="fs-5 fw-bold">₱{{ number_format($detailSaleAmount, 2) }}</div></div></div>
+                                <div class="{{ $detailSummaryColumn }}"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Shipping fee</div><div class="fs-5 fw-bold">₱{{ number_format($detailShippingFee, 2) }}</div>@if($detailReplacementDeliveryFee > 0)<div class="small text-muted">Includes ₱{{ number_format($detailReplacementDeliveryFee, 2) }} replacement shipping</div>@endif</div></div>
+                                <div class="{{ $detailSummaryColumn }}"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Total cost</div><div class="fs-5 fw-bold text-success">₱{{ number_format($detailOrderTotal, 2) }}</div></div></div>
+                                @unless($detailRefundHasActiveReplacement)
+                                    <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Return/refund cost</div><div class="fs-5 fw-bold text-danger">₱{{ number_format($detailRefundTotal, 2) }}</div></div></div>
+                                @endunless
                             </div>
                         </div>
                     </div>

@@ -72,6 +72,7 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->get(route('hub.report', ['hub' => $hub, 'channel' => 'online']))
             ->assertOk()
             ->assertSee('online-replace-button', false)
+            ->assertSee('Return/refund cost')
             ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
             ->assertDontSee('aria-label="Close order details"', false)
             ->assertDontSee('>Reset</a>')
@@ -115,6 +116,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertOk()
             ->assertSee('Review Inventory (1)')
             ->assertSee('Replacement Inventory Review')
+            ->assertDontSee('Replacement Summary')
             ->assertSee('SHORT 1')
             ->assertDontSee('Not enough allocated Online stock for this item.')
             ->assertDontSee('Replacement total (including shipping)')
@@ -166,6 +168,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertDontSee('Proof amount breakdown')
             ->assertDontSee('Product subtotal</td>')
             ->assertSee('data-proof-label="Replacement additional payment proof"', false)
+            ->assertDontSee('Return/refund cost')
             ->assertSee('Includes ₱15.00 replacement shipping')
             ->assertSee('class="text-center fw-semibold">1</td>', false)
             ->assertSee('class="text-end fw-bold">₱100.00</td>', false);
@@ -443,7 +446,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Replace item')
             ->assertSee('walk-in-replacement-'.$item->id, false)
             ->assertSee('data-bs-backdrop="static" data-bs-keyboard="false"', false)
-            ->assertSee('aria-label="Close replacement form"', false)
+            ->assertDontSee('aria-label="Close replacement form"', false)
+            ->assertSee('<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>', false)
             ->assertSee('data-walk-in-total', false)
             ->assertSee('<div class="modal-dialog modal-xl modal-dialog-centered">', false)
             ->assertSee('name="replacement_shipping_fee_type"', false)
@@ -766,8 +770,9 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('data-proof-label="Replacement additional payment proof"', false)
             ->assertSee('Previous payment proof')
             ->assertSee('Next payment proof')
-            ->assertSee('data-online-proof-magnifier', false)
-            ->assertSee('fa-magnifying-glass-plus', false)
+            ->assertDontSee('data-online-proof-magnifier', false)
+            ->assertDontSee('fa-magnifying-glass-plus', false)
+            ->assertSee('event.stopPropagation();', false)
             ->assertSee('online-order-items-scroll', false)
             ->assertSee('.online-order-items-scroll { max-height: 340px; overflow-y: auto;', false)
             ->assertSee('.online-order-items-scroll thead th { position: sticky;', false)
@@ -790,7 +795,7 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->assertSame(2, $slides->length);
         $this->assertSame('Original sales payment proof', $slides->item(0)->getAttribute('data-proof-label'));
         $this->assertSame('Replacement additional payment proof', $slides->item(1)->getAttribute('data-proof-label'));
-        $this->assertSame(2, $magnifiers->length);
+        $this->assertSame(0, $magnifiers->length);
         $this->assertSame(0, $externalLinks->length);
 
         $this->get(route('hub.report.sales-attachment', [

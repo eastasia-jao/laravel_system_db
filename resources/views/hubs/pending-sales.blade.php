@@ -257,12 +257,6 @@
                                                 </tbody>
                                             </table>
                                         </div>
-                                        <div class="order-summary-panel">
-                                            <div class="order-summary-title">Replacement Summary</div>
-                                            <div class="order-summary-line"><span class="text-muted">Replacement total, including shipping</span><strong>₱{{ number_format($charge, 2) }}</strong></div>
-                                            <div class="order-summary-line"><span class="text-muted">Replacement shipping</span><strong>{{ (float) ($replacement->replacement_shipping_fee_amount ?? 0) > 0 ? '₱'.number_format($replacement->replacement_shipping_fee_amount, 2) : 'Free delivery' }}</strong></div>
-                                            <div class="order-summary-line"><span class="text-muted">Additional payment</span><strong>₱{{ number_format(max(0, $difference), 2) }}</strong></div>
-                                        </div>
                                     </div>
                                     <div class="modal-footer bg-white">
                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

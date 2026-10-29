@@ -200,6 +200,7 @@ class TikTokReturnsTest extends TestCase
             ->assertSee('View return items')
             ->assertSee('data-bs-target="#return-items-modal-'.$sale->id.'"', false)
             ->assertSee('id="return-items-modal-'.$sale->id.'"', false)
+            ->assertDontSee('<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>', false)
             ->assertDontSee('class="collapse"', false)
             ->assertSee('Item status')
             ->assertSee('Good: 1')

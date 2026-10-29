@@ -17,7 +17,6 @@
     .walk-in-proof-panel .online-proof-gallery { gap: .35rem; margin-top: .6rem !important; }
     .walk-in-proof-panel .online-proof-stage { height: 120px; padding: .35rem 2.75rem; border-radius: 8px; }
     .walk-in-proof-panel .online-proof-caption { height: 2.4rem; font-size: .72rem; }
-    .walk-in-proof-panel .online-proof-magnifier { right: .45rem; bottom: .45rem; width: 34px; height: 34px; }
     .walk-in-proof-panel .online-proof-arrow { width: 32px; height: 32px; }
     .walk-in-payment-summary { min-width: 0; padding: .75rem; border-left: 1px solid #e7e5e4; }
     .walk-in-payment-summary .section-title { color: #57534e; font-size: .78rem; font-weight: 800; }
@@ -383,7 +382,7 @@
     @endphp
     @if($walkInReplacementAvailable && in_array($transaction->status, ['confirmed', 'completed'], true))
         <div class="modal fade walk-in-replacement-modal" id="walk-in-replacement-{{ $item->id }}" data-walk-in-replacement-modal data-bs-backdrop="static" data-bs-keyboard="false" data-original-product-id="{{ $item->product_id }}" data-original-unit-price="{{ $item->unit_price }}" data-original-discount="{{ $item->discount_percentage ?? 0 }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><form method="POST" enctype="multipart/form-data" action="{{ route('hub.report.walk-in.replacement.store', ['hub' => $hub->id, 'transaction' => $transaction->id, 'item' => $item->id]) }}" class="modal-content">
-            @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close replacement form"></button></div>
+            @csrf<div class="modal-header bg-warning-subtle"><h5 class="modal-title">Walk-In Replacement / Exchange</h5></div>
             <div class="modal-body">
                 <div class="alert alert-warning small">Inventory must verify this request before stock and totals change. Only received returned items can be replaced.</div>
                 <div class="replacement-form-section mb-3">
@@ -440,7 +439,7 @@
                 <label class="form-label fw-semibold mt-2">Reason (optional)</label>
                 <textarea name="reason" class="form-control" rows="2" maxlength="150"></textarea>
             </div>
-            <div class="modal-footer"><button class="btn btn-warning">Submit for Verification</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-warning">Submit for Verification</button></div>
         </form></div></div>
     @endif
 @endforeach @endforeach

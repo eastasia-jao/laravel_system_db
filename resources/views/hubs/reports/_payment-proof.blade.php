@@ -108,16 +108,11 @@
             .online-proof-image, .online-proof-document { display: block; max-width: 100%; border: 0; background: #fff; }
             .online-proof-image { width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; }
             .online-proof-document { width: 100%; height: 100%; min-height: 0; }
-            .online-proof-arrow,
-            .online-proof-magnifier { position: absolute; z-index: 3; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .75); border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .82); box-shadow: 0 4px 14px rgba(15, 23, 42, .25); transition: background-color .15s ease, transform .15s ease; }
+            .online-proof-arrow { position: absolute; z-index: 3; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .75); border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .82); box-shadow: 0 4px 14px rgba(15, 23, 42, .25); transition: background-color .15s ease, transform .15s ease; }
             .online-proof-arrow { top: 50%; width: 38px; height: 38px; transform: translateY(-50%); }
-            .online-proof-magnifier { right: .65rem; bottom: .65rem; width: 40px; height: 40px; }
-            .online-proof-arrow:hover:not(:disabled),
-            .online-proof-magnifier:hover { background: #2563eb; }
+            .online-proof-arrow:hover:not(:disabled) { background: #2563eb; }
             .online-proof-arrow:hover:not(:disabled) { transform: translateY(-50%) scale(1.06); }
-            .online-proof-magnifier:hover { transform: scale(1.06); }
             .online-proof-arrow:focus-visible,
-            .online-proof-magnifier:focus-visible,
             .online-proof-lightbox-close:focus-visible { outline: 3px solid rgba(37, 99, 235, .3); outline-offset: 2px; }
             .online-proof-arrow:disabled { display: none; }
             .online-proof-arrow.is-previous { left: .6rem; }
@@ -220,17 +215,19 @@
                         if (!lightbox.hidden) renderLightbox();
                     };
 
-                    previous?.addEventListener('click', () => move(-1));
-                    next?.addEventListener('click', () => move(1));
-                    lightboxPrevious?.addEventListener('click', () => move(-1));
-                    lightboxNext?.addEventListener('click', () => move(1));
+                    const bindMove = (button, step) => button?.addEventListener('click', event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        move(step);
+                    });
+                    bindMove(previous, -1);
+                    bindMove(next, 1);
+                    bindMove(lightboxPrevious, -1);
+                    bindMove(lightboxNext, 1);
                     lightboxClose.addEventListener('click', closeLightbox);
                     slides.forEach(slide => {
                         const image = slide.querySelector('.online-proof-image');
-                        const magnifier = slide.querySelector('[data-online-proof-magnifier]');
-                        [image, magnifier].forEach(trigger => {
-                            trigger?.addEventListener('click', () => openLightbox(trigger));
-                        });
+                        image?.addEventListener('click', () => openLightbox(image));
                         image?.addEventListener('keydown', event => {
                             if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault();
@@ -289,9 +286,6 @@
                     >
                         @if($attachment['kind'] === 'image')
                             <img src="{{ $attachment['url'] }}" alt="{{ $attachment['label'] }}" class="online-proof-image" role="button" tabindex="0" aria-label="Enlarge {{ $attachment['label'] }}">
-                            <button type="button" class="online-proof-magnifier" data-online-proof-magnifier aria-label="Preview {{ $attachment['label'] }}">
-                                <i class="fa-solid fa-magnifying-glass-plus"></i>
-                            </button>
                         @else
                             <iframe src="{{ $attachment['url'] }}" title="{{ $attachment['label'] }}" class="online-proof-document"></iframe>
                         @endif
