@@ -23,7 +23,7 @@
             </div>
         </div>
     </template>
-    <div class="card border-primary-subtle bg-primary-subtle mt-3" @if($exchangeChannel === 'walk_in') data-walk-in-additional-payment @endif>
+    <div class="card border-primary-subtle bg-primary-subtle mt-3">
         <div class="card-body">
             <div class="fw-semibold text-primary mb-1"><i class="fa-solid fa-money-bill-transfer me-1"></i>Additional payment</div>
             <p class="small text-muted mb-3">The amount is calculated from the replacement basket and exchange credit. Any additional payment is posted only after inventory approval.</p>
@@ -39,7 +39,7 @@
                     <div class="w-100 d-none" data-exchange-proof-row-break></div>
                     <div class="col-md-4 d-none" data-exchange-check-wrap><label class="form-label small fw-semibold">Check date</label><input type="date" name="exchange_check_date" class="form-control" disabled></div>
                 @endunless
-                <div class="col-12" data-exchange-proof-wrap><label class="form-label small fw-semibold">Additional payment proof / attachment</label><input type="file" name="exchange_payment_proofs[]" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" multiple><div class="form-text">Required for non-cash additional payments. You may attach multiple files, up to 4 files at 2 MB each.</div></div>
+                <div class="col-12" data-exchange-proof-wrap><label class="form-label small fw-semibold">Additional payment proof / attachment <span class="text-muted" data-exchange-proof-requirement>(required for non-cash payments)</span></label><input type="file" name="exchange_payment_proofs[]" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" multiple><div class="form-text">For GCash, PayMaya, QRPH, bank transfer, or another non-cash method. You may attach multiple files, up to 4 files at 2 MB each.</div></div>
             </div>
         </div>
     </div>
@@ -52,12 +52,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const template = root.querySelector('[data-exchange-line-template]');
         const notifyChanged = () => root.dispatchEvent(new CustomEvent('exchange:changed', { bubbles: true }));
         const mop = root.querySelector('[data-exchange-mop]');
+        const amount = root.querySelector('[name="exchange_payment_amount"]');
         const customMopWrap = root.querySelector('[data-exchange-custom-mop-wrap]');
         const bankWrap = root.querySelector('[data-exchange-bank-wrap]');
         const bank = root.querySelector('[name="exchange_bank_name"]');
         const customBankWrap = root.querySelector('[data-exchange-custom-bank-wrap]');
         const checkWraps = root.querySelectorAll('[data-exchange-check-wrap]');
         const proofWrap = root.querySelector('[data-exchange-proof-wrap]');
+        const proofInput = root.querySelector('[name="exchange_payment_proofs[]"]');
+        const proofRequirement = root.querySelector('[data-exchange-proof-requirement]');
         const proofRowBreak = root.querySelector('[data-exchange-proof-row-break]');
         const toggleField = (wrap, visible) => {
             wrap?.classList.toggle('d-none', !visible);
@@ -76,8 +79,17 @@ document.addEventListener('DOMContentLoaded', () => {
             checkWraps.forEach(wrap => toggleField(wrap, isCheck));
             proofRowBreak?.classList.toggle('d-none', !isCheck);
             proofWrap?.classList.toggle('col-md-8', isCheck || method === 'OTHERS');
+            const hasAdditionalPayment = Number(amount?.value || 0) > 0;
+            const proofRequired = hasAdditionalPayment && method !== '' && method !== 'CASH';
+            if (proofInput) proofInput.required = proofRequired;
+            if (proofRequirement) {
+                proofRequirement.textContent = proofRequired
+                    ? '(required)'
+                    : (method === 'CASH' ? '(optional for cash)' : '(required for non-cash payments)');
+            }
         };
         mop?.addEventListener('change', updatePaymentFields);
+        amount?.addEventListener('input', updatePaymentFields);
         bank?.addEventListener('change', updatePaymentFields);
         root.closest('.modal')?.addEventListener('show.bs.modal', () => {
             mop.value = '';

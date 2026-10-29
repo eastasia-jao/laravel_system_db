@@ -453,6 +453,11 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('name="replacement_shipping_fee_type"', false)
             ->assertSee('Free delivery')
             ->assertSee('Custom amount')
+            ->assertSee('<option value="GCASH">GCash</option>', false)
+            ->assertSee('<option value="PAYMAYA">PayMaya</option>', false)
+            ->assertSee('For GCash, PayMaya, QRPH, bank transfer, or another non-cash method.')
+            ->assertSee('name="exchange_payment_proofs[]"', false)
+            ->assertDontSee('data-walk-in-additional-payment', false)
             ->assertSee('Order Date')
             ->assertSee('Order ID')
             ->assertDontSee('aria-label="Close order"', false)
@@ -465,12 +470,28 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertDontSee('Replacement order slip (optional)')
             ->assertSee('name="quantity" class="form-control" min="1" max="1" value="1"', false)
             ->assertSee('data-walk-in-amount-due', false);
+        config(['filesystems.attachment_disks.sales' => 'sales-attachments']);
+        Storage::fake('sales-attachments');
+        $payload['exchange_payment_method'] = 'GCASH';
+        $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $payload)
+            ->assertSessionHasErrors('exchange_payment_proofs');
+        $this->assertDatabaseCount('product_replacements', 0);
+
+        $payload['exchange_payment_reference'] = 'GCASH-WALK-IN-001';
+        $payload['exchange_payment_proofs'] = [UploadedFile::fake()->createWithContent(
+            'walk-in-gcash-proof.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=').str_repeat("\0", 2048)
+        )];
         $this->post(route('hub.report.walk-in.replacement.store', [$hub, $sale, $item]), $payload)
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success');
 
         $replacementRequest = ProductReplacement::sole();
         $this->assertSame('30.00', $replacementRequest->additional_payment_due);
+        $this->assertSame('GCASH', $replacementRequest->exchange_payment_method);
+        $this->assertSame('GCASH-WALK-IN-001', $replacementRequest->exchange_payment_reference);
+        $this->assertCount(1, $replacementRequest->exchange_payment_proofs);
+        Storage::disk('sales-attachments')->assertExists($replacementRequest->exchange_payment_proofs[0]);
         $this->assertSame('10.00', $replacementRequest->replacement_shipping_fee_amount);
         $this->post(route('wholesale-replacements.approve', $replacementRequest))
             ->assertSessionHasNoErrors()

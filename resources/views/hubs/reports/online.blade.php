@@ -613,6 +613,7 @@
             status.className = `badge ${amountDue > 0 ? 'bg-danger' : 'bg-success'}`;
             status.textContent = amountDue > 0 ? `Additional payment ${money(amountDue)}` : 'No additional payment';
             paymentAmount.value = amountDue.toFixed(2);
+            paymentAmount.dispatchEvent(new Event('input', { bubbles: true }));
         };
         const updateReplacementShipping = () => {
             const custom = shippingType.value === 'Custom Amount';

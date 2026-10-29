@@ -493,13 +493,13 @@
                 ? `Includes ${money(shippingFee)} replacement delivery`
                 : 'Delivery: Free';
             exchangeSummary.querySelector('[data-walk-in-amount-due]').textContent = money(amountDue);
-            modal.querySelector('[data-walk-in-additional-payment]')?.classList.toggle('d-none', amountDue <= 0);
             const status = exchangeSummary.querySelector('[data-walk-in-exchange-status]');
             status.textContent = amountDue > 0
                 ? `Only the excess over the exchange credit is collected. Enter ${money(amountDue)} as additional payment.`
                 : 'No additional payment is due. The original sale total remains unchanged.';
             status.classList.toggle('text-danger', amountDue > 0);
             paymentAmount.value = amountDue.toFixed(2);
+            paymentAmount.dispatchEvent(new Event('input', { bubbles: true }));
         };
         const updateReplacementShipping = () => {
             const custom = shippingType.value === 'Custom Amount';
