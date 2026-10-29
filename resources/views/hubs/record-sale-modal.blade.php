@@ -433,6 +433,9 @@
             ->values()
         : collect();
     $singleAssignedChannel = $assignedChannels->count() === 1 ? $assignedChannels->first() : null;
+    $restoreRecordSale = $errors->any()
+        && (int) old('store_hub_id') === (int) $hub->id
+        && filled(old('channel_type'));
 @endphp
 
 <div class="modal fade" id="recordSaleModal" tabindex="-1" aria-labelledby="recordSaleModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="true">
@@ -456,6 +459,16 @@
                 </div>
                 
                 <div class="modal-body">
+                    @if($restoreRecordSale)
+                        <div class="alert alert-danger" role="alert" data-record-sale-validation-errors>
+                            <div class="fw-bold mb-1">Please correct the highlighted sale information.</div>
+                            <ul class="mb-0 ps-3">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     <div class="row g-3 order-header-grid">
                         <!-- Sales Channel -->
                         <div class="col-md-3">
@@ -847,7 +860,8 @@
                             <div class="col-12 sale-field-heading">Delivery destination</div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold" for="onlineContactNumber">Contact #</label>
-                                <input type="tel" name="contact_number" id="onlineContactNumber" class="form-control online-input" maxlength="17" inputmode="tel" autocomplete="tel" placeholder="09XXXXXXXXX" disabled>
+                                <input type="tel" name="contact_number" id="onlineContactNumber" class="form-control online-input philippine-contact-number" maxlength="13" inputmode="tel" autocomplete="tel" placeholder="+639123456789" pattern="\+639[0-9]{9}" title="Use +63 followed by 10 mobile digits, for example +639123456789" disabled>
+                                <div class="form-text">Use +63 followed by the mobile number, for example +639123456789.</div>
                             </div>
                             <div class="col-md-8">
                                 <label class="form-label fw-bold">Delivery Address</label>
@@ -862,9 +876,9 @@
                                 <div class="form-text">Optional. Attach the customer order document for inventory verification (up to 5 MB).</div>
                             </div>
                             <div class="col-md-6 payment-proof-container" style="display: none;">
-                                <label class="form-label fw-bold">Proof of Payment</label>
+                                <label class="form-label fw-bold">Proof of Payment <span class="text-muted fw-normal">(Optional)</span></label>
                                 <input type="file" name="proof_of_payment" class="form-control online-input" accept="image/jpeg,image/png,image/jpg,application/pdf" disabled>
-                                <div class="form-text">JPG, PNG, or PDF up to 2 MB.</div>
+                                <div class="form-text">Optional. JPG, PNG, or PDF up to 2 MB.</div>
                             </div>
                             <div class="col-12 sale-field-heading">Payment reconciliation</div>
                             <div class="col-12">
@@ -1033,6 +1047,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     let rowIndex = 0;
+    const recordSaleForm = document.getElementById('recordSaleForm');
+    const recordSaleDraftKey = @json('record-sale-draft-'.auth()->id().'-'.$hub->id);
+    const shouldRestoreRecordSale = @json($restoreRecordSale);
+    let preserveProductsOnModalShow = shouldRestoreRecordSale;
     const channelSelect = document.getElementById('channelTypeSelect');
     const productSearchUrl = @json(route('hub.products.search.ajax', $hub->id).'?exclude_brand=1');
     const productSearchEndpoint = () => {
@@ -1046,6 +1064,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const customerInput = document.getElementById('saleCustomerName');
     const customerOptions = document.getElementById('existingSaleCustomers');
     const onlineContactInput = document.getElementById('onlineContactNumber');
+    const formatPhilippineContactNumber = value => {
+        value = String(value || '').replace(/[^\d+]/g, '');
+        if (value.startsWith('09')) value = '+63' + value.slice(1);
+        if (value.startsWith('639')) value = '+' + value;
+        return value.slice(0, 13);
+    };
+    onlineContactInput?.addEventListener('input', function () {
+        this.value = formatPhilippineContactNumber(this.value);
+    });
     let customerLookupTimeout;
     let customerLookupSequence = 0;
     const walkInProofInputs = [...document.querySelectorAll('#walkInExtraFields input[type="file"]')];
@@ -1057,6 +1084,38 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }));
     const productOptions = @json($saleProductOptions);
+    const saveRecordSaleDraft = () => {
+        if (!recordSaleForm) return;
+
+        const fields = [...recordSaleForm.elements]
+            .filter(field => field.name
+                && !field.disabled
+                && field.type !== 'file'
+                && !field.name.startsWith('items[')
+                && !['_token', 'store_hub_id'].includes(field.name))
+            .map(field => ({
+                name: field.name,
+                value: field.value,
+                checked: ['checkbox', 'radio'].includes(field.type) ? field.checked : null,
+            }));
+        const items = [...recordSaleForm.querySelectorAll('#productRowsContainer .product-row')].map(row => ({
+            productId: row.querySelector('.product-id')?.value || '',
+            productLabel: row.querySelector('.product-search')?.value || '',
+            quantity: row.querySelector('.qty-input')?.value || '1',
+            unitPrice: row.querySelector('.item-unit-price-input')?.value || '0',
+            discount: row.querySelector('.item-discount-input')?.value || '0',
+        }));
+
+        try {
+            sessionStorage.setItem(recordSaleDraftKey, JSON.stringify({ fields, items }));
+        } catch (error) {}
+    };
+    recordSaleForm?.addEventListener('submit', saveRecordSaleDraft);
+    if (!shouldRestoreRecordSale) {
+        try {
+            sessionStorage.removeItem(recordSaleDraftKey);
+        } catch (error) {}
+    }
     const productDataList = document.createElement('datalist');
     productDataList.id = 'saleProductOptions';
     productOptions.forEach(product => {
@@ -1156,6 +1215,11 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     bindProductSearch(document.querySelector('.product-row'));
     document.getElementById('recordSaleModal')?.addEventListener('show.bs.modal', () => {
+        if (preserveProductsOnModalShow) {
+            preserveProductsOnModalShow = false;
+            calculateTotals();
+            return;
+        }
         document.querySelectorAll('#productRowsContainer .product-row').forEach(row => {
             const input = row.querySelector('.product-search');
             const hidden = row.querySelector('.product-id');
@@ -1209,7 +1273,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         customerInput.addEventListener('change', () => {
             const selected = [...customerOptions.options].find(option => option.value === customerInput.value);
-            if (onlineContactInput) onlineContactInput.value = selected?.dataset.contactNumber || '';
+            if (onlineContactInput) {
+                onlineContactInput.value = formatPhilippineContactNumber(selected?.dataset.contactNumber || '');
+            }
         });
         if (channelSelect.value) {
             handleChannelChange();
@@ -1440,6 +1506,71 @@ document.addEventListener('DOMContentLoaded', function () {
             calculateTotals();
         });
     }
+
+    const restoreRecordSaleDraft = () => {
+        if (!shouldRestoreRecordSale || !recordSaleForm) return;
+
+        let draft = null;
+        try {
+            draft = JSON.parse(sessionStorage.getItem(recordSaleDraftKey) || 'null');
+        } catch (error) {
+            try {
+                sessionStorage.removeItem(recordSaleDraftKey);
+            } catch (storageError) {}
+        }
+
+        if (draft?.fields?.length) {
+            const channelField = draft.fields.find(field => field.name === 'channel_type');
+            if (channelSelect && channelField) {
+                channelSelect.value = channelField.value;
+                handleChannelChange();
+            }
+
+            draft.fields.forEach(savedField => {
+                const candidates = [...recordSaleForm.elements]
+                    .filter(field => field.name === savedField.name && !field.disabled && field.type !== 'file');
+                const field = ['checkbox', 'radio'].includes(candidates[0]?.type)
+                    ? candidates.find(candidate => candidate.value === savedField.value)
+                    : candidates[0];
+                if (!field) return;
+
+                if (['checkbox', 'radio'].includes(field.type)) {
+                    field.checked = savedField.checked === true;
+                } else {
+                    field.value = savedField.value;
+                }
+            });
+
+            handleChannelChange();
+        }
+
+        const savedItems = Array.isArray(draft?.items) && draft.items.length ? draft.items : [];
+        while (document.querySelectorAll('#productRowsContainer .product-row').length < savedItems.length) {
+            addItemBtn?.click();
+        }
+        [...document.querySelectorAll('#productRowsContainer .product-row')].forEach((row, index) => {
+            const savedItem = savedItems[index];
+            if (!savedItem) return;
+
+            const product = productOptions.find(option => String(option.id) === String(savedItem.productId));
+            const searchInput = row.querySelector('.product-search');
+            const productIdInput = row.querySelector('.product-id');
+            if (searchInput) searchInput.value = savedItem.productLabel || product?.label || '';
+            if (productIdInput) productIdInput.value = savedItem.productId || '';
+            if (product) Object.entries(product).forEach(([key, value]) => row.dataset[key] = value ?? '');
+            if (row.querySelector('.qty-input')) row.querySelector('.qty-input').value = savedItem.quantity;
+            if (row.querySelector('.item-unit-price-input')) row.querySelector('.item-unit-price-input').value = savedItem.unitPrice;
+            if (row.querySelector('.item-discount-input')) row.querySelector('.item-discount-input').value = savedItem.discount;
+            updateRowDisplay(row);
+        });
+
+        calculateTotals();
+        const modalElement = document.getElementById('recordSaleModal');
+        if (modalElement && window.bootstrap?.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        }
+    };
+    restoreRecordSaleDraft();
 
     // Remove Row functionality via Event Delegation
     const marketplaceMopDropdown = document.querySelector('#recordSaleModal .marketplace-mop-dropdown');
@@ -1793,7 +1924,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (mopVal && mopVal !== '') {
             if (proofContainer) proofContainer.style.display = 'block';
-            if (proofInput) { proofInput.disabled = false; proofInput.required = true; }
+            if (proofInput) { proofInput.disabled = false; proofInput.required = false; }
         } else {
             if (proofContainer) proofContainer.style.display = 'none';
             if (proofInput) {

@@ -116,7 +116,7 @@ class HeadOfficeWalkInProofTest extends TestCase
         }
     }
 
-    public function test_every_non_cash_payment_requires_proof_but_cash_and_cod_do_not(): void
+    public function test_online_payment_proof_is_optional_while_walk_in_and_wholesale_rules_remain(): void
     {
         $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-PAY', 'status' => 'active', 'is_head_office' => true]);
         $user = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
@@ -133,13 +133,18 @@ class HeadOfficeWalkInProofTest extends TestCase
 
         foreach ([
             ['walk_in', 'walkin_mop', 'GCASH', 'walkin_payment_proofs'],
-            ['online', 'online_mop', 'PAYMAYA', 'proof_of_payment'],
             ['wholesale', 'mode_of_payment', 'BANK_TRANSFER', 'proof_of_payment'],
         ] as [$channel, $field, $method, $errorField]) {
             $this->post(route('sales.storeMultiChannelSale'), $base + [
                 'channel_type' => $channel, $field => $method,
             ])->assertSessionHasErrors($errorField);
         }
+
+        $this->post(route('sales.storeMultiChannelSale'), $base + [
+            'channel_type' => 'online', 'online_mop' => 'PAYMAYA',
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+        $onlineSale = PendingSale::where('sales_channel', 'online')->sole();
+        $this->assertNull($onlineSale->payment_proof);
 
         $this->post(route('sales.storeMultiChannelSale'), $base + [
             'channel_type' => 'walk_in', 'walkin_mop' => 'CASH',

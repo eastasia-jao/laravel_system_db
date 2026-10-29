@@ -1131,6 +1131,11 @@ class SalesWorkflowTest extends TestCase
             ->get(route('hub.dashboard', $hub))
             ->assertOk()
             ->assertSee('name="contact_number" id="onlineContactNumber"', false)
+            ->assertSee('class="form-control online-input philippine-contact-number"', false)
+            ->assertSee('pattern="\+639[0-9]{9}"', false)
+            ->assertSee('Proof of Payment <span class="text-muted fw-normal">(Optional)</span>', false)
+            ->assertSee('sessionStorage.setItem(recordSaleDraftKey', false)
+            ->assertSee('window.bootstrap.Modal.getOrCreateInstance(modalElement).show()', false)
             ->assertSee('id="marketplaceDeliveryAddress"', false)
             ->assertSee('id="wholesaleDeliveryAddress"', false)
             ->assertSee('id="onlineDeliveryAddress"', false)
@@ -1153,6 +1158,29 @@ class SalesWorkflowTest extends TestCase
                 'unit_price' => 100,
             ]],
         ])->assertSessionHasErrors(['note', 'address']);
+
+        $invalidContact = $this->post(route('sales.storeMultiChannelSale'), [
+            'store_hub_id' => $hub->id,
+            'sales_channel' => 'online',
+            'channel_type' => 'online',
+            'placed_order_date' => '2026-09-03',
+            'customer_name' => 'Keep Entered Customer',
+            'contact_number' => '12345',
+            'online_mop' => 'GCASH',
+            'address' => 'Keep this delivery address',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+            ]],
+        ]);
+        $invalidContact->assertSessionHasErrors('contact_number');
+        $this->assertSame('Keep Entered Customer', session()->getOldInput('customer_name'));
+        $this->assertSame('Keep this delivery address', session()->getOldInput('address'));
+        $this->get(route('hub.dashboard', $hub))
+            ->assertOk()
+            ->assertSee('data-record-sale-validation-errors', false)
+            ->assertSee('Please correct the highlighted sale information.');
 
         $this->actingAs($admin)->post(route('sales.storeMultiChannelSale'), [
             'store_hub_id' => $hub->id,
