@@ -31,6 +31,17 @@
     if ($currentUser?->can('view-sales-reports') && $reportChannel) {
         $salesActions[] = ['label' => 'Sales Report', 'icon' => 'fa-chart-line', 'url' => route('hub.report', ['hub' => $hub->id, 'channel' => $reportChannel])];
     }
+    if ($hub->is_head_office && $currentUser?->can('view-sales-reports')) {
+        foreach (['online' => 'Online Returns', 'wholesale' => 'Wholesale Returns'] as $channel => $label) {
+            if ($currentUser->hasSalesChannel($channel)) {
+                $salesActions[] = [
+                    'label' => $label,
+                    'icon' => 'fa-rotate-left',
+                    'url' => route('hub.'.$channel.'-returns', ['hub' => $hub->id]),
+                ];
+            }
+        }
+    }
     if ($currentUser?->can('verify-inventory')) {
         $salesActions[] = ['label' => 'Verify Sales', 'icon' => 'fa-clipboard-check', 'url' => route('hub.sales.pending', $hub->id), 'pending' => $pendingSalesCount ?? 0];
     }

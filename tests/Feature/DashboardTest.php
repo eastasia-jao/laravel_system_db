@@ -557,6 +557,7 @@ class DashboardTest extends TestCase
             ->assertSee('Critical stock')
             ->assertSee('Low stock')
             ->assertSee('Healthy')
+            ->assertDontSee('View all alerts')
             ->assertSee(route('dashboard.inventory-alerts', ['hub_id' => $hub->id]), false)
             ->assertDontSee('Most urgent')
             ->assertDontSee('Alert Product 0')

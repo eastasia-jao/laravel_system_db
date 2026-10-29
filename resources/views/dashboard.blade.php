@@ -490,9 +490,6 @@
                         <a class="btn {{ $isNationalInventoryDashboard ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('dashboard', $nationalInventoryScopeParams) }}" aria-pressed="{{ $isNationalInventoryDashboard ? 'true' : 'false' }}">National Inventory</a>
                     </div>
                 @endif
-                <a class="btn btn-outline-primary btn-sm" href="{{ $isNationalInventoryDashboard ? route('dashboard.inventory-alerts', ['hub_id' => $nationalInventoryHubId, 'inventory_scope' => 'national']) : route('dashboard.inventory-alerts', $inventoryAlertParams) }}">
-                    <i class="fa-solid fa-list-check me-1"></i>View all alerts
-                </a>
             </div>
         </div>
         <div class="inventory-health-grid mb-4">

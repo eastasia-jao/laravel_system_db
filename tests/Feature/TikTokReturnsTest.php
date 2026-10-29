@@ -226,6 +226,90 @@ class TikTokReturnsTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_online_and_wholesale_returns_use_the_return_item_ledger_from_the_hub_dashboard(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Channel Returns Head Office',
+            'code' => 'CHANNEL-RETURNS-HO',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $product = Product::create([
+            'item_id' => 'CHANNEL-RETURN-1',
+            'name' => 'Channel Return Product',
+            'stock' => 10,
+            'sales_price' => 125,
+            'store_hub_id' => $hub->id,
+            'status' => 'active',
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['online', 'wholesale'],
+        ]);
+
+        foreach (['online' => 'ONLINE-RETURN-1', 'wholesale' => 'WHOLESALE-RETURN-1'] as $channel => $orderNumber) {
+            $sale = SalesTransaction::create([
+                'user_id' => $staff->id,
+                'store_hub_id' => $hub->id,
+                'channel_type' => $channel,
+                'order_date' => '2026-10-29',
+                'order_number' => $orderNumber,
+                'customer_name' => ucfirst($channel).' Customer',
+                'grand_total' => 125,
+                'status' => 'completed',
+            ]);
+            $item = $sale->items()->create([
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 125,
+                'line_total' => 125,
+            ]);
+            InventoryTransaction::create([
+                'type' => 'return',
+                'reference' => $orderNumber,
+                'store_hub_id' => $hub->id,
+                'product_id' => $product->id,
+                'sales_transaction_id' => $sale->id,
+                'transaction_item_id' => $item->id,
+                'channel' => $channel,
+                'quantity' => 1,
+                'condition' => $channel === 'online' ? 'good' : 'damaged',
+                'occurred_on' => '2026-10-29',
+                'notes' => ucfirst($channel).' return inspected.',
+                'created_by' => $staff->id,
+            ]);
+        }
+
+        $dashboard = $this->actingAs($staff)->get(route('hub.dashboard', $hub->id));
+        $dashboard->assertOk();
+
+        foreach (['online' => 'Online', 'wholesale' => 'Wholesale'] as $channel => $label) {
+            $returnsRoute = route('hub.'.$channel.'-returns', ['hub' => $hub->id]);
+            $dashboard
+                ->assertSee($label.' Returns')
+                ->assertSee($returnsRoute, false);
+
+            $this->get($returnsRoute)
+                ->assertOk()
+                ->assertSee($label.' Returns')
+                ->assertSee(strtoupper($channel).'-RETURN-1')
+                ->assertSee('View return items')
+                ->assertSee(ucfirst($channel).' return inspected.')
+                ->assertSee($channel === 'online' ? 'Good: 1' : 'Bad: 1');
+        }
+
+        $unassignedStaff = User::factory()->create([
+            'role' => 'sales_marketing_staff',
+            'hub_id' => $hub->id,
+            'sales_channels' => ['tiktok'],
+        ]);
+        $this->actingAs($unassignedStaff)
+            ->get(route('hub.online-returns', $hub->id))
+            ->assertForbidden();
+        $this->get(route('hub.wholesale-returns', $hub->id))->assertForbidden();
+    }
+
     public function test_admin_can_open_all_marketplace_order_and_return_actions_from_head_office(): void
     {
         [$hub] = $this->order();

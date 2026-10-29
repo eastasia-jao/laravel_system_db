@@ -28,7 +28,17 @@ class SalesReportController extends Controller
 
     public function tiktokReturns(Request $request, int $hub)
     {
-        return $this->marketplaceReturnsForChannel($request, $hub, 'tiktok');
+        return $this->returnsForChannel($request, $hub, 'tiktok');
+    }
+
+    public function onlineReturns(Request $request, int $hub)
+    {
+        return $this->returnsForChannel($request, $hub, 'online');
+    }
+
+    public function wholesaleReturns(Request $request, int $hub)
+    {
+        return $this->returnsForChannel($request, $hub, 'wholesale');
     }
 
     public function marketplaceReturns(Request $request, int $hub)
@@ -37,7 +47,7 @@ class SalesReportController extends Controller
             'channel' => ['required', 'in:shopee,lazada'],
         ]);
 
-        return $this->marketplaceReturnsForChannel($request, $hub, $filters['channel']);
+        return $this->returnsForChannel($request, $hub, $filters['channel']);
     }
 
     public function branchReturns(Request $request, int $hub)
@@ -67,7 +77,7 @@ class SalesReportController extends Controller
         ]);
     }
 
-    private function marketplaceReturnsForChannel(Request $request, int $hub, string $channel)
+    private function returnsForChannel(Request $request, int $hub, string $channel)
     {
         $user = auth()->user();
         $storeHub = StoreHub::findOrFail($hub);
@@ -98,9 +108,12 @@ class SalesReportController extends Controller
             'transactions' => $transactions,
             'channel' => $channelLabel,
             'channelKey' => $channel,
-            'returnsRoute' => $channel === 'tiktok'
-                ? route('hub.tiktok-returns', $storeHub->id)
-                : route('hub.marketplace-returns', ['hub' => $storeHub->id, 'channel' => $channel]),
+            'returnsRoute' => match ($channel) {
+                'tiktok' => route('hub.tiktok-returns', $storeHub->id),
+                'online' => route('hub.online-returns', $storeHub->id),
+                'wholesale' => route('hub.wholesale-returns', $storeHub->id),
+                default => route('hub.marketplace-returns', ['hub' => $storeHub->id, 'channel' => $channel]),
+            },
             'dateFrom' => $filters['date_from'] ?? null,
             'dateTo' => $filters['date_to'] ?? null,
         ]);
