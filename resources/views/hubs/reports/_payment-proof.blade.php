@@ -250,7 +250,7 @@
         </script>
     @endpush
 @endonce
-<div class="border rounded-3 p-3 h-100">
+<div class="border rounded-3 p-3 h-100 {{ $containerClass ?? '' }}">
     <div class="fw-semibold mb-2"><i class="fa-solid fa-money-check-dollar me-1"></i>Payment proofs</div>
     <div class="small text-muted">
         <div>Method: <strong>{{ strtoupper($paymentRecord?->mode_of_payment ?: 'Not specified') }}</strong></div>

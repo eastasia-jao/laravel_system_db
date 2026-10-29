@@ -218,6 +218,10 @@ class HeadOfficeWalkInProofTest extends TestCase
         ]))->assertOk();
         $this->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'walk_in']))
             ->assertOk()
+            ->assertSee('walk-in-order-overview', false)
+            ->assertSee('walk-in-proof-panel', false)
+            ->assertSee('.walk-in-proof-panel .online-proof-stage { height: 120px;', false)
+            ->assertSee('.walk-in-order-modal .walk-in-item-stat { height: 100%; padding: .25rem .45rem; border: 0;', false)
             ->assertSee('.online-proof-arrow,', false)
             ->assertSee("[data-online-proof-gallery]:not([data-proof-gallery-ready])", false);
     }

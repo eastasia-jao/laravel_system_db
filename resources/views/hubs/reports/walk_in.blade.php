@@ -11,21 +11,31 @@
     .walk-in-order-totals-list { display: grid; flex: 1; grid-template-rows: repeat(2, minmax(78px, 1fr)); gap: .5rem; }
     .walk-in-replacement-impact-list { grid-template-rows: minmax(78px, 1fr); }
     .walk-in-order-totals-list .walk-in-order-summary { display: flex; flex-direction: column; justify-content: center; margin: 0 !important; }
-    .walk-in-order-ledger { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .65rem; padding: .85rem; border: 1px solid #e7e5e4; border-radius: 12px; background: #fff; }
-    .walk-in-order-ledger-card { min-height: 104px; padding: .8rem; border-radius: 10px; background: #fafaf9; border: 1px solid #e7e5e4; }
+    .walk-in-order-overview { display: grid; grid-template-columns: minmax(290px, 38%) minmax(0, 62%); overflow: hidden; border: 1px solid #e7e5e4; border-radius: 12px; background: #fff; }
+    .walk-in-proof-summary { min-width: 0; }
+    .walk-in-proof-panel { border: 0 !important; border-radius: 0 !important; padding: .75rem !important; background: #f8fafc; }
+    .walk-in-proof-panel .online-proof-gallery { gap: .35rem; margin-top: .6rem !important; }
+    .walk-in-proof-panel .online-proof-stage { height: 120px; padding: .35rem 2.75rem; border-radius: 8px; }
+    .walk-in-proof-panel .online-proof-caption { height: 2.4rem; font-size: .72rem; }
+    .walk-in-proof-panel .online-proof-magnifier { right: .45rem; bottom: .45rem; width: 34px; height: 34px; }
+    .walk-in-proof-panel .online-proof-arrow { width: 32px; height: 32px; }
+    .walk-in-payment-summary { min-width: 0; padding: .75rem; border-left: 1px solid #e7e5e4; }
+    .walk-in-payment-summary .section-title { color: #57534e; font-size: .78rem; font-weight: 800; }
+    .walk-in-order-ledger { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid #e7e5e4; border-radius: 9px; background: #e7e5e4; }
+    .walk-in-order-ledger-card { min-height: 82px; padding: .65rem; background: #fff; }
     .walk-in-order-ledger-card .label { color: #78716c; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
-    .walk-in-order-ledger-card .value { margin-top: .35rem; font-size: 1.08rem; font-weight: 800; line-height: 1.2; }
-    .walk-in-order-ledger-card .detail { margin-top: .3rem; color: #78716c; font-size: .72rem; line-height: 1.35; }
+    .walk-in-order-ledger-card .value { margin-top: .2rem; font-size: 1rem; font-weight: 800; line-height: 1.2; }
+    .walk-in-order-ledger-card .detail { margin-top: .2rem; color: #78716c; font-size: .68rem; line-height: 1.3; }
     .walk-in-order-ledger-card.is-replacement { background: #eff6ff; border-color: #bfdbfe; }
     .walk-in-order-ledger-card.is-refund { background: #fef2f2; border-color: #fecaca; }
     .walk-in-order-ledger-card.is-net { background: #ecfdf5; border-color: #86efac; }
-    .walk-in-order-modal .modal-header { background: linear-gradient(135deg, #fff7ed, #fffbeb); border-bottom: 1px solid #fed7aa; }
-    .walk-in-order-modal .modal-body { background: #fafaf9; }
-    .walk-in-order-modal .walk-in-order-items { display: grid; gap: .85rem; }
-    .walk-in-order-modal .walk-in-item-card { border: 1px solid #e7e5e4; border-radius: 12px; background: #fff; padding: .65rem .75rem; }
+    .walk-in-order-modal .modal-header { padding: .7rem 1rem; background: linear-gradient(135deg, #fff7ed, #fffbeb); border-bottom: 1px solid #fed7aa; }
+    .walk-in-order-modal .modal-body { padding: .85rem 1rem; background: #fafaf9; }
+    .walk-in-order-modal .walk-in-order-items { display: grid; gap: 0; overflow: hidden; border: 1px solid #e7e5e4; border-radius: 12px; background: #fff; }
+    .walk-in-order-modal .walk-in-item-card { border: 0; border-bottom: 1px solid #e7e5e4; border-radius: 0; background: #fff; padding: .65rem .75rem; }
     .walk-in-order-modal .walk-in-item-name { font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
     .walk-in-order-modal .walk-in-item-meta { color: #78716c; font-size: .76rem; }
-    .walk-in-order-modal .walk-in-item-stat { height: 100%; padding: .35rem .45rem; border: 1px solid #e7e5e4; border-radius: 8px; background: #fafaf9; text-align: center; }
+    .walk-in-order-modal .walk-in-item-stat { height: 100%; padding: .25rem .45rem; border: 0; border-left: 1px solid #e7e5e4; border-radius: 0; background: transparent; text-align: center; }
     .walk-in-order-modal .walk-in-return-stat { display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; min-width: 0; padding: .55rem .65rem; text-align: left; font-size: .74rem; line-height: 1.3; }
     .walk-in-order-modal .walk-in-return-stat .walk-in-item-stat-label { margin-bottom: .1rem; }
     .walk-in-order-modal .walk-in-return-stat .badge { max-width: 100%; white-space: normal; text-align: left; }
@@ -38,9 +48,9 @@
     .walk-in-order-modal .walk-in-replacement-table td { vertical-align: middle; font-size: .78rem; }
     .walk-in-order-modal .walk-in-replacement-table .replacement-product { min-width: 190px; font-weight: 600; }
     .walk-in-order-modal .walk-in-replacement-table .replacement-notes { min-width: 170px; }
-    .walk-in-order-modal .walk-in-order-total { background: #ecfdf5; border: 1px solid #86efac; border-radius: 10px; color: #166534; padding: .85rem 1rem; }
+    .walk-in-order-modal .walk-in-order-total { background: #ecfdf5; border: 0; border-radius: 0; color: #166534; padding: .65rem .85rem; }
     .walk-in-order-modal .replacement-detail { border-left: 3px solid #22c55e; }
-    .walk-in-order-modal .modal-footer { background: #fff; border-top: 1px solid #e7e5e4; }
+    .walk-in-order-modal .modal-footer { padding: .6rem 1rem; background: #fff; border-top: 1px solid #e7e5e4; }
     .walk-in-report-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; padding: 1rem; background: #fffaf0; border-bottom: 1px solid #fed7aa; }
     .walk-in-report-summary-heading { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
     .walk-in-report-summary-heading h5 { margin: 0; font-size: .95rem; font-weight: 700; }
@@ -73,9 +83,17 @@
     .walk-in-replacement-modal .form-text { font-size: .72rem; }
     .walk-in-replacement-modal textarea { resize: vertical; }
     @media (max-width: 900px) { .walk-in-report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 1100px) {
+        .walk-in-order-overview { grid-template-columns: 1fr; }
+        .walk-in-payment-summary { border-top: 1px solid #e7e5e4; border-left: 0; }
+        .walk-in-proof-panel .online-proof-stage { height: 150px; }
+    }
     @media (max-width: 900px) { .walk-in-order-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 520px) { .walk-in-report-summary { grid-template-columns: 1fr; } }
-    @media (max-width: 520px) { .walk-in-order-ledger { grid-template-columns: 1fr; } }
+    @media (max-width: 520px) {
+        .walk-in-order-ledger { grid-template-columns: 1fr; }
+        .walk-in-order-modal .walk-in-item-stat { border-left: 0; }
+    }
 </style>
 
 <div id="walkInReportImageSource">
@@ -163,8 +181,11 @@
         <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-sm-down"><div class="modal-content walk-in-order-modal">
             <div class="modal-header bg-warning-subtle"><div><h5 class="modal-title" id="walk-in-title-{{ $transaction->id }}"><i class="fa-solid fa-receipt me-2"></i>Walk-In Order #{{ $transaction->order_number ?: $transaction->id }}</h5><small class="text-muted">{{ $transaction->customer_name ?: 'Walk-In Customer' }}@include('hubs.reports._new-customer-badge') · {{ optional($transaction->order_date)->format('M d, Y') }} · {{ strtoupper($transaction->mode_of_payment ?: '—') }}</small></div></div>
             <div class="modal-body">
-                <div class="row g-3 mb-4"><div class="col-12">@include('hubs.reports._payment-proof', ['paymentRecord' => $transaction])</div></div>
-                <section class="mb-4">
+                <div class="walk-in-order-overview mb-3">
+                    <section class="walk-in-proof-summary">
+                        @include('hubs.reports._payment-proof', ['paymentRecord' => $transaction, 'containerClass' => 'walk-in-proof-panel'])
+                    </section>
+                    <section class="walk-in-payment-summary">
                     <div class="section-title mb-2"><i class="fa-solid fa-scale-balanced me-1"></i>Order payment breakdown</div>
                     <div class="walk-in-order-ledger">
                         <div class="walk-in-order-ledger-card"><div class="label">Original order</div><div class="value">₱{{ number_format($walkInOriginalGross, 2) }}</div><div class="detail">{{ number_format($transaction->items->sum('quantity')) }} item(s) ordered</div></div>
@@ -173,7 +194,8 @@
                         <div class="walk-in-order-ledger-card is-net"><div class="label">Current order value</div><div class="value">₱{{ number_format($walkInNet, 2) }}</div><div class="detail">After returns and approved replacements</div></div>
                         <div class="walk-in-order-ledger-card"><div class="label">Amount paid</div><div class="value text-primary">₱{{ number_format($walkInPaid, 2) }}</div><div class="detail">{{ $walkInBalance > 0 ? 'Balance: ₱'.number_format($walkInBalance, 2) : 'No outstanding balance' }}</div></div>
                     </div>
-                </section>
+                    </section>
+                </div>
                 @if($walkInBalance > 0 && $approvedWalkInReplacements->isNotEmpty())
                     <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
                         <div><strong>Replacement balance is still unpaid.</strong><div class="small">Record the additional payment of ₱{{ number_format($walkInBalance, 2) }} to mark this order as paid.</div></div>
