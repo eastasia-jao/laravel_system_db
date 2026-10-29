@@ -4,7 +4,8 @@
 @php
     $baseParams = array_filter([
         'hub_id' => $hubId,
-        'channel' => $selectedChannel,
+        'channel' => $isNationalInventory ? null : $selectedChannel,
+        'inventory_scope' => $inventoryScope,
     ], fn ($value) => $value !== null && $value !== '');
     $severityLabels = [
         'alerts' => 'Needs attention',
@@ -40,7 +41,20 @@
     </div>
 
     <section class="panel p-3 p-lg-4">
+        @if($nationalInventoryHubId)
+            <nav class="btn-group btn-group-sm mb-3" aria-label="Inventory alerts scope">
+                <a class="btn {{ $isNationalInventory ? 'btn-outline-primary' : 'btn-primary' }}" href="{{ route('dashboard.inventory-alerts', array_merge($baseParams, ['inventory_scope' => 'store'])) }}" aria-pressed="{{ $isNationalInventory ? 'false' : 'true' }}">Store Inventory</a>
+                <a class="btn {{ $isNationalInventory ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('dashboard.inventory-alerts', array_merge($baseParams, ['hub_id' => $nationalInventoryHubId, 'inventory_scope' => 'national'])) }}" aria-pressed="{{ $isNationalInventory ? 'true' : 'false' }}">National Inventory</a>
+            </nav>
+        @endif
         <form method="GET" action="{{ route('dashboard.inventory-alerts') }}" class="row g-3 align-items-end mb-4">
+            @if($isNationalInventory)
+                <input type="hidden" name="inventory_scope" value="national">
+                <input type="hidden" name="hub_id" value="{{ $hubId }}">
+            @else
+                <input type="hidden" name="inventory_scope" value="store">
+            @endif
+            @unless($isNationalInventory)
             @if($dashboardHubs->count() > 1)
             <div class="col-lg-3 col-md-6">
                 <label class="form-label small fw-semibold" for="alertHub">Store</label>
@@ -58,6 +72,7 @@
                 <select class="form-select" id="alertChannel" name="channel">@foreach($assignedChannels as $channel)<option value="{{ $channel }}" @selected($selectedChannel === $channel)>{{ str($channel)->headline() }}</option>@endforeach</select>
             </div>
             @endif
+            @endunless
             <div class="col-lg-2 col-md-6">
                 <label class="form-label small fw-semibold" for="alertSeverity">Stock status</label>
                 <select class="form-select" id="alertSeverity" name="severity">@foreach($severityLabels as $value => $label)<option value="{{ $value }}" @selected($severity === $value)>{{ $label }}</option>@endforeach</select>
@@ -77,7 +92,7 @@
         </div>
         <div class="table-responsive inventory-alert-table-scroll">
             <table class="table inventory-alert-table align-middle mb-0">
-                <thead><tr><th>Product</th><th>Item ID</th><th>Store</th><th class="text-end">{{ $stockLabel }}</th><th>Status</th></tr></thead>
+                <thead><tr><th>Product</th><th>Item ID</th><th>{{ $isNationalInventory ? 'Inventory' : 'Store' }}</th><th class="text-end">{{ $stockLabel }}</th><th>Status</th></tr></thead>
                 <tbody>
                     @forelse($products as $product)
                         @php
@@ -89,7 +104,7 @@
                                         ? ['class' => 'bg-warning text-dark', 'label' => 'Low stock']
                                         : ['class' => 'bg-success', 'label' => 'Healthy']));
                         @endphp
-                        <tr><td class="fw-semibold">{{ $product->name }}</td><td>{{ $product->item_id }}</td><td>{{ $product->storeHub?->name }}</td><td class="text-end fw-semibold">{{ number_format($product->alert_stock) }} pcs</td><td><span class="badge {{ $status['class'] }}">{{ $status['label'] }}</span></td></tr>
+                        <tr><td class="fw-semibold">{{ $product->name }}</td><td>{{ $product->item_id }}</td><td>{{ $isNationalInventory ? 'National Inventory' : $product->storeHub?->name }}</td><td class="text-end fw-semibold">{{ number_format($product->alert_stock) }} pcs</td><td><span class="badge {{ $status['class'] }}">{{ $status['label'] }}</span></td></tr>
                     @empty
                         <tr><td colspan="5"><div class="empty-state">No products match these filters.</div></td></tr>
                     @endforelse

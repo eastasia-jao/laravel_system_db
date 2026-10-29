@@ -585,6 +585,13 @@ class DashboardTest extends TestCase
             'name' => 'National Health Head Office', 'code' => 'NATIONAL-HEALTH', 'status' => 'active', 'is_head_office' => true,
         ]);
         $admin = User::factory()->create(['role' => 'admin']);
+        Product::create([
+            'store_hub_id' => $headOffice->id,
+            'item_id' => 'STORE-ONLY-OUT',
+            'name' => 'Store-only out of stock product',
+            'stock' => 0,
+            'status' => 'active',
+        ]);
         foreach ([
             ['NAT-0', 0, 'Out of stock National Product'],
             ['NAT-1', 1, 'Critical National Product One'],
@@ -608,7 +615,7 @@ class DashboardTest extends TestCase
             'date' => '2026-10-28',
         ]))->assertOk()
             ->assertSee('National Inventory · Good stock only; damaged stock is excluded')
-            ->assertSee(route('national-inventory.index', ['hub_id' => $headOffice->id]), false)
+            ->assertSee('dashboard/inventory-alerts?hub_id='.$headOffice->id.'&amp;inventory_scope=national', false)
             ->assertSee('inventory_scope=national', false)
             ->assertSee('inventory_scope=store', false)
             ->assertDontSee('Most urgent');
@@ -621,8 +628,25 @@ class DashboardTest extends TestCase
             'healthy' => 1,
         ], $response->viewData('inventoryHealth'));
 
+        $nationalAlerts = $this->get(route('dashboard.inventory-alerts', [
+            'hub_id' => $headOffice->id,
+            'inventory_scope' => 'national',
+            'severity' => 'critical',
+        ]))->assertOk()
+            ->assertSee('National Inventory')
+            ->assertSee('Good stock')
+            ->assertSee('National Inventory</td>', false)
+            ->assertSee('Critical National Product One')
+            ->assertSee('Critical National Product Ten')
+            ->assertDontSee('Store-only out of stock product')
+            ->assertDontSee('Inactive National Product')
+            ->assertSee('name="inventory_scope" value="national"', false);
+        $this->assertSame(2, $nationalAlerts->viewData('products')->total());
+        $this->assertSame('national', $nationalAlerts->viewData('inventoryScope'));
+
         $staff = User::factory()->create(['role' => 'sales_associate', 'hub_id' => $headOffice->id]);
         $this->actingAs($staff)->get(route('dashboard', ['inventory_scope' => 'national']))->assertForbidden();
+        $this->get(route('dashboard.inventory-alerts', ['inventory_scope' => 'national']))->assertForbidden();
     }
 
     public function test_inventory_alerts_show_thirty_products_per_scrollable_page(): void

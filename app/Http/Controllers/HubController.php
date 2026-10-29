@@ -155,7 +155,8 @@ class HubController extends Controller
         $canViewNationalInventory = in_array($user?->role, ['admin', 'inventory_staff'], true);
         $nationalInventoryHubQuery = StoreHub::query()
             ->where('status', 'active')
-            ->where('is_head_office', true);
+            ->where('is_head_office', true)
+            ->orderBy('name');
         if ($user?->role === 'inventory_staff') {
             $nationalInventoryHubQuery->whereKey($user->hub_id);
         }
@@ -616,32 +617,63 @@ class HubController extends Controller
             'channel' => ['nullable', Rule::in($assignedChannels->all())],
             'severity' => ['nullable', Rule::in(['alerts', 'out_of_stock', 'critical', 'low', 'healthy', 'all'])],
             'search' => ['nullable', 'string', 'max:100'],
+            'inventory_scope' => ['nullable', Rule::in(['store', 'national'])],
         ]);
 
-        $hubId = $filters['hub_id'] ?? null;
-        if (! $request->has('hub_id') && $user?->role !== 'admin') {
-            $hubId = $dashboardHubs->contains('id', (int) $user?->hub_id)
-                ? (int) $user->hub_id
-                : $dashboardHubs->first()?->id;
-        }
-        if ($hubId) {
-            abort_unless($dashboardHubs->contains('id', (int) $hubId), 403);
-        } elseif ($dashboardHubs->count() === 1) {
-            $hubId = (int) $dashboardHubs->first()->id;
-        }
-        $scopeIds = $hubId ? [(int) $hubId] : $dashboardHubs->modelKeys();
-
+        $inventoryScope = $filters['inventory_scope'] ?? 'store';
+        $isNationalInventory = $inventoryScope === 'national';
         $selectedChannel = $filters['channel'] ?? $assignedChannels->first();
-        $stockChannel = match ($user?->role) {
-            'sales_associate' => 'walk_in',
-            'sales_marketing_staff' => $selectedChannel ?? 'unassigned',
-            default => null,
-        };
-        [$baseQuery, $stockExpression] = $this->inventoryHealthQuery($scopeIds, $stockChannel);
+        $nationalInventoryHubQuery = StoreHub::query()
+            ->where('status', 'active')
+            ->where('is_head_office', true)
+            ->orderBy('name');
+        if ($user?->role === 'inventory_staff') {
+            $nationalInventoryHubQuery->whereKey($user->hub_id);
+        }
+        $nationalInventoryHubId = $nationalInventoryHubQuery->value('id');
+        if ($isNationalInventory) {
+            abort_unless(in_array($user?->role, ['admin', 'inventory_staff'], true), 403);
+            if (! empty($filters['hub_id'])) {
+                $nationalInventoryHubQuery->whereKey((int) $filters['hub_id']);
+            }
+            $hubId = $nationalInventoryHubQuery->value('id');
+            $nationalInventoryHubId = $hubId;
+            abort_unless($hubId, 403, 'National inventory is available only in an active Head Office mode.');
+            $productsQuery = NationalProduct::query()
+                ->select('national_products.*')
+                ->selectRaw('national_products.stock AS alert_stock')
+                ->where('national_products.status', 'active');
+            $stockExpression = 'national_products.stock';
+            $stockChannel = null;
+        } else {
+            $hubId = $filters['hub_id'] ?? null;
+            if (! $request->has('hub_id') && $user?->role !== 'admin') {
+                $hubId = $dashboardHubs->contains('id', (int) $user?->hub_id)
+                    ? (int) $user->hub_id
+                    : $dashboardHubs->first()?->id;
+            }
+            if ($hubId) {
+                abort_unless($dashboardHubs->contains('id', (int) $hubId), 403);
+            } elseif ($dashboardHubs->count() === 1) {
+                $hubId = (int) $dashboardHubs->first()->id;
+            }
+            $scopeIds = $hubId ? [(int) $hubId] : $dashboardHubs->modelKeys();
+
+            $stockChannel = match ($user?->role) {
+                'sales_associate' => 'walk_in',
+                'sales_marketing_staff' => $selectedChannel ?? 'unassigned',
+                default => null,
+            };
+            [$productsQuery, $stockExpression] = $this->inventoryHealthQuery($scopeIds, $stockChannel);
+        }
+        $baseQuery = clone $productsQuery;
         $inventoryHealth = $this->inventoryHealthCounts($baseQuery, $stockExpression);
 
         $severity = $filters['severity'] ?? 'alerts';
-        $alertsQuery = (clone $baseQuery)->with('storeHub');
+        $alertsQuery = clone $productsQuery;
+        if (! $isNationalInventory) {
+            $alertsQuery->with('storeHub');
+        }
         match ($severity) {
             'out_of_stock' => $alertsQuery->whereRaw("{$stockExpression} = 0"),
             'critical' => $alertsQuery->whereRaw("{$stockExpression} BETWEEN 1 AND 10"),
@@ -652,25 +684,38 @@ class HubController extends Controller
         };
         if (! empty($filters['search'])) {
             $search = $filters['search'];
-            $alertsQuery->whereHas('catalogProduct', fn ($catalog) => KeywordSearch::apply(
-                $catalog,
-                $search,
-                ['name', 'item_id', 'barcode', 'brand']
-            ));
+            if ($isNationalInventory) {
+                $alertsQuery->where(fn ($query) => KeywordSearch::apply(
+                    $query,
+                    $search,
+                    ['name', 'item_id', 'barcode', 'brand']
+                ));
+            } else {
+                $alertsQuery->whereHas('catalogProduct', fn ($catalog) => KeywordSearch::apply(
+                    $catalog,
+                    $search,
+                    ['name', 'item_id', 'barcode', 'brand']
+                ));
+            }
         }
         $products = $alertsQuery
             ->orderByRaw("{$stockExpression} ASC")
-            ->orderByCatalog('item_id')
+            ->when($isNationalInventory, fn ($query) => $query->orderBy('item_id'), fn ($query) => $query->orderByCatalog('item_id'))
             ->paginate(30)
             ->withQueryString();
-        $scopeName = $hubId ? $dashboardHubs->firstWhere('id', (int) $hubId)?->name : 'All accessible stores';
-        $stockLabel = $stockChannel && $stockChannel !== 'unassigned'
-            ? ($stockChannel === 'walk_in' ? 'Walk-In available stock' : str($stockChannel)->headline().' allocated stock')
-            : 'Physical stock';
+        $scopeName = $isNationalInventory
+            ? 'National Inventory'
+            : ($hubId ? $dashboardHubs->firstWhere('id', (int) $hubId)?->name : 'All accessible stores');
+        $stockLabel = $isNationalInventory
+            ? 'Good stock'
+            : ($stockChannel && $stockChannel !== 'unassigned'
+                ? ($stockChannel === 'walk_in' ? 'Walk-In available stock' : str($stockChannel)->headline().' allocated stock')
+                : 'Physical stock');
 
         return view('inventory-alerts.index', compact(
             'dashboardHubs', 'hubId', 'selectedChannel', 'assignedChannels', 'stockChannel', 'inventoryHealth',
-            'products', 'severity', 'scopeName', 'stockLabel'
+            'products', 'severity', 'scopeName', 'stockLabel', 'inventoryScope', 'isNationalInventory',
+            'nationalInventoryHubId'
         ));
     }
 

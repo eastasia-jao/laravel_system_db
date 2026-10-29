@@ -458,11 +458,13 @@
             $inventoryScopeParams['inventory_scope'] = 'store';
             $nationalInventoryScopeParams = request()->query();
             $nationalInventoryScopeParams['inventory_scope'] = 'national';
-            $nationalInventoryUrl = $canViewNationalInventory
-                ? route('national-inventory.index', ['hub_id' => $nationalInventoryHubId])
-                : null;
             $inventoryHealthCardUrls = $isNationalInventoryDashboard
-                ? array_fill_keys(['out_of_stock', 'critical', 'low', 'healthy'], $nationalInventoryUrl)
+                ? [
+                    'out_of_stock' => route('dashboard.inventory-alerts', ['hub_id' => $nationalInventoryHubId, 'inventory_scope' => 'national', 'severity' => 'out_of_stock']),
+                    'critical' => route('dashboard.inventory-alerts', ['hub_id' => $nationalInventoryHubId, 'inventory_scope' => 'national', 'severity' => 'critical']),
+                    'low' => route('dashboard.inventory-alerts', ['hub_id' => $nationalInventoryHubId, 'inventory_scope' => 'national', 'severity' => 'low']),
+                    'healthy' => route('dashboard.inventory-alerts', ['hub_id' => $nationalInventoryHubId, 'inventory_scope' => 'national', 'severity' => 'healthy']),
+                ]
                 : [
                     'out_of_stock' => route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'out_of_stock'])),
                     'critical' => route('dashboard.inventory-alerts', array_merge($inventoryAlertParams, ['severity' => 'critical'])),
@@ -488,8 +490,8 @@
                         <a class="btn {{ $isNationalInventoryDashboard ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('dashboard', $nationalInventoryScopeParams) }}" aria-pressed="{{ $isNationalInventoryDashboard ? 'true' : 'false' }}">National Inventory</a>
                     </div>
                 @endif
-                <a class="btn btn-outline-primary btn-sm" href="{{ $isNationalInventoryDashboard ? $nationalInventoryUrl : route('dashboard.inventory-alerts', $inventoryAlertParams) }}">
-                    <i class="fa-solid {{ $isNationalInventoryDashboard ? 'fa-earth-asia' : 'fa-list-check' }} me-1"></i>{{ $isNationalInventoryDashboard ? 'View National Inventory' : 'View all alerts' }}
+                <a class="btn btn-outline-primary btn-sm" href="{{ $isNationalInventoryDashboard ? route('dashboard.inventory-alerts', ['hub_id' => $nationalInventoryHubId, 'inventory_scope' => 'national']) : route('dashboard.inventory-alerts', $inventoryAlertParams) }}">
+                    <i class="fa-solid fa-list-check me-1"></i>View all alerts
                 </a>
             </div>
         </div>
