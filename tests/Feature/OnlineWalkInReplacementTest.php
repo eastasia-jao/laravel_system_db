@@ -395,6 +395,75 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('Replacement item did not pass inspection.');
     }
 
+    public function test_walk_in_refund_requires_all_returns_and_no_active_replacements_then_locks_order(): void
+    {
+        [$hub, $admin, $product, $replacementProduct] = $this->fixtures('WALK-IN-REFUND');
+        [$sale, $item] = $this->sale($admin, $hub, $product, 'walk_in', 'paid');
+        $reportUrl = route('hub.report', ['hub' => $hub->id, 'channel' => 'walk_in']);
+        $refundUrl = route('hub.report.walk-in.refund', [$hub->id, $sale->id]);
+
+        $this->actingAs($admin)->get($reportUrl)
+            ->assertOk()
+            ->assertSee('Refund is available after every ordered unit is recorded as returned.')
+            ->assertSee('id="walkInRefundConfirmModal"', false)
+            ->assertSee('Confirm Walk-In refund');
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasErrors('refund');
+        $this->assertSame('confirmed', $sale->fresh()->status);
+
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'walk_in',
+            'condition' => 'good',
+            'quantity' => 1,
+            'occurred_on' => '2026-10-29',
+            'created_by' => $admin->id,
+        ]);
+        $replacement = ProductReplacement::create([
+            'transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'original_product_id' => $product->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 1,
+            'status' => 'pending',
+        ]);
+
+        $this->get($reportUrl)
+            ->assertOk()
+            ->assertSee('Resolve pending or approved replacements before refunding.')
+            ->assertSee('Refund Locked');
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasErrors('refund');
+        $replacement->delete();
+
+        $this->get($reportUrl)->assertOk()
+            ->assertSee('Refund &amp; Lock Order', false);
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $sale = $sale->fresh();
+        $this->assertSame('refunded', $sale->status);
+        $this->assertSame('refunded', $sale->payment_status);
+        $this->assertSame('0.00', $sale->amount_paid);
+        $this->assertSame('0.00', $sale->grand_total);
+        $this->assertSame('100.00', $sale->refund_original_order_value);
+        $this->assertSame('100.00', $sale->refund_original_collected);
+        $this->assertSame('100.00', $sale->wholesale_refund_amount);
+        $this->get($reportUrl)->assertOk()->assertSee('Refunded and locked');
+        $this->from($reportUrl)->post($refundUrl)
+            ->assertRedirect($reportUrl)
+            ->assertSessionHasErrors('refund');
+    }
+
     public function test_head_office_walk_in_replacement_requires_received_return_and_updates_original_report_order(): void
     {
         [$hub, $admin, $original, $replacement] = $this->fixtures('WALK-HO');
@@ -505,7 +574,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertOk()
             ->assertSee('Returned / refunded')
             ->assertSee('Refund Locked')
-            ->assertSee('Resolve the pending replacement before refunding.')
+            ->assertSee('Resolve pending or approved replacements before refunding.')
             ->assertDontSee('Replacement payment history');
         $this->get(route('hub.sales.pending', $hub->id))
             ->assertOk()
@@ -524,7 +593,8 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('APPROVED')
             ->assertSee('WALK_IN-ORDER')
             ->assertDontSee('Returned / refunded')
-            ->assertDontSee('Refund Locked')
+            ->assertSee('Refund Locked')
+            ->assertSee('Resolve pending or approved replacements before refunding.')
             ->assertDontSee('Replacement payment history')
             ->assertSee('Includes ₱10.00 replacement shipping fee');
         $this->assertSame(1, $report->viewData('totalTransactions'));
@@ -818,6 +888,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertDontSee('data-online-proof-magnifier', false)
             ->assertDontSee('fa-magnifying-glass-plus', false)
             ->assertSee('event.stopPropagation();', false)
+            ->assertDontSee('openLightbox', false)
             ->assertSee('online-order-items-scroll', false)
             ->assertSee('.online-order-items-scroll { max-height: 340px; overflow-y: auto;', false)
             ->assertSee('.online-order-items-scroll thead th { position: sticky;', false)
@@ -827,7 +898,7 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('.online-proof-caption { display: flex; height: 3.25rem;', false)
             ->assertSee('.online-order-card { height: 240px;', false)
             ->assertSee('online-order-remarks', false)
-            ->assertSee('data-online-proof-lightbox', false)
+            ->assertDontSee('data-online-proof-lightbox', false)
             ->getContent();
 
         $document = new \DOMDocument;

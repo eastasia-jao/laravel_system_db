@@ -358,6 +358,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             Route::post('/report/online/{transaction}/replacements/{item}', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:manage-sales-status')->name('report.online.replacement.store');
             Route::post('/report/online/{transaction}/refund', [SalesReportController::class, 'refundOnlineOrder'])->middleware('can:manage-sales-status')->name('report.online.refund');
             Route::post('/report/walk-in/{transaction}/replacements/{item}', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:request-walk-in-replacements')->name('report.walk-in.replacement.store');
+            Route::post('/report/walk-in/{transaction}/refund', [SalesReportController::class, 'refundWalkInOrder'])->middleware('can:manage-sales-status')->name('report.walk-in.refund');
             Route::post('/report/walk-in/{transaction}/replacement-payment', [SalesReportController::class, 'recordWalkInReplacementPayment'])->middleware('can:manage-sales-status')->name('report.walk-in.replacement-payment.store');
             Route::post('/report/wholesale/{transaction}/items/{item}/replace', [SalesReportController::class, 'replaceWholesaleItem'])->middleware('can:manage-sales-status')->name('report.wholesale.replace');
             Route::post('/report/wholesale/{transaction}/refund', [SalesReportController::class, 'refundWholesaleOrder'])->middleware('can:manage-sales-status')->name('report.wholesale.refund');

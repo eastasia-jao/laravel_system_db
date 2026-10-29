@@ -1232,11 +1232,20 @@ class SalesReportController extends Controller
         return $this->refundAndLockOrder($hub, $transaction, 'online');
     }
 
+    public function refundWalkInOrder(Request $request, int $hub, int $transaction)
+    {
+        return $this->refundAndLockOrder($hub, $transaction, 'walk_in');
+    }
+
     private function refundAndLockOrder(int $hub, int $transaction, string $channel)
     {
         $storeHub = StoreHub::findOrFail($hub);
         abort_unless(auth()->user()?->canAccessHub($storeHub->id), 403);
-        $channelLabel = $channel === 'online' ? 'Online' : 'Wholesale';
+        $channelLabel = match ($channel) {
+            'online' => 'Online',
+            'walk_in' => 'Walk-In',
+            default => 'Wholesale',
+        };
 
         DB::transaction(function () use ($storeHub, $transaction, $channel, $channelLabel) {
             $sale = SalesTransaction::query()
@@ -1280,9 +1289,9 @@ class SalesReportController extends Controller
             $originalCollected = $channel === 'online'
                 ? (float) ($sale->proof_amount ?? 0)
                 : (float) ($sale->amount_paid ?? 0);
-            $refundableOrderValue = $channel === 'online'
-                ? max(0, $orderValue)
-                : max(0, $orderValue - (float) ($sale->shipping_fee_amount ?? 0));
+            $refundableOrderValue = $channel === 'wholesale'
+                ? max(0, $orderValue - (float) ($sale->shipping_fee_amount ?? 0))
+                : max(0, $orderValue);
             $collected = min($refundableOrderValue, max(0, $originalCollected));
 
             $sale->forceFill([

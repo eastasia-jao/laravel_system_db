@@ -174,7 +174,9 @@
     @php
         $approvedWalkInReplacements = $transaction->replacements->where('status', 'approved');
         $hasApprovedWalkInReplacement = $approvedWalkInReplacements->isNotEmpty();
-        $hasPendingWalkInReplacement = $transaction->replacements->contains(fn ($replacement) => $replacement->status === 'pending');
+        $hasActiveWalkInReplacement = $transaction->replacements->contains(
+            fn ($replacement) => in_array($replacement->status, ['pending', 'approved'], true)
+        );
         $walkInReplacementShippingFee = round((float) $approvedWalkInReplacements->sum('replacement_shipping_fee_amount'), 2);
         $walkInOriginalGross = $transaction->items->sum(fn ($item) => (float) $item->unit_price * (int) $item->quantity);
         $walkInReplacementTotal = $approvedWalkInReplacements->sum(fn ($replacement) => (float) $replacement->replacement_unit_price * (int) ($replacement->replacement_quantity ?: $replacement->quantity));
@@ -183,6 +185,19 @@
         $walkInNet = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->sub_total ?: $transaction->items->sum('line_total')));
         $walkInPaid = (float) ($transaction->amount_paid ?? 0);
         $walkInBalance = max(0, round($walkInNet - $walkInPaid, 2));
+        $walkInRefundIsLocked = $transaction->status === 'refunded';
+        $walkInRefundItemsComplete = $transaction->items->isNotEmpty()
+            && $transaction->items->every(fn ($item) => $item->returnedQuantity() >= (int) $item->quantity);
+        $walkInRefundEligible = ! $walkInRefundIsLocked
+            && in_array($transaction->status, ['confirmed', 'completed'], true)
+            && $walkInRefundItemsComplete
+            && ! $hasActiveWalkInReplacement;
+        $walkInRefundAmount = $walkInRefundIsLocked
+            ? (float) $transaction->wholesale_refund_amount
+            : min(
+                max(0, (float) ($transaction->grand_total ?: $transaction->total_amount ?: $transaction->items->sum('line_total'))),
+                max(0, $walkInPaid)
+            );
         $walkInReturnedQty = $transaction->items->sum(fn ($item) => $item->returnedQuantity());
         $walkInRefund = max(
             (float) $transaction->items->sum(fn ($item) => $item->refundCostAmount()),
@@ -373,15 +388,57 @@
                     </div>
                 </div>
                 @if($transaction->note)<div class="alert alert-light border mt-3 mb-0"><strong>Remarks:</strong> {{ $transaction->note }}</div>@endif
-            </div><div class="modal-footer {{ $hasPendingWalkInReplacement ? 'justify-content-between' : '' }}">
-                @if($hasPendingWalkInReplacement)
-                    <div><button type="button" class="btn btn-outline-secondary" disabled><i class="fa-solid fa-lock me-1"></i>Refund Locked</button><small class="text-muted d-block mt-1">Resolve the pending replacement before refunding.</small></div>
-                @endif
+            </div><div class="modal-footer justify-content-between">
+                <div>
+                    @if($walkInRefundIsLocked)
+                        <div class="text-secondary fw-semibold"><i class="fa-solid fa-lock me-1"></i>Refunded and locked · ₱{{ number_format($walkInRefundAmount, 2) }}</div>
+                    @else
+                        @can('manage-sales-status')
+                            <form action="{{ route('hub.report.walk-in.refund', [$hub->id, $transaction->id]) }}" method="POST" class="walk-in-refund-form"
+                                data-order-number="{{ $transaction->order_number }}"
+                                data-refund-amount="{{ number_format($walkInRefundAmount, 2, '.', '') }}">
+                                @csrf
+                                @if($walkInRefundEligible)
+                                    <button type="submit" class="btn btn-outline-danger"><i class="fa-solid fa-lock me-1"></i>Refund &amp; Lock Order</button>
+                                @else
+                                    <button type="button" class="btn btn-outline-secondary" disabled><i class="fa-solid fa-lock me-1"></i>Refund Locked</button>
+                                    <small class="text-muted d-block mt-1">
+                                        {{ $hasActiveWalkInReplacement ? 'Resolve pending or approved replacements before refunding.' : ($walkInRefundItemsComplete ? 'Refund is available only for verified Walk-In orders.' : 'Refund is available after every ordered unit is recorded as returned.') }}
+                                    </small>
+                                @endif
+                            </form>
+                        @endcan
+                    @endif
+                </div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div></div>
     </div>
 @endforeach
+
+@can('manage-sales-status')
+<div class="modal fade" id="walkInRefundConfirmModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="walkInRefundConfirmTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fs-6" id="walkInRefundConfirmTitle"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Confirm Walk-In refund</h5>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small">This refunds the recorded amount paid and permanently locks the order.</div>
+                <dl class="row small mb-0">
+                    <dt class="col-6 text-muted">Order</dt><dd class="col-6 text-end fw-semibold" id="walkInRefundOrder"></dd>
+                    <dt class="col-6 text-muted mb-0">Refund amount</dt><dd class="col-6 text-end fw-bold text-danger mb-0" id="walkInRefundAmount"></dd>
+                </dl>
+                <div class="small text-muted mt-3">The active order total and amount paid will become ₱0.00. Original values remain available for audit.</div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="walkInRefundConfirmButton"><i class="fa-solid fa-lock me-1"></i>Refund &amp; Lock</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endcan
 
 @can('request-walk-in-replacements')
 @foreach($transactions as $transaction) @foreach($transaction->items as $item)
@@ -439,6 +496,33 @@
 <script>
 (() => {
     const endpoint = @json(route('hub.products.search.ajax', $hub->id));
+    let pendingWalkInRefundForm = null;
+    const refundModalElement = document.getElementById('walkInRefundConfirmModal');
+    const refundModal = refundModalElement ? bootstrap.Modal.getOrCreateInstance(refundModalElement) : null;
+    document.querySelectorAll('.walk-in-refund-form').forEach(form => {
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            pendingWalkInRefundForm = form;
+            document.getElementById('walkInRefundOrder').textContent = `#${form.dataset.orderNumber}`;
+            document.getElementById('walkInRefundAmount').textContent = `₱${Number(form.dataset.refundAmount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const orderModal = form.closest('.modal');
+            if (orderModal) {
+                orderModal.addEventListener('hidden.bs.modal', () => refundModal?.show(), { once: true });
+                bootstrap.Modal.getOrCreateInstance(orderModal).hide();
+            } else {
+                refundModal?.show();
+            }
+        });
+    });
+    document.getElementById('walkInRefundConfirmButton')?.addEventListener('click', () => {
+        if (!pendingWalkInRefundForm) return;
+        const form = pendingWalkInRefundForm;
+        pendingWalkInRefundForm = null;
+        HTMLFormElement.prototype.submit.call(form);
+    });
+    refundModalElement?.addEventListener('hidden.bs.modal', () => {
+        pendingWalkInRefundForm = null;
+    });
     document.querySelectorAll('.walk-in-replace-button').forEach(button => button.addEventListener('click', event => {
         event.preventDefault(); const target = document.querySelector(button.dataset.replacementTarget); if (!target) return;
         if (target.parentElement !== document.body) document.body.appendChild(target);

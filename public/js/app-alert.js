@@ -42,6 +42,19 @@
             });
         }
     };
+    window.addEventListener('pageshow', event => {
+        if (!event.persisted) return;
+
+        queue.splice(0).forEach(alert => alert.resolve());
+        if (dialog?.open) {
+            dialog.close();
+            return;
+        }
+
+        const finished = active;
+        active = null;
+        finished?.resolve();
+    });
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initialize, { once: true });
     } else {
