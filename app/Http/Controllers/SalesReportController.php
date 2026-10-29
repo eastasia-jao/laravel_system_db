@@ -41,6 +41,11 @@ class SalesReportController extends Controller
         return $this->returnsForChannel($request, $hub, 'wholesale');
     }
 
+    public function walkInReturns(Request $request, int $hub)
+    {
+        return $this->returnsForChannel($request, $hub, 'walk_in');
+    }
+
     public function marketplaceReturns(Request $request, int $hub)
     {
         $filters = $request->validate([
@@ -112,6 +117,7 @@ class SalesReportController extends Controller
                 'tiktok' => route('hub.tiktok-returns', $storeHub->id),
                 'online' => route('hub.online-returns', $storeHub->id),
                 'wholesale' => route('hub.wholesale-returns', $storeHub->id),
+                'walk_in' => route('hub.walk-in-returns', $storeHub->id),
                 default => route('hub.marketplace-returns', ['hub' => $storeHub->id, 'channel' => $channel]),
             },
             'dateFrom' => $filters['date_from'] ?? null,

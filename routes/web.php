@@ -330,6 +330,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             Route::get('/tiktok-returns', [SalesReportController::class, 'tiktokReturns'])->middleware('can:view-sales-reports')->name('tiktok-returns');
             Route::get('/online-returns', [SalesReportController::class, 'onlineReturns'])->middleware('can:view-sales-reports')->name('online-returns');
             Route::get('/wholesale-returns', [SalesReportController::class, 'wholesaleReturns'])->middleware('can:view-sales-reports')->name('wholesale-returns');
+            Route::get('/walk-in-returns', [SalesReportController::class, 'walkInReturns'])->middleware('can:view-sales-reports')->name('walk-in-returns');
             Route::get('/marketplace-returns', [SalesReportController::class, 'marketplaceReturns'])->name('marketplace-returns');
             Route::get('/branch-returns', [SalesReportController::class, 'branchReturns'])->name('branch-returns');
             Route::get('/fully-booked-returns', [SalesReportController::class, 'fullyBookedReturns'])->middleware('can:view-sales-reports')->name('fully-booked-returns');

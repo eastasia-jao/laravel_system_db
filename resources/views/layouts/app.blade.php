@@ -30,6 +30,7 @@
             'hub.tiktok-returns' => 'TikTok Returns',
             'hub.online-returns' => 'Online Returns',
             'hub.wholesale-returns' => 'Wholesale Returns',
+            'hub.walk-in-returns' => 'Walk-In Returns',
             'hub.report' => 'Sales Report',
             'hub.fully-booked-returns' => 'Fully Booked Returns',
             'hub.fully-booked-rejected' => 'Rejected Fully Booked Orders',
