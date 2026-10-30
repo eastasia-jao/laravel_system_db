@@ -1258,11 +1258,11 @@ class SalesWorkflowTest extends TestCase
             ->assertSee('Payment reconciliation')
             ->assertSee('online-overview-primary-metrics')
             ->assertSee('online-overview-reconciliation')
-            ->assertSee('Reconciliation Difference')
+            ->assertSee('Payment Difference')
             ->assertSee('ONLINE-REPORT-001', false)
             ->assertSee('Reconciled payment')
-            ->assertSee('Difference')
-            ->assertDontSee('Difference ₱');
+            ->assertSee('Payment difference')
+            ->assertDontSee('Payment difference ₱');
         $this->assertSame(230.0, (float) $onlineReport->viewData('metrics')['proof_amount']);
         $this->assertSame(30.0, (float) $onlineReport->viewData('metrics')['difference']);
     }

@@ -538,7 +538,7 @@
                         @include('hubs.reports.metric', ['label' => 'Shipping Fees', 'value' => $metrics['shipping_fees'], 'color' => 'info'])
                         @include('hubs.reports.metric', ['label' => 'Expected Amount', 'value' => $metrics['expected_amount'], 'color' => 'success'])
                         @include('hubs.reports.metric', ['label' => 'Proof Amount', 'value' => $metrics['proof_amount'], 'color' => 'primary'])
-                        @include('hubs.reports.metric', ['label' => 'Reconciliation Difference', 'value' => $metrics['difference'], 'color' => abs($metrics['difference']) < 0.01 ? 'success' : 'danger'])
+                        @include('hubs.reports.metric', ['label' => 'Payment Difference', 'value' => $metrics['difference'], 'color' => abs($metrics['difference']) < 0.01 ? 'success' : 'danger'])
                     </div>
                 </section>
             </div>
