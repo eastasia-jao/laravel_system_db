@@ -454,6 +454,9 @@ class OnlineSalesReportTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Net Product Sales')
+            ->assertSee('online-overview-main', false)
+            ->assertSee('online-overview-sales-highlight', false)
+            ->assertSee('Payment totals')
             ->assertSee('Shipping Fees')
             ->assertSee('Proof Amount')
             ->assertDontSee('Expected Amount')

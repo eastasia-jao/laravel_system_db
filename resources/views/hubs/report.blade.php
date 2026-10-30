@@ -282,20 +282,23 @@
         .tiktok-overview-grid { grid-template-columns: 1fr; }
     }
     .online-overview-panel {
-        padding: 1.25rem;
-        border: 1px solid #e5e7eb;
+        padding: 1.1rem;
+        border: 1px solid #e2e8f0;
         border-radius: 1rem;
-        background: linear-gradient(145deg, #f8fbff, #ffffff 58%);
-        box-shadow: 0 6px 18px rgba(15, 23, 42, .06);
+        background: linear-gradient(145deg, #f8fbff, #fff 62%);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
     }
     .online-overview-heading {
         display: flex;
+        min-height: 2.5rem;
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
-        margin-bottom: 1rem;
+        margin-bottom: .9rem;
     }
+    .online-overview-heading .small.text-primary { letter-spacing: .06em; }
     .online-overview-heading > i {
+        flex: 0 0 auto;
         width: 2.25rem;
         height: 2.25rem;
         display: inline-flex;
@@ -304,14 +307,59 @@
         border-radius: .75rem;
         background: #eaf2ff;
     }
-    .online-overview-panel .card {
-        border: 1px solid #edf0f5 !important;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, .04) !important;
+    .online-overview-main {
+        display: grid;
+        grid-template-columns: minmax(230px, .9fr) minmax(0, 2fr);
+        gap: .8rem;
+        align-items: stretch;
+    }
+    .online-overview-sales-highlight {
+        display: flex;
+        min-width: 0;
+        min-height: 100%;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 1.25rem;
+        padding: 1.1rem;
+        border: 1px solid #a7f3d0;
+        border-radius: .9rem;
+        background: linear-gradient(145deg, #ecfdf5, #fff 82%);
+    }
+    .online-overview-sales-icon {
+        display: inline-flex;
+        width: 2.4rem;
+        height: 2.4rem;
+        align-items: center;
+        justify-content: center;
+        border-radius: .75rem;
+        color: #047857;
+        background: #d1fae5;
+    }
+    .online-overview-sales-label {
+        margin-top: .9rem;
+        color: #475569;
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .045em;
+        text-transform: uppercase;
+    }
+    .online-overview-sales-value {
+        margin-top: .2rem;
+        color: #047857;
+        font-size: clamp(1.7rem, 2.7vw, 2.35rem);
+        font-weight: 800;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+    }
+    .online-overview-sales-note {
+        margin-top: .55rem;
+        color: #64748b;
+        font-size: .75rem;
     }
     .online-overview-metrics {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: .85rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .7rem;
         margin: 0;
     }
     .online-overview-metrics > [class*="col-"] {
@@ -319,41 +367,60 @@
         max-width: none;
         padding: 0;
     }
-    .online-overview-metrics .card {
-        min-height: 100%;
+    .online-overview-primary-metrics .card {
+        min-height: 82px;
+        border: 1px solid #e8edf5 !important;
+        border-radius: .8rem;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .035) !important;
     }
-    .online-overview-metrics .card-body {
-        padding: 1rem;
+    .online-overview-primary-metrics .card-body {
+        padding: .8rem !important;
+        gap: .65rem !important;
     }
-    .online-overview-metrics .fs-4 {
-        font-size: clamp(1.05rem, 1.25vw, 1.35rem) !important;
+    .online-overview-primary-metrics .sales-metric-icon {
+        flex-basis: 2rem;
+        width: 2rem;
+        height: 2rem;
+        border-radius: .65rem;
+    }
+    .online-overview-primary-metrics .small {
+        font-size: .68rem;
+        line-height: 1.25;
+    }
+    .online-overview-primary-metrics .fs-4 {
+        margin-top: .15rem;
+        font-size: clamp(1rem, 1.2vw, 1.2rem) !important;
         white-space: nowrap;
     }
-    @media (min-width: 768px) {
-        .online-overview-primary-metrics > :first-child {
-            grid-column: span 2;
-        }
-        .online-overview-primary-metrics > :first-child .card {
-            background: linear-gradient(135deg, #f0fdf4, #ffffff 78%);
-            border-left: 3px solid #059669 !important;
-        }
-        .online-overview-primary-metrics > :first-child .fs-4 {
-            font-size: clamp(1.35rem, 1.8vw, 1.8rem) !important;
-        }
-        .online-overview-reconciliation { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .online-overview-reconciliation {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .7rem;
     }
-    @media (max-width: 767.98px) {
-        .online-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .online-overview-reconciliation .card {
+        min-height: 84px;
+        border: 1px solid #dbeafe !important;
+        border-radius: .8rem;
+        background: linear-gradient(135deg, #eff6ff, #fff 82%);
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .035) !important;
     }
-    @media (max-width: 479.98px) {
-        .online-overview-metrics { grid-template-columns: 1fr; }
-        .online-overview-primary-metrics > :first-child { grid-column: auto; }
+    .online-overview-reconciliation .card-body {
+        padding: .85rem 1rem !important;
+        gap: .75rem !important;
+    }
+    .online-overview-reconciliation .small {
+        color: #475569 !important;
+        font-weight: 600 !important;
+    }
+    .online-overview-reconciliation .fs-4 {
+        font-size: clamp(1.05rem, 1.35vw, 1.35rem) !important;
+        white-space: nowrap;
     }
     .online-overview-divider {
         display: flex;
         align-items: center;
         gap: .75rem;
-        margin: 1.25rem 0 .75rem;
+        margin: 1rem 0 .65rem;
         color: #64748b;
         font-size: .7rem;
         font-weight: 700;
@@ -365,6 +432,19 @@
         height: 1px;
         flex: 1;
         background: #dbe3ef;
+    }
+    @media (max-width: 991.98px) {
+        .online-overview-main { grid-template-columns: 1fr; }
+        .online-overview-sales-highlight { min-height: 0; }
+    }
+    @media (max-width: 767.98px) {
+        .online-overview-panel { padding: .9rem; }
+        .online-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 479.98px) {
+        .online-overview-metrics,
+        .online-overview-reconciliation { grid-template-columns: 1fr; }
+        .online-overview-sales-value { font-size: 1.8rem; }
     }
     .tiktok-preview-summary { border: 1px solid #e9ecef; border-radius: .75rem; overflow: hidden; }
     .tiktok-preview-summary-row { display: flex; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; }
@@ -518,21 +598,30 @@
                     <div class="online-overview-heading">
                         <div>
                             <div class="small text-primary fw-bold text-uppercase">Online sales overview</div>
-                            <div class="text-muted small">A quick summary of verified orders and payment reconciliation.</div>
+                            <div class="text-muted small">Verified sales, customer activity, and payment totals at a glance.</div>
                         </div>
                         <i class="fa-solid fa-chart-line text-primary" aria-hidden="true"></i>
                     </div>
-                    <div class="online-overview-metrics online-overview-primary-metrics">
-                        @include('hubs.reports.metric', ['label' => 'Net Product Sales', 'value' => $metrics['total_sales'], 'color' => 'success'])
-                        @include('hubs.reports.metric', ['label' => 'No. of Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark'])
-                        @include('hubs.reports.metric', ['label' => 'No. of Returns', 'value' => $metrics['return_count'], 'money' => false, 'color' => 'danger'])
-                        @include('hubs.reports.metric', ['label' => 'No. of Replacements', 'value' => $metrics['replacement_count'], 'money' => false, 'color' => 'warning'])
-                        @include('hubs.reports.metric', ['label' => 'Total Refund Cost', 'value' => $metrics['refund_total'], 'color' => 'danger'])
-                        @include('hubs.reports.metric', ['label' => 'Total Customers', 'value' => $customerMetrics['total'], 'money' => false, 'color' => 'primary'])
-                        @include('hubs.reports.metric', ['label' => 'New Customers', 'value' => $customerMetrics['new'], 'money' => false, 'color' => 'success'])
+                    <div class="online-overview-main">
+                        <section class="online-overview-sales-highlight" aria-label="Net product sales">
+                            <span class="online-overview-sales-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+                            <div>
+                                <div class="online-overview-sales-label">Net Product Sales</div>
+                                <div class="online-overview-sales-value">₱{{ number_format((float) $metrics['total_sales'], 2) }}</div>
+                                <div class="online-overview-sales-note">After verified returns and replacements</div>
+                            </div>
+                        </section>
+                        <div class="online-overview-metrics online-overview-primary-metrics">
+                            @include('hubs.reports.metric', ['label' => 'No. of Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark'])
+                            @include('hubs.reports.metric', ['label' => 'No. of Returns', 'value' => $metrics['return_count'], 'money' => false, 'color' => 'danger'])
+                            @include('hubs.reports.metric', ['label' => 'No. of Replacements', 'value' => $metrics['replacement_count'], 'money' => false, 'color' => 'warning'])
+                            @include('hubs.reports.metric', ['label' => 'Total Refund Cost', 'value' => $metrics['refund_total'], 'color' => 'danger'])
+                            @include('hubs.reports.metric', ['label' => 'Total Customers', 'value' => $customerMetrics['total'], 'money' => false, 'color' => 'primary'])
+                            @include('hubs.reports.metric', ['label' => 'New Customers', 'value' => $customerMetrics['new'], 'money' => false, 'color' => 'success'])
+                        </div>
                     </div>
                     <div class="online-overview-divider">
-                        <span>Payment reconciliation</span>
+                        <span>Payment totals</span>
                     </div>
                     <div class="online-overview-metrics online-overview-reconciliation">
                         @include('hubs.reports.metric', ['label' => 'Shipping Fees', 'value' => $metrics['shipping_fees'], 'color' => 'info'])
