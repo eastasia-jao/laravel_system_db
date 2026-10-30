@@ -159,10 +159,11 @@
                         @php
                             $storedAttachments = $group['sale']->event_attachments ?? [];
                             $categorizedAttachments = is_array($storedAttachments)
-                                && (array_key_exists('order_slip', $storedAttachments) || array_key_exists('item_images', $storedAttachments) || array_key_exists('proof_of_payment', $storedAttachments));
+                                && (array_key_exists('order_slip', $storedAttachments) || array_key_exists('item_images', $storedAttachments) || array_key_exists('proof_of_payment', $storedAttachments) || array_key_exists('promotion_proof', $storedAttachments));
                             $attachmentGroups = $categorizedAttachments ? [
                                 'Order Slip Image' => array_filter([$storedAttachments['order_slip'] ?? null]),
                                 'Item Images' => array_filter($storedAttachments['item_images'] ?? []),
+                                'Coupon / Voucher Attachment' => array_filter([$storedAttachments['promotion_proof'] ?? null]),
                                 'Proof of Payment' => array_filter([$storedAttachments['proof_of_payment'] ?? null]),
                             ] : ['Event Images' => array_filter(is_array($storedAttachments) ? $storedAttachments : [])];
                         @endphp
@@ -182,7 +183,7 @@
 
                     @if($group['sale'] && collect($attachmentGroups)->flatten()->isNotEmpty())
                         <div class="event-log-meta event-log-attachments mb-3">
-                            <div class="event-log-attachments-title"><div class="label">Sale Image Attachments</div></div>
+                            <div class="event-log-attachments-title"><div class="label">Sale Attachments</div></div>
                             <div class="event-log-attachment-groups">
                                 @foreach($attachmentGroups as $attachmentLabel => $attachments)
                                     @if(!empty($attachments))
@@ -190,6 +191,7 @@
                                             $attachmentRouteType = match ($attachmentLabel) {
                                                 'Order Slip Image' => 'order-slip',
                                                 'Item Images' => 'item-image',
+                                                'Coupon / Voucher Attachment' => 'promotion-proof',
                                                 'Proof of Payment' => 'payment-proof',
                                                 default => 'image',
                                             };
@@ -200,8 +202,12 @@
                                                 @foreach(array_values($attachments) as $attachmentIndex => $attachment)
                                                     @php($attachmentUrl = route('event-inventory.sales.attachment', ['transaction' => $group['sale']->id, 'type' => $attachmentRouteType, 'index' => $attachmentIndex]))
                                                     <a class="event-log-attachment-card" href="{{ $attachmentUrl }}" target="_blank" rel="noopener" aria-label="Open {{ $attachmentLabel }} {{ $loop->iteration }}">
-                                                        <img src="{{ $attachmentUrl }}" class="event-log-attachment" alt="{{ $attachmentLabel }} {{ $loop->iteration }}" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-                                                        <span class="event-log-attachment-fallback" hidden>Image unavailable</span>
+                                                        @if(strtolower(pathinfo($attachment, PATHINFO_EXTENSION)) === 'pdf')
+                                                            <span class="event-log-attachment-fallback"><i class="fa-solid fa-file-pdf text-danger fs-3"></i><span class="d-block small mt-1">Open PDF</span></span>
+                                                        @else
+                                                            <img src="{{ $attachmentUrl }}" class="event-log-attachment" alt="{{ $attachmentLabel }} {{ $loop->iteration }}" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                                            <span class="event-log-attachment-fallback" hidden>Image unavailable</span>
+                                                        @endif
                                                     </a>
                                                 @endforeach
                                             </div>

@@ -231,7 +231,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::get('/event-inventory/{eventPullout}/sales/create', [EventInventoryController::class, 'createSale'])->name('event-inventory.sales.create');
         Route::post('/event-inventory/{eventPullout}/sales', [EventInventoryController::class, 'storeSale'])->name('event-inventory.sales.store');
         Route::get('/event-inventory/sales/{transaction}/attachments/{type}/{index}', [EventInventoryController::class, 'saleAttachment'])
-            ->whereIn('type', ['order-slip', 'item-image', 'payment-proof', 'image'])
+            ->whereIn('type', ['order-slip', 'item-image', 'payment-proof', 'promotion-proof', 'image'])
             ->whereNumber('index')
             ->name('event-inventory.sales.attachment');
         Route::patch('/event-inventory/{eventPullout}/close', [EventInventoryController::class, 'close'])->name('event-inventory.close');

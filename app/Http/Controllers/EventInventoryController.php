@@ -155,6 +155,7 @@ class EventInventoryController extends Controller
             'item_images' => ['nullable', 'array', 'max:5'],
             'item_images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'proof_of_payment_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+            'event_promotion_attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,webp,pdf', 'max:5120'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.event_pullout_item_id' => ['required', 'integer', 'distinct', 'exists:event_pullout_items,id'],
             'items.*.stock_condition' => ['required', Rule::in(['good', 'damaged'])],
@@ -175,6 +176,7 @@ class EventInventoryController extends Controller
             'order_slip' => null,
             'item_images' => [],
             'proof_of_payment' => null,
+            'promotion_proof' => null,
         ];
         $storedAttachmentPaths = [];
         try {
@@ -192,6 +194,11 @@ class EventInventoryController extends Controller
                 $attachmentPaths['proof_of_payment'] = $request->file('proof_of_payment_image')
                     ->store('event_sale_attachments/payment_proofs', AttachmentStorage::diskName(AttachmentStorage::EVENTS));
                 $storedAttachmentPaths[] = $attachmentPaths['proof_of_payment'];
+            }
+            if ($request->hasFile('event_promotion_attachment')) {
+                $attachmentPaths['promotion_proof'] = $request->file('event_promotion_attachment')
+                    ->store('event_sale_attachments/promotions', AttachmentStorage::diskName(AttachmentStorage::EVENTS));
+                $storedAttachmentPaths[] = $attachmentPaths['promotion_proof'];
             }
 
             $sale = DB::transaction(function () use ($eventPullout, $validated, $request, $attachmentPaths) {
@@ -386,6 +393,7 @@ class EventInventoryController extends Controller
             'order-slip' => $index === 0 ? ($attachments['order_slip'] ?? null) : null,
             'item-image' => $attachments['item_images'][$index] ?? null,
             'payment-proof' => $index === 0 ? ($attachments['proof_of_payment'] ?? null) : null,
+            'promotion-proof' => $index === 0 ? ($attachments['promotion_proof'] ?? null) : null,
             'image' => $attachments[$index] ?? null,
             default => null,
         };
@@ -606,6 +614,7 @@ class EventInventoryController extends Controller
                     'id' => $line->id,
                     'product_id' => $line->product_id,
                     'product' => $line->product,
+                    'barcode' => $line->product?->barcode ?? '',
                     'condition' => $line->stock_condition,
                     'available' => $available,
                     'unit_price' => (float) ($line->product?->sales_price ?? 0),

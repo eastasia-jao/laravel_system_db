@@ -93,10 +93,17 @@ class EventInventoryTest extends TestCase
             ->assertSee('Record Event Sale')
             ->assertSee('event-ledger-items')
             ->assertSee('event-ledger-product-search-input')
-            ->assertSee('Choose Good or Damaged for each row')
-            ->assertSee('Search product name or Item ID')
-            ->assertSee('Order Slip Image')
-            ->assertSee('Upload up to 5 images; maximum 2 MB each.')
+            ->assertSee('Choose Good or Damaged, then search by item code, barcode, or description.')
+            ->assertSee('list="popupEventProductOptions"', false)
+            ->assertSee('Search item code, barcode, or description')
+            ->assertSee('01 · Order details')
+            ->assertSee('02 · Order items')
+            ->assertSee('03 · Payment and totals')
+            ->assertSee('04 · Attachments')
+            ->assertSee('Order Slip')
+            ->assertSee('Up to 5 images, maximum 2 MB each.')
+            ->assertSee('Coupon / Voucher')
+            ->assertSee('event_promotion_attachment')
             ->assertSee('Proof of Payment')
             ->assertSee('PayMaya')
             ->assertSee('Specify Payment Method')
@@ -260,6 +267,10 @@ class EventInventoryTest extends TestCase
                 $this->fakePng('event-2.png'),
                 $this->fakePng('event-3.png'),
             ],
+            'event_promotion_attachment' => UploadedFile::fake()->createWithContent(
+                'voucher.pdf',
+                "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+            ),
             'proof_of_payment_image' => $this->fakePng('payment.png'),
             'items' => [[
                 'event_pullout_item_id' => $line->id,
@@ -288,6 +299,7 @@ class EventInventoryTest extends TestCase
         $this->assertSame('260.00', $sale->amount_paid);
         $this->assertNotEmpty($sale->event_attachments['order_slip']);
         $this->assertCount(3, $sale->event_attachments['item_images']);
+        $this->assertNotEmpty($sale->event_attachments['promotion_proof']);
         $this->assertNotEmpty($sale->event_attachments['proof_of_payment']);
         foreach (collect($sale->event_attachments)->flatten() as $attachment) {
             Storage::disk('event-attachments')->assertExists($attachment);
@@ -327,12 +339,20 @@ class EventInventoryTest extends TestCase
             ->assertSee('Deduction: -&#8369;25.00', false)
             ->assertSee('Order Slip Image')
             ->assertSee('Item Images')
+            ->assertSee('Coupon / Voucher Attachment')
             ->assertSee('Proof of Payment');
         $this->get(route('event-inventory.sales.attachment', [
             'transaction' => $sale->id,
             'type' => 'order-slip',
             'index' => 0,
         ]))->assertOk();
+        $promotionAttachmentResponse = $this->get(route('event-inventory.sales.attachment', [
+            'transaction' => $sale->id,
+            'type' => 'promotion-proof',
+            'index' => 0,
+        ]));
+        $this->assertSame(200, $promotionAttachmentResponse->getStatusCode(), $promotionAttachmentResponse->getContent());
+        $promotionAttachmentResponse->assertHeader('Content-Type', 'application/pdf');
 
         $this->getJson(route('inventory-transactions.return.sales', [
             'hub_id' => $hub->id,
