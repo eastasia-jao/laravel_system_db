@@ -302,6 +302,12 @@ class SalesReportController extends Controller
         }
 
         $allTransactions = (clone $query)->orderBy('order_date')->get();
+        $isRefundedTransaction = static fn (SalesTransaction $transaction): bool =>
+            strtolower((string) $transaction->status) === 'refunded'
+            || strtolower((string) $transaction->payment_status) === 'refunded';
+        $summaryTransactions = $channel === 'online'
+            ? $allTransactions->reject($isRefundedTransaction)->values()
+            : $allTransactions;
         $transactions = (clone $query)
             ->orderByDesc('order_date')
             ->orderByDesc('id')
@@ -319,11 +325,11 @@ class SalesReportController extends Controller
                 ->groupBy(fn ($return) => trim($return->reference).'|'.$return->product_id)
             : collect();
 
-        $resolveTotal = fn (SalesTransaction $transaction): float => $transaction->status === 'refunded'
+        $resolveTotal = fn (SalesTransaction $transaction): float => $isRefundedTransaction($transaction)
             ? 0.0
             : $transaction->netOrderTotal($this->resolveReportedTotal($transaction));
-        $currentGross = function (SalesTransaction $transaction): float {
-            if ($transaction->status === 'refunded') {
+        $currentGross = function (SalesTransaction $transaction) use ($isRefundedTransaction): float {
+            if ($isRefundedTransaction($transaction)) {
                 return 0.0;
             }
 
@@ -334,7 +340,7 @@ class SalesReportController extends Controller
             return max(0, round($gross, 2));
         };
         $currentNet = $resolveTotal;
-        $grossSales = $allTransactions->sum($currentGross);
+        $grossSales = $summaryTransactions->sum($currentGross);
         $returnRefunds = $returnRecords = InventoryTransaction::query()
             ->where('store_hub_id', $hub->id)
             ->where('type', 'return')
@@ -378,7 +384,7 @@ class SalesReportController extends Controller
         $refundTotal += (float) $returnRefunds
             ->reject(fn ($return) => $matchedReturnIds->contains($return->id))
             ->sum('refund_amount');
-        $totalSales = $allTransactions->sum($currentNet);
+        $totalSales = $summaryTransactions->sum($currentNet);
         $wholesaleCollectionBreakdown = [
             'cash' => ['paid' => 0.0, 'partial' => 0.0],
             'withholding' => ['paid' => 0.0, 'partial' => 0.0],
@@ -411,8 +417,8 @@ class SalesReportController extends Controller
             }
         }
         $wholesaleCollectedSales = array_sum($wholesaleCollectionBreakdown['cash']);
-        $totalTransactions = $allTransactions->count();
-        $totalPurchasedItems = $allTransactions->sum(fn ($transaction) => $transaction->items->sum(
+        $totalTransactions = $summaryTransactions->count();
+        $totalPurchasedItems = $summaryTransactions->sum(fn ($transaction) => $transaction->items->sum(
             function ($item) {
                 $approvedReplacements = $item->replacements->where('status', 'approved');
                 $originalReturnedQuantity = max(
@@ -431,6 +437,10 @@ class SalesReportController extends Controller
         ));
         $customerHistoryQuery = SalesTransaction::query()
             ->where('store_hub_id', $hub->id)
+            ->when($channel === 'online', function ($builder) {
+                $builder->where(fn ($status) => $status->whereNull('status')->orWhereRaw('LOWER(status) <> ?', ['refunded']))
+                    ->where(fn ($payment) => $payment->whereNull('payment_status')->orWhereRaw('LOWER(payment_status) <> ?', ['refunded']));
+            })
             ->when($channel !== 'all', function ($builder) use ($channel) {
                 $builder->where(function ($builder) use ($channel) {
                     $builder->whereRaw('LOWER(channel_type) = ?', [$channel])
@@ -469,7 +479,7 @@ class SalesReportController extends Controller
                 'sale_id' => (int) $sale->id,
             ];
         }
-        $reportCustomers = $allTransactions->map(function ($sale) {
+        $reportCustomers = $summaryTransactions->map(function ($sale) {
             $identity = $sale->customerIdentityKey();
 
             return $identity === null ? null : $this->normalizeChannel($sale->channel_type).'|'.$identity;
@@ -487,7 +497,7 @@ class SalesReportController extends Controller
             'total' => $reportCustomers->count(),
             'new' => $reportCustomers->filter($isNewCustomerOrder)->count(),
         ];
-        $newCustomerSaleIds = $allTransactions->filter(function ($sale) use ($isNewCustomerOrder, $firstCustomerOrders) {
+        $newCustomerSaleIds = $summaryTransactions->filter(function ($sale) use ($isNewCustomerOrder, $firstCustomerOrders) {
             $identity = $sale->customerIdentityKey();
             if ($identity === null) {
                 return false;
@@ -500,7 +510,7 @@ class SalesReportController extends Controller
                 && $isNewCustomerOrder($key);
         })->modelKeys();
         $replacementCount = in_array($channel, ['wholesale', 'online'], true)
-            ? $allTransactions->sum(fn ($transaction) => $transaction->replacements->count())
+            ? $summaryTransactions->sum(fn ($transaction) => $transaction->replacements->count())
             : 0;
         $returnCount = in_array($channel, ['wholesale', 'online'], true)
             ? InventoryTransaction::query()
@@ -513,17 +523,17 @@ class SalesReportController extends Controller
             : 0;
         $metrics = [
             'gross_sales' => $grossSales,
-            'discounts' => $allTransactions->sum(fn ($transaction) => max(0, $currentGross($transaction) - $currentNet($transaction))),
+            'discounts' => $summaryTransactions->sum(fn ($transaction) => max(0, $currentGross($transaction) - $currentNet($transaction))),
             'total_sales' => $totalSales,
-            'shipping_fees' => $allTransactions->sum('shipping_fee_amount'),
-            'shipping_service_fees' => $allTransactions->sum('shipping_service_fee'),
-            'refund_shipping_fees' => $allTransactions->sum('refund_shipping_fee'),
-            'actual_platform_payout' => $allTransactions->sum('sales_after_transaction_fee'),
-            'net_platform_payout' => $allTransactions->sum(fn ($transaction) => $transaction->netTikTokPayout() ?? 0),
-            'customer_refund_amount' => $allTransactions->sum(fn ($transaction) => $transaction->completedCustomerRefunds()),
-            'pending_payouts' => $allTransactions->whereNull('sales_after_transaction_fee')->count(),
-            'proof_amount' => $allTransactions->sum('proof_amount'),
-            'difference' => $allTransactions->sum(function ($transaction) use ($resolveTotal) {
+            'shipping_fees' => $summaryTransactions->sum('shipping_fee_amount'),
+            'shipping_service_fees' => $summaryTransactions->sum('shipping_service_fee'),
+            'refund_shipping_fees' => $summaryTransactions->sum('refund_shipping_fee'),
+            'actual_platform_payout' => $summaryTransactions->sum('sales_after_transaction_fee'),
+            'net_platform_payout' => $summaryTransactions->sum(fn ($transaction) => $transaction->netTikTokPayout() ?? 0),
+            'customer_refund_amount' => $summaryTransactions->sum(fn ($transaction) => $transaction->completedCustomerRefunds()),
+            'pending_payouts' => $summaryTransactions->whereNull('sales_after_transaction_fee')->count(),
+            'proof_amount' => $summaryTransactions->sum('proof_amount'),
+            'difference' => $summaryTransactions->sum(function ($transaction) use ($resolveTotal) {
                 if ($transaction->proof_amount === null) {
                     return 0;
                 }
@@ -617,7 +627,7 @@ class SalesReportController extends Controller
         $onlinePaymentDisplay = collect();
         $onlinePaymentDisplayCounts = collect();
         if ($channel === 'online') {
-            $allTransactions->each(function ($transaction) use ($resolveTotal, $onlinePaymentSales, $onlinePaymentCounts, $onlineBankSales, $onlinePaymentDisplay, $onlinePaymentDisplayCounts) {
+            $summaryTransactions->each(function ($transaction) use ($resolveTotal, $onlinePaymentSales, $onlinePaymentCounts, $onlineBankSales, $onlinePaymentDisplay, $onlinePaymentDisplayCounts) {
                 $method = strtoupper(str_replace(['-', '_'], ' ', trim((string) ($transaction->mode_of_payment ?: 'OTHERS'))));
                 $bank = strtoupper(trim((string) ($transaction->bank_name ?: $transaction->custom_bank_name ?: '')));
                 $category = match (true) {
@@ -645,7 +655,7 @@ class SalesReportController extends Controller
             });
         }
 
-        $monthlySales = $allTransactions
+        $monthlySales = $summaryTransactions
             ->groupBy(fn ($transaction) => optional($transaction->order_date)->format('Y-m'))
             ->map(fn ($group, $month) => (object) [
                 'month' => $month,
@@ -654,7 +664,7 @@ class SalesReportController extends Controller
             ])
             ->sortKeys();
 
-        $deliveryStatuses = $allTransactions
+        $deliveryStatuses = $summaryTransactions
             ->groupBy(fn ($transaction) => ucfirst(str_replace('_', ' ', strtolower($transaction->delivery_status ?: 'unspecified'))))
             ->map(fn ($group, $status) => (object) [
                 'status' => $status,
@@ -665,6 +675,13 @@ class SalesReportController extends Controller
 
         $salesByChannel = SalesTransaction::where('store_hub_id', $hub->id)
             ->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) IN ('online', 'wholesale', 'walk_in')")
+            ->where(function ($builder) {
+                $builder->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) <> 'online'")
+                    ->orWhere(function ($online) {
+                        $online->where(fn ($status) => $status->whereNull('status')->orWhereRaw('LOWER(status) <> ?', ['refunded']))
+                            ->where(fn ($payment) => $payment->whereNull('payment_status')->orWhereRaw('LOWER(payment_status) <> ?', ['refunded']));
+                    });
+            })
             ->when($dateFrom, fn ($builder) => $builder->where('order_date', '>=', $dateFrom))
             ->when($dateTo, fn ($builder) => $builder->where('order_date', '<', Carbon::parse($dateTo)->addDay()->toDateString()))
             ->with('items')

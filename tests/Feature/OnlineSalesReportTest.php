@@ -262,10 +262,49 @@ class OnlineSalesReportTest extends TestCase
         $this->assertSame($admin->id, $sale->refunded_by);
         $this->assertNotNull($sale->refunded_at);
 
-        $this->get($reportUrl)->assertOk()
+        $legacyRefund = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'online',
+            'customer_name' => 'Legacy Refunded Customer',
+            'order_number' => 'ONLINE-LEGACY-REFUND',
+            'order_date' => '2026-10-21',
+            'sub_total' => 500,
+            'total_amount' => 500,
+            'grand_total' => 500,
+            'shipping_fee_amount' => 50,
+            'proof_amount' => 550,
+            'status' => 'confirmed',
+            'payment_status' => 'refunded',
+            'delivery_status' => 'delivered',
+            'mode_of_payment' => 'GCASH',
+        ]);
+        $legacyRefund->items()->create([
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'unit_price' => 500,
+            'line_total' => 500,
+        ]);
+
+        $refundedReport = $this->get($reportUrl)->assertOk()
             ->assertSee('Refunded and locked')
             ->assertViewHas('totalSales', 0.0)
+            ->assertViewHas('totalTransactions', 0)
             ->assertViewHas('metrics', fn (array $metrics) => (float) $metrics['refund_total'] === 200.0);
+        $this->assertSame(0, $refundedReport->viewData('customerMetrics')['total']);
+        $this->assertSame(0, $refundedReport->viewData('onlinePaymentCounts')->sum());
+        $this->assertTrue($refundedReport->viewData('monthlySales')->isEmpty());
+
+        $dashboard = $this->get(route('dashboard', [
+            'hub_id' => $hub->id,
+            'channel' => 'online',
+            'date' => '2026-10-21',
+        ]))->assertOk();
+        foreach (['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly'] as $period) {
+            $this->assertSame(0.0, (float) $dashboard->viewData('salesTotals')[$period]);
+        }
+        $this->assertSame(0.0, (float) $dashboard->viewData('channelPaymentOverview')['total']);
+        $this->assertSame(0, $dashboard->viewData('channelPaymentOverview')['transactions']);
         $this->patch(route('sales.status.update', $sale->id), [
             'delivery_status' => 'pending',
         ])->assertStatus(409);

@@ -176,6 +176,13 @@ class HubController extends Controller
         $salesQuery = SalesTransaction::whereIn('store_hub_id', $scopeIds)
             ->whereIn('status', ['completed', 'confirmed'])
             ->where(function ($query) {
+                $query->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) <> 'online'")
+                    ->orWhere(function ($online) {
+                        $online->whereNull('payment_status')
+                            ->orWhereRaw('LOWER(payment_status) <> ?', ['refunded']);
+                    });
+            })
+            ->where(function ($query) {
                 $query->whereRaw("LOWER(REPLACE(REPLACE(channel_type, '-', '_'), ' ', '_')) <> 'wholesale'")
                     ->orWhere('payment_status', 'paid')
                     ->orWhere(function ($query) {
