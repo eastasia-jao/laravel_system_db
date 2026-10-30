@@ -11,27 +11,35 @@
     .event-ledger-product-search { max-width: 420px; }
     .event-ledger-items { max-height: min(48vh, 430px); overflow: auto; scrollbar-gutter: stable; }
     .event-ledger-items tr[hidden] { display: none; }
-    .event-workspace-tabs { border: 1px solid #dbeafe; border-radius: .9rem; background: #f8fafc; padding: .35rem; }
-    .event-workspace-tabs .nav-link { border-radius: .7rem; color: #475569; font-weight: 700; }
-    .event-workspace-tabs .nav-link.active { background: #2563eb; color: #fff; box-shadow: 0 4px 12px rgba(37, 99, 235, .2); }
+    .event-inventory-actions .btn { padding: .4rem .7rem; border-radius: .6rem; font-size: .875rem; font-weight: 650; }
+    .event-workspace-tabs { display: inline-flex; width: auto; max-width: 100%; gap: .25rem; padding: .25rem; border: 1px solid #dbeafe; border-radius: .75rem; background: #f1f5f9; }
+    .event-workspace-tabs .nav-link { flex: 0 0 auto; padding: .48rem .85rem; border-radius: .55rem; color: #475569; font-size: .9rem; font-weight: 700; white-space: nowrap; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+    .event-workspace-tabs .nav-link:hover:not(.active) { background: #e2e8f0; color: #1e293b; }
+    .event-workspace-tabs .nav-link.active { background: #2563eb; color: #fff; box-shadow: 0 2px 6px rgba(37, 99, 235, .2); }
+    .event-overview-filters { padding: .85rem 1rem !important; }
+    .event-overview-filters .form-label { margin-bottom: .3rem; }
+    @media (max-width: 575.98px) {
+        .event-workspace-tabs { display: flex; width: 100%; }
+        .event-workspace-tabs .nav-link { flex: 1 1 50%; padding-inline: .5rem; text-align: center; white-space: normal; }
+    }
 </style>
 
 <div class="workspace-page event-inventory-page">
     <x-page-header class="mb-3" eyebrow="Off-site inventory" title="Event Inventory" description="Track pulled-out stock, Event sales, returns, and closeout shortages without deducting Head Office stock twice." icon="fa-tents" />
 
-    <div class="d-flex flex-wrap gap-2 mb-3">
-        <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId, 'activity_type' => 'event', 'return_to' => 'event_inventory']) }}" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>New Event Pull-Out</a>
-        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#recordEventSaleModal" @disabled($saleEvents->isEmpty())><i class="fa-solid fa-cart-plus me-1"></i>Record Event Sale</button>
-        <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $hubId, 'channel' => 'event', 'return_to' => 'event_inventory', 'return_section' => $section]) }}" class="btn btn-outline-primary"><i class="fa-solid fa-rotate-left me-1"></i>Return Items</a>
+    <div class="event-inventory-actions d-flex flex-wrap gap-2 mb-3">
+        <a href="{{ route('inventory-transactions.sponsor.create', ['hub_id' => $hubId, 'activity_type' => 'event', 'return_to' => 'event_inventory']) }}" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus me-1"></i>New Event Pull-Out</a>
+        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#recordEventSaleModal" @disabled($saleEvents->isEmpty())><i class="fa-solid fa-cart-plus me-1"></i>Record Event Sale</button>
+        <a href="{{ route('inventory-transactions.return.create', ['hub_id' => $hubId, 'channel' => 'event', 'return_to' => 'event_inventory', 'return_section' => $section]) }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-rotate-left me-1"></i>Return Items</a>
     </div>
 
     <nav class="nav nav-pills event-workspace-tabs mb-3" aria-label="Event Inventory sections">
-        <a class="nav-link flex-fill text-center {{ $section === 'overview' ? 'active' : '' }}" href="{{ route('event-inventory.index', ['hub_id' => $hubId, 'status' => $status, 'section' => 'overview']) }}"><i class="fa-solid fa-boxes-stacked me-1"></i>Inventory Overview</a>
-        <a class="nav-link flex-fill text-center {{ $section === 'transactions' ? 'active' : '' }}" href="{{ route('event-inventory.index', ['hub_id' => $hubId, 'section' => 'transactions']) }}"><i class="fa-solid fa-clock-rotate-left me-1"></i>Event Transaction Logs</a>
+        <a class="nav-link {{ $section === 'overview' ? 'active' : '' }}" href="{{ route('event-inventory.index', ['hub_id' => $hubId, 'status' => $status, 'section' => 'overview']) }}"><i class="fa-solid fa-boxes-stacked me-1"></i>Inventory Overview</a>
+        <a class="nav-link {{ $section === 'transactions' ? 'active' : '' }}" href="{{ route('event-inventory.index', ['hub_id' => $hubId, 'section' => 'transactions']) }}"><i class="fa-solid fa-clock-rotate-left me-1"></i>Event Transaction Logs</a>
     </nav>
 
     @if($section === 'overview')
-    <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
+    <div class="card border-0 shadow-sm rounded-4 event-overview-filters mb-3">
         <form class="row g-2 align-items-end">
             <input type="hidden" name="section" value="overview">
             <div class="col-md-4">

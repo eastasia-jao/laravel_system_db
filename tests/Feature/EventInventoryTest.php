@@ -21,7 +21,7 @@ class EventInventoryTest extends TestCase
     {
         [$admin, $hub] = $this->eventFixture();
 
-        $this->actingAs($admin)
+        $inventoryPage = $this->actingAs($admin)
             ->get(route('event-inventory.index', ['hub_id' => $hub->id]))
             ->assertOk()
             ->assertSee(route('inventory-transactions.sponsor.create', [
@@ -37,6 +37,10 @@ class EventInventoryTest extends TestCase
             ]))
             ->assertSee('No open events found')
             ->assertDontSee('>Create Event Pull-Out</a>', false);
+        $inventoryPage->assertSee('event-inventory-actions')
+            ->assertSee('event-workspace-tabs')
+            ->assertSee('event-overview-filters')
+            ->assertDontSee('nav-link flex-fill text-center');
 
         $this->get(route('inventory-transactions.return.create', [
             'hub_id' => $hub->id,
