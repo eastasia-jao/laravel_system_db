@@ -11,10 +11,35 @@
     .online-order-remarks { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
     .online-order-items-scroll { max-height: 340px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
     .online-order-items-scroll thead th { position: sticky; top: 0; z-index: 2; }
+    .online-order-detail-modal { border: 0; border-radius: 1rem; overflow: hidden; box-shadow: 0 24px 70px rgba(15, 23, 42, .24); }
+    .online-order-detail-modal .modal-header { padding: 1rem 1.25rem; border-bottom: 1px solid #dbe7f5; background: linear-gradient(135deg, #f8fbff, #eef5ff); }
+    .online-order-detail-heading { display: flex; min-width: 0; align-items: center; gap: .8rem; }
+    .online-order-detail-icon { display: grid; width: 2.5rem; height: 2.5rem; flex: 0 0 auto; place-items: center; border-radius: .75rem; color: #2563eb; background: #dbeafe; }
+    .online-order-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .75rem; color: #64748b; font-size: .78rem; }
+    .online-order-detail-meta span { display: inline-flex; align-items: center; gap: .3rem; }
+    .online-order-detail-modal .modal-body { padding: 1rem 1.25rem 1.25rem; background: #f8fafc; }
+    .online-order-proof-card { border: 1px solid #dce5f1 !important; background: #fff; box-shadow: 0 3px 12px rgba(15, 23, 42, .04); }
+    .online-order-summary-panel { height: 100%; padding: 1rem; border: 1px solid #dce5f1; border-radius: .75rem; background: #fff; box-shadow: 0 3px 12px rgba(15, 23, 42, .04); }
+    .online-order-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+    .online-order-summary-tile { min-width: 0; padding: .8rem .85rem; border: 1px solid #e5eaf1; border-radius: .65rem; background: #f8fafc; }
+    .online-order-summary-tile.is-total { border-color: #bbf7d0; background: #f0fdf4; }
+    .online-order-summary-tile.is-refund { border-color: #fecdd3; background: #fff7f7; }
+    .online-order-summary-label { margin-bottom: .2rem; color: #64748b; font-size: .67rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .online-order-summary-value { color: #1e293b; font-size: 1.05rem; font-weight: 800; }
+    .online-order-items-panel { overflow: hidden; border: 1px solid #dce5f1; border-radius: .75rem; background: #fff; box-shadow: 0 3px 12px rgba(15, 23, 42, .04); }
+    .online-order-items-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; border-bottom: 1px solid #e5eaf1; }
+    .online-order-items-panel .table { font-size: .8rem; }
+    .online-order-items-panel .table > :not(caption) > * > * { padding: .7rem .65rem; border-color: #e5eaf1; }
+    .online-order-items-panel thead th { color: #64748b; font-size: .66rem; letter-spacing: .035em; text-transform: uppercase; background: #f1f5f9; }
+    .online-order-detail-modal .modal-footer { padding: .8rem 1.25rem; border-top: 1px solid #dce5f1; background: #fff; }
     @media (min-width: 768px) {
         .online-order-card { height: 240px; }
         .online-order-card .order-heading { flex: 0 0 100px; min-height: 100px; overflow: hidden; }
         .online-order-card .card-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    }
+    @media (max-width: 767.98px) {
+        .online-order-summary-grid { grid-template-columns: 1fr; }
+        .online-order-detail-modal .modal-header, .online-order-detail-modal .modal-body, .online-order-detail-modal .modal-footer { padding-left: .85rem; padding-right: .85rem; }
     }
 </style>
 <div id="onlineReportImageSource">
@@ -111,7 +136,7 @@
                                     <div class="col-6 col-md-2"><div class="order-label">Shipping fee</div><div class="order-value">₱{{ number_format($shippingFee, 2) }}</div>@if($replacementDeliveryFee > 0)<div class="small text-muted">Includes ₱{{ number_format($replacementDeliveryFee, 2) }} replacement shipping</div>@endif</div>
                                     <div class="col-6 col-md-2"><div class="order-label">Proof amount</div><div class="order-value">{{ $transaction->proof_amount !== null ? '₱'.number_format($transaction->proof_amount, 2) : 'Not entered' }}</div></div>
                                     <div class="col-6 col-md-2">
-                                        <div class="order-label">Difference</div>
+                                        <div class="order-label">Payment difference</div>
                                         <div class="order-value {{ $difference !== null && abs($difference) >= 0.01 ? 'text-danger' : 'text-success' }}">{{ $difference !== null ? '₱'.number_format($difference, 2) : '—' }}</div>
                                     </div>
                                     <div class="col-12 col-md-2"><div class="order-label">Remarks</div><div class="order-value online-order-remarks" title="{{ $transaction->note }}">{{ $transaction->note ?: '—' }}</div></div>
@@ -217,7 +242,6 @@
         $detailRefundHasActiveReplacement = $transaction->items->contains(
             fn ($item) => $item->replacements->contains(fn ($replacement) => in_array($replacement->status, ['pending', 'approved'], true))
         );
-        $detailSummaryColumn = $detailRefundHasActiveReplacement ? 'col-4' : 'col-6';
         $detailRefundEligible = ! $detailIsRefunded
             && in_array($transaction->status, ['confirmed', 'completed'], true)
             && $detailRefundItemsComplete
@@ -236,33 +260,49 @@
     @endphp
     <div class="modal fade" id="online-order-{{ $transaction->id }}" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="online-order-title-{{ $transaction->id }}" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
-            <div class="modal-content">
+            <div class="modal-content online-order-detail-modal">
                 <div class="modal-header">
-                    <div>
-                        <h5 class="modal-title" id="online-order-title-{{ $transaction->id }}">Online Order #{{ $transaction->order_number }}</h5>
-                        <small class="text-muted">{{ $transaction->customer_name }}@include('hubs.reports._new-customer-badge') · {{ optional($transaction->order_date)->format('F d, Y') }} · {{ $detailPaymentLabel }}@if($detailBankLabel) / {{ strtoupper($detailBankLabel) }}@endif</small>
+                    <div class="online-order-detail-heading">
+                        <span class="online-order-detail-icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></span>
+                        <div class="min-w-0">
+                            <h5 class="modal-title mb-1" id="online-order-title-{{ $transaction->id }}">Online Sale Details #{{ $transaction->order_number }}</h5>
+                            <div class="online-order-detail-meta">
+                                <span><i class="fa-solid fa-user" aria-hidden="true"></i>{{ $transaction->customer_name }}@include('hubs.reports._new-customer-badge')</span>
+                                <span><i class="fa-regular fa-calendar" aria-hidden="true"></i>{{ optional($transaction->order_date)->format('M d, Y') }}</span>
+                                <span><i class="fa-regular fa-credit-card" aria-hidden="true"></i>{{ $detailPaymentLabel }}@if($detailBankLabel) / {{ strtoupper($detailBankLabel) }}@endif</span>
+                            </div>
+                        </div>
                     </div>
                     @if($detailIsRefunded)<span class="badge bg-secondary"><i class="fa-solid fa-lock me-1"></i>Refunded and locked</span>@endif
                 </div>
                 <div class="modal-body">
-                    <div class="row g-3 mb-4 align-items-stretch">
-                        <div class="col-12 col-lg-6">
-                            @include('hubs.reports._payment-proof', ['paymentRecord' => $transaction, 'enableProofMagnifier' => true])
+                    <div class="row g-3 mb-3 align-items-stretch">
+                        <div class="col-12 col-lg-5">
+                            @include('hubs.reports._payment-proof', ['paymentRecord' => $transaction, 'enableProofPreview' => true, 'containerClass' => 'online-order-proof-card'])
                         </div>
-                        <div class="col-12 col-lg-6">
-                            <div class="row g-3 h-100">
-                                <div class="{{ $detailSummaryColumn }}"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Product subtotal</div><div class="fs-5 fw-bold">₱{{ number_format($detailSaleAmount, 2) }}</div></div></div>
-                                <div class="{{ $detailSummaryColumn }}"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Shipping fee</div><div class="fs-5 fw-bold">₱{{ number_format($detailShippingFee, 2) }}</div>@if($detailReplacementDeliveryFee > 0)<div class="small text-muted">Includes ₱{{ number_format($detailReplacementDeliveryFee, 2) }} replacement shipping</div>@endif</div></div>
-                                <div class="{{ $detailSummaryColumn }}"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Total cost</div><div class="fs-5 fw-bold text-success">₱{{ number_format($detailOrderTotal, 2) }}</div></div></div>
+                        <div class="col-12 col-lg-7">
+                            <section class="online-order-summary-panel" aria-label="Order totals">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                                    <div><div class="fw-bold">Order summary</div><div class="small text-muted">Current value after verified returns and replacements</div></div>
+                                    <i class="fa-solid fa-chart-pie text-primary" aria-hidden="true"></i>
+                                </div>
+                                <div class="online-order-summary-grid">
+                                    <div class="online-order-summary-tile"><div class="online-order-summary-label">Product subtotal</div><div class="online-order-summary-value">₱{{ number_format($detailSaleAmount, 2) }}</div></div>
+                                    <div class="online-order-summary-tile"><div class="online-order-summary-label">Shipping fee</div><div class="online-order-summary-value">₱{{ number_format($detailShippingFee, 2) }}</div>@if($detailReplacementDeliveryFee > 0)<div class="small text-muted">Includes ₱{{ number_format($detailReplacementDeliveryFee, 2) }} replacement shipping</div>@endif</div>
+                                    <div class="online-order-summary-tile is-total"><div class="online-order-summary-label">Total cost</div><div class="online-order-summary-value text-success">₱{{ number_format($detailOrderTotal, 2) }}</div></div>
                                 @unless($detailRefundHasActiveReplacement)
-                                    <div class="col-6"><div class="rounded bg-light p-3 h-100"><div class="small text-muted">Return/refund cost</div><div class="fs-5 fw-bold text-danger">₱{{ number_format($detailRefundTotal, 2) }}</div></div></div>
+                                    <div class="online-order-summary-tile is-refund"><div class="online-order-summary-label">Return/refund cost</div><div class="online-order-summary-value text-danger">₱{{ number_format($detailRefundTotal, 2) }}</div></div>
                                 @endunless
+                                </div>
+                            </section>
                             </div>
                         </div>
-                    </div>
-
-                    <h6 class="fw-bold mb-2">Product items</h6>
-                    <div class="table-responsive online-order-items-scroll">
+                    <section class="online-order-items-panel">
+                        <div class="online-order-items-heading">
+                            <div><div class="fw-bold">Product items</div><div class="small text-muted">Returns, refunds, and replacement status per item</div></div>
+                            <span class="badge rounded-pill text-bg-light border">{{ number_format($transaction->items->count()) }} item line(s)</span>
+                        </div>
+                        <div class="table-responsive online-order-items-scroll">
                         <table class="table table-bordered align-middle mb-0">
                             <thead class="table-light"><tr><th>Product</th><th class="text-center">Quantity</th><th class="text-end">Unit price</th><th class="text-end">Item total</th><th>Return / refund</th><th>Replacement status</th><th>Action</th></tr></thead>
                             <tbody>
@@ -339,7 +379,8 @@
                                 @endforeach
                             </tbody>
                         </table>
-                    </div>
+                        </div>
+                    </section>
                 </div>
                 <div class="modal-footer justify-content-between">
                     <div>

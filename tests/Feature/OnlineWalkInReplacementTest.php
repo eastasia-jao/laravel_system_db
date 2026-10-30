@@ -881,23 +881,30 @@ class OnlineWalkInReplacementTest extends TestCase
         $html = $this->actingAs($admin)
             ->get(route('hub.report', ['hub' => $hub->id, 'channel' => 'online']))
             ->assertOk()
+            ->assertSee('Online Sale Details #')
+            ->assertSee('Payment proof attachments')
             ->assertSee('data-proof-label="Original sales payment proof"', false)
             ->assertSee('data-proof-label="Replacement additional payment proof"', false)
             ->assertSee('Previous payment proof')
             ->assertSee('Next payment proof')
-            ->assertSee('data-online-proof-magnifier', false)
-            ->assertSee('fa-magnifying-glass-plus', false)
+            ->assertSee('data-online-proof-preview-trigger', false)
+            ->assertDontSee('data-online-proof-magnifier', false)
+            ->assertDontSee('online-proof-magnifier', false)
+            ->assertSee('cursor: zoom-in', false)
             ->assertSee('event.stopPropagation();', false)
             ->assertSee('openProofPreview', false)
             ->assertSee('online-order-items-scroll', false)
             ->assertSee('.online-order-items-scroll { max-height: 340px; overflow-y: auto;', false)
             ->assertSee('.online-order-items-scroll thead th { position: sticky;', false)
-            ->assertSee('View larger payment proof')
+            ->assertSee('Preview current payment proof')
             ->assertSee('.online-proof-stage { position: relative; display: grid; height: 180px;', false)
             ->assertSee('.online-proof-image { width: 100%; height: 100%; object-fit: contain;', false)
             ->assertSee('.online-proof-caption { display: flex; height: 3.25rem;', false)
             ->assertSee('.online-order-card { height: 240px;', false)
             ->assertSee('online-order-remarks', false)
+            ->assertSee('online-order-detail-modal', false)
+            ->assertSee('online-order-summary-grid', false)
+            ->assertSee('online-order-items-panel', false)
             ->assertSee('data-online-proof-lightbox', false)
             ->assertSee('data-online-proof-lightbox-close', false)
             ->getContent();
@@ -906,13 +913,13 @@ class OnlineWalkInReplacementTest extends TestCase
         @$document->loadHTML($html);
         $xpath = new \DOMXPath($document);
         $slides = $xpath->query('//*[@data-online-proof-gallery]//*[@data-online-proof-slide]');
-        $magnifiers = $xpath->query('//*[@data-online-proof-gallery]//*[@data-online-proof-magnifier]');
+        $previewTriggers = $xpath->query('//*[@data-online-proof-gallery]//*[@data-online-proof-preview-trigger]');
         $externalLinks = $xpath->query('//*[@data-online-proof-gallery]//*[@target="_blank"]');
 
         $this->assertSame(2, $slides->length);
         $this->assertSame('Original sales payment proof', $slides->item(0)->getAttribute('data-proof-label'));
         $this->assertSame('Replacement additional payment proof', $slides->item(1)->getAttribute('data-proof-label'));
-        $this->assertSame(1, $magnifiers->length);
+        $this->assertSame(1, $previewTriggers->length);
         $this->assertSame(0, $externalLinks->length);
 
         $this->get(route('hub.report.sales-attachment', [

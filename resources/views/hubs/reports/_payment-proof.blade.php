@@ -1,6 +1,6 @@
 @php
     $paymentRecord = $paymentRecord ?? null;
-    $enableProofMagnifier = $enableProofMagnifier ?? false;
+    $enableProofPreview = $enableProofPreview ?? false;
     $proofPath = $paymentRecord?->proof_of_payment ?? $paymentRecord?->payment_proof;
     $checkDate = $paymentRecord?->check_date;
     $orderDate = $paymentRecord?->order_date ?? $paymentRecord?->placed_order_date;
@@ -109,7 +109,13 @@
             .online-proof-image, .online-proof-document { display: block; max-width: 100%; border: 0; background: #fff; }
             .online-proof-image { width: 100%; height: 100%; object-fit: contain; }
             .online-proof-document { width: 100%; height: 100%; min-height: 0; }
-            .online-proof-arrow { position: absolute; z-index: 3; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .75); border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .82); box-shadow: 0 4px 14px rgba(15, 23, 42, .25); transition: background-color .15s ease, transform .15s ease; }
+            .online-proof-stage.is-previewable { cursor: zoom-in; transition: border-color .15s ease, box-shadow .15s ease; }
+            .online-proof-stage.is-previewable:hover { border-color: #93b4ff; box-shadow: inset 0 0 0 1px rgba(37, 99, 235, .16); }
+            .online-proof-preview-trigger { position: absolute; z-index: 2; inset: 0; width: 100%; border: 0; background: transparent; cursor: zoom-in; }
+            .online-proof-preview-trigger:focus-visible { outline: 3px solid rgba(37, 99, 235, .35); outline-offset: -4px; }
+            .online-proof-stage.is-previewable::after { content: "Click to preview"; position: absolute; z-index: 4; right: .6rem; bottom: .55rem; padding: .25rem .5rem; border-radius: 999px; color: #fff; background: rgba(15, 23, 42, .78); font-size: .66rem; font-weight: 700; opacity: 0; pointer-events: none; transform: translateY(4px); transition: opacity .15s ease, transform .15s ease; }
+            .online-proof-stage.is-previewable:hover::after, .online-proof-stage.is-previewable:focus-within::after { opacity: 1; transform: translateY(0); }
+            .online-proof-arrow { position: absolute; z-index: 5; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .75); border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .82); box-shadow: 0 4px 14px rgba(15, 23, 42, .25); transition: background-color .15s ease, transform .15s ease; }
             .online-proof-arrow { top: 50%; width: 38px; height: 38px; transform: translateY(-50%); }
             .online-proof-arrow:hover:not(:disabled) { background: #2563eb; }
             .online-proof-arrow:hover:not(:disabled) { transform: translateY(-50%) scale(1.06); }
@@ -117,9 +123,6 @@
             .online-proof-arrow:disabled { display: none; }
             .online-proof-arrow.is-previous { left: .6rem; }
             .online-proof-arrow.is-next { right: .6rem; }
-            .online-proof-magnifier { position: absolute; right: .65rem; bottom: .65rem; z-index: 4; display: grid; width: 38px; height: 38px; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .8); border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .86); box-shadow: 0 4px 14px rgba(15, 23, 42, .3); transition: background-color .15s ease, transform .15s ease; }
-            .online-proof-magnifier:hover { background: #2563eb; transform: scale(1.06); }
-            .online-proof-magnifier:focus-visible { outline: 3px solid rgba(37, 99, 235, .3); outline-offset: 2px; }
             .online-proof-caption { display: flex; height: 3.25rem; min-width: 0; align-items: flex-start; justify-content: space-between; gap: .75rem; overflow: hidden; color: #475569; font-size: .78rem; }
             .online-proof-caption > :first-child { min-width: 0; overflow-wrap: anywhere; }
             .online-proof-caption strong { color: #1e3a8a; }
@@ -179,7 +182,7 @@
                     const label = gallery.querySelector('[data-online-proof-label]');
                     const amount = gallery.querySelector('[data-online-proof-amount]');
                     const count = gallery.querySelector('[data-online-proof-count]');
-                    const magnifier = gallery.querySelector('[data-online-proof-magnifier]');
+                    const previewTrigger = gallery.querySelector('[data-online-proof-preview-trigger]');
                     let activeIndex = 0;
 
                     if (!slides.length) return;
@@ -215,7 +218,7 @@
                     });
                     bindMove(previous, -1);
                     bindMove(next, 1);
-                    magnifier?.addEventListener('click', event => {
+                    previewTrigger?.addEventListener('click', event => {
                         event.preventDefault();
                         event.stopPropagation();
                         openProofPreview(activeAttachment());
@@ -227,7 +230,7 @@
     @endpush
 @endonce
 <div class="border rounded-3 p-3 h-100 {{ $containerClass ?? '' }}">
-    <div class="fw-semibold mb-2"><i class="fa-solid fa-money-check-dollar me-1"></i>Payment proofs</div>
+    <div class="fw-semibold mb-2"><i class="fa-solid fa-money-check-dollar me-1"></i>Payment proof attachments</div>
     <div class="small text-muted">
         <div>Method: <strong>{{ strtoupper($paymentRecord?->mode_of_payment ?: 'Not specified') }}</strong></div>
         @if($paymentRecord?->bank_name || $paymentRecord?->custom_bank_name)
@@ -252,7 +255,7 @@
 
     @if($proofAttachments->isNotEmpty())
         <div class="online-proof-gallery mt-3" data-online-proof-gallery>
-            <div class="online-proof-stage">
+            <div class="online-proof-stage {{ $enableProofPreview ? 'is-previewable' : '' }}">
                 @foreach($proofAttachments as $proofIndex => $attachment)
                     <div
                         class="online-proof-slide"
@@ -272,8 +275,8 @@
                 @endforeach
                 <button type="button" class="online-proof-arrow is-previous" data-online-proof-previous aria-label="Previous payment proof"><i class="fa-solid fa-chevron-left"></i></button>
                 <button type="button" class="online-proof-arrow is-next" data-online-proof-next aria-label="Next payment proof"><i class="fa-solid fa-chevron-right"></i></button>
-                @if($enableProofMagnifier)
-                    <button type="button" class="online-proof-magnifier" data-online-proof-magnifier aria-label="View larger payment proof"><i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i></button>
+                @if($enableProofPreview)
+                    <button type="button" class="online-proof-preview-trigger" data-online-proof-preview-trigger aria-label="Preview current payment proof"><span class="visually-hidden">Preview current payment proof</span></button>
                 @endif
             </div>
             <div class="online-proof-caption">

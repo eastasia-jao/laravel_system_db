@@ -240,7 +240,7 @@ class HeadOfficeWalkInProofTest extends TestCase
             ->assertSee('.walk-in-order-modal .walk-in-item-stat { height: 100%; padding: .25rem .45rem; border: 0;', false)
             ->assertSee('walk-in-item-scroll', false)
             ->assertSee('.walk-in-order-modal .walk-in-item-scroll { max-height: 340px; overflow-y: auto;', false)
-            ->assertSee('.online-proof-arrow,', false)
+            ->assertSee('.online-proof-arrow { position: absolute; z-index: 5;', false)
             ->assertSee("[data-online-proof-gallery]:not([data-proof-gallery-ready])", false);
     }
 }
