@@ -197,6 +197,8 @@ class BranchSalesReportTest extends TestCase
             ->assertSee('Daily Total Sales')
             ->assertSee('Daily Transactions')
             ->assertSee('Daily Total Purchased Items')
+            ->assertSee('Total Returns')
+            ->assertSee('Total Replacements')
             ->assertDontSee('data-branch-daily-mop', false)
             ->assertDontSee('Sales by Payment Method')
             ->assertDontSee('SALES BY PAYMENT METHOD');
@@ -207,10 +209,12 @@ class BranchSalesReportTest extends TestCase
         $layout = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' online-report-summary-layout ')]");
         $filters = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' online-report-filters ')]");
         $overview = $xpath->query("//*[@aria-label='Walk-In sales overview']");
+        $overviewMetrics = $xpath->query(".//*[contains(concat(' ', normalize-space(@class), ' '), ' online-overview-primary-metrics ')]/*", $overview->item(0));
 
         $this->assertSame(1, $layout->length);
         $this->assertSame($layout->item(0), $filters->item(0)->parentNode);
         $this->assertSame($layout->item(0), $overview->item(0)->parentNode);
+        $this->assertSame(6, $overviewMetrics->length);
 
         $this->travelBack();
     }

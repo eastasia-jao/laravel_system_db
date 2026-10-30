@@ -282,7 +282,7 @@
         .tiktok-overview-grid { grid-template-columns: 1fr; }
     }
     .online-overview-panel {
-        padding: 1.1rem;
+        padding: .85rem;
         border: 1px solid #e2e8f0;
         border-radius: 1rem;
         background: linear-gradient(145deg, #f8fbff, #fff 62%);
@@ -299,10 +299,12 @@
     .online-report-summary-layout .online-overview-panel { height: 100%; }
     .online-report-filters { display: flex; min-width: 0; }
     .online-report-filters > .card { width: 100%; height: 100%; }
+    .online-report-filters .card-body { padding: .85rem; }
+    .online-report-filters .card-body > .d-flex { margin-bottom: .65rem !important; }
     .online-report-filter-form {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .75rem;
+        gap: .55rem;
         margin: 0;
         --bs-gutter-x: 0;
     }
@@ -311,8 +313,14 @@
         max-width: none;
         padding: 0;
     }
-    .online-report-filter-form .online-filter-search,
-    .online-report-filter-form .online-filter-actions { grid-column: 1 / -1; }
+    .online-report-filter-form .report-filter-date { grid-column: 1 / -1; }
+    .online-report-filter-form .online-filter-search { grid-column: 1 / 2; }
+    .online-report-filter-form .online-filter-actions {
+        grid-column: 2 / 3;
+        align-items: end;
+        justify-content: flex-end;
+    }
+    .online-report-filter-form .walkin-filter-actions { grid-column: 1 / -1; }
     @media (max-width: 1199.98px) {
         .online-report-summary-layout { grid-template-columns: 1fr; }
     }
@@ -325,7 +333,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
-        margin-bottom: .9rem;
+        margin-bottom: .6rem;
     }
     .online-overview-heading .small.text-primary { letter-spacing: .06em; }
     .online-overview-heading > i {
@@ -341,25 +349,25 @@
     .online-overview-main {
         display: grid;
         grid-template-columns: minmax(230px, .9fr) minmax(0, 2fr);
-        gap: .8rem;
+        gap: .6rem;
         align-items: stretch;
     }
     .online-overview-sales-highlight {
         display: flex;
         min-width: 0;
         min-height: 100%;
-        flex-direction: column;
-        justify-content: space-between;
-        gap: 1.25rem;
-        padding: 1.1rem;
+        align-items: center;
+        gap: .8rem;
+        padding: .75rem;
         border: 1px solid #a7f3d0;
         border-radius: .9rem;
         background: linear-gradient(145deg, #ecfdf5, #fff 82%);
     }
     .online-overview-sales-icon {
         display: inline-flex;
-        width: 2.4rem;
-        height: 2.4rem;
+        flex: 0 0 2rem;
+        width: 2rem;
+        height: 2rem;
         align-items: center;
         justify-content: center;
         border-radius: .75rem;
@@ -367,7 +375,7 @@
         background: #d1fae5;
     }
     .online-overview-sales-label {
-        margin-top: .9rem;
+        margin-top: 0;
         color: #475569;
         font-size: .75rem;
         font-weight: 700;
@@ -377,20 +385,20 @@
     .online-overview-sales-value {
         margin-top: .2rem;
         color: #047857;
-        font-size: clamp(1.7rem, 2.7vw, 2.35rem);
+        font-size: clamp(1.25rem, 1.8vw, 1.8rem);
         font-weight: 800;
         line-height: 1.1;
         overflow-wrap: anywhere;
     }
     .online-overview-sales-note {
-        margin-top: .55rem;
+        margin-top: .25rem;
         color: #64748b;
         font-size: .75rem;
     }
     .online-overview-metrics {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: .7rem;
+        gap: .55rem;
         margin: 0;
     }
     .online-overview-metrics > [class*="col-"] {
@@ -399,20 +407,20 @@
         padding: 0;
     }
     .online-overview-primary-metrics .card {
-        min-height: 82px;
+        min-height: 66px;
         border: 1px solid #e8edf5 !important;
         border-radius: .8rem;
         background: #fff;
         box-shadow: 0 2px 8px rgba(15, 23, 42, .035) !important;
     }
     .online-overview-primary-metrics .card-body {
-        padding: .8rem !important;
-        gap: .65rem !important;
+        padding: .55rem !important;
+        gap: .5rem !important;
     }
     .online-overview-primary-metrics .sales-metric-icon {
-        flex-basis: 2rem;
-        width: 2rem;
-        height: 2rem;
+        flex-basis: 1.75rem;
+        width: 1.75rem;
+        height: 1.75rem;
         border-radius: .65rem;
     }
     .online-overview-primary-metrics .small {
@@ -426,18 +434,18 @@
     }
     .online-overview-reconciliation {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .7rem;
+        gap: .55rem;
     }
     .online-overview-reconciliation .card {
-        min-height: 84px;
+        min-height: 62px;
         border: 1px solid #dbeafe !important;
         border-radius: .8rem;
         background: linear-gradient(135deg, #eff6ff, #fff 82%);
         box-shadow: 0 2px 8px rgba(15, 23, 42, .035) !important;
     }
     .online-overview-reconciliation .card-body {
-        padding: .85rem 1rem !important;
-        gap: .75rem !important;
+        padding: .55rem .7rem !important;
+        gap: .55rem !important;
     }
     .online-overview-reconciliation .small {
         color: #475569 !important;
@@ -451,7 +459,7 @@
         display: flex;
         align-items: center;
         gap: .75rem;
-        margin: 1rem 0 .65rem;
+        margin: .65rem 0 .5rem;
         color: #64748b;
         font-size: .7rem;
         font-weight: 700;
@@ -471,6 +479,8 @@
     @media (max-width: 767.98px) {
         .online-overview-panel { padding: .9rem; }
         .online-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .online-report-filter-form .online-filter-search,
+        .online-report-filter-form .online-filter-actions { grid-column: 1 / -1; }
     }
     @media (max-width: 479.98px) {
         .online-overview-metrics,
@@ -551,11 +561,11 @@
                 @if($channel === 'wholesale')
                     <input type="hidden" name="transaction_state" value="{{ $transactionState }}">
                 @endif
-                <div class="col-sm-4 col-md-3">
+                <div class="col-sm-4 col-md-3 {{ in_array($channel, ['online', 'walk_in'], true) ? 'report-filter-date' : '' }}">
                     <label class="form-label small fw-semibold">{{ in_array($channel, ['shopee', 'lazada'], true) ? 'Date of Arrangement From' : 'Date From' }}</label>
                     <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control form-control-sm">
                 </div>
-                <div class="col-sm-4 col-md-3">
+                <div class="col-sm-4 col-md-3 {{ in_array($channel, ['online', 'walk_in'], true) ? 'report-filter-date' : '' }}">
                     <label class="form-label small fw-semibold">{{ in_array($channel, ['shopee', 'lazada'], true) ? 'Date of Arrangement To' : 'Date To' }}</label>
                     <input type="date" name="date_to" value="{{ $dateTo }}" class="form-control form-control-sm">
                 </div>
@@ -565,7 +575,7 @@
                         <input type="search" name="search" value="{{ $search ?? '' }}" class="form-control form-control-sm" placeholder="Customer, order, remarks">
                     </div>
                 @endif
-                <div class="col-sm-4 col-md-3 d-flex gap-2 {{ in_array($channel, ['online', 'walk_in'], true) ? 'online-filter-actions' : '' }}">
+                <div class="col-sm-4 col-md-3 d-flex gap-2 {{ in_array($channel, ['online', 'walk_in'], true) ? 'online-filter-actions' : '' }} {{ $channel === 'walk_in' ? 'walkin-filter-actions' : '' }}">
                     <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-filter me-1"></i> Apply</button>
                     @unless($channel === 'wholesale' || ($hub->is_head_office && in_array($channel, ['online', 'walk_in'], true)))
                         <a class="btn btn-sm btn-outline-secondary" href="{{ route('hub.report', ['hub' => $hub->id, 'channel' => $channel]) }}">Reset</a>
@@ -634,9 +644,15 @@
                     @include('hubs.reports.metric', ['label' => $hub->is_head_office ? 'Gross Sales' : 'Total Gross Sales', 'value' => $metrics['gross_sales'], 'color' => 'primary'])
                     @include('hubs.reports.metric', ['label' => $hub->is_head_office ? 'Discounts' : 'Total Discounts', 'value' => $metrics['discounts'], 'color' => 'danger'])
                     @include('hubs.reports.metric', ['label' => $hub->is_head_office ? 'Transactions' : 'Daily Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark'])
-                    @unless($hub->is_head_office)
+                    @if($hub->is_head_office)
+                        @include('hubs.reports.metric', ['label' => 'Return Entries', 'value' => $metrics['return_count'] ?? 0, 'money' => false, 'color' => 'danger'])
+                        @include('hubs.reports.metric', ['label' => 'Replacements', 'value' => $metrics['replacement_count'] ?? 0, 'money' => false, 'color' => 'warning'])
+                        @include('hubs.reports.metric', ['label' => 'Refund Cost', 'value' => $metrics['refund_total'] ?? 0, 'color' => 'danger'])
+                    @else
                         @include('hubs.reports.metric', ['label' => 'Daily Total Purchased Items', 'value' => $totalPurchasedItems, 'money' => false, 'color' => 'warning'])
-                    @endunless
+                        @include('hubs.reports.metric', ['label' => 'Total Returns', 'value' => $metrics['return_quantity'] ?? 0, 'money' => false, 'color' => 'danger'])
+                        @include('hubs.reports.metric', ['label' => 'Total Replacements', 'value' => $metrics['replacement_count'] ?? 0, 'money' => false, 'color' => 'warning'])
+                    @endif
                 </div>
             </div>
         </section>
