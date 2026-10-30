@@ -53,6 +53,7 @@
     .log-type-badge.replacement { color: #1d4ed8; background: #dbeafe; }
     .log-type-badge.return { color: #92400e; background: #fef3c7; }
     .log-type-badge.sold { color: #166534; background: #dcfce7; }
+    .log-type-badge.refunded-order { color: #991b1b; background: #fee2e2; }
     .log-type-badge.rejected { color: #b91c1c; background: #fee2e2; }
     .log-type-badge.transfer { max-width: 100%; justify-content: center; color: #6b21a8; background: #f3e8ff; white-space: normal; text-align: center; }
     .log-type-badge.fully-booked { color: #3730a3; background: #e0e7ff; }
@@ -321,7 +322,7 @@
                     @php
                         $logTypes = auth()->user()?->role === 'sales_associate'
                             ? []
-                            : ['sold'=>'Sold Items','rejected_sale'=>'Rejected Orders','stock_transfer'=>'Stock Transfer (HO ↔ Branch)','branch_transfer'=>'Stock Transfer (BRANCH to BRANCH)','sponsor_workshop'=>'Event','fully_booked'=>'Fully Booked Orders','restock'=>'Restock / Added from Request (Warehouse HO)','return'=>'Return Items','replacement'=>'Replacement','national_bookstore_pullout'=>'National Bookstore Pullout'];
+                            : ['sold'=>'Sold Items','refunded_order'=>'Refunded / Locked Orders','rejected_sale'=>'Rejected Orders','stock_transfer'=>'Stock Transfer (HO ↔ Branch)','branch_transfer'=>'Stock Transfer (BRANCH to BRANCH)','sponsor_workshop'=>'Event','fully_booked'=>'Fully Booked Orders','restock'=>'Restock / Added from Request (Warehouse HO)','return'=>'Return Items','replacement'=>'Replacement','national_bookstore_pullout'=>'National Bookstore Pullout'];
                     @endphp
                     @foreach($logTypes as $value => $label)
                         <option value="{{ $value }}" @selected(request('type') === $value)>{{ $label }}</option>
@@ -331,7 +332,7 @@
             <div class="col-md-2"><label class="small fw-bold text-muted">STATUS</label>
                 <select name="status" class="form-select">
                     <option value="">All statuses</option>
-                    @foreach(['pending' => 'Pending review', 'approved' => 'Approved', 'rejected' => 'Rejected', 'reviewed' => 'Reviewed'] as $value => $label)
+                    @foreach(['pending' => 'Pending review', 'approved' => 'Approved', 'rejected' => 'Rejected', 'reviewed' => 'Reviewed', 'refunded' => 'Refunded / Locked'] as $value => $label)
                         <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -401,6 +402,7 @@
                                 || (int) $fullyBookedReturnOrder->sales_staff_id === (int) auth()->id()))
                     );
                     $isSoldOrder = $transaction->type === 'sold' && $transaction->salesTransaction;
+                    $isRefundedOrderGroup = $transaction->type === 'refunded_order' && $transaction->salesTransaction;
                     $isRejectedSaleGroup = $transaction->type === 'rejected_sale';
                     $rejectedSale = $isRejectedSaleGroup ? $transaction->getRelation('rejectedSale') : null;
                     $isTransferGroup = in_array($transaction->type, ['stock_transfer', 'branch_transfer'], true);
@@ -412,6 +414,7 @@
                         : null;
                     $isReplacementGroup = $transaction->productReplacement !== null && ! $isReturnGroup;
                     $typeLabel = match (true) {
+                        $isRefundedOrderGroup => 'Refunded / Locked',
                         $isRejectedSaleGroup => 'Rejected Order',
                         $isFullyBookedGroup => 'Fully Booked',
                         $isReturnGroup => 'Return',
@@ -426,12 +429,10 @@
                     $modalId = 'transactionModal'.str_replace(['-', ' '], '', $groupKey);
                     $displayUser = $isRejectedSaleGroup
                         ? $rejectedSale?->rejectedBy
-                        : ($isSoldOrder ? $transaction->salesTransaction?->user : $transaction->creator);
+                        : ($isRefundedOrderGroup
+                            ? ($transaction->salesTransaction?->refundedBy ?? $transaction->creator)
+                            : ($isSoldOrder ? $transaction->salesTransaction?->user : $transaction->creator));
                     $sale = $transaction->salesTransaction;
-                    $isRefundLocked = $sale && (
-                        strtolower((string) $sale->status) === 'refunded'
-                        || strtolower((string) $sale->payment_status) === 'refunded'
-                    );
                     $saleChannel = strtolower(str_replace(['-', ' '], '_', (string) $sale?->channel_type));
                     $orderSlipPath = $saleChannel === 'event'
                         ? ($sale?->event_attachments['order_slip'] ?? null)
@@ -484,13 +485,14 @@
                         default => ['fa-solid', 'fa-tag'],
                     };
                 @endphp
-                <tr>
+                <tr @if($isRefundedOrderGroup) data-refunded-order-log @endif>
                     <td class="log-date-cell">
                         <span class="d-block">{{ $transaction->occurred_on->format('M d, Y') }}</span>
                         <small class="text-muted">{{ $transaction->created_at?->format('h:i A') ?? 'Time unavailable' }}</small>
                     </td>
                     @php
                         $typeClass = match (true) {
+                            $isRefundedOrderGroup => 'refunded-order',
                             $isFullyBookedGroup => 'fully-booked',
                             $isRestockGroup => 'restock',
                             $isNationalPulloutGroup => 'national-bookstore',
@@ -502,6 +504,7 @@
                             default => 'other',
                         };
                         $typeIcon = match (true) {
+                            $isRefundedOrderGroup => 'fa-lock',
                             $isRejectedSaleGroup => 'fa-ban',
                             $isNationalPulloutGroup => 'fa-book-open',
                             $isFullyBookedGroup => 'fa-file-circle-check',
@@ -512,6 +515,7 @@
                             default => 'fa-box',
                         };
                         $modalTitle = match (true) {
+                            $isRefundedOrderGroup => 'Refunded / Locked Order Details',
                             $isRejectedSaleGroup => 'Rejected Order Details',
                             $isNationalPulloutGroup => 'National Bookstore Pullout Details',
                             $isFullyBookedGroup => 'Fully Booked Order Details',
@@ -522,15 +526,15 @@
                         };
                     @endphp
                     <td class="log-type-cell"><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
-                        @if($isRefundLocked)
-                            <span class="badge mt-1 d-table text-bg-danger" data-refund-lock-status><i class="fa-solid fa-lock me-1"></i>REFUNDED / LOCKED</span>
-                        @endif
                         @if($transaction->type === 'branch_transfer' && $transaction->status !== 'approved')
                             <span class="badge mt-1 d-table {{ $transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning' }}">{{ strtoupper($transaction->status ?? 'pending') }}</span>
                         @endif
                     </td>
                     <td class="log-detail-title">
-                        @if($isRejectedSaleGroup)
+                        @if($isRefundedOrderGroup)
+                            <strong>Refunded order {{ $sale->order_number ?? $transaction->reference ?? '—' }}</strong>
+                            <small class="d-block text-muted">{{ $sale->customer_name ?: 'Customer not specified' }} · Order permanently locked</small>
+                        @elseif($isRejectedSaleGroup)
                             <strong>{{ $rejectedSale?->invoice_number ?: ($rejectedSale?->order_number ?? $transaction->reference) }}</strong>
                             <small class="d-block text-muted">{{ $rejectedSale?->customer_name ?: 'Customer not specified' }} · {{ $group->count() }} item line(s) rejected</small>
                         @elseif($isFullyBookedGroup)
@@ -582,7 +586,7 @@
                             <span>{{ $channelSourceLabel }}</span>
                         </span>
                     </td>
-                    <td class="log-quantity-cell fw-bold">{{ ($isFullyBookedGroup && ! $fullyBookedOrder->pulled_out_at) || $isRejectedSaleGroup ? '—' : $group->sum('quantity') }}</td>
+                    <td class="log-quantity-cell fw-bold">{{ ($isFullyBookedGroup && ! $fullyBookedOrder->pulled_out_at) || $isRejectedSaleGroup || $isRefundedOrderGroup ? '—' : $group->sum('quantity') }}</td>
                     <td class="log-transfer-cell">
                         @if($transaction->sourceHub && $transaction->targetHub)
                             <div class="log-transfer-route" aria-label="Transfer from {{ $transaction->sourceHub->name }} ({{ $transaction->sourceHub->code ?: $transaction->sourceHub->name }}) to {{ $transaction->targetHub->name }} ({{ $transaction->targetHub->code ?: $transaction->targetHub->name }})">
@@ -604,7 +608,36 @@
                     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content inventory-log-modal">
                         <div class="modal-header"><h5 class="modal-title">{{ $modalTitle }}</h5></div>
                         <div class="modal-body"><div class="row g-3">
-                            @if($isRejectedSaleGroup)
+                            @if($isRefundedOrderGroup)
+                                @php
+                                    $refundOriginalValue = (float) ($sale->refund_original_order_value ?: $sale->wholesale_refund_amount);
+                                    $refundCollected = (float) ($sale->refund_original_collected ?: $refundOriginalValue);
+                                @endphp
+                                <div class="col-12">
+                                    <div class="fully-booked-detail">
+                                        <section class="fully-booked-detail-summary" data-refund-lock-details>
+                                            <span class="fully-booked-detail-icon text-danger bg-danger-subtle"><i class="fa-solid fa-lock"></i></span>
+                                            <div>
+                                                <div class="fully-booked-detail-eyebrow">Refunded and permanently locked · {{ ucwords(str_replace(['_', '-'], ' ', $sale->channel_type ?? 'sales')) }}</div>
+                                                <h4 class="fully-booked-detail-order">{{ $sale->order_number ?? $transaction->reference }}</h4>
+                                            </div>
+                                            <span class="badge rounded-pill text-bg-danger fully-booked-detail-status">REFUNDED / LOCKED</span>
+                                        </section>
+                                        <section class="fully-booked-detail-meta" aria-label="Refunded order information">
+                                            <div class="fully-booked-detail-meta-item"><div class="fully-booked-detail-label">Customer</div><div class="fully-booked-detail-value">{{ $sale->customer_name ?: 'Not specified' }}</div></div>
+                                            <div class="fully-booked-detail-meta-item"><div class="fully-booked-detail-label">Store Hub</div><div class="fully-booked-detail-value">{{ $sale->storeHub?->name ?? $transaction->storeHub?->name ?? '—' }}</div></div>
+                                            <div class="fully-booked-detail-meta-item"><div class="fully-booked-detail-label">Refunded By</div><div class="fully-booked-detail-value">{{ $sale->refundedBy?->name ?? $sale->refundedBy?->username ?? $displayUser?->name ?? $displayUser?->username ?? 'System' }}</div></div>
+                                            <div class="fully-booked-detail-meta-item"><div class="fully-booked-detail-label">Refunded At</div><div class="fully-booked-detail-value">{{ $sale->refunded_at?->format('M d, Y h:i A') ?? $transaction->created_at?->format('M d, Y h:i A') ?? '—' }}</div></div>
+                                            <div class="fully-booked-detail-meta-item"><div class="fully-booked-detail-label">Original Order Value</div><div class="fully-booked-detail-value">₱{{ number_format($refundOriginalValue, 2) }}</div></div>
+                                            <div class="fully-booked-detail-meta-item"><div class="fully-booked-detail-label">Original Amount Collected</div><div class="fully-booked-detail-value">₱{{ number_format($refundCollected, 2) }}</div></div>
+                                        </section>
+                                        <section class="fully-booked-detail-note danger">
+                                            <div class="fully-booked-detail-label">Audit status</div>
+                                            <p>The refund was completed and this order can no longer be edited or refunded again.</p>
+                                        </section>
+                                    </div>
+                                </div>
+                            @elseif($isRejectedSaleGroup)
                                 <div class="col-12">
                                     <div class="fully-booked-detail">
                                         <section class="fully-booked-detail-summary">
@@ -946,28 +979,14 @@
                                     <div class="sold-detail-hero">
                                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                                             <div>
-                                                <div class="eyebrow"><i class="fa-solid {{ $isRefundLocked ? 'fa-lock' : 'fa-cart-shopping' }} me-1"></i>{{ $isRefundLocked ? 'Refunded sales record' : 'Completed sales record' }}</div>
-                                                <h4 class="mb-1 mt-2">{{ $isRefundLocked ? 'Refunded order' : 'Sold order' }}</h4>
+                                                <div class="eyebrow"><i class="fa-solid fa-cart-shopping me-1"></i>Completed sales record</div>
+                                                <h4 class="mb-1 mt-2">Sold order</h4>
                                                 <div class="sold-detail-order">Order {{ $sale->order_number ?? $transaction->reference ?? '—' }}</div>
                                             </div>
-                                            <span class="badge {{ $isRefundLocked ? 'text-bg-danger' : 'text-bg-success' }} rounded-pill px-3 py-2"><i class="fa-solid {{ $isRefundLocked ? 'fa-lock' : 'fa-check' }} me-1"></i>{{ $isRefundLocked ? 'REFUNDED / LOCKED' : 'SOLD' }}</span>
+                                            <span class="badge text-bg-success rounded-pill px-3 py-2"><i class="fa-solid fa-check me-1"></i>SOLD</span>
                                         </div>
                                     </div>
                                 </div>
-                                @if($isRefundLocked)
-                                    <div class="col-12">
-                                        <div class="alert alert-danger mb-0" data-refund-lock-details>
-                                            <div class="fw-bold"><i class="fa-solid fa-lock me-1"></i>This order was refunded and is permanently locked.</div>
-                                            @if($sale->refunded_at || $sale->refundedBy)
-                                                <div class="small mt-1">
-                                                    @if($sale->refunded_at)Refunded {{ $sale->refunded_at->format('M d, Y h:i A') }}@endif
-                                                    @if($sale->refunded_at && $sale->refundedBy) &middot; @endif
-                                                    @if($sale->refundedBy)By {{ $sale->refundedBy->name ?? $sale->refundedBy->username }}@endif
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endif
                                 <div class="col-12">
                                     <div class="row g-2">
                                         <div class="col-md-4"><div class="sold-detail-kpi"><div class="label">Item lines</div><div class="value">{{ $group->count() }}</div></div></div>
@@ -1131,7 +1150,7 @@
                                 <div class="col-md-6"><strong>Product</strong><div>{{ $transaction->product?->name ?? 'Unknown product' }} ({{ $transaction->product?->item_id ?? '—' }})</div></div>
                                 <div class="col-md-3"><strong>Quantity</strong><div>{{ $transaction->quantity }}</div></div>
                             @endif
-                            @if(!$isReplacementGroup && !$isFullyBookedGroup && !$isNationalPulloutGroup && !$isRejectedSaleGroup)
+                            @if(!$isReplacementGroup && !$isFullyBookedGroup && !$isNationalPulloutGroup && !$isRejectedSaleGroup && !$isRefundedOrderGroup)
                                 @if($isSponsorGroup)
                                     <div class="col-12">
                                         <div class="row g-2">

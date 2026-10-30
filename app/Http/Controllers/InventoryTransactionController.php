@@ -911,7 +911,7 @@ class InventoryTransactionController extends Controller
 
         $fullyBookedOrders = in_array($user?->role, ['admin', 'inventory_staff'], true)
             && (! $request->filled('type') || $request->input('type') === 'fully_booked')
-            && (! in_array($request->input('status'), ['approved'], true))
+            && (! $request->filled('status') || in_array($request->input('status'), ['reviewed', 'rejected'], true))
             ? FullyBookedOrder::with(['storeHub', 'salesStaff', 'submitter', 'reviewer', 'pullOutBy', 'items.product', 'attachments'])
                 ->whereIn('status', ['reviewed', 'rejected'])
                 ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
@@ -968,6 +968,7 @@ class InventoryTransactionController extends Controller
                     && $request->input('type') !== 'fully_booked',
                 fn ($query) => $query->where('status', $request->input('status'))
             )
+            ->when($request->input('status') === 'refunded', fn ($query) => $query->whereRaw('1 = 0'))
             ->latest('occurred_on')->latest()->get();
 
         $fullyBookedReturnReferences = $transactions
@@ -1119,6 +1120,48 @@ class InventoryTransactionController extends Controller
             return ['rejected-sale-'.$sale->id => $entries];
         });
 
+        $refundedSales = (! $request->filled('type') || $request->input('type') === 'refunded_order')
+            && (! $request->filled('status') || $request->input('status') === 'refunded')
+            ? SalesTransaction::with(['storeHub', 'user', 'refundedBy'])
+                ->where(function ($query) {
+                    $query->whereRaw('LOWER(status) = ?', ['refunded'])
+                        ->orWhereRaw('LOWER(payment_status) = ?', ['refunded']);
+                })
+                ->when($hubId, fn ($query) => $query->where('store_hub_id', $hubId))
+                ->when($request->filled('month'), function ($query) use ($request) {
+                    $start = $request->input('month').'-01 00:00:00';
+                    $end = now()->parse($request->input('month').'-01')->endOfMonth()->toDateString().' 23:59:59';
+                    $query->where(function ($query) use ($start, $end) {
+                        $query->whereBetween('refunded_at', [$start, $end])
+                            ->orWhere(function ($legacy) use ($start, $end) {
+                                $legacy->whereNull('refunded_at')->whereBetween('updated_at', [$start, $end]);
+                            });
+                    });
+                })
+                ->get()
+            : collect();
+        $refundedSaleGroups = $refundedSales->mapWithKeys(function (SalesTransaction $sale) {
+            $refundedAt = $sale->refunded_at ?? $sale->updated_at ?? $sale->created_at;
+            $transaction = new InventoryTransaction;
+            $transaction->setRawAttributes([
+                'id' => 'refunded-order-'.$sale->id,
+                'type' => 'refunded_order',
+                'reference' => $sale->order_number,
+                'store_hub_id' => $sale->store_hub_id,
+                'channel' => $this->normalizeChannel($sale->channel_type),
+                'quantity' => 0,
+                'occurred_on' => $refundedAt?->toDateString(),
+                'created_at' => $refundedAt,
+                'created_by' => $sale->refunded_by ?? $sale->user_id,
+                'status' => 'refunded',
+            ], true);
+            $transaction->setRelation('storeHub', $sale->storeHub);
+            $transaction->setRelation('creator', $sale->refundedBy ?? $sale->user);
+            $transaction->setRelation('salesTransaction', $sale);
+
+            return ['refunded-order-'.$sale->id => collect([$transaction])];
+        });
+
         $transactionGroups = $transactions->groupBy(function (InventoryTransaction $transaction) {
             if ($transaction->type === 'return' && $transaction->national_pullout_id) {
                 return 'national-return-'.($transaction->transfer_batch_id ?: $transaction->id);
@@ -1234,6 +1277,7 @@ class InventoryTransactionController extends Controller
             ->merge($fullyBookedGroups)
             ->merge($nationalPulloutGroups)
             ->merge($rejectedSaleGroups)
+            ->merge($refundedSaleGroups)
             ->map(function ($group) {
                 return $group->sortBy(function (InventoryTransaction $transaction) {
                     $itemId = $transaction->nationalPulloutItem?->item_id

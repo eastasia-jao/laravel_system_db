@@ -276,10 +276,11 @@ class OnlineSalesReportTest extends TestCase
         ]);
         $this->get(route('inventory-transactions.index', ['hub_id' => $hub->id]))
             ->assertOk()
-            ->assertSee('data-refund-lock-status', false)
-            ->assertSee('REFUNDED / LOCKED')
+            ->assertSee('data-refunded-order-log', false)
+            ->assertSee('Refunded / Locked')
+            ->assertSee('Refunded order '.$sale->order_number)
             ->assertSee('data-refund-lock-details', false)
-            ->assertSee('This order was refunded and is permanently locked.');
+            ->assertSee('The refund was completed and this order can no longer be edited or refunded again.');
 
         $legacyRefund = SalesTransaction::create([
             'user_id' => $admin->id,
@@ -304,6 +305,17 @@ class OnlineSalesReportTest extends TestCase
             'unit_price' => 500,
             'line_total' => 500,
         ]);
+
+        $this->get(route('inventory-transactions.index', [
+            'hub_id' => $hub->id,
+            'type' => 'refunded_order',
+            'status' => 'refunded',
+        ]))
+            ->assertOk()
+            ->assertSee($sale->order_number)
+            ->assertSee($legacyRefund->order_number)
+            ->assertSee('Legacy Refunded Customer')
+            ->assertDontSee('Sold order '.$sale->order_number);
 
         $refundedReport = $this->get($reportUrl)->assertOk()
             ->assertSee('Refunded and locked')
