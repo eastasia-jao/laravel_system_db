@@ -620,11 +620,18 @@
         : Number(product.good_stock_available ?? product.stock ?? 0);
     const labelForCondition = (product, condition) =>
         window.transactionProductLabel(product, true, condition);
+    const isDuplicateSelection = (productId, condition, currentRow) =>
+        [...container.querySelectorAll('.sponsor-item')].some(row =>
+            row !== currentRow
+            && row.querySelector('.product-id').value === String(productId)
+            && row.querySelector('[name$="[stock_condition]"]').value === condition
+        );
     const updateSuggestions = row => {
         const condition = row.querySelector('[name$="[stock_condition]"]').value;
         dataList.replaceChildren();
         productOptions
-            .filter(product => stockForCondition(product, condition) > 0)
+            .filter(product => stockForCondition(product, condition) > 0
+                && !isDuplicateSelection(product.id, condition, row))
             .forEach(product => {
                 const option = document.createElement('option');
                 option.value = labelForCondition(product, condition);
@@ -645,7 +652,11 @@
         (product, input) => stockForCondition(
             product,
             input.closest('.sponsor-item').querySelector('[name$="[stock_condition]"]').value
-        ) > 0
+        ) > 0 && !isDuplicateSelection(
+            product.id,
+            input.closest('.sponsor-item').querySelector('[name$="[stock_condition]"]').value,
+            input.closest('.sponsor-item')
+        )
     );
     let itemIndex = 1;
 
@@ -662,11 +673,16 @@
         const condition = row.querySelector('[name$="[stock_condition]"]');
         input.addEventListener('input', () => {
             const value = input.value.trim().toLowerCase();
+            const row = input.closest('.sponsor-item');
+            const currentCondition = condition.value;
             const product = productOptions.find(item =>
-                labelForCondition(item, condition.value).toLowerCase() === value
+                labelForCondition(item, currentCondition).toLowerCase() === value
             );
+            const duplicate = product && isDuplicateSelection(product.id, currentCondition, row);
             hidden.value = product ? product.id : '';
-            input.setCustomValidity(product ? '' : 'Select a product from the search suggestions.');
+            input.setCustomValidity(duplicate
+                ? 'This product is already added with the selected condition.'
+                : product ? '' : 'Select a product from the search suggestions.');
         });
     };
 
@@ -682,7 +698,14 @@
         const productId = row.querySelector('.product-id').value;
         const product = productOptions.find(item => String(item.id) === productId)
             || window.transactionProducts.get(String(productId));
-        if (product) input.value = labelForCondition(product, event.target.value);
+        if (product && isDuplicateSelection(product.id, event.target.value, row)) {
+            row.querySelector('.product-id').value = '';
+            input.value = '';
+            input.setCustomValidity('This product is already added with the selected condition.');
+        } else if (product) {
+            input.value = labelForCondition(product, event.target.value);
+            input.setCustomValidity('');
+        }
         updateSuggestions(row);
     });
     addButton.addEventListener('click', () => {
