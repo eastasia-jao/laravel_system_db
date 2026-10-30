@@ -636,7 +636,7 @@
         container,
         dataList,
         productOptions,
-        @json(route('hub.products.search.ajax', $hubId ?? 0)),
+        @json(route('hub.products.search.ajax', ['hubId' => $hubId ?? 0, 'event_pullout' => 1])),
         true,
         (product, input) => labelForCondition(
             product,

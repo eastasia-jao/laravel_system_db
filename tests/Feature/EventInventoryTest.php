@@ -147,16 +147,16 @@ class EventInventoryTest extends TestCase
         ));
     }
 
-    public function test_event_pullout_uses_physical_stock_without_changing_sales_channel_allocations(): void
+    public function test_event_pullout_excludes_allocated_good_stock_but_keeps_damaged_stock_available(): void
     {
         [$admin, $hub, $product] = $this->eventFixture();
         $allocation = ProductStockAllocation::create([
             'product_id' => $product->id,
             'online' => 1,
-            'wholesale' => 2,
-            'shopee' => 3,
-            'lazada' => 4,
-            'tiktok' => 5,
+            'wholesale' => 1,
+            'shopee' => 1,
+            'lazada' => 1,
+            'tiktok' => 1,
         ]);
 
         $this->actingAs($admin)
@@ -169,9 +169,19 @@ class EventInventoryTest extends TestCase
                 $option = $options->firstWhere('id', $product->id);
 
                 return $option !== null
-                    && $option['good_stock_available'] === 10
-                    && $option['damaged_stock_available'] === 4;
+                    && $option['good_stock_available'] === 5
+                    && $option['damaged_stock_available'] === 4
+                    && str_ends_with($option['label'], '(stock: 5)');
             });
+
+        $this->getJson(route('hub.products.search.ajax', [
+            'hubId' => $hub->id,
+            'q' => 'EVENT-ART-001',
+            'event_pullout' => 1,
+        ]))
+            ->assertOk()
+            ->assertJsonPath('0.good_stock_available', 5)
+            ->assertJsonPath('0.damaged_stock_available', 4);
 
         $this->post(route('inventory-transactions.store'), [
             'type' => 'sponsor_workshop',
@@ -180,23 +190,43 @@ class EventInventoryTest extends TestCase
             'source' => 'October Art Fair',
             'items' => [[
                 'product_id' => $product->id,
-                'quantity' => 8,
+                'quantity' => 6,
                 'stock_condition' => 'good',
             ]],
+        ])->assertSessionHasErrors('items');
+
+        $this->assertSame(10, (int) $product->fresh()->stock);
+        $this->assertDatabaseMissing('event_pullouts', ['store_hub_id' => $hub->id]);
+
+        $this->post(route('inventory-transactions.store'), [
+            'type' => 'sponsor_workshop',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-15',
+            'source' => 'October Art Fair',
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 5, 'stock_condition' => 'good'],
+                ['product_id' => $product->id, 'quantity' => 1, 'stock_condition' => 'damaged'],
+            ],
         ])->assertSessionHasNoErrors();
 
-        $this->assertSame(2, (int) $product->fresh()->stock);
+        $this->assertSame(5, (int) $product->fresh()->stock);
+        $this->assertSame(3, (int) $product->fresh()->damaged_stock);
         $this->assertSame([
             'online' => 1,
-            'wholesale' => 2,
-            'shopee' => 3,
-            'lazada' => 4,
-            'tiktok' => 5,
+            'wholesale' => 1,
+            'shopee' => 1,
+            'lazada' => 1,
+            'tiktok' => 1,
         ], $allocation->fresh()->only(['online', 'wholesale', 'shopee', 'lazada', 'tiktok']));
         $this->assertDatabaseHas('event_pullout_items', [
             'product_id' => $product->id,
             'stock_condition' => 'good',
-            'quantity' => 8,
+            'quantity' => 5,
+        ]);
+        $this->assertDatabaseHas('event_pullout_items', [
+            'product_id' => $product->id,
+            'stock_condition' => 'damaged',
+            'quantity' => 1,
         ]);
     }
 

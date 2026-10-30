@@ -327,9 +327,12 @@ class InventoryTransactionController extends Controller
         $items = $request->boolean('include_products', true)
             ? Product::where('store_hub_id', $hub->id)
                 ->where('status', 'active')
+                ->with('stockAllocation')
                 ->orderByCatalog('item_id')
                 ->get()
                 ->flatMap(function (Product $product) {
+                    $goodStock = $product->unallocatedStock();
+                    $damagedStock = max(0, (int) $product->damaged_stock);
                     $conditions = (int) $product->damaged_stock > 0
                         ? ['good', 'damaged']
                         : ['good'];
@@ -338,9 +341,9 @@ class InventoryTransactionController extends Controller
                         'name' => $product->description ?: $product->name,
                         'barcode' => (string) ($product->barcode ?? ''),
                         'item_id' => (string) $product->item_id,
-                        'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
-                        'good_stock' => (int) $product->stock,
-                        'damaged_stock' => (int) $product->damaged_stock,
+                        'physical_stock' => $goodStock + $damagedStock,
+                        'good_stock' => $goodStock,
+                        'damaged_stock' => $damagedStock,
                         'pullout_qty' => '',
                         'actual_pullout' => '',
                         'stock_condition' => $condition,
@@ -528,6 +531,7 @@ class InventoryTransactionController extends Controller
         $products = Product::where('store_hub_id', $hub->id)
             ->where('status', 'active')
             ->whereIn('id', collect($validated['items'])->pluck('product_id'))
+            ->with('stockAllocation')
             ->get()
             ->keyBy('id');
         if (count($products) !== count(collect($validated['items'])->pluck('product_id')->unique())) {
@@ -537,14 +541,16 @@ class InventoryTransactionController extends Controller
         $items = collect($validated['items'])->map(function ($item) use ($products) {
             $product = $products->get((int) $item['product_id']);
             $condition = $item['stock_condition'];
+            $goodStock = $product->unallocatedStock();
+            $damagedStock = max(0, (int) $product->damaged_stock);
 
             return [
                 'name' => $product->description ?: $product->name,
                 'barcode' => (string) ($product->barcode ?? ''),
                 'item_id' => (string) $product->item_id,
-                'physical_stock' => (int) $product->stock + (int) $product->damaged_stock,
-                'good_stock' => (int) $product->stock,
-                'damaged_stock' => (int) $product->damaged_stock,
+                'physical_stock' => $goodStock + $damagedStock,
+                'good_stock' => $goodStock,
+                'damaged_stock' => $damagedStock,
                 'pullout_qty' => '',
                 'actual_pullout' => '',
                 'stock_condition' => $condition,
@@ -1429,7 +1435,7 @@ class InventoryTransactionController extends Controller
         }
         $products = Product::where('store_hub_id', $hubId)
             ->where('status', 'active')
-            ->when($type === 'stock_transfer', fn ($query) => $query->with('stockAllocation'))
+            ->when(in_array($type, ['stock_transfer', 'sponsor_workshop'], true), fn ($query) => $query->with('stockAllocation'))
             ->orderByCatalog()
             ->limit(100)
             ->get();
@@ -1437,18 +1443,24 @@ class InventoryTransactionController extends Controller
             'transfer_available_stock',
             $type === 'stock_transfer' ? $product->unallocatedStock() : max(0, (int) $product->stock)
         ));
-        $sponsorProductOptions = $products->map(fn (Product $product) => [
-            'id' => $product->id,
-            'item_id' => $product->item_id,
-            'barcode' => $product->barcode,
-            'name' => $product->name,
-            'description' => $product->description ?: $product->name,
-            'good_stock_available' => max(0, (int) $product->stock),
-            'damaged_stock_available' => max(0, (int) $product->damaged_stock),
-            'label' => ($product->item_id ?: $product->id).' — '.($product->name ?: $product->description ?: 'Unnamed product')
-                .($product->barcode ? ' · '.$product->barcode : '')
-                .' (stock: '.max(0, (int) $product->stock).')',
-        ])->values();
+        $sponsorProductOptions = $products->map(function (Product $product) use ($type) {
+            $goodStock = $type === 'sponsor_workshop'
+                ? $product->unallocatedStock()
+                : max(0, (int) $product->stock);
+
+            return [
+                'id' => $product->id,
+                'item_id' => $product->item_id,
+                'barcode' => $product->barcode,
+                'name' => $product->name,
+                'description' => $product->description ?: $product->name,
+                'good_stock_available' => $goodStock,
+                'damaged_stock_available' => max(0, (int) $product->damaged_stock),
+                'label' => ($product->item_id ?: $product->id).' — '.($product->name ?: $product->description ?: 'Unnamed product')
+                    .($product->barcode ? ' · '.$product->barcode : '')
+                    .' (stock: '.$goodStock.')',
+            ];
+        })->values();
 
         $form = $type === 'branch_transfer' ? 'stock_transfer' : $type;
         $transferSourceHubs = $hubs;
@@ -2015,6 +2027,14 @@ class InventoryTransactionController extends Controller
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
+            $allocations = ProductStockAllocation::whereIn('product_id', $products->keys())
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('product_id');
+            $products->each(fn (Product $product) => $product->setRelation(
+                'stockAllocation',
+                $allocations->get($product->id)
+            ));
             $quantities = collect($validated['items'])->groupBy(
                 fn ($item) => $item['product_id'].':'.($item['stock_condition'] ?? 'good')
             )
@@ -2043,9 +2063,12 @@ class InventoryTransactionController extends Controller
                     ]);
                 }
                 $stockColumn = $stockCondition === 'damaged' ? 'damaged_stock' : 'stock';
-                if ((int) $product->{$stockColumn} < (int) $quantity) {
+                $availableStock = $stockCondition === 'damaged'
+                    ? max(0, (int) $product->damaged_stock)
+                    : $product->unallocatedStock();
+                if ($availableStock < (int) $quantity) {
                     throw ValidationException::withMessages([
-                        'items' => "Not enough {$stockCondition} stock for {$product->name}.",
+                        'items' => "Not enough available {$stockCondition} stock for {$product->name}.",
                     ]);
                 }
 

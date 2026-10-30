@@ -803,6 +803,9 @@ class ProductController extends Controller
 
         $search = $request->input('q', '');
         $field = $request->input('field');
+        $request->validate(['event_pullout' => ['sometimes', 'boolean']]);
+        $eventPullout = $request->boolean('event_pullout');
+        abort_unless(! $eventPullout || $user?->can('manage-inventory'), 403);
         $stockChannel = $request->input('stock_channel');
         if ($stockChannel !== null) {
             $request->validate([
@@ -891,18 +894,21 @@ class ProductController extends Controller
         }
 
         $products = $query
-            ->when($stockChannel, fn ($builder) => $builder->with('stockAllocation'))
+            ->when($stockChannel || $eventPullout, fn ($builder) => $builder->with('stockAllocation'))
             ->orderByCatalog($sortField)
             ->limit(100)
             ->get();
 
-        $products->each(function (Product $product): void {
+        $products->each(function (Product $product) use ($eventPullout): void {
             // Normalized products keep catalog metadata in catalog_products; expose
             // the searchable fields explicitly for AJAX consumers.
             $product->setAttribute('item_id', $product->catalogProduct?->item_id);
             $product->setAttribute('name', $product->catalogProduct?->name);
             $product->setAttribute('barcode', $product->catalogProduct?->barcode);
-            $product->setAttribute('good_stock_available', max(0, (int) $product->stock));
+            $product->setAttribute(
+                'good_stock_available',
+                $eventPullout ? $product->unallocatedStock() : max(0, (int) $product->stock)
+            );
             $product->setAttribute('damaged_stock_available', max(0, (int) $product->damaged_stock));
         });
 

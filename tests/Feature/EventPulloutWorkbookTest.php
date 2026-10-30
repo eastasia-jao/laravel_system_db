@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\StoreHub;
 use App\Models\User;
 use App\Support\EventPulloutWorkbook;
@@ -24,7 +25,7 @@ class EventPulloutWorkbookTest extends TestCase
             'status' => 'active',
             'is_head_office' => true,
         ]);
-        Product::create([
+        $product = Product::create([
             'name' => 'Event Product',
             'description' => 'Event Product Description',
             'item_id' => '0000123',
@@ -33,6 +34,11 @@ class EventPulloutWorkbookTest extends TestCase
             'stock' => 12,
             'damaged_stock' => 3,
             'status' => 'active',
+        ]);
+        ProductStockAllocation::create([
+            'product_id' => $product->id,
+            'online' => 2,
+            'wholesale' => 3,
         ]);
 
         $admin = User::factory()->create(['role' => 'admin']);
@@ -102,8 +108,8 @@ class EventPulloutWorkbookTest extends TestCase
                 'name' => 'Event Product Description',
                 'barcode' => '0000456',
                 'item_id' => '0000123',
-                'physical_stock' => '15',
-                'good_stock' => '12',
+                'physical_stock' => '10',
+                'good_stock' => '7',
                 'damaged_stock' => '3',
                 'pullout_qty' => '',
                 'actual_pullout' => '',
@@ -113,8 +119,8 @@ class EventPulloutWorkbookTest extends TestCase
                 'name' => 'Event Product Description',
                 'barcode' => '0000456',
                 'item_id' => '0000123',
-                'physical_stock' => '15',
-                'good_stock' => '12',
+                'physical_stock' => '10',
+                'good_stock' => '7',
                 'damaged_stock' => '3',
                 'pullout_qty' => '',
                 'actual_pullout' => '',
