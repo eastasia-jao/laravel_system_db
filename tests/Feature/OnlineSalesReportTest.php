@@ -454,7 +454,10 @@ class OnlineSalesReportTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Net Product Sales')
-            ->assertSee('Expected Amount')
+            ->assertSee('Shipping Fees')
+            ->assertSee('Proof Amount')
+            ->assertDontSee('Expected Amount')
+            ->assertDontSee('Payment Difference')
             ->assertViewHas('totalSales', 800.0)
             ->assertViewHas('metrics', fn (array $metrics) =>
                 (float) $metrics['total_sales'] === 800.0
