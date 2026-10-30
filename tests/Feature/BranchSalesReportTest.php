@@ -191,6 +191,7 @@ class BranchSalesReportTest extends TestCase
         $response
             ->assertOk()
             ->assertSee('Today: Sep 29, 2026')
+            ->assertSee('Walk-In sales overview')
             ->assertSee('Total Gross Sales')
             ->assertSee('Total Discounts')
             ->assertSee('Daily Total Sales')
@@ -199,6 +200,17 @@ class BranchSalesReportTest extends TestCase
             ->assertDontSee('data-branch-daily-mop', false)
             ->assertDontSee('Sales by Payment Method')
             ->assertDontSee('SALES BY PAYMENT METHOD');
+
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $layout = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' online-report-summary-layout ')]");
+        $filters = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' online-report-filters ')]");
+        $overview = $xpath->query("//*[@aria-label='Walk-In sales overview']");
+
+        $this->assertSame(1, $layout->length);
+        $this->assertSame($layout->item(0), $filters->item(0)->parentNode);
+        $this->assertSame($layout->item(0), $overview->item(0)->parentNode);
 
         $this->travelBack();
     }

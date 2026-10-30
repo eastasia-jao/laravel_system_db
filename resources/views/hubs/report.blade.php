@@ -297,6 +297,8 @@
     }
     .online-report-summary-layout > * { min-width: 0; }
     .online-report-summary-layout .online-overview-panel { height: 100%; }
+    .online-report-filters { display: flex; min-width: 0; }
+    .online-report-filters > .card { width: 100%; height: 100%; }
     .online-report-filter-form {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -522,11 +524,11 @@
         </div></x-slot:actions>
     </x-page-header>
 
-    @if($channel === 'online')
+    @if(in_array($channel, ['online', 'walk_in'], true))
         <div class="online-report-summary-layout no-print">
         <div class="online-report-filters">
     @endif
-    <div class="card shadow-sm border-0 {{ $channel === 'online' ? 'mb-0' : 'mb-4' }} no-print">
+    <div class="card shadow-sm border-0 {{ in_array($channel, ['online', 'walk_in'], true) ? 'mb-0' : 'mb-4' }} no-print">
         <div class="card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <div class="d-flex flex-wrap gap-2">
@@ -544,16 +546,16 @@
                 @endif
             </div>
 
-            <form method="GET" action="{{ route('hub.report', $hub->id) }}" class="row g-2 align-items-end {{ $channel === 'online' ? 'online-report-filter-form' : '' }}">
+            <form method="GET" action="{{ route('hub.report', $hub->id) }}" class="row g-2 align-items-end {{ in_array($channel, ['online', 'walk_in'], true) ? 'online-report-filter-form' : '' }}">
                 <input type="hidden" name="channel" value="{{ $channel }}">
                 @if($channel === 'wholesale')
                     <input type="hidden" name="transaction_state" value="{{ $transactionState }}">
                 @endif
-                <div class="col-sm-4 col-md-3 {{ $channel === 'online' ? 'online-filter-date' : '' }}">
+                <div class="col-sm-4 col-md-3">
                     <label class="form-label small fw-semibold">{{ in_array($channel, ['shopee', 'lazada'], true) ? 'Date of Arrangement From' : 'Date From' }}</label>
                     <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control form-control-sm">
                 </div>
-                <div class="col-sm-4 col-md-3 {{ $channel === 'online' ? 'online-filter-date' : '' }}">
+                <div class="col-sm-4 col-md-3">
                     <label class="form-label small fw-semibold">{{ in_array($channel, ['shopee', 'lazada'], true) ? 'Date of Arrangement To' : 'Date To' }}</label>
                     <input type="date" name="date_to" value="{{ $dateTo }}" class="form-control form-control-sm">
                 </div>
@@ -563,7 +565,7 @@
                         <input type="search" name="search" value="{{ $search ?? '' }}" class="form-control form-control-sm" placeholder="Customer, order, remarks">
                     </div>
                 @endif
-                <div class="col-sm-4 col-md-3 d-flex gap-2 {{ $channel === 'online' ? 'online-filter-actions' : '' }}">
+                <div class="col-sm-4 col-md-3 d-flex gap-2 {{ in_array($channel, ['online', 'walk_in'], true) ? 'online-filter-actions' : '' }}">
                     <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-filter me-1"></i> Apply</button>
                     @unless($channel === 'wholesale' || ($hub->is_head_office && in_array($channel, ['online', 'walk_in'], true)))
                         <a class="btn btn-sm btn-outline-secondary" href="{{ route('hub.report', ['hub' => $hub->id, 'channel' => $channel]) }}">Reset</a>
@@ -573,8 +575,9 @@
         </div>
     </div>
 
-    @if($channel === 'online')
+    @if(in_array($channel, ['online', 'walk_in'], true))
         </div>
+        @if($channel === 'online')
         <section class="online-overview-panel" aria-label="Online sales overview">
             <div class="online-overview-heading">
                 <div>
@@ -609,10 +612,39 @@
                 @include('hubs.reports.metric', ['label' => 'Proof Amount', 'value' => $metrics['proof_amount'], 'color' => 'primary'])
             </div>
         </section>
+        @else
+        <section class="online-overview-panel" aria-label="Walk-In sales overview">
+            <div class="online-overview-heading">
+                <div>
+                    <div class="small text-primary fw-bold text-uppercase">Walk-In sales overview</div>
+                    <div class="text-muted small">Sales and counter activity for the selected date range.</div>
+                </div>
+                <i class="fa-solid fa-store text-primary" aria-hidden="true"></i>
+            </div>
+            <div class="online-overview-main">
+                <section class="online-overview-sales-highlight" aria-label="{{ $hub->is_head_office ? 'Total sales' : 'Daily total sales' }}">
+                    <span class="online-overview-sales-icon" aria-hidden="true"><i class="fa-solid fa-cash-register"></i></span>
+                    <div>
+                        <div class="online-overview-sales-label">{{ $hub->is_head_office ? 'Total Sales' : 'Daily Total Sales' }}</div>
+                        <div class="online-overview-sales-value">₱{{ number_format((float) $totalSales, 2) }}</div>
+                        <div class="online-overview-sales-note">Walk-In orders in the selected date range</div>
+                    </div>
+                </section>
+                <div class="online-overview-metrics online-overview-primary-metrics">
+                    @include('hubs.reports.metric', ['label' => $hub->is_head_office ? 'Gross Sales' : 'Total Gross Sales', 'value' => $metrics['gross_sales'], 'color' => 'primary'])
+                    @include('hubs.reports.metric', ['label' => $hub->is_head_office ? 'Discounts' : 'Total Discounts', 'value' => $metrics['discounts'], 'color' => 'danger'])
+                    @include('hubs.reports.metric', ['label' => $hub->is_head_office ? 'Transactions' : 'Daily Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark'])
+                    @unless($hub->is_head_office)
+                        @include('hubs.reports.metric', ['label' => 'Daily Total Purchased Items', 'value' => $totalPurchasedItems, 'money' => false, 'color' => 'warning'])
+                    @endunless
+                </div>
+            </div>
+        </section>
+        @endif
         </div>
     @endif
 
-    @unless($channel === 'online')
+    @unless(in_array($channel, ['online', 'walk_in'], true))
     <div class="row g-3 mb-4 report-metrics-row">
         @if($channel === 'tiktok')
             <div class="col-12"><div class="tiktok-live-section-label">Financial overview</div></div>
@@ -674,23 +706,6 @@
             @include('hubs.reports.metric', ['label' => 'Total Refund Cost', 'value' => $metrics['refund_total'], 'color' => 'danger', 'columnClass' => 'col-sm-4'])
             @include('hubs.reports.metric', ['label' => 'Total Customers', 'value' => $customerMetrics['total'], 'money' => false, 'color' => 'primary', 'columnClass' => 'col-sm-4'])
             @include('hubs.reports.metric', ['label' => 'New Customers', 'value' => $customerMetrics['new'], 'money' => false, 'color' => 'success', 'columnClass' => 'col-sm-4'])
-        @elseif($channel === 'walk_in' && ! $hub->is_head_office)
-            <div class="col-12"><div class="sales-channel-section-heading"><h5>Activity overview</h5><p>Today’s sales and counter activity</p></div></div>
-            @include('hubs.reports.metric', ['label' => 'Total Gross Sales', 'value' => $metrics['gross_sales'], 'color' => 'primary', 'columnClass' => 'col-sm-6 col-xl'])
-            @include('hubs.reports.metric', ['label' => 'Total Discounts', 'value' => $metrics['discounts'], 'color' => 'danger', 'columnClass' => 'col-sm-6 col-xl'])
-            <div class="col-sm-6 col-xl">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body d-flex align-items-center gap-3">
-                        <span class="sales-metric-icon text-success" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
-                        <div class="min-w-0">
-                            <div class="small text-muted fw-semibold mb-1">Daily Total Sales</div>
-                            <div class="fs-4 fw-bold text-success">₱{{ number_format((float) $totalSales, 2) }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            @include('hubs.reports.metric', ['label' => 'Daily Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark', 'columnClass' => 'col-sm-6 col-xl'])
-            @include('hubs.reports.metric', ['label' => 'Daily Total Purchased Items', 'value' => $totalPurchasedItems, 'money' => false, 'color' => 'warning', 'columnClass' => 'col-sm-6 col-xl'])
         @else
             <div class="col-12"><div class="sales-channel-section-heading"><h5>Activity overview</h5><p>{{ $channel === 'all' ? 'Verified sales summary across channels' : 'Sales and customer summary' }}</p></div></div>
             @include('hubs.reports.metric', ['label' => 'Gross Sales', 'value' => $metrics['gross_sales'], 'color' => 'primary'])
