@@ -454,6 +454,9 @@ class OnlineSalesReportTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Net Product Sales')
+            ->assertSee('online-report-summary-layout', false)
+            ->assertSee('online-report-filters', false)
+            ->assertSee('online-overview-panel', false)
             ->assertSee('online-overview-main', false)
             ->assertSee('online-overview-sales-highlight', false)
             ->assertSee('Payment totals')
@@ -469,6 +472,19 @@ class OnlineSalesReportTest extends TestCase
                 && (float) $metrics['proof_amount'] === 950.0
                 && (float) $metrics['difference'] === 0.0
             );
+
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $layout = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' online-report-summary-layout ')]");
+        $filters = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' online-report-filters ')]");
+        $overview = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' online-overview-panel ')]");
+        $onlineMetricsRow = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' report-metrics-row ')]");
+
+        $this->assertSame(1, $layout->length);
+        $this->assertSame($layout->item(0), $filters->item(0)->parentNode);
+        $this->assertSame($layout->item(0), $overview->item(0)->parentNode);
+        $this->assertSame(0, $onlineMetricsRow->length);
 
         $this->assertSame(600.0, (float) $response->viewData('onlinePaymentSales')->get('GCASH'));
         $this->assertSame(200.0, (float) $response->viewData('onlinePaymentSales')->get('PAYMAYA'));
