@@ -1,5 +1,6 @@
 @php
     $paymentRecord = $paymentRecord ?? null;
+    $enableProofMagnifier = $enableProofMagnifier ?? false;
     $proofPath = $paymentRecord?->proof_of_payment ?? $paymentRecord?->payment_proof;
     $checkDate = $paymentRecord?->check_date;
     $orderDate = $paymentRecord?->order_date ?? $paymentRecord?->placed_order_date;
@@ -116,16 +117,60 @@
             .online-proof-arrow:disabled { display: none; }
             .online-proof-arrow.is-previous { left: .6rem; }
             .online-proof-arrow.is-next { right: .6rem; }
+            .online-proof-magnifier { position: absolute; right: .65rem; bottom: .65rem; z-index: 4; display: grid; width: 38px; height: 38px; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .8); border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .86); box-shadow: 0 4px 14px rgba(15, 23, 42, .3); transition: background-color .15s ease, transform .15s ease; }
+            .online-proof-magnifier:hover { background: #2563eb; transform: scale(1.06); }
+            .online-proof-magnifier:focus-visible { outline: 3px solid rgba(37, 99, 235, .3); outline-offset: 2px; }
             .online-proof-caption { display: flex; height: 3.25rem; min-width: 0; align-items: flex-start; justify-content: space-between; gap: .75rem; overflow: hidden; color: #475569; font-size: .78rem; }
             .online-proof-caption > :first-child { min-width: 0; overflow-wrap: anywhere; }
             .online-proof-caption strong { color: #1e3a8a; }
             .online-proof-caption [data-online-proof-amount] { min-height: 1rem; }
+            .online-proof-lightbox { position: relative; width: min(1000px, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); padding: 3.25rem 1rem 1rem; border: 0; border-radius: 14px; background: #0f172a; box-shadow: 0 24px 70px rgba(0, 0, 0, .45); }
+            .online-proof-lightbox::backdrop { background: rgba(15, 23, 42, .86); }
+            .online-proof-lightbox img, .online-proof-lightbox iframe { display: block; width: 100%; height: min(76vh, 760px); border: 0; object-fit: contain; background: #fff; }
+            .online-proof-lightbox [hidden] { display: none !important; }
+            .online-proof-lightbox-close { position: absolute; top: .55rem; right: .55rem; display: inline-flex; min-height: 36px; align-items: center; gap: .35rem; padding: .4rem .75rem; border: 0; border-radius: 999px; color: #fff; background: rgba(255, 255, 255, .18); font-weight: 700; }
+            .online-proof-lightbox-close:hover { background: #2563eb; }
+            .online-proof-lightbox-caption { margin-top: .65rem; overflow-wrap: anywhere; color: #fff; font-size: .82rem; text-align: center; }
         </style>
     @endpush
 
     @push('scripts')
         <script>
             (() => {
+                const proofViewer = document.querySelector('[data-online-proof-lightbox]');
+                const proofViewerImage = proofViewer?.querySelector('[data-online-proof-lightbox-image]');
+                const proofViewerDocument = proofViewer?.querySelector('[data-online-proof-lightbox-document]');
+                const proofViewerCaption = proofViewer?.querySelector('[data-online-proof-lightbox-caption]');
+                const closeProofViewer = () => {
+                    if (proofViewer?.open) proofViewer.close();
+                };
+                const openProofPreview = attachment => {
+                    if (!proofViewer || !proofViewerImage || !proofViewerDocument || !proofViewerCaption) return;
+                    const isImage = attachment.kind === 'image';
+                    proofViewerImage.hidden = !isImage;
+                    proofViewerDocument.hidden = isImage;
+                    proofViewerCaption.textContent = attachment.label;
+                    if (isImage) {
+                        proofViewerDocument.src = 'about:blank';
+                        proofViewerImage.src = attachment.url;
+                        proofViewerImage.alt = attachment.label;
+                    } else {
+                        proofViewerImage.removeAttribute('src');
+                        proofViewerImage.alt = '';
+                        proofViewerDocument.src = attachment.url;
+                        proofViewerDocument.title = attachment.label;
+                    }
+                    if (!proofViewer.open) proofViewer.showModal();
+                };
+
+                proofViewer?.querySelector('[data-online-proof-lightbox-close]')?.addEventListener('click', closeProofViewer);
+                proofViewer?.addEventListener('close', () => {
+                    proofViewerImage?.removeAttribute('src');
+                    if (proofViewerImage) proofViewerImage.alt = '';
+                    if (proofViewerDocument) proofViewerDocument.src = 'about:blank';
+                    if (proofViewerCaption) proofViewerCaption.textContent = '';
+                });
+
                 document.querySelectorAll('[data-online-proof-gallery]:not([data-proof-gallery-ready])').forEach(gallery => {
                     gallery.dataset.proofGalleryReady = 'true';
                     const slides = [...gallery.querySelectorAll('[data-online-proof-slide]')];
@@ -134,6 +179,7 @@
                     const label = gallery.querySelector('[data-online-proof-label]');
                     const amount = gallery.querySelector('[data-online-proof-amount]');
                     const count = gallery.querySelector('[data-online-proof-count]');
+                    const magnifier = gallery.querySelector('[data-online-proof-magnifier]');
                     let activeIndex = 0;
 
                     if (!slides.length) return;
@@ -169,6 +215,11 @@
                     });
                     bindMove(previous, -1);
                     bindMove(next, 1);
+                    magnifier?.addEventListener('click', event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        openProofPreview(activeAttachment());
+                    });
                     showSlide(0);
                 });
             })();
@@ -221,6 +272,9 @@
                 @endforeach
                 <button type="button" class="online-proof-arrow is-previous" data-online-proof-previous aria-label="Previous payment proof"><i class="fa-solid fa-chevron-left"></i></button>
                 <button type="button" class="online-proof-arrow is-next" data-online-proof-next aria-label="Next payment proof"><i class="fa-solid fa-chevron-right"></i></button>
+                @if($enableProofMagnifier)
+                    <button type="button" class="online-proof-magnifier" data-online-proof-magnifier aria-label="View larger payment proof"><i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i></button>
+                @endif
             </div>
             <div class="online-proof-caption">
                 <div>

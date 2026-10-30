@@ -246,7 +246,7 @@
                 <div class="modal-body">
                     <div class="row g-3 mb-4 align-items-stretch">
                         <div class="col-12 col-lg-6">
-                            @include('hubs.reports._payment-proof', ['paymentRecord' => $transaction])
+                            @include('hubs.reports._payment-proof', ['paymentRecord' => $transaction, 'enableProofMagnifier' => true])
                         </div>
                         <div class="col-12 col-lg-6">
                             <div class="row g-3 h-100">
@@ -368,6 +368,13 @@
         </div>
     </div>
 @endforeach
+
+<dialog class="online-proof-lightbox" data-online-proof-lightbox aria-label="Payment proof preview">
+    <button type="button" class="online-proof-lightbox-close" data-online-proof-lightbox-close><i class="fa-solid fa-xmark" aria-hidden="true"></i>Close</button>
+    <img alt="" data-online-proof-lightbox-image hidden>
+    <iframe title="Payment proof preview" data-online-proof-lightbox-document hidden></iframe>
+    <div class="online-proof-lightbox-caption" data-online-proof-lightbox-caption></div>
+</dialog>
 
 @can('manage-sales-status')
 <div class="modal fade" id="onlineRefundConfirmModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="onlineRefundConfirmTitle" aria-hidden="true">

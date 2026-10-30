@@ -885,20 +885,21 @@ class OnlineWalkInReplacementTest extends TestCase
             ->assertSee('data-proof-label="Replacement additional payment proof"', false)
             ->assertSee('Previous payment proof')
             ->assertSee('Next payment proof')
-            ->assertDontSee('data-online-proof-magnifier', false)
-            ->assertDontSee('fa-magnifying-glass-plus', false)
+            ->assertSee('data-online-proof-magnifier', false)
+            ->assertSee('fa-magnifying-glass-plus', false)
             ->assertSee('event.stopPropagation();', false)
-            ->assertDontSee('openLightbox', false)
+            ->assertSee('openProofPreview', false)
             ->assertSee('online-order-items-scroll', false)
             ->assertSee('.online-order-items-scroll { max-height: 340px; overflow-y: auto;', false)
             ->assertSee('.online-order-items-scroll thead th { position: sticky;', false)
-            ->assertDontSee('View larger')
+            ->assertSee('View larger payment proof')
             ->assertSee('.online-proof-stage { position: relative; display: grid; height: 180px;', false)
             ->assertSee('.online-proof-image { width: 100%; height: 100%; object-fit: contain;', false)
             ->assertSee('.online-proof-caption { display: flex; height: 3.25rem;', false)
             ->assertSee('.online-order-card { height: 240px;', false)
             ->assertSee('online-order-remarks', false)
-            ->assertDontSee('data-online-proof-lightbox', false)
+            ->assertSee('data-online-proof-lightbox', false)
+            ->assertSee('data-online-proof-lightbox-close', false)
             ->getContent();
 
         $document = new \DOMDocument;
@@ -911,7 +912,7 @@ class OnlineWalkInReplacementTest extends TestCase
         $this->assertSame(2, $slides->length);
         $this->assertSame('Original sales payment proof', $slides->item(0)->getAttribute('data-proof-label'));
         $this->assertSame('Replacement additional payment proof', $slides->item(1)->getAttribute('data-proof-label'));
-        $this->assertSame(0, $magnifiers->length);
+        $this->assertSame(1, $magnifiers->length);
         $this->assertSame(0, $externalLinks->length);
 
         $this->get(route('hub.report.sales-attachment', [
