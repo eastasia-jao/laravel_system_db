@@ -350,7 +350,6 @@
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <span class="log-table-count"><i class="fa-solid fa-list" aria-hidden="true"></i>{{ $transactions->total() }} {{ \Illuminate\Support\Str::plural('log', $transactions->total()) }}</span>
-                <span class="small text-muted">15 per page</span>
             </div>
         </div>
         <div class="table-responsive"><table class="table table-hover align-middle mb-0 inventory-log-table">

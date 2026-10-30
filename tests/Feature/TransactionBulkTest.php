@@ -1212,7 +1212,7 @@ class TransactionBulkTest extends TestCase
         ]))
             ->assertOk()
             ->assertSee('Transaction activity')
-            ->assertSee('15 per page')
+            ->assertDontSee('15 per page')
             ->assertSee('pagination-summary')
             ->assertDontSee('Showing 1–15 of 25 logs')
             ->assertSee('class="log-modal-row"', false);

@@ -157,6 +157,22 @@ class HeadOfficeWalkInProofTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
     }
 
+    public function test_walk_in_proof_inputs_render_magnifier_previews(): void
+    {
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO-PREVIEW', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['hub_id' => $hub->id, 'role' => 'admin']);
+
+        $response = $this->actingAs($user)->get(route('hub.dashboard', $hub->id))
+            ->assertOk()
+            ->assertSee('name="quotation_proofs[]"', false)
+            ->assertSee('name="walkin_payment_proofs[]"', false)
+            ->assertSee('id="recordSaleAttachmentPreview"', false)
+            ->assertSee('sale-proof-preview-magnifier')
+            ->assertSee('fa-magnifying-glass-plus');
+
+        $this->assertGreaterThanOrEqual(2, substr_count($response->getContent(), 'data-inline-attachment-preview'));
+    }
+
     public function test_walk_in_product_description_search_and_proofs_survive_verification(): void
     {
         config(['filesystems.attachment_disks.sales' => 'sales-attachments']);

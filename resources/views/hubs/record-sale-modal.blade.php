@@ -330,6 +330,21 @@
     }
     #recordSaleModal input[type="file"].form-control { padding: .3rem .4rem; background: #fff; font-size: .72rem; }
     #recordSaleModal input[type="file"]::file-selector-button { margin: -.3rem .55rem -.3rem -.4rem; padding: .48rem .65rem; border: 0; border-right: 1px solid #dbe5f1; background: #eff6ff; color: #1d4ed8; font-weight: 700; }
+    #recordSaleModal [data-inline-attachment-preview-list] { min-height: 0; }
+    #recordSaleModal .sale-proof-preview-button { position: relative; display: grid; width: 96px; height: 96px; flex: 0 0 96px; place-items: center; overflow: hidden; padding: 0; border: 1px solid #bfdbfe; border-radius: 10px; color: #1d4ed8; background: #fff; }
+    #recordSaleModal .sale-proof-preview-button img { width: 100%; height: 100%; object-fit: cover; }
+    #recordSaleModal .sale-proof-preview-button.is-pdf { padding: .5rem; background: #f8fafc; }
+    #recordSaleModal .sale-proof-preview-button.is-pdf > .fa-file-pdf { color: #dc2626; font-size: 2rem; }
+    #recordSaleModal .sale-proof-preview-button .sale-proof-preview-magnifier { position: absolute; right: .35rem; bottom: .35rem; display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .86); box-shadow: 0 3px 10px rgba(15, 23, 42, .3); }
+    #recordSaleModal .sale-proof-preview-button:hover .sale-proof-preview-magnifier,
+    #recordSaleModal .sale-proof-preview-button:focus-visible .sale-proof-preview-magnifier { background: #2563eb; }
+    .record-sale-proof-viewer { position: relative; width: min(920px, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); padding: 3.25rem 1rem 1rem; border: 0; border-radius: 14px; background: #0f172a; box-shadow: 0 24px 70px rgba(0, 0, 0, .45); }
+    .record-sale-proof-viewer::backdrop { background: rgba(15, 23, 42, .84); }
+    .record-sale-proof-viewer img, .record-sale-proof-viewer iframe { display: block; width: 100%; height: min(72vh, 720px); border: 0; object-fit: contain; background: #fff; }
+    .record-sale-proof-viewer [hidden] { display: none !important; }
+    .record-sale-proof-viewer-close { position: absolute; top: .55rem; right: .55rem; display: inline-flex; min-height: 36px; align-items: center; gap: .35rem; padding: .4rem .7rem; border: 0; border-radius: 999px; color: #fff; background: rgba(255, 255, 255, .18); font-weight: 700; }
+    .record-sale-proof-viewer-close:hover { background: #2563eb; }
+    .record-sale-proof-viewer-caption { margin-top: .65rem; overflow-wrap: anywhere; color: #fff; font-size: .82rem; text-align: center; }
     #recordSaleModal .wholesale-adjustment-card,
     #recordSaleModal .online-remarks-panel { height: 100%; padding: .65rem !important; border-radius: 10px; }
     #recordSaleModal .sale-summary-card { min-height: 72px; padding: .55rem .7rem; border-radius: 10px; }
@@ -1025,6 +1040,13 @@
         </div>
     </div>
 </div>
+
+<dialog class="record-sale-proof-viewer" id="recordSaleAttachmentPreview" aria-label="Walk-In attachment preview">
+    <button type="button" class="record-sale-proof-viewer-close" data-record-sale-proof-close><i class="fa-solid fa-xmark" aria-hidden="true"></i>Close</button>
+    <img alt="" data-record-sale-proof-image hidden>
+    <iframe title="Walk-In attachment preview" data-record-sale-proof-pdf hidden></iframe>
+    <div class="record-sale-proof-viewer-caption" data-record-sale-proof-caption></div>
+</dialog>
 
 @php
     $saleProductOptions = $products->map(fn ($product) => [
@@ -2096,12 +2118,48 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+    const attachmentViewer = document.getElementById('recordSaleAttachmentPreview');
+    const attachmentViewerImage = attachmentViewer?.querySelector('[data-record-sale-proof-image]');
+    const attachmentViewerPdf = attachmentViewer?.querySelector('[data-record-sale-proof-pdf]');
+    const attachmentViewerCaption = attachmentViewer?.querySelector('[data-record-sale-proof-caption]');
+    const closeAttachmentViewer = () => {
+        if (attachmentViewer?.open) attachmentViewer.close();
+    };
+    const openAttachmentViewer = (file, url, inputName) => {
+        if (!attachmentViewer || !attachmentViewerImage || !attachmentViewerPdf || !attachmentViewerCaption) return;
+        const isPdf = file.type === 'application/pdf';
+        attachmentViewer.dataset.sourceInput = inputName;
+        attachmentViewerCaption.textContent = file.name;
+        attachmentViewerImage.hidden = isPdf;
+        attachmentViewerPdf.hidden = !isPdf;
+        if (isPdf) {
+            attachmentViewerImage.removeAttribute('src');
+            attachmentViewerImage.alt = '';
+            attachmentViewerPdf.src = url;
+        } else {
+            attachmentViewerPdf.src = 'about:blank';
+            attachmentViewerImage.src = url;
+            attachmentViewerImage.alt = `Preview of ${file.name}`;
+        }
+        if (!attachmentViewer.open) attachmentViewer.showModal();
+    };
+
+    attachmentViewer?.querySelector('[data-record-sale-proof-close]')?.addEventListener('click', closeAttachmentViewer);
+    attachmentViewer?.addEventListener('close', () => {
+        attachmentViewerImage?.removeAttribute('src');
+        if (attachmentViewerImage) attachmentViewerImage.alt = '';
+        if (attachmentViewerPdf) attachmentViewerPdf.src = 'about:blank';
+        if (attachmentViewerCaption) attachmentViewerCaption.textContent = '';
+        delete attachmentViewer.dataset.sourceInput;
+    });
+
     document.querySelectorAll('[data-inline-attachment-preview]').forEach(input => {
         const previewList = input.parentElement.querySelector('[data-inline-attachment-preview-list]');
         let previewUrls = [];
         if (!previewList) return;
 
         const clearPreviews = () => {
+            if (attachmentViewer?.dataset.sourceInput === input.name) closeAttachmentViewer();
             previewUrls.forEach(url => URL.revokeObjectURL(url));
             previewUrls = [];
             previewList.replaceChildren();
@@ -2112,20 +2170,25 @@ document.addEventListener('DOMContentLoaded', function () {
             Array.from(input.files || []).forEach(file => {
                 const url = URL.createObjectURL(file);
                 previewUrls.push(url);
-                const preview = document.createElement(file.type === 'application/pdf' ? 'a' : 'img');
-                if (preview instanceof HTMLImageElement) {
-                    preview.src = url;
-                    preview.alt = `Preview of ${file.name}`;
-                    preview.className = 'border rounded';
-                    preview.style.cssText = 'width:96px;height:96px;object-fit:cover';
+                const previewButton = document.createElement('button');
+                const magnifier = document.createElement('span');
+                previewButton.type = 'button';
+                previewButton.className = 'sale-proof-preview-button';
+                previewButton.setAttribute('aria-label', `Preview ${file.name}`);
+                magnifier.className = 'sale-proof-preview-magnifier';
+                magnifier.innerHTML = '<i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>';
+                if (file.type === 'application/pdf') {
+                    previewButton.classList.add('is-pdf');
+                    previewButton.innerHTML = '<i class="fa-solid fa-file-pdf" aria-hidden="true"></i>';
                 } else {
-                    preview.href = url;
-                    preview.target = '_blank';
-                    preview.rel = 'noopener';
-                    preview.textContent = `Preview PDF: ${file.name}`;
-                    preview.className = 'small border rounded p-2 align-self-start';
+                    const previewImage = document.createElement('img');
+                    previewImage.src = url;
+                    previewImage.alt = '';
+                    previewButton.append(previewImage);
                 }
-                previewList.append(preview);
+                previewButton.append(magnifier);
+                previewButton.addEventListener('click', () => openAttachmentViewer(file, url, input.name));
+                previewList.append(previewButton);
             });
         });
 
