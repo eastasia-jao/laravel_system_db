@@ -344,6 +344,130 @@ class OnlineSalesReportTest extends TestCase
             ->assertSessionHasErrors('refund');
     }
 
+    public function test_online_overview_separates_net_product_sales_from_shipping_and_reconciles_proofs(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Online Overview Hub',
+            'code' => 'ONLINE-OVERVIEW',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $originalProduct = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'ONLINE-OVERVIEW-ORIGINAL',
+            'name' => 'Online Overview Original',
+            'stock' => 10,
+            'sales_price' => 500,
+            'status' => 'active',
+        ]);
+        $replacementProduct = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'ONLINE-OVERVIEW-REPLACEMENT',
+            'name' => 'Online Overview Replacement',
+            'stock' => 10,
+            'sales_price' => 600,
+            'status' => 'active',
+        ]);
+
+        $replacementSale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'online',
+            'customer_name' => 'Replacement Customer',
+            'order_number' => 'ONLINE-OVERVIEW-REPLACED',
+            'order_date' => '2026-10-29',
+            'sub_total' => 600,
+            'total_amount' => 600,
+            'grand_total' => 700,
+            'shipping_fee_amount' => 100,
+            'proof_amount' => 700,
+            'mode_of_payment' => 'GCASH',
+            'status' => 'confirmed',
+            'payment_status' => 'not_applicable',
+            'delivery_status' => 'delivered',
+        ]);
+        $replacementItem = $replacementSale->items()->create([
+            'product_id' => $originalProduct->id,
+            'quantity' => 1,
+            'returned_quantity' => 1,
+            'unit_price' => 500,
+            'line_total' => 500,
+        ]);
+        ProductReplacement::create([
+            'transaction_id' => $replacementSale->id,
+            'transaction_item_id' => $replacementItem->id,
+            'original_product_id' => $originalProduct->id,
+            'replacement_product_id' => $replacementProduct->id,
+            'quantity' => 1,
+            'replacement_quantity' => 1,
+            'original_unit_price' => 500,
+            'replacement_unit_price' => 600,
+            'status' => 'approved',
+            'created_by' => $admin->id,
+        ]);
+
+        $returnedSale = SalesTransaction::create([
+            'user_id' => $admin->id,
+            'store_hub_id' => $hub->id,
+            'channel_type' => 'online',
+            'customer_name' => 'Return Customer',
+            'order_number' => 'ONLINE-OVERVIEW-RETURNED',
+            'order_date' => '2026-10-30',
+            'sub_total' => 400,
+            'total_amount' => 400,
+            'grand_total' => 400,
+            'shipping_fee_amount' => 50,
+            'proof_amount' => 250,
+            'mode_of_payment' => 'PAYMAYA',
+            'status' => 'confirmed',
+            'payment_status' => 'not_applicable',
+            'delivery_status' => 'delivered',
+        ]);
+        $returnedItem = $returnedSale->items()->create([
+            'product_id' => $originalProduct->id,
+            'quantity' => 2,
+            'unit_price' => 200,
+            'line_total' => 400,
+        ]);
+        InventoryTransaction::create([
+            'type' => 'return',
+            'reference' => $returnedSale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $originalProduct->id,
+            'sales_transaction_id' => $returnedSale->id,
+            'transaction_item_id' => $returnedItem->id,
+            'channel' => 'online',
+            'condition' => 'good',
+            'quantity' => 1,
+            'refund_amount' => 200,
+            'occurred_on' => '2026-10-30',
+            'created_by' => $admin->id,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'online',
+            'from' => '2026-10-01',
+            'to' => '2026-10-31',
+        ]));
+
+        $response->assertOk()
+            ->assertSee('Net Product Sales')
+            ->assertSee('Expected Amount')
+            ->assertViewHas('totalSales', 800.0)
+            ->assertViewHas('metrics', fn (array $metrics) =>
+                (float) $metrics['total_sales'] === 800.0
+                && (float) $metrics['shipping_fees'] === 150.0
+                && (float) $metrics['expected_amount'] === 950.0
+                && (float) $metrics['proof_amount'] === 950.0
+                && (float) $metrics['difference'] === 0.0
+            );
+
+        $this->assertSame(600.0, (float) $response->viewData('onlinePaymentSales')->get('GCASH'));
+        $this->assertSame(200.0, (float) $response->viewData('onlinePaymentSales')->get('PAYMAYA'));
+    }
+
     private function onlineSale(User $user, StoreHub $hub, Product $product, array $attributes): SalesTransaction
     {
         $sale = SalesTransaction::create($attributes + [

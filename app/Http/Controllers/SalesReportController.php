@@ -325,9 +325,20 @@ class SalesReportController extends Controller
                 ->groupBy(fn ($return) => trim($return->reference).'|'.$return->product_id)
             : collect();
 
-        $resolveTotal = fn (SalesTransaction $transaction): float => $isRefundedTransaction($transaction)
-            ? 0.0
-            : $transaction->netOrderTotal($this->resolveReportedTotal($transaction));
+        $resolveTotal = function (SalesTransaction $transaction) use ($isRefundedTransaction): float {
+            if ($isRefundedTransaction($transaction)) {
+                return 0.0;
+            }
+
+            $reportedTotal = $this->resolveReportedTotal($transaction);
+            $productTotal = $this->normalizeChannel($transaction->channel_type) === 'online'
+                ? ($transaction->sub_total !== null
+                    ? (float) $transaction->sub_total
+                    : max(0, $reportedTotal - (float) $transaction->shipping_fee_amount))
+                : $reportedTotal;
+
+            return $transaction->netOrderTotal($productTotal);
+        };
         $currentGross = function (SalesTransaction $transaction) use ($isRefundedTransaction): float {
             if ($isRefundedTransaction($transaction)) {
                 return 0.0;
@@ -521,11 +532,13 @@ class SalesReportController extends Controller
                 ->when($dateTo, fn ($builder) => $builder->where('occurred_on', '<', Carbon::parse($dateTo)->addDay()->toDateString()))
                 ->count()
             : 0;
+        $shippingFees = (float) $summaryTransactions->sum('shipping_fee_amount');
+        $expectedAmount = round((float) $totalSales + $shippingFees, 2);
         $metrics = [
             'gross_sales' => $grossSales,
             'discounts' => $summaryTransactions->sum(fn ($transaction) => max(0, $currentGross($transaction) - $currentNet($transaction))),
             'total_sales' => $totalSales,
-            'shipping_fees' => $summaryTransactions->sum('shipping_fee_amount'),
+            'shipping_fees' => $shippingFees,
             'shipping_service_fees' => $summaryTransactions->sum('shipping_service_fee'),
             'refund_shipping_fees' => $summaryTransactions->sum('refund_shipping_fee'),
             'actual_platform_payout' => $summaryTransactions->sum('sales_after_transaction_fee'),
@@ -533,15 +546,17 @@ class SalesReportController extends Controller
             'customer_refund_amount' => $summaryTransactions->sum(fn ($transaction) => $transaction->completedCustomerRefunds()),
             'pending_payouts' => $summaryTransactions->whereNull('sales_after_transaction_fee')->count(),
             'proof_amount' => $summaryTransactions->sum('proof_amount'),
+            'expected_amount' => $expectedAmount,
             'difference' => $summaryTransactions->sum(function ($transaction) use ($resolveTotal) {
                 if ($transaction->proof_amount === null) {
                     return 0;
                 }
 
-                $saleAmount = (float) ($transaction->sub_total ?: $resolveTotal($transaction));
+                $expectedCollection = $resolveTotal($transaction)
+                    + (float) $transaction->shipping_fee_amount;
 
                 return (float) $transaction->proof_amount
-                    - $saleAmount;
+                    - $expectedCollection;
             }),
             'replacement_count' => $replacementCount,
             'return_count' => $returnCount,

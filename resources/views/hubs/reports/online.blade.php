@@ -33,7 +33,7 @@
                 <span class="badge rounded-pill text-bg-success">Verified sales</span>
             </div>
             <div class="sales-summary-grid">
-                <div class="sales-summary-card is-success"><span class="sales-summary-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span><div class="sales-summary-copy"><div class="label">Total sales (META &amp; IG)</div><div class="value text-success">₱{{ number_format($metrics['total_sales'], 2) }}</div></div></div>
+                <div class="sales-summary-card is-success"><span class="sales-summary-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span><div class="sales-summary-copy"><div class="label">Net product sales (META &amp; IG)</div><div class="value text-success">₱{{ number_format($metrics['total_sales'], 2) }}</div></div></div>
                 <div class="sales-summary-card is-info"><span class="sales-summary-icon" aria-hidden="true"><i class="fa-solid fa-truck"></i></span><div class="sales-summary-copy"><div class="label">Total shipping fee</div><div class="value text-info">₱{{ number_format($metrics['shipping_fees'], 2) }}</div></div></div>
                 <div class="sales-summary-card"><span class="sales-summary-icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></span><div class="sales-summary-copy"><div class="label">No. of transactions</div><div class="value">{{ number_format($totalTransactions) }}</div></div></div>
                 <div class="sales-summary-card is-danger"><span class="sales-summary-icon" aria-hidden="true"><i class="fa-solid fa-rotate-left"></i></span><div class="sales-summary-copy"><div class="label">No. of returns</div><div class="value text-danger">{{ number_format($metrics['return_count']) }}</div></div></div>
@@ -77,10 +77,10 @@
                             ->where('status', 'approved')
                             ->sum('replacement_shipping_fee_amount');
                         $shippingFee = (float) $transaction->shipping_fee_amount;
+                        $expectedCollection = $saleAmount + $shippingFee;
                         $difference = $transaction->proof_amount === null
                             ? null
-                            : (float) $transaction->proof_amount
-                                - (float) ($transaction->sub_total ?: $saleAmount);
+                            : (float) $transaction->proof_amount - $expectedCollection;
                         $isRefunded = $transaction->status === 'refunded';
                     @endphp
                     <div class="col-12">
@@ -150,7 +150,8 @@
                 @forelse($transactions as $transaction)
                     @php
                         $saleAmount = (float) ($transaction->sub_total ?: $transaction->items->sum('line_total'));
-                        $difference = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount - (float) ($transaction->sub_total ?: $saleAmount);
+                        $expectedCollection = $saleAmount + (float) $transaction->shipping_fee_amount;
+                        $difference = $transaction->proof_amount === null ? null : (float) $transaction->proof_amount - $expectedCollection;
                     @endphp
                     <tr>
                         <td class="fw-semibold" data-online-preview-remove>{{ $transaction->customer_name }}@include('hubs.reports._new-customer-badge')</td>
@@ -198,9 +199,9 @@
 
 @foreach($transactions as $transaction)
     @php
-        $detailSaleAmount = $transaction->netOrderTotal((float) ($transaction->sub_total ?: $transaction->items->sum('line_total')));
+        $detailSaleAmount = $transaction->netOrderTotal((float) ($transaction->sub_total ?? $transaction->items->sum('line_total')));
         $detailShippingFee = (float) $transaction->shipping_fee_amount;
-        $detailOrderTotal = $transaction->netOrderTotal((float) ($transaction->grand_total ?: $transaction->total_amount ?: ($detailSaleAmount + $detailShippingFee)));
+        $detailOrderTotal = $detailSaleAmount + $detailShippingFee;
         $detailReplacementDeliveryFee = (float) $transaction->items
             ->flatMap(fn ($item) => $item->replacements)
             ->where('status', 'approved')

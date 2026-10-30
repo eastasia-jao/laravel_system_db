@@ -340,7 +340,7 @@
         .online-overview-primary-metrics > :first-child .fs-4 {
             font-size: clamp(1.35rem, 1.8vw, 1.8rem) !important;
         }
-        .online-overview-reconciliation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .online-overview-reconciliation { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
     @media (max-width: 767.98px) {
         .online-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -523,7 +523,7 @@
                         <i class="fa-solid fa-chart-line text-primary" aria-hidden="true"></i>
                     </div>
                     <div class="online-overview-metrics online-overview-primary-metrics">
-                        @include('hubs.reports.metric', ['label' => 'Total Sales', 'value' => $metrics['total_sales'], 'color' => 'success'])
+                        @include('hubs.reports.metric', ['label' => 'Net Product Sales', 'value' => $metrics['total_sales'], 'color' => 'success'])
                         @include('hubs.reports.metric', ['label' => 'No. of Transactions', 'value' => $totalTransactions, 'money' => false, 'color' => 'dark'])
                         @include('hubs.reports.metric', ['label' => 'No. of Returns', 'value' => $metrics['return_count'], 'money' => false, 'color' => 'danger'])
                         @include('hubs.reports.metric', ['label' => 'No. of Replacements', 'value' => $metrics['replacement_count'], 'money' => false, 'color' => 'warning'])
@@ -536,6 +536,7 @@
                     </div>
                     <div class="online-overview-metrics online-overview-reconciliation">
                         @include('hubs.reports.metric', ['label' => 'Shipping Fees', 'value' => $metrics['shipping_fees'], 'color' => 'info'])
+                        @include('hubs.reports.metric', ['label' => 'Expected Amount', 'value' => $metrics['expected_amount'], 'color' => 'success'])
                         @include('hubs.reports.metric', ['label' => 'Proof Amount', 'value' => $metrics['proof_amount'], 'color' => 'primary'])
                         @include('hubs.reports.metric', ['label' => 'Reconciliation Difference', 'value' => $metrics['difference'], 'color' => abs($metrics['difference']) < 0.01 ? 'success' : 'danger'])
                     </div>
