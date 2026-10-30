@@ -618,15 +618,8 @@
     const stockForCondition = (product, condition) => condition === 'damaged'
         ? Number(product.damaged_stock_available ?? product.damaged_stock ?? 0)
         : Number(product.good_stock_available ?? product.stock ?? 0);
-    const labelForCondition = (product, condition) => {
-        const label = window.transactionProductLabel(product, true, condition);
-        const name = String(product.name || product.description || 'Unnamed product').trim();
-        const description = String(product.description || '').trim();
-
-        return description && description.toLowerCase() !== name.toLowerCase()
-            ? label.replace(` — ${name}`, ` — ${name} / ${description}`)
-            : label;
-    };
+    const labelForCondition = (product, condition) =>
+        window.transactionProductLabel(product, true, condition);
     const isDuplicateSelection = (productId, condition, currentRow) =>
         [...container.querySelectorAll('.sponsor-item')].some(row =>
             row !== currentRow

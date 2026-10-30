@@ -1457,9 +1457,6 @@ class InventoryTransactionController extends Controller
                 'good_stock_available' => $goodStock,
                 'damaged_stock_available' => max(0, (int) $product->damaged_stock),
                 'label' => ($product->item_id ?: $product->id).' — '.($product->name ?: $product->description ?: 'Unnamed product')
-                    .($product->description && $product->name && strcasecmp(trim($product->description), trim($product->name)) !== 0
-                        ? ' / '.$product->description
-                        : '')
                     .($product->barcode ? ' · '.$product->barcode : '')
                     .' (stock: '.$goodStock.')',
             ];
