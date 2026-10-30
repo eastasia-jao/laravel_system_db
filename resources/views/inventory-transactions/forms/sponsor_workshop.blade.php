@@ -196,7 +196,7 @@
                 </div>
                 <div id="sponsorItems">
                     <div class="row g-2 align-items-center sponsor-item py-2">
-                        <div class="col-md-5"><input type="search" class="form-control product-search" list="sponsorProductOptions" placeholder="Search product name or Item ID" autocomplete="off" aria-label="Product" required>
+                        <div class="col-md-5"><input type="search" class="form-control product-search" list="sponsorProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" aria-label="Product" required>
                             <input type="hidden" name="items[0][product_id]" class="product-id"></div>
                         <div class="col-md-2"><select name="items[0][stock_condition]" class="form-select" aria-label="Stock condition"><option value="good">Good</option><option value="damaged">Damaged</option></select></div>
                         <div class="col-md-2"><input type="number" name="items[0][pullout_qty]" min="0" step="1" class="form-control" aria-label="Requested Qty (record only)" placeholder="Requested Qty"></div>
@@ -618,8 +618,15 @@
     const stockForCondition = (product, condition) => condition === 'damaged'
         ? Number(product.damaged_stock_available ?? product.damaged_stock ?? 0)
         : Number(product.good_stock_available ?? product.stock ?? 0);
-    const labelForCondition = (product, condition) =>
-        window.transactionProductLabel(product, true, condition);
+    const labelForCondition = (product, condition) => {
+        const label = window.transactionProductLabel(product, true, condition);
+        const name = String(product.name || product.description || 'Unnamed product').trim();
+        const description = String(product.description || '').trim();
+
+        return description && description.toLowerCase() !== name.toLowerCase()
+            ? label.replace(` — ${name}`, ` — ${name} / ${description}`)
+            : label;
+    };
     const isDuplicateSelection = (productId, condition, currentRow) =>
         [...container.querySelectorAll('.sponsor-item')].some(row =>
             row !== currentRow
@@ -711,7 +718,7 @@
     addButton.addEventListener('click', () => {
         const row = document.createElement('div');
         row.className = 'row g-2 align-items-center sponsor-item py-2';
-        row.innerHTML = `<div class="col-md-5"><input type="search" class="form-control product-search" list="sponsorProductOptions" placeholder="Search product name or Item ID" autocomplete="off" aria-label="Product" required>
+        row.innerHTML = `<div class="col-md-5"><input type="search" class="form-control product-search" list="sponsorProductOptions" placeholder="Search item code, barcode, or description" autocomplete="off" aria-label="Product" required>
             <input type="hidden" name="items[${itemIndex}][product_id]" class="product-id"></div>
             <div class="col-md-2"><select name="items[${itemIndex}][stock_condition]" class="form-select" aria-label="Stock condition"><option value="good">Good</option><option value="damaged">Damaged</option></select></div>
             <div class="col-md-2"><input type="number" name="items[${itemIndex}][pullout_qty]" min="0" step="1" class="form-control" aria-label="Requested Qty (record only)" placeholder="Requested Qty"></div>

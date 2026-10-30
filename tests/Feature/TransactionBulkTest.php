@@ -887,6 +887,7 @@ class TransactionBulkTest extends TestCase
         ]);
         $product = Product::create([
             'name' => 'Event Pullout Product',
+            'description' => 'Event Pullout Product Description',
             'item_id' => 'EVENT-PULLOUT-1',
             'barcode' => '987654321',
             'store_hub_id' => $hub->id,
@@ -903,9 +904,10 @@ class TransactionBulkTest extends TestCase
         $eventForm->assertViewHas('sponsorProductOptions', fn ($options) =>
             $options->contains(fn ($option) => $option['good_stock_available'] === 5
                 && $option['damaged_stock_available'] === 2
-                && $option['label'] === 'EVENT-PULLOUT-1 — Event Pullout Product · 987654321 (stock: 5)')
+                && $option['label'] === 'EVENT-PULLOUT-1 — Event Pullout Product / Event Pullout Product Description · 987654321 (stock: 5)')
         );
         $eventForm->assertSee('setupTransactionSuggestions(', false)
+            ->assertSee('Search item code, barcode, or description')
             ->assertSee('stockForCondition(product, condition) > 0', false)
             ->assertSee('labelForCondition(product, condition)', false);
         $formHtml = $eventForm->getContent();
