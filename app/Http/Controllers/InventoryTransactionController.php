@@ -934,7 +934,7 @@ class InventoryTransactionController extends Controller
         $transactions = InventoryTransaction::with([
             'product', 'storeHub', 'sourceHub', 'targetHub', 'creator',
             'nationalProduct', 'nationalPullout', 'nationalPulloutItem',
-            'salesTransaction.user', 'salesTransaction.confirmedBy',
+            'salesTransaction.user', 'salesTransaction.confirmedBy', 'salesTransaction.refundedBy',
             'salesTransaction.items.replacements.reviewer',
             'salesTransaction.items.replacements.originalProduct',
             'salesTransaction.items.replacements.replacementProduct',
@@ -1015,7 +1015,7 @@ class InventoryTransactionController extends Controller
             ->unique();
         if ($soldReferences->isNotEmpty()) {
             $salesByReference = SalesTransaction::with([
-                'user', 'confirmedBy', 'items.replacements.reviewer',
+                'user', 'confirmedBy', 'refundedBy', 'items.replacements.reviewer',
                 'items.replacements.originalProduct', 'items.replacements.replacementProduct',
             ])
                 ->whereIn('order_number', $soldReferences)

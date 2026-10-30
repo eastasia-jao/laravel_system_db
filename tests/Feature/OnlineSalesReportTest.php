@@ -262,6 +262,25 @@ class OnlineSalesReportTest extends TestCase
         $this->assertSame($admin->id, $sale->refunded_by);
         $this->assertNotNull($sale->refunded_at);
 
+        InventoryTransaction::create([
+            'type' => 'sold',
+            'reference' => $sale->order_number,
+            'store_hub_id' => $hub->id,
+            'product_id' => $product->id,
+            'sales_transaction_id' => $sale->id,
+            'transaction_item_id' => $item->id,
+            'channel' => 'online',
+            'quantity' => 2,
+            'occurred_on' => '2026-10-21',
+            'created_by' => $admin->id,
+        ]);
+        $this->get(route('inventory-transactions.index', ['hub_id' => $hub->id]))
+            ->assertOk()
+            ->assertSee('data-refund-lock-status', false)
+            ->assertSee('REFUNDED / LOCKED')
+            ->assertSee('data-refund-lock-details', false)
+            ->assertSee('This order was refunded and is permanently locked.');
+
         $legacyRefund = SalesTransaction::create([
             'user_id' => $admin->id,
             'store_hub_id' => $hub->id,

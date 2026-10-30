@@ -428,6 +428,10 @@
                         ? $rejectedSale?->rejectedBy
                         : ($isSoldOrder ? $transaction->salesTransaction?->user : $transaction->creator);
                     $sale = $transaction->salesTransaction;
+                    $isRefundLocked = $sale && (
+                        strtolower((string) $sale->status) === 'refunded'
+                        || strtolower((string) $sale->payment_status) === 'refunded'
+                    );
                     $saleChannel = strtolower(str_replace(['-', ' '], '_', (string) $sale?->channel_type));
                     $orderSlipPath = $saleChannel === 'event'
                         ? ($sale?->event_attachments['order_slip'] ?? null)
@@ -518,6 +522,9 @@
                         };
                     @endphp
                     <td class="log-type-cell"><span class="log-type-badge {{ $typeClass }}"><i class="fa-solid {{ $typeIcon }}"></i>{{ $typeLabel }}</span>
+                        @if($isRefundLocked)
+                            <span class="badge mt-1 d-table text-bg-danger" data-refund-lock-status><i class="fa-solid fa-lock me-1"></i>REFUNDED / LOCKED</span>
+                        @endif
                         @if($transaction->type === 'branch_transfer' && $transaction->status !== 'approved')
                             <span class="badge mt-1 d-table {{ $transaction->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning' }}">{{ strtoupper($transaction->status ?? 'pending') }}</span>
                         @endif
@@ -939,14 +946,28 @@
                                     <div class="sold-detail-hero">
                                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                                             <div>
-                                                <div class="eyebrow"><i class="fa-solid fa-cart-shopping me-1"></i>Completed sales record</div>
-                                                <h4 class="mb-1 mt-2">Sold order</h4>
+                                                <div class="eyebrow"><i class="fa-solid {{ $isRefundLocked ? 'fa-lock' : 'fa-cart-shopping' }} me-1"></i>{{ $isRefundLocked ? 'Refunded sales record' : 'Completed sales record' }}</div>
+                                                <h4 class="mb-1 mt-2">{{ $isRefundLocked ? 'Refunded order' : 'Sold order' }}</h4>
                                                 <div class="sold-detail-order">Order {{ $sale->order_number ?? $transaction->reference ?? '—' }}</div>
                                             </div>
-                                            <span class="badge text-bg-success rounded-pill px-3 py-2"><i class="fa-solid fa-check me-1"></i>SOLD</span>
+                                            <span class="badge {{ $isRefundLocked ? 'text-bg-danger' : 'text-bg-success' }} rounded-pill px-3 py-2"><i class="fa-solid {{ $isRefundLocked ? 'fa-lock' : 'fa-check' }} me-1"></i>{{ $isRefundLocked ? 'REFUNDED / LOCKED' : 'SOLD' }}</span>
                                         </div>
                                     </div>
                                 </div>
+                                @if($isRefundLocked)
+                                    <div class="col-12">
+                                        <div class="alert alert-danger mb-0" data-refund-lock-details>
+                                            <div class="fw-bold"><i class="fa-solid fa-lock me-1"></i>This order was refunded and is permanently locked.</div>
+                                            @if($sale->refunded_at || $sale->refundedBy)
+                                                <div class="small mt-1">
+                                                    @if($sale->refunded_at)Refunded {{ $sale->refunded_at->format('M d, Y h:i A') }}@endif
+                                                    @if($sale->refunded_at && $sale->refundedBy) &middot; @endif
+                                                    @if($sale->refundedBy)By {{ $sale->refundedBy->name ?? $sale->refundedBy->username }}@endif
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endif
                                 <div class="col-12">
                                     <div class="row g-2">
                                         <div class="col-md-4"><div class="sold-detail-kpi"><div class="label">Item lines</div><div class="value">{{ $group->count() }}</div></div></div>
