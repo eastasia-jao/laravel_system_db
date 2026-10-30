@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\EventPullout;
 use App\Models\Product;
+use App\Models\ProductStockAllocation;
 use App\Models\SalesTransaction;
 use App\Models\StoreHub;
 use App\Models\User;
@@ -144,6 +145,59 @@ class EventInventoryTest extends TestCase
             $logResponse->getContent(),
             'data-event-log-product="'.$product->id.'"'
         ));
+    }
+
+    public function test_event_pullout_uses_physical_stock_without_changing_sales_channel_allocations(): void
+    {
+        [$admin, $hub, $product] = $this->eventFixture();
+        $allocation = ProductStockAllocation::create([
+            'product_id' => $product->id,
+            'online' => 1,
+            'wholesale' => 2,
+            'shopee' => 3,
+            'lazada' => 4,
+            'tiktok' => 5,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('inventory-transactions.sponsor.create', [
+                'hub_id' => $hub->id,
+                'activity_type' => 'event',
+            ]))
+            ->assertOk()
+            ->assertViewHas('sponsorProductOptions', function ($options) use ($product): bool {
+                $option = $options->firstWhere('id', $product->id);
+
+                return $option !== null
+                    && $option['good_stock_available'] === 10
+                    && $option['damaged_stock_available'] === 4;
+            });
+
+        $this->post(route('inventory-transactions.store'), [
+            'type' => 'sponsor_workshop',
+            'store_hub_id' => $hub->id,
+            'occurred_on' => '2026-10-15',
+            'source' => 'October Art Fair',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 8,
+                'stock_condition' => 'good',
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(2, (int) $product->fresh()->stock);
+        $this->assertSame([
+            'online' => 1,
+            'wholesale' => 2,
+            'shopee' => 3,
+            'lazada' => 4,
+            'tiktok' => 5,
+        ], $allocation->fresh()->only(['online', 'wholesale', 'shopee', 'lazada', 'tiktok']));
+        $this->assertDatabaseHas('event_pullout_items', [
+            'product_id' => $product->id,
+            'stock_condition' => 'good',
+            'quantity' => 8,
+        ]);
     }
 
     public function test_event_sale_reduces_only_event_stock_and_return_limit_accounts_for_sold_items(): void
