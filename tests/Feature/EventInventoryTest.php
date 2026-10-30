@@ -340,7 +340,12 @@ class EventInventoryTest extends TestCase
             ->assertSee('Order Slip Image')
             ->assertSee('Item Images')
             ->assertSee('Coupon / Voucher Attachment')
-            ->assertSee('Proof of Payment');
+            ->assertSee('Proof of Payment')
+            ->assertSee('event-log-attachment-zoom')
+            ->assertSee('eventLogImageViewer')
+            ->assertSee('cursor: zoom-in')
+            ->assertSee('overflow-y: auto')
+            ->assertSee('max-height: min(38vh, 320px)');
         $this->get(route('event-inventory.sales.attachment', [
             'transaction' => $sale->id,
             'type' => 'order-slip',
