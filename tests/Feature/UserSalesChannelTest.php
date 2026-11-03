@@ -77,6 +77,11 @@ class UserSalesChannelTest extends TestCase
 
         $staff = User::where('employee_id', 'AC01')->sole();
         $this->assertSame('AC01', $staff->username);
+
+        $this->get(route('users.index'))
+            ->assertOk()
+            ->assertSee('Employee ID')
+            ->assertSee('AC01');
     }
 
     public function test_edit_returns_a_success_message_for_the_popup(): void

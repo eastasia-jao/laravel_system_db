@@ -9,6 +9,7 @@
         .users-card { border: 0; border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, .07); }
         .users-table thead th { color: #64748b; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
         .users-table tbody tr { border-color: #eef2f7; }
+        .employee-id-code { color: #334155; font-size: .78rem; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
         .role-badge { background: #eff6ff; color: #1d4ed8; }
         .channel-panel { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
         .channel-option { border: 1px solid #e2e8f0; border-radius: 8px; padding: .42rem .35rem; background: #fff; display: flex; align-items: center; justify-content: center; gap: .3rem; font-size: .76rem; white-space: nowrap; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
@@ -84,6 +85,7 @@
                         <thead class="bg-light">
                             <tr>
                                 <th class="ps-4">Name</th>
+                                <th>Employee ID</th>
                                 <th>Contact</th>
                                 <th>Role</th>
                                 <th>Branch</th>
@@ -95,6 +97,7 @@
                             @foreach($users as $user)
                             <tr>
                                 <td class="ps-4"><div class="fw-semibold">{{ $user->name }}</div></td>
+                                <td><span class="employee-id-code">{{ $user->employee_id ?: '—' }}</span></td>
                                 <td>{{ $user->mobile_number ?: 'No mobile number' }}</td>
                                 <td><span class="badge rounded-pill role-badge px-3 py-2">{{ ucwords(str_replace('_', ' ', $user->role)) }}</span></td>
                                 <td>{{ $user->storeHub?->name ?: 'All store hubs' }}</td>
