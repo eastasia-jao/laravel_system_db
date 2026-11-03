@@ -106,10 +106,9 @@ class UserController extends Controller
             'employee_id' => ['nullable', 'string', 'max:10', Rule::unique('users', 'employee_id')->ignore($user->id)],
             'email' => 'nullable|email|unique:users,email,'.$id,
             'mobile_number' => 'required|string|max:30',
-            // Only require current_password if user is changing password OR email/details
-            // If you strictly want this for password changes, use required_with:password
-            'current_password' => ['nullable', 'required_with:password', 'current_password'],
-            'password' => 'nullable|min:8|confirmed',
+            'current_password' => ['prohibited'],
+            'password' => ['prohibited'],
+            'password_confirmation' => ['prohibited'],
             'role' => ['required', Rule::in(array_keys(User::BUILT_IN_ROLES))],
             'hub_id' => ['required', $hubRule],
             'additional_hub_ids' => ['nullable', 'array'],
@@ -144,12 +143,6 @@ class UserController extends Controller
         $user->sales_channels = in_array($request->role, ['inventory_staff', 'sales_marketing_staff'], true)
             ? $request->input('sales_channels', [])
             : [];
-
-        // Update password if provided
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-            $user->must_change_password = ! $user->is($request->user());
-        }
 
         $user->save();
         $this->syncSalesAssociateHubs($user, $request);

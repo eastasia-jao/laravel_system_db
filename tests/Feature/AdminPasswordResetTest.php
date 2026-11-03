@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -66,5 +67,43 @@ class AdminPasswordResetTest extends TestCase
             ->assertForbidden();
 
         $this->assertFalse(Hash::check('NewSecurePass2!', $otherStaff->fresh()->password));
+    }
+
+    public function test_staff_edit_uses_the_separate_reset_action_instead_of_password_fields(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'PASSWORD-HO', 'status' => 'active']);
+        $staff = User::factory()->create([
+            'name' => 'Staff Member',
+            'employee_id' => 'AC555',
+            'email' => 'staff.member@example.com',
+            'mobile_number' => '09123456789',
+            'hub_id' => $hub->id,
+            'role' => 'inventory_staff',
+            'password' => 'OriginalPass1!',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('users.index'))
+            ->assertOk()
+            ->assertDontSee('id="edit_current_password"', false)
+            ->assertDontSee('id="edit_password"', false)
+            ->assertDontSee('id="edit_password_confirmation"', false)
+            ->assertSee('id="resetPasswordModal"', false);
+
+        $this->putJson(route('users.update', $staff), [
+            'name' => 'Staff Member',
+            'employee_id' => 'AC555',
+            'email' => 'staff.member@example.com',
+            'mobile_number' => '09123456789',
+            'hub_id' => $hub->id,
+            'role' => 'inventory_staff',
+            'current_password' => 'password',
+            'password' => 'AnotherSecurePass2!',
+            'password_confirmation' => 'AnotherSecurePass2!',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['current_password', 'password', 'password_confirmation']);
+
+        $this->assertTrue(Hash::check('OriginalPass1!', $staff->fresh()->password));
     }
 }

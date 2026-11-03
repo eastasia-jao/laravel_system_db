@@ -84,8 +84,8 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="bg-light">
                             <tr>
-                                <th class="ps-4">Name</th>
-                                <th>Employee ID</th>
+                                <th class="ps-4">Employee ID</th>
+                                <th>Name</th>
                                 <th>Contact</th>
                                 <th>Role</th>
                                 <th>Branch</th>
@@ -96,8 +96,8 @@
                         <tbody>
                             @foreach($users as $user)
                             <tr>
-                                <td class="ps-4"><div class="fw-semibold">{{ $user->name }}</div></td>
-                                <td><span class="employee-id-code">{{ $user->employee_id ?: '—' }}</span></td>
+                                <td class="ps-4"><span class="employee-id-code">{{ $user->employee_id ?: '—' }}</span></td>
+                                <td><div class="fw-semibold">{{ $user->name }}</div></td>
                                 <td>{{ $user->mobile_number ?: 'No mobile number' }}</td>
                                 <td><span class="badge rounded-pill role-badge px-3 py-2">{{ ucwords(str_replace('_', ' ', $user->role)) }}</span></td>
                                 <td>{{ $user->storeHub?->name ?: 'All store hubs' }}</td>
@@ -344,24 +344,6 @@
                         </div>
                     </div>
 
-                    <div class="edit-section edit-security-section">
-                        <div class="edit-section-title mb-1"><i class="bi bi-key"></i>Change Password</div>
-                        <p class="small text-muted mb-3">Leave these fields blank to keep the current password.</p>
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label for="edit_current_password" class="form-label">Current Password</label>
-                                <input type="password" name="current_password" id="edit_current_password" class="form-control" placeholder="Required only when setting a new password" autocomplete="current-password">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="edit_password" class="form-label">New Password</label>
-                                <input type="password" name="password" id="edit_password" class="form-control" placeholder="At least 8 characters" autocomplete="new-password">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="edit_password_confirmation" class="form-label">Confirm New Password</label>
-                                <input type="password" name="password_confirmation" id="edit_password_confirmation" class="form-control" placeholder="Repeat the new password" autocomplete="new-password">
-                            </div>
-                        </div>
-                    </div>
                 </div>
                 <div class="modal-footer border-0 bg-white px-4 py-3">
                     <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
