@@ -5,15 +5,13 @@
         .password-strength-track { height: .3rem; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
         .password-strength-bar { width: 0; height: 100%; border-radius: inherit; background: #94a3b8; transition: width .2s ease, background-color .2s ease; }
         .password-strength-label { color: #64748b; font-size: .78rem; font-weight: 700; }
-        .password-requirements-disclosure { overflow: hidden; border: 1px solid #e2e8f0; border-radius: .65rem; background: #fff; }
-        .password-requirements-disclosure summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 2.35rem; padding: .45rem .65rem; color: #475569; font-size: .75rem; font-weight: 600; cursor: pointer; list-style: none; }
-        .password-requirements-disclosure summary::-webkit-details-marker { display: none; }
-        .password-requirements-disclosure summary:hover { background: #f8fafc; }
-        .password-requirements-disclosure[open] summary { border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-        .password-requirements-chevron { color: #94a3b8; font-size: .68rem; transition: transform .15s ease; }
-        .password-requirements-disclosure[open] .password-requirements-chevron { transform: rotate(180deg); }
+        .password-field-wrap { position: relative; }
+        .password-guidance-popover { position: absolute; z-index: 20; top: calc(100% + .55rem); right: .15rem; left: .15rem; padding: .85rem; border: 1px solid #dbe3ee; border-radius: .85rem; background: #fff; box-shadow: 0 16px 34px rgb(15 23 42 / 20%); opacity: 0; visibility: hidden; transform: translateY(-.35rem); transition: opacity .15s ease, transform .15s ease, visibility .15s ease; pointer-events: none; }
+        .password-guidance-popover::before { position: absolute; top: -.45rem; left: 50%; width: .85rem; height: .85rem; border-top: 1px solid #dbe3ee; border-left: 1px solid #dbe3ee; background: #fff; content: ''; transform: translateX(-50%) rotate(45deg); }
+        .password-guidance-popover.is-visible { opacity: 1; visibility: visible; transform: translateY(0); }
+        .password-guidance-heading { position: relative; display: flex; align-items: center; gap: .45rem; color: #334155; font-size: .8rem; font-weight: 700; }
         .password-requirements-count { margin-left: auto; color: #64748b; font-size: .7rem; font-weight: 700; }
-        .password-requirements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem .75rem; margin: 0; padding: .7rem .75rem; list-style: none; }
+        .password-requirements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem .75rem; margin: .65rem 0 0; padding: 0; list-style: none; }
         .password-requirement { display: flex; align-items: center; gap: .4rem; color: #64748b; font-size: .72rem; }
         .password-requirement i { width: .85rem; color: #94a3b8; text-align: center; }
         .password-requirement.is-met { color: #047857; }
@@ -51,9 +49,9 @@
                 <input id="current_password" name="current_password" type="password" class="form-control" required autofocus autocomplete="current-password">
             </div>
 
-            <div class="mb-3">
+            <div class="mb-3 password-field-wrap">
                 <label for="password" class="form-label small fw-semibold text-secondary">New Password</label>
-                <input id="password" name="password" type="password" class="form-control" required autocomplete="new-password">
+                <input id="password" name="password" type="password" class="form-control" required autocomplete="new-password" aria-describedby="passwordStrengthLabel passwordRequirementsPopover">
                 <div class="password-strength-compact mt-2" aria-live="polite">
                     <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
                         <span class="small fw-semibold text-secondary">Password strength</span>
@@ -63,12 +61,12 @@
                         <div id="passwordStrengthBar" class="password-strength-bar"></div>
                     </div>
                 </div>
-                <details id="passwordRequirementsDisclosure" class="password-requirements-disclosure mt-2">
-                    <summary>
-                        <span><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i>Password requirements</span>
+                <div id="passwordRequirementsPopover" class="password-guidance-popover" role="status" aria-live="polite" aria-hidden="true">
+                    <div class="password-guidance-heading">
+                        <i class="fa-solid fa-shield-halved text-primary" aria-hidden="true"></i>
+                        <span>Password must include:</span>
                         <span id="passwordRequirementsCount" class="password-requirements-count">0/6 met</span>
-                        <i class="fa-solid fa-chevron-down password-requirements-chevron" aria-hidden="true"></i>
-                    </summary>
+                    </div>
                     <ul class="password-requirements" aria-label="Password requirements">
                         <li class="password-requirement" data-password-requirement="length"><i class="fa-solid fa-circle" aria-hidden="true"></i><span>At least 12 characters</span></li>
                         <li class="password-requirement" data-password-requirement="uppercase"><i class="fa-solid fa-circle" aria-hidden="true"></i><span>One uppercase letter</span></li>
@@ -77,7 +75,7 @@
                         <li class="password-requirement" data-password-requirement="symbol"><i class="fa-solid fa-circle" aria-hidden="true"></i><span>One symbol</span></li>
                         <li class="password-requirement" data-password-requirement="different"><i class="fa-solid fa-circle" aria-hidden="true"></i><span>Different from temporary password</span></li>
                     </ul>
-                </details>
+                </div>
             </div>
 
             <div class="mb-4">
@@ -106,10 +104,10 @@
             const strengthLabel = document.getElementById('passwordStrengthLabel');
             const strengthMeter = document.getElementById('passwordStrengthMeter');
             const strengthBar = document.getElementById('passwordStrengthBar');
-            const requirementsDisclosure = document.getElementById('passwordRequirementsDisclosure');
+            const requirementsPopover = document.getElementById('passwordRequirementsPopover');
             const requirementsCount = document.getElementById('passwordRequirementsCount');
             const matchMessage = document.getElementById('passwordMatchMessage');
-            if (!form || !temporaryPassword || !newPassword || !confirmation || !strengthLabel || !strengthMeter || !strengthBar || !requirementsDisclosure || !requirementsCount || !matchMessage) return;
+            if (!form || !temporaryPassword || !newPassword || !confirmation || !strengthLabel || !strengthMeter || !strengthBar || !requirementsPopover || !requirementsCount || !matchMessage) return;
 
             const requirementElements = Object.fromEntries(
                 [...document.querySelectorAll('[data-password-requirement]')]
@@ -188,7 +186,26 @@
                 window.alert(message);
             };
 
-            [temporaryPassword, newPassword, confirmation].forEach(input => input.addEventListener('input', evaluate));
+            const showGuidance = () => {
+                requirementsPopover.classList.add('is-visible');
+                requirementsPopover.setAttribute('aria-hidden', 'false');
+            };
+            const hideGuidance = () => {
+                requirementsPopover.classList.remove('is-visible');
+                requirementsPopover.setAttribute('aria-hidden', 'true');
+            };
+
+            temporaryPassword.addEventListener('input', evaluate);
+            newPassword.addEventListener('focus', showGuidance);
+            newPassword.addEventListener('input', () => {
+                showGuidance();
+                evaluate();
+            });
+            newPassword.addEventListener('blur', hideGuidance);
+            confirmation.addEventListener('input', evaluate);
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') hideGuidance();
+            });
 
             form.addEventListener('submit', event => {
                 const { checks, matches } = evaluate();
@@ -206,7 +223,8 @@
 
                 if (issues.length > 0) {
                     event.preventDefault();
-                    requirementsDisclosure.open = true;
+                    newPassword.focus();
+                    showGuidance();
                     showPasswordPopup(issues.join('\n'));
                 }
             });
