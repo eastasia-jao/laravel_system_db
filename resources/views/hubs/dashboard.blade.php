@@ -46,7 +46,7 @@
     if ($currentUser?->can('verify-inventory')) {
         $salesActions[] = ['label' => 'Verify Sales', 'icon' => 'fa-clipboard-check', 'url' => route('hub.sales.pending', $hub->id), 'pending' => $pendingSalesCount ?? 0];
     }
-    if (in_array($currentUser?->role, ['admin', 'inventory_staff', 'sales_associate', 'sales_marketing_staff'], true)) {
+    if ($currentUser?->can('view-rejected-sales')) {
         $salesActions[] = ['label' => 'Rejected Sales', 'icon' => 'fa-circle-xmark', 'url' => route('sales.rejected', ['hub_id' => $hub->id])];
     }
     if (! $hub->is_head_office && $currentUser?->can('manage-branch-returns')) {

@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
-use App\Models\StoreHub;
 use App\Models\FullyBookedOrder;
 use App\Models\PendingSale;
 use App\Models\ProductReplacement;
+use App\Models\StoreHub;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
@@ -160,7 +160,8 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::define('view-rejected-sales', function ($user) {
-            return in_array($user->role, ['admin', 'inventory_staff', 'sales_associate', 'sales_marketing_staff'], true);
+            return in_array($user->role, ['admin', 'inventory_staff', 'sales_associate'], true)
+                || ($user->role === 'sales_marketing_staff' && $user->hasAnyRecordableSalesChannel());
         });
 
         Gate::define('view-wholesale-reports', function ($user) {

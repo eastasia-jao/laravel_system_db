@@ -95,4 +95,36 @@ class ForcedPasswordChangeTest extends TestCase
         $this->post(route('sales.storeMultiChannelSale'))
             ->assertForbidden();
     }
+
+    public function test_fully_booked_only_staff_do_not_see_multi_channel_sales_operations(): void
+    {
+        $hub = StoreHub::create([
+            'name' => 'Head Office',
+            'code' => 'HEAD-OFFICE-FULLY-BOOKED',
+            'status' => 'active',
+            'is_head_office' => true,
+        ]);
+        $staff = User::factory()->create([
+            'hub_id' => $hub->id,
+            'role' => 'sales_marketing_staff',
+            'sales_channels' => ['fully_booked'],
+        ]);
+
+        $this->assertFalse($staff->canRecordChannelSales());
+
+        $this->actingAs($staff)
+            ->get(route('hub.dashboard', $hub))
+            ->assertOk()
+            ->assertDontSee('Sales operations')
+            ->assertDontSee('Record Multi-Channel Sale')
+            ->assertDontSee('Rejected Sales')
+            ->assertSee('Fully Booked operations')
+            ->assertSee('Fully Booked Order');
+
+        $this->get(route('sales.rejected'))
+            ->assertForbidden();
+
+        $this->post(route('sales.storeMultiChannelSale'))
+            ->assertForbidden();
+    }
 }

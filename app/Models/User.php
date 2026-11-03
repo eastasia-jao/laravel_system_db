@@ -19,6 +19,15 @@ class User extends Authenticatable
         'sales_marketing_staff' => 'Sales/Marketing Staff',
     ];
 
+    public const RECORDABLE_SALES_CHANNELS = [
+        'shopee',
+        'lazada',
+        'tiktok',
+        'wholesale',
+        'online',
+        'walk_in',
+    ];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -120,11 +129,16 @@ class User extends Authenticatable
         return in_array($this->role, ['inventory_staff', 'sales_marketing_staff'], true);
     }
 
+    public function hasAnyRecordableSalesChannel(): bool
+    {
+        return array_intersect(self::RECORDABLE_SALES_CHANNELS, $this->sales_channels ?? []) !== [];
+    }
+
     public function canRecordChannelSales(): bool
     {
         return $this->isAdmin()
             || $this->role === 'sales_associate'
-            || ($this->usesAssignedSalesChannels() && ! empty($this->sales_channels));
+            || ($this->usesAssignedSalesChannels() && $this->hasAnyRecordableSalesChannel());
     }
 
     public function storeHub()
