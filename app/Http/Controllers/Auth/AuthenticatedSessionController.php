@@ -47,6 +47,10 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        if ($request->user()->must_change_password) {
+            return redirect()->route('password.change-required');
+        }
+
         // Ensure this points back to 'dashboard'
         return redirect()->intended(route('dashboard', absolute: false));
     }

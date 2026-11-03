@@ -6,9 +6,9 @@ use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
@@ -58,6 +58,7 @@ class UserController extends Controller
             'username' => $request->employee_id,
             'email' => $request->input('email') ?: Str::lower($request->employee_id).'@inventory.local',
             'password' => Hash::make($request->password),
+            'must_change_password' => true,
             'employee_id' => $request->employee_id,
             'hub_id' => $request->hub_id,
             'role' => $request->role,
@@ -147,6 +148,7 @@ class UserController extends Controller
         // Update password if provided
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
+            $user->must_change_password = ! $user->is($request->user());
         }
 
         $user->save();
@@ -167,6 +169,7 @@ class UserController extends Controller
 
         $user = User::findOrFail($id);
         $user->password = Hash::make($data['password']);
+        $user->must_change_password = ! $user->is($request->user());
         $user->save();
 
         $message = 'Password reset successfully.';

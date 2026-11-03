@@ -6,9 +6,9 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -29,7 +29,7 @@ class User extends Authenticatable
      */
     // In app/Models/User.php
     protected $fillable = [
-        'name', 'email', 'password', 'employee_id', 'role', 'sales_channels', 'mobile_number', 'hub_id', 'status', 'username',
+        'name', 'email', 'password', 'must_change_password', 'employee_id', 'role', 'sales_channels', 'mobile_number', 'hub_id', 'status', 'username',
     ];
 
     /**
@@ -52,6 +52,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
             'sales_channels' => 'array',
         ];
     }

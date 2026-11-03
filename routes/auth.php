@@ -33,6 +33,9 @@ Route::post('session/timeout', [AuthenticatedSessionController::class, 'timeout'
     ->name('session.timeout');
 
 Route::middleware('auth')->group(function () {
+    Route::get('password/change-required', [PasswordController::class, 'required'])
+        ->name('password.change-required');
+
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 

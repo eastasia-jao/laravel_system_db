@@ -225,11 +225,11 @@
 
                     <div class="edit-section edit-security-section">
                         <div class="edit-section-title mb-1"><i class="bi bi-lock"></i>Account Security</div>
-                        <p class="small text-muted mb-3">Use at least 8 characters with uppercase, lowercase, number, and symbol.</p>
+                        <p class="small text-muted mb-3">Set a temporary password with at least 8 characters, uppercase, lowercase, number, and symbol. The staff member must replace it after their first login.</p>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="create_password" class="form-label">Password</label>
-                                <input type="password" name="password" id="create_password" class="form-control" placeholder="Create a secure password" required autocomplete="new-password">
+                                <label for="create_password" class="form-label">Temporary Password</label>
+                                <input type="password" name="password" id="create_password" class="form-control" placeholder="Create a temporary password" required autocomplete="new-password">
                             </div>
                             <div class="col-md-6">
                                 <label for="create_password_confirmation" class="form-label">Confirm Password</label>

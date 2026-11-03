@@ -1,23 +1,27 @@
 <?php
 
+use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ConfigurationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventInventoryController;
+use App\Http\Controllers\FullyBookedOrderController;
 use App\Http\Controllers\HubController;
+use App\Http\Controllers\InventoryTransactionController;
+use App\Http\Controllers\NationalInventoryController;
+use App\Http\Controllers\NationalPulloutController;
+use App\Http\Controllers\PrivateApiController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductFileRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RetailController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\SalesReportController;
-use App\Http\Controllers\StockAllocationController;
-use App\Http\Controllers\InventoryTransactionController;
-use App\Http\Controllers\FullyBookedOrderController;
-use App\Http\Controllers\NationalInventoryController;
-use App\Http\Controllers\NationalPulloutController;
-use App\Http\Controllers\PrivateApiController;
 use App\Http\Controllers\StaffActivityLogController;
+use App\Http\Controllers\StockAllocationController;
 use App\Http\Controllers\UnitTypeController;
 use App\Http\Controllers\UserController;
+use App\Models\StaffActivityLog;
+use App\Models\StoreHub;
 use Illuminate\Support\Facades\Route;
 
 // 1. Public Routes
@@ -28,7 +32,7 @@ Route::get('/', function () {
 require __DIR__.'/auth.php';
 
 // 2. Protected Routes
-Route::middleware(['auth', 'idle-timeout'])->group(function () {
+Route::middleware(['auth', 'idle-timeout', 'password.changed'])->group(function () {
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/me', [PrivateApiController::class, 'me'])->name('me');
         Route::get('/products', [PrivateApiController::class, 'products'])->middleware('can:view-products')->name('products.index');
@@ -39,15 +43,15 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
         Route::post('/notifications/{notification}/read', [PrivateApiController::class, 'readNotification'])->name('notifications.read');
     });
 
-    Route::get('/product-catalog', [\App\Http\Controllers\CatalogController::class, 'index'])->middleware('can:manage-shared-catalog')->name('catalog.index');
-    Route::post('/product-catalog/assign', [\App\Http\Controllers\CatalogController::class, 'assign'])->middleware('can:manage-shared-catalog')->name('catalog.assign');
-    Route::get('/sales/order-number-preview', [\App\Http\Controllers\SalesController::class, 'previewOrderNumber'])->middleware('can:access-sales')->name('sales.order-number-preview');
-    Route::get('/product-file-requests', [\App\Http\Controllers\ProductFileRequestController::class, 'index'])->middleware('can:view-products')->name('product-file-requests.index');
+    Route::get('/product-catalog', [CatalogController::class, 'index'])->middleware('can:manage-shared-catalog')->name('catalog.index');
+    Route::post('/product-catalog/assign', [CatalogController::class, 'assign'])->middleware('can:manage-shared-catalog')->name('catalog.assign');
+    Route::get('/sales/order-number-preview', [SalesController::class, 'previewOrderNumber'])->middleware('can:access-sales')->name('sales.order-number-preview');
+    Route::get('/product-file-requests', [ProductFileRequestController::class, 'index'])->middleware('can:view-products')->name('product-file-requests.index');
     // Legacy detail routes remain available for previously created records.
     // New Admin/Inventory Staff imports and exports do not use an approval flow.
-    Route::get('/product-file-requests/{fileRequest}', [\App\Http\Controllers\ProductFileRequestController::class, 'show'])->middleware('can:view-products')->name('product-file-requests.show');
-    Route::post('/product-file-requests/{fileRequest}/review', [\App\Http\Controllers\ProductFileRequestController::class, 'review'])->middleware('can:verify-inventory')->name('product-file-requests.review');
-    Route::get('/product-file-requests/{fileRequest}/download', [\App\Http\Controllers\ProductFileRequestController::class, 'download'])->middleware('can:view-products')->name('product-file-requests.download');
+    Route::get('/product-file-requests/{fileRequest}', [ProductFileRequestController::class, 'show'])->middleware('can:view-products')->name('product-file-requests.show');
+    Route::post('/product-file-requests/{fileRequest}/review', [ProductFileRequestController::class, 'review'])->middleware('can:verify-inventory')->name('product-file-requests.review');
+    Route::get('/product-file-requests/{fileRequest}/download', [ProductFileRequestController::class, 'download'])->middleware('can:view-products')->name('product-file-requests.download');
     Route::post('/notifications/read-all', function () {
         auth()->user()->unreadNotifications->markAsRead();
 
@@ -61,7 +65,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             ->filter()
             ->unique()
             ->values();
-        $notificationHubs = \App\Models\StoreHub::whereIn('id', $notificationHubIds)->get()->keyBy('id');
+        $notificationHubs = StoreHub::whereIn('id', $notificationHubIds)->get()->keyBy('id');
 
         return view('notifications.index', compact('notifications', 'notificationHubs'));
     })->name('notifications.index');
@@ -69,7 +73,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
     Route::get('/notifications/feed', function () {
         $notifications = auth()->user()->notifications()->latest()->limit(10)->get();
         $notificationHubIds = $notifications->pluck('data.hub_id')->filter()->unique()->values();
-        $notificationHubs = \App\Models\StoreHub::whereIn('id', $notificationHubIds)->get()->keyBy('id');
+        $notificationHubs = StoreHub::whereIn('id', $notificationHubIds)->get()->keyBy('id');
 
         return response()->json([
             'unread_count' => auth()->user()->unreadNotifications()->count(),
@@ -93,7 +97,7 @@ Route::middleware(['auth', 'idle-timeout'])->group(function () {
             if (! $reference && preg_match('/Transfer Document ([^ ]+)/', $record->data['message'] ?? '', $matches)) {
                 $reference = $matches[1];
             }
-            $hasVisibleTransferLog = $reference && \App\Models\StaffActivityLog::where('action_type', 'branch_transfer_sent')
+            $hasVisibleTransferLog = $reference && StaffActivityLog::where('action_type', 'branch_transfer_sent')
                 ->whereIn('store_hub_id', auth()->user()->accessibleStoreHubIds())
                 ->where('description', 'like', '%'.$reference.'%')
                 ->exists();

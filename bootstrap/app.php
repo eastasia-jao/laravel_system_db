@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnforceIdleSessionTimeout;
 use App\Http\Middleware\EnsureUserBelongsToHub;
+use App\Http\Middleware\RequirePasswordChange;
 use App\Support\ActiveUserSession;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'hub.access' => EnsureUserBelongsToHub::class,
             'idle-timeout' => EnforceIdleSessionTimeout::class,
+            'password.changed' => RequirePasswordChange::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -32,6 +32,7 @@ class AdminPasswordResetTest extends TestCase
             ->assertDontSee('NewSecurePass2!');
         $this->assertTrue(Hash::check('NewSecurePass2!', $staff->fresh()->password));
         $this->assertFalse(Hash::check('OriginalPass1!', $staff->fresh()->password));
+        $this->assertTrue($staff->fresh()->must_change_password);
 
         $this->getJson(route('users.edit', $staff))->assertJsonMissingPath('user.password');
     }
