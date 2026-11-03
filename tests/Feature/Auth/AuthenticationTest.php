@@ -278,6 +278,24 @@ class AuthenticationTest extends TestCase
         $this->assertFalse(ActiveUserSession::hasActiveSession($user->id));
     }
 
+    public function test_opening_the_timeout_url_jumps_an_expired_session_to_login(): void
+    {
+        $this->get('/session/timeout')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('warning', 'Your session expired. Please sign in again.');
+    }
+
+    public function test_opening_the_timeout_url_does_not_end_an_active_session(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/session/timeout')
+            ->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_a_stale_browser_tab_cannot_log_out_a_newer_session(): void
     {
         $user = User::factory()->create();

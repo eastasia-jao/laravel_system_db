@@ -114,4 +114,19 @@ class AuthenticatedSessionController extends Controller
             'You were signed out after '.max(1, (int) config('session.lifetime')).' minutes of inactivity. Please sign in again.'
         );
     }
+
+    /**
+     * Recover gracefully when a browser opens the timeout URL with GET.
+     */
+    public function timeoutRedirect(Request $request): RedirectResponse
+    {
+        if ($request->user()) {
+            return redirect()->route('dashboard');
+        }
+
+        return redirect()->route('login')->with(
+            'warning',
+            'Your session expired. Please sign in again.'
+        );
+    }
 }

@@ -31,6 +31,7 @@ Route::middleware('guest')->group(function () {
 
 Route::post('session/timeout', [AuthenticatedSessionController::class, 'timeout'])
     ->name('session.timeout');
+Route::get('session/timeout', [AuthenticatedSessionController::class, 'timeoutRedirect']);
 
 Route::middleware('auth')->group(function () {
     Route::get('password/change-required', [PasswordController::class, 'required'])
