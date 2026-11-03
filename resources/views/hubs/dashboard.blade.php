@@ -35,11 +35,17 @@
     if ($hub->is_head_office && $currentUser?->can('view-sales-reports')) {
         foreach (['online' => 'Online Returns', 'wholesale' => 'Wholesale Returns', 'walk_in' => 'Walk-In Returns'] as $channel => $label) {
             if ($currentUser->hasSalesChannel($channel)) {
-                $returnActions[] = [
+                $action = [
                     'label' => $label,
                     'icon' => 'fa-rotate-left',
                     'url' => route('hub.'.str_replace('_', '-', $channel).'-returns', ['hub' => $hub->id]),
                 ];
+
+                if ($channel === 'wholesale') {
+                    $salesActions[] = $action;
+                } else {
+                    $returnActions[] = $action;
+                }
             }
         }
     }

@@ -291,6 +291,18 @@ class TikTokReturnsTest extends TestCase
             strpos($dashboard->getContent(), 'Returns operations'),
             strpos($dashboard->getContent(), 'Sales operations')
         );
+        $this->assertLessThan(
+            strpos($dashboard->getContent(), 'Returns operations'),
+            strpos($dashboard->getContent(), 'Wholesale Returns')
+        );
+        $this->assertGreaterThan(
+            strpos($dashboard->getContent(), 'Returns operations'),
+            strpos($dashboard->getContent(), 'Online Returns')
+        );
+        $this->assertGreaterThan(
+            strpos($dashboard->getContent(), 'Returns operations'),
+            strpos($dashboard->getContent(), 'Walk-In Returns')
+        );
 
         foreach (['online' => 'Online', 'wholesale' => 'Wholesale', 'walk_in' => 'Walk-In'] as $channel => $label) {
             $returnsRoute = route('hub.'.str_replace('_', '-', $channel).'-returns', ['hub' => $hub->id]);
