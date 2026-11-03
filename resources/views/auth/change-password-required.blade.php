@@ -1,11 +1,19 @@
 <x-guest-layout>
     <style>
         .login-card { max-height: calc(100vh - 2rem); overflow-y: auto; }
-        .password-strength-panel { padding: .8rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; }
-        .password-strength-track { height: .45rem; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+        .password-strength-compact { padding: .15rem .1rem 0; }
+        .password-strength-track { height: .3rem; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
         .password-strength-bar { width: 0; height: 100%; border-radius: inherit; background: #94a3b8; transition: width .2s ease, background-color .2s ease; }
         .password-strength-label { color: #64748b; font-size: .78rem; font-weight: 700; }
-        .password-requirements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem .75rem; margin: .7rem 0 0; padding: 0; list-style: none; }
+        .password-requirements-disclosure { overflow: hidden; border: 1px solid #e2e8f0; border-radius: .65rem; background: #fff; }
+        .password-requirements-disclosure summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 2.35rem; padding: .45rem .65rem; color: #475569; font-size: .75rem; font-weight: 600; cursor: pointer; list-style: none; }
+        .password-requirements-disclosure summary::-webkit-details-marker { display: none; }
+        .password-requirements-disclosure summary:hover { background: #f8fafc; }
+        .password-requirements-disclosure[open] summary { border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+        .password-requirements-chevron { color: #94a3b8; font-size: .68rem; transition: transform .15s ease; }
+        .password-requirements-disclosure[open] .password-requirements-chevron { transform: rotate(180deg); }
+        .password-requirements-count { margin-left: auto; color: #64748b; font-size: .7rem; font-weight: 700; }
+        .password-requirements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem .75rem; margin: 0; padding: .7rem .75rem; list-style: none; }
         .password-requirement { display: flex; align-items: center; gap: .4rem; color: #64748b; font-size: .72rem; }
         .password-requirement i { width: .85rem; color: #94a3b8; text-align: center; }
         .password-requirement.is-met { color: #047857; }
@@ -46,14 +54,21 @@
             <div class="mb-3">
                 <label for="password" class="form-label small fw-semibold text-secondary">New Password</label>
                 <input id="password" name="password" type="password" class="form-control" required autocomplete="new-password">
-                <div class="password-strength-panel mt-2" aria-live="polite">
-                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <div class="password-strength-compact mt-2" aria-live="polite">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
                         <span class="small fw-semibold text-secondary">Password strength</span>
                         <span id="passwordStrengthLabel" class="password-strength-label">Not rated</span>
                     </div>
                     <div id="passwordStrengthMeter" class="password-strength-track" role="progressbar" aria-label="Password strength" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0">
                         <div id="passwordStrengthBar" class="password-strength-bar"></div>
                     </div>
+                </div>
+                <details id="passwordRequirementsDisclosure" class="password-requirements-disclosure mt-2">
+                    <summary>
+                        <span><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i>Password requirements</span>
+                        <span id="passwordRequirementsCount" class="password-requirements-count">0/6 met</span>
+                        <i class="fa-solid fa-chevron-down password-requirements-chevron" aria-hidden="true"></i>
+                    </summary>
                     <ul class="password-requirements" aria-label="Password requirements">
                         <li class="password-requirement" data-password-requirement="length"><i class="fa-solid fa-circle" aria-hidden="true"></i><span>At least 12 characters</span></li>
                         <li class="password-requirement" data-password-requirement="uppercase"><i class="fa-solid fa-circle" aria-hidden="true"></i><span>One uppercase letter</span></li>
@@ -62,7 +77,7 @@
                         <li class="password-requirement" data-password-requirement="symbol"><i class="fa-solid fa-circle" aria-hidden="true"></i><span>One symbol</span></li>
                         <li class="password-requirement" data-password-requirement="different"><i class="fa-solid fa-circle" aria-hidden="true"></i><span>Different from temporary password</span></li>
                     </ul>
-                </div>
+                </details>
             </div>
 
             <div class="mb-4">
@@ -91,8 +106,10 @@
             const strengthLabel = document.getElementById('passwordStrengthLabel');
             const strengthMeter = document.getElementById('passwordStrengthMeter');
             const strengthBar = document.getElementById('passwordStrengthBar');
+            const requirementsDisclosure = document.getElementById('passwordRequirementsDisclosure');
+            const requirementsCount = document.getElementById('passwordRequirementsCount');
             const matchMessage = document.getElementById('passwordMatchMessage');
-            if (!form || !temporaryPassword || !newPassword || !confirmation || !strengthLabel || !strengthMeter || !strengthBar || !matchMessage) return;
+            if (!form || !temporaryPassword || !newPassword || !confirmation || !strengthLabel || !strengthMeter || !strengthBar || !requirementsDisclosure || !requirementsCount || !matchMessage) return;
 
             const requirementElements = Object.fromEntries(
                 [...document.querySelectorAll('[data-password-requirement]')]
@@ -127,6 +144,8 @@
                     icon?.classList.toggle('fa-circle', !met);
                     icon?.classList.toggle('fa-circle-check', met);
                 });
+                const requirementsMet = Object.values(checks).filter(Boolean).length;
+                requirementsCount.textContent = requirementsMet === 6 ? 'All met' : `${requirementsMet}/6 met`;
 
                 let label = 'Not rated';
                 let color = '#94a3b8';
@@ -187,6 +206,7 @@
 
                 if (issues.length > 0) {
                     event.preventDefault();
+                    requirementsDisclosure.open = true;
                     showPasswordPopup(issues.join('\n'));
                 }
             });
