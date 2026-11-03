@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -53,22 +55,53 @@ class UserController extends Controller
                 : ['shopee', 'lazada', 'online', 'walk_in', 'wholesale', 'tiktok'])],
         ]);
 
-        $user = User::create([
-            'name' => $this->formalName($request->first_name).' '.$this->formalName($request->last_name),
-            'username' => $request->employee_id,
-            'email' => $request->input('email') ?: Str::lower($request->employee_id).'@inventory.local',
-            'password' => Hash::make($request->password),
-            'must_change_password' => true,
-            'employee_id' => $request->employee_id,
-            'hub_id' => $request->hub_id,
-            'role' => $request->role,
-            'sales_channels' => in_array($request->role, ['inventory_staff', 'sales_marketing_staff'], true)
-                ? $request->input('sales_channels', [])
-                : [],
-            'mobile_number' => $request->mobile_number,
-            'status' => 'active',
-        ]);
-        $this->syncSalesAssociateHubs($user, $request);
+        DB::transaction(function () use ($request) {
+            $user = User::create([
+                'name' => $this->formalName($request->first_name).' '.$this->formalName($request->last_name),
+                'username' => $request->employee_id,
+                'email' => $request->input('email') ?: Str::lower($request->employee_id).'@inventory.local',
+                'password' => Hash::make($request->password),
+                'must_change_password' => true,
+                'employee_id' => $request->employee_id,
+                'hub_id' => $request->hub_id,
+                'role' => $request->role,
+                'sales_channels' => in_array($request->role, ['inventory_staff', 'sales_marketing_staff'], true)
+                    ? $request->input('sales_channels', [])
+                    : [],
+                'mobile_number' => $request->mobile_number,
+                'status' => 'active',
+            ]);
+            $this->syncSalesAssociateHubs($user, $request);
+
+            $additionalHubs = $user->role === 'sales_associate'
+                ? $user->assignedStoreHubs()
+                    ->where('store_hubs.id', '<>', $user->hub_id)
+                    ->orderBy('name')
+                    ->pluck('name')
+                    ->values()
+                    ->all()
+                : [];
+            $roleLabel = User::BUILT_IN_ROLES[$user->role] ?? Str::headline($user->role);
+
+            StaffActivityLog::create([
+                'user_id' => $request->user()->id,
+                'store_hub_id' => $user->hub_id,
+                'action_type' => 'staff_account_created',
+                'description' => "Created staff account {$user->employee_id} for {$user->name} ({$roleLabel}).",
+                'details' => [
+                    'new_user_id' => $user->id,
+                    'employee_id' => $user->employee_id,
+                    'staff_name' => $user->name,
+                    'role' => $user->role,
+                    'role_label' => $roleLabel,
+                    'hub_name' => $user->storeHub?->name,
+                    'sales_channels' => $user->sales_channels ?? [],
+                    'additional_hubs' => $additionalHubs,
+                    'status' => $user->status,
+                ],
+                'ip_address' => $request->ip(),
+            ]);
+        });
 
         return redirect()->back()->with('success', 'New staff account created successfully.');
     }

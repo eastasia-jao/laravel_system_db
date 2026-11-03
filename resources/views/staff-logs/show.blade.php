@@ -12,7 +12,11 @@
         'product_export' => ['Product Export', 'primary', 'fa-file-export'],
         'inventory_verification' => ['Inventory Verification', 'warning', 'fa-clipboard-check'],
     ];
+    if (auth()->user()->isAdmin()) {
+        $actionLabels = ['staff_account_created' => ['Staff Account Created', 'primary', 'fa-user-plus']] + $actionLabels;
+    }
     $details = $staffLog->details ?? [];
+    $isStaffAccountCreated = $staffLog->action_type === 'staff_account_created';
     $isNationalLog = ($details['inventory_scope'] ?? null) === 'national';
     $nationalActionLabels = [
         'product_import' => ['National Product Import', 'success', 'fa-file-import'],
@@ -25,18 +29,50 @@
     $isRejectedBranchTransfer = $isBranchTransferSent && ($details['status'] ?? null) === 'rejected';
     $reviewerName = $details['reviewed_by_name'] ?? $details['approved_by_name'] ?? 'Inventory staff or admin';
     $reviewerAction = $isRejectedBranchTransfer ? 'Rejected by ' : 'Approved by ';
+    $createdSalesChannels = collect($details['sales_channels'] ?? [])->map(fn ($channel) => \Illuminate\Support\Str::headline($channel));
+    $additionalHubs = collect($details['additional_hubs'] ?? []);
 @endphp
 
 <div class="container-fluid py-2">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
             <a href="{{ route('staff-logs.index', ['page' => request('logs_page', 1)]) }}" class="text-decoration-none small"><i class="fa-solid fa-arrow-left me-1"></i>Back to Staff Logs</a>
-            <h2 class="fw-bold mt-2 mb-1"><i class="fa-solid {{ $config[2] }} text-{{ $config[1] }} me-2"></i>{{ $config[0] }} Item List</h2>
+            <h2 class="fw-bold mt-2 mb-1"><i class="fa-solid {{ $config[2] }} text-{{ $config[1] }} me-2"></i>{{ $config[0] }} {{ $isStaffAccountCreated ? 'Details' : 'Item List' }}</h2>
             <p class="text-muted mb-0">{{ $staffLog->description }}</p>
         </div>
-        <span class="badge text-bg-{{ $config[1] }} fs-6 px-3 py-2">{{ $items->total() }} item{{ $items->total() === 1 ? '' : 's' }}</span>
+        @if($isStaffAccountCreated)
+            <span class="badge text-bg-primary fs-6 px-3 py-2"><i class="fa-solid fa-shield-halved me-1"></i>Admin only</span>
+        @else
+            <span class="badge text-bg-{{ $config[1] }} fs-6 px-3 py-2">{{ $items->total() }} item{{ $items->total() === 1 ? '' : 's' }}</span>
+        @endif
     </div>
 
+    @if($isStaffAccountCreated)
+        <div class="card border-0 shadow-sm overflow-hidden">
+            <div class="card-header bg-primary-subtle border-0 px-4 py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary text-white" style="width: 42px; height: 42px;"><i class="fa-solid fa-user-check"></i></span>
+                    <div>
+                        <h5 class="mb-1 fw-bold">New staff account</h5>
+                        <div class="small text-muted">The temporary password is never stored in this activity log.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-4">
+                    <div class="col-lg-4 col-sm-6"><small class="text-muted d-block mb-1">Employee ID</small><strong>{{ $details['employee_id'] ?? 'N/A' }}</strong></div>
+                    <div class="col-lg-4 col-sm-6"><small class="text-muted d-block mb-1">Staff Name</small><strong>{{ $details['staff_name'] ?? 'N/A' }}</strong></div>
+                    <div class="col-lg-4 col-sm-6"><small class="text-muted d-block mb-1">Assigned Role</small><strong>{{ $details['role_label'] ?? \Illuminate\Support\Str::headline($details['role'] ?? 'N/A') }}</strong></div>
+                    <div class="col-lg-4 col-sm-6"><small class="text-muted d-block mb-1">Primary Store Hub</small><strong>{{ $details['hub_name'] ?? ($staffLog->storeHub?->name ?? 'N/A') }}</strong></div>
+                    <div class="col-lg-4 col-sm-6"><small class="text-muted d-block mb-1">Account Status</small><span class="badge text-bg-{{ ($details['status'] ?? null) === 'active' ? 'success' : 'secondary' }}">{{ strtoupper($details['status'] ?? 'UNKNOWN') }}</span></div>
+                    <div class="col-lg-4 col-sm-6"><small class="text-muted d-block mb-1">Created By</small><strong>{{ $staffLog->user?->name ?? 'Deleted administrator' }}</strong><div class="small text-muted">{{ $staffLog->created_at->format('M d, Y h:i:s A') }}</div></div>
+                    <div class="col-lg-6"><small class="text-muted d-block mb-2">Sales Channels</small>@forelse($createdSalesChannels as $channel)<span class="badge rounded-pill text-bg-light border text-dark me-1 mb-1">{{ $channel }}</span>@empty<span class="text-muted">None assigned</span>@endforelse</div>
+                    <div class="col-lg-6"><small class="text-muted d-block mb-2">Additional Store Hubs</small>@forelse($additionalHubs as $hub)<span class="badge rounded-pill text-bg-light border text-dark me-1 mb-1">{{ $hub }}</span>@empty<span class="text-muted">None assigned</span>@endforelse</div>
+                </div>
+            </div>
+            <div class="card-footer bg-white border-top px-4 py-3 small text-muted"><i class="fa-solid fa-location-dot me-1"></i>Source IP: {{ $staffLog->ip_address ?? 'N/A' }}</div>
+        </div>
+    @else
     <div class="row g-3 mb-4">
         <div class="col-lg-3 col-sm-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted d-block">Staff Member</small><strong>{{ $staffLog->user?->name ?? 'Deleted user' }}</strong><div class="small text-muted">{{ str_replace('_', ' ', $staffLog->user?->role ?? 'unknown') }}</div></div></div></div>
         <div class="col-lg-3 col-sm-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted d-block">Store Hub</small><strong>{{ $staffLog->storeHub?->name ?? 'N/A' }}</strong></div></div></div>
@@ -119,5 +155,6 @@
         </div>
     </div>
     <div class="mt-3">{{ $items->links() }}</div>
+    @endif
 </div>
 @endsection

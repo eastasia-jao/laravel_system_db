@@ -52,6 +52,7 @@
 </style>
 @php
     $isSalesAssociate = auth()->user()->role === 'sales_associate';
+    $isAdmin = auth()->user()->isAdmin();
     $actionLabels = $isSalesAssociate ? [
         'branch_transfer_sent' => ['Branch Transfer', 'success', 'fa-truck-ramp-box'],
     ] : [
@@ -61,6 +62,9 @@
         'product_export' => ['Product Export', 'primary', 'fa-file-export'],
         'inventory_verification' => ['Inventory Verification', 'warning', 'fa-clipboard-check'],
     ];
+    if ($isAdmin) {
+        $actionLabels = ['staff_account_created' => ['Staff Account Created', 'primary', 'fa-user-plus']] + $actionLabels;
+    }
     $nationalActionLabels = [
         'product_import' => ['National Product Import', 'success', 'fa-file-import'],
         'product_export' => ['National Product Export', 'primary', 'fa-file-export'],
@@ -69,7 +73,7 @@
 @endphp
 
 <div class="container-fluid py-2 staff-log-page">
-    <x-page-header class="mb-4" :eyebrow="$isSalesAssociate ? 'Branch workspace' : 'Administration workspace'" :title="$isSalesAssociate ? 'Branch Transfer Logs' : 'Staff Activity Logs'" :description="$isSalesAssociate ? 'Branch-to-branch transfer requests from your assigned branches.' : 'Product imports, exports, catalog assignments, and inventory verification history.'" :icon="$isSalesAssociate ? 'fa-arrow-right-arrow-left' : 'fa-clock-rotate-left'">
+    <x-page-header class="mb-4" :eyebrow="$isSalesAssociate ? 'Branch workspace' : 'Administration workspace'" :title="$isSalesAssociate ? 'Branch Transfer Logs' : 'Staff Activity Logs'" :description="$isSalesAssociate ? 'Branch-to-branch transfer requests from your assigned branches.' : ($isAdmin ? 'Staff account creation and inventory activity history.' : 'Product imports, exports, catalog assignments, and inventory verification history.')" :icon="$isSalesAssociate ? 'fa-arrow-right-arrow-left' : 'fa-clock-rotate-left'">
         <x-slot:actions><span class="staff-log-total"><i class="fa-solid fa-list-check"></i>{{ number_format($logs->total()) }} {{ $logs->total() === 1 ? 'log' : 'logs' }}</span></x-slot:actions>
     </x-page-header>
 
@@ -163,7 +167,7 @@
                             <th>Store Hub</th>
                             <th>Activity</th>
                             <th>Summary</th>
-                            <th class="text-center pe-4">Items</th>
+                            <th class="text-center pe-4">Details</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -202,7 +206,11 @@
                                 </td>
                                 <td class="log-items-cell pe-4 {{ $isSalesAssociate ? 'transfer-log-items' : '' }}">
                                     <a href="{{ route('staff-logs.show', ['staffLog' => $log, 'logs_page' => $logs->currentPage()]) }}" class="btn btn-sm btn-outline-primary text-nowrap">
-                                        <i class="fa-solid fa-list me-1"></i> View List ({{ $log->items_count }})
+                                        @if($log->action_type === 'staff_account_created')
+                                            <i class="fa-solid fa-user me-1"></i> View Details
+                                        @else
+                                            <i class="fa-solid fa-list me-1"></i> View List ({{ $log->items_count }})
+                                        @endif
                                     </a>
                                 </td>
                             </tr>

@@ -3,16 +3,16 @@
 namespace Tests\Feature;
 
 use App\Jobs\ProcessProductFileRequest;
+use App\Models\PendingSale;
 use App\Models\Product;
 use App\Models\ProductFileRequest;
 use App\Models\ProductStockAllocation;
-use App\Models\PendingSale;
 use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
+use App\Support\ProductExportWorkbook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use App\Support\ProductExportWorkbook;
 use Tests\TestCase;
 
 class StaffActivityLogTest extends TestCase
@@ -50,6 +50,66 @@ class StaffActivityLogTest extends TestCase
         $this->actingAs($salesStaff)
             ->get(route('staff-logs.index'))
             ->assertForbidden();
+    }
+
+    public function test_new_staff_creation_writes_an_admin_only_log_without_the_temporary_password(): void
+    {
+        $hub = StoreHub::create(['name' => 'Head Office', 'code' => 'HO', 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin', 'hub_id' => $hub->id]);
+        $inventoryStaff = User::factory()->create(['role' => 'inventory_staff', 'hub_id' => $hub->id]);
+        $temporaryPassword = 'TemporaryPass1!';
+
+        $this->actingAs($admin)
+            ->post(route('users.store'), [
+                'employee_id' => 'AC-NEW-01',
+                'first_name' => 'New',
+                'last_name' => 'Employee',
+                'email' => 'new.employee@example.com',
+                'mobile_number' => '09123456789',
+                'hub_id' => $hub->id,
+                'role' => 'sales_marketing_staff',
+                'sales_channels' => ['online', 'walk_in'],
+                'password' => $temporaryPassword,
+                'password_confirmation' => $temporaryPassword,
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $createdStaff = User::where('employee_id', 'AC-NEW-01')->sole();
+        $log = StaffActivityLog::where('action_type', 'staff_account_created')->sole();
+
+        $this->assertSame($admin->id, $log->user_id);
+        $this->assertSame($hub->id, $log->store_hub_id);
+        $this->assertSame($createdStaff->id, $log->details['new_user_id']);
+        $this->assertSame('AC-NEW-01', $log->details['employee_id']);
+        $this->assertSame('New Employee', $log->details['staff_name']);
+        $this->assertSame('sales_marketing_staff', $log->details['role']);
+        $this->assertSame(['online', 'walk_in'], $log->details['sales_channels']);
+        $this->assertArrayNotHasKey('password', $log->details);
+        $this->assertStringNotContainsString($temporaryPassword, json_encode($log->toArray(), JSON_THROW_ON_ERROR));
+
+        $this->actingAs($admin)
+            ->get(route('staff-logs.index', ['action' => 'staff_account_created']))
+            ->assertOk()
+            ->assertSee('Staff Account Created')
+            ->assertSee('AC-NEW-01')
+            ->assertSee('View Details');
+
+        $this->get(route('staff-logs.show', $log))
+            ->assertOk()
+            ->assertSee('New staff account')
+            ->assertSee('AC-NEW-01')
+            ->assertSee('Sales/Marketing Staff')
+            ->assertSee('Online')
+            ->assertDontSee($temporaryPassword);
+
+        $this->actingAs($inventoryStaff)
+            ->get(route('staff-logs.index'))
+            ->assertOk()
+            ->assertDontSee('AC-NEW-01')
+            ->assertDontSee('Staff Account Created');
+
+        $this->get(route('staff-logs.show', $log))->assertForbidden();
     }
 
     public function test_product_import_and_export_create_itemized_logs(): void

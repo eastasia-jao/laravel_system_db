@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\KeywordSearch;
-use App\Models\StaffActivityLog;
 use App\Models\PendingSale;
+use App\Models\StaffActivityLog;
 use App\Models\StoreHub;
 use App\Models\User;
+use App\Support\KeywordSearch;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -15,7 +15,7 @@ class StaffActivityLogController extends Controller
     public function index(Request $request)
     {
         $validated = $request->validate([
-            'action' => 'nullable|in:product_import,product_export,inventory_verification,catalog_assignment,branch_transfer_sent',
+            'action' => 'nullable|in:product_import,product_export,inventory_verification,catalog_assignment,branch_transfer_sent,staff_account_created',
             'hub_id' => 'nullable|integer|exists:store_hubs,id',
             'user_id' => 'nullable|integer|exists:users,id',
             'date_from' => 'nullable|date',
@@ -28,6 +28,9 @@ class StaffActivityLogController extends Controller
             ->whereNotIn('action_type', ['product_update', 'product_status_change', 'product_delete'])
             ->latest();
         $user = auth()->user();
+        if (! $user->isAdmin()) {
+            $query->where('action_type', '<>', 'staff_account_created');
+        }
         if ($user->role === 'sales_associate') {
             $query->where('action_type', 'branch_transfer_sent')
                 ->whereIn('store_hub_id', $user->accessibleStoreHubIds());
@@ -80,6 +83,7 @@ class StaffActivityLogController extends Controller
             : (in_array($user->role, ['admin', 'inventory_staff'], true)
                 ? User::whereIn('id', StaffActivityLog::query()
                     ->whereNotNull('user_id')
+                    ->when(! $user->isAdmin(), fn ($query) => $query->where('action_type', '<>', 'staff_account_created'))
                     ->select('user_id')
                     ->distinct())
                     ->orderBy('name')
@@ -94,6 +98,7 @@ class StaffActivityLogController extends Controller
     {
         abort_if(in_array($staffLog->action_type, ['product_update', 'product_status_change', 'product_delete'], true), 404);
         $user = auth()->user();
+        abort_if($staffLog->action_type === 'staff_account_created' && ! $user->isAdmin(), 403);
         if ($user->role === 'sales_associate'
             && ($staffLog->action_type !== 'branch_transfer_sent'
                 || ! in_array((int) $staffLog->store_hub_id, $user->accessibleStoreHubIds(), true))) {
