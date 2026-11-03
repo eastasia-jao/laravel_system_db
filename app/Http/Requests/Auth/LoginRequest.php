@@ -81,7 +81,7 @@ class LoginRequest extends FormRequest
             }
 
             throw ValidationException::withMessages([
-                $field => trans('auth.failed'),
+                $field => $this->failedAttemptMessage(),
             ]);
         }
 
@@ -144,5 +144,16 @@ class LoginRequest extends FormRequest
     private function lockoutMessage(): string
     {
         return 'This account has been temporarily locked after 5 unsuccessful sign-in attempts. Please contact the administrator.';
+    }
+
+    private function failedAttemptMessage(): string
+    {
+        $remainingAttempts = max(0, RateLimiter::remaining(
+            $this->throttleKey(),
+            self::MAX_LOGIN_ATTEMPTS
+        ));
+        $attemptLabel = $remainingAttempts === 1 ? 'attempt' : 'attempts';
+
+        return trans('auth.failed')." {$remainingAttempts} sign-in {$attemptLabel} remaining before this account is temporarily locked.";
     }
 }

@@ -94,7 +94,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user);
         $this->assertSame(
             session('active_user_session_token'),
-            \Illuminate\Support\Facades\Cache::get('auth:active-session:user:'.$user->id)
+            Cache::get('auth:active-session:user:'.$user->id)
         );
     }
 
@@ -123,6 +123,23 @@ class AuthenticationTest extends TestCase
         $this->post('/login', [
             'username' => $user->username,
             'password' => 'wrong-password',
+        ])->assertSessionHasErrors([
+            'username' => 'These credentials do not match our records. 4 sign-in attempts remaining before this account is temporarily locked.',
+        ]);
+
+        $this->assertGuest();
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('4 sign-in attempts remaining before this account is temporarily locked.');
+    }
+
+    public function test_unknown_login_identifier_receives_the_same_remaining_attempt_count(): void
+    {
+        $this->post('/login', [
+            'username' => 'UNKNOWN-ACCOUNT',
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors([
+            'username' => 'These credentials do not match our records. 4 sign-in attempts remaining before this account is temporarily locked.',
         ]);
 
         $this->assertGuest();
@@ -152,10 +169,15 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create();
 
         for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $remainingAttempts = 5 - $attempt;
+            $attemptLabel = $remainingAttempts === 1 ? 'attempt' : 'attempts';
+
             $this->post('/login', [
                 'username' => $user->username,
                 'password' => 'wrong-password',
-            ])->assertSessionHasErrors('username');
+            ])->assertSessionHasErrors([
+                'username' => "These credentials do not match our records. {$remainingAttempts} sign-in {$attemptLabel} remaining before this account is temporarily locked.",
+            ]);
         }
 
         $lockoutMessage = 'This account has been temporarily locked after 5 unsuccessful sign-in attempts. Please contact the administrator.';
