@@ -51,7 +51,15 @@ class ForcedPasswordChangeTest extends TestCase
 
         $this->get(route('password.change-required'))
             ->assertOk()
-            ->assertSee('Create your private password');
+            ->assertSee('Create your private password')
+            ->assertSee('id="passwordStrengthMeter"', false)
+            ->assertSee('At least 12 characters')
+            ->assertSee('One uppercase letter')
+            ->assertSee('One lowercase letter')
+            ->assertSee('One number')
+            ->assertSee('One symbol')
+            ->assertSee('Different from temporary password')
+            ->assertSee("window.AppAlert.show(message, 'error'", false);
 
         $this->put(route('password.update'), [
             'current_password' => 'TemporaryPass1!',
@@ -71,6 +79,32 @@ class ForcedPasswordChangeTest extends TestCase
         $this->assertFalse($staff->must_change_password);
         $this->assertTrue(Hash::check('PrivatePassword2!', $staff->password));
         $this->assertFalse(Hash::check('TemporaryPass1!', $staff->password));
+    }
+
+    public function test_required_password_change_enforces_every_strong_password_requirement(): void
+    {
+        $staff = User::factory()->create([
+            'password' => 'TemporaryPass1!',
+            'must_change_password' => true,
+        ]);
+        $this->actingAs($staff);
+
+        foreach ([
+            'Short1!' => 'minimum length',
+            'lowercasepassword1!' => 'uppercase letter',
+            'UPPERCASEPASSWORD1!' => 'lowercase letter',
+            'PasswordWithoutNumber!' => 'number',
+            'PasswordWithoutSymbol1' => 'symbol',
+        ] as $candidate => $requirement) {
+            $this->put(route('password.update'), [
+                'current_password' => 'TemporaryPass1!',
+                'password' => $candidate,
+                'password_confirmation' => $candidate,
+            ])->assertSessionHasErrorsIn('updatePassword', 'password');
+
+            $this->assertTrue($staff->fresh()->must_change_password, "The {$requirement} requirement should keep the forced change active.");
+            $this->assertTrue(Hash::check('TemporaryPass1!', $staff->password), "The {$requirement} requirement should reject the candidate password.");
+        }
     }
 
     public function test_sales_marketing_staff_without_an_assigned_channel_cannot_open_record_sale(): void
