@@ -941,6 +941,52 @@ class WholesalePaymentTest extends TestCase
         ]))->assertOk()->assertSee('October 2026 subtotal: ₱644.30');
     }
 
+    public function test_wholesale_activity_overview_excludes_discounts_from_unpaid_and_partially_paid_orders(): void
+    {
+        $hub = StoreHub::create(['name' => 'Wholesale Discount Hub', 'code' => 'WH-DISCOUNT', 'status' => 'active', 'is_head_office' => true]);
+        $user = User::factory()->create(['role' => 'admin']);
+        $product = Product::create([
+            'store_hub_id' => $hub->id,
+            'item_id' => 'WH-DISCOUNT-1',
+            'name' => 'Wholesale Discount Product',
+            'stock' => 10,
+            'status' => 'active',
+        ]);
+
+        foreach ([
+            ['number' => 'WH-DISCOUNT-UNPAID', 'payment_status' => 'unpaid', 'amount_paid' => 0],
+            ['number' => 'WH-DISCOUNT-PARTIAL', 'payment_status' => 'partial', 'amount_paid' => 45],
+            ['number' => 'WH-DISCOUNT-PAID', 'payment_status' => 'paid', 'amount_paid' => 90],
+        ] as $order) {
+            $sale = SalesTransaction::create([
+                'user_id' => $user->id,
+                'store_hub_id' => $hub->id,
+                'channel_type' => 'wholesale',
+                'customer_name' => 'Wholesale Discount Customer',
+                'order_number' => $order['number'],
+                'order_date' => '2026-11-03',
+                'sub_total' => 90,
+                'grand_total' => 90,
+                'status' => 'confirmed',
+                'payment_status' => $order['payment_status'],
+                'amount_paid' => $order['amount_paid'],
+            ]);
+            $sale->items()->create([
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 100,
+                'line_total' => 90,
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get(route('hub.report', [
+            'hub' => $hub->id,
+            'channel' => 'wholesale',
+        ]))->assertOk();
+
+        $this->assertSame(10.0, (float) $response->viewData('metrics')['discounts']);
+    }
+
     public function test_wholesale_monthly_subtotal_uses_order_value_when_withholding_values_are_zero(): void
     {
         $hub = StoreHub::create(['name' => 'Wholesale Hub', 'code' => 'WH-ZERO-TAX', 'status' => 'active', 'is_head_office' => true]);

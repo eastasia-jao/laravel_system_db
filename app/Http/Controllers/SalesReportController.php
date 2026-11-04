@@ -564,6 +564,11 @@ class SalesReportController extends Controller
             'return_refund_total' => $returnRefundTotal,
             'refund_total' => $refundTotal,
         ];
+        if ($channel === 'wholesale') {
+            $metrics['discounts'] = $summaryTransactions
+                ->filter(fn ($transaction) => strtolower((string) $transaction->payment_status) === 'paid')
+                ->sum(fn ($transaction) => max(0, $currentGross($transaction) - $currentNet($transaction)));
+        }
         if (in_array($channel, ['shopee', 'lazada'], true)) {
             $metrics['discounts'] = $allTransactions->sum(function ($transaction) {
                 $itemDiscounts = $transaction->items->sum(function ($item) {
