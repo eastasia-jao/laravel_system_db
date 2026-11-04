@@ -573,48 +573,52 @@
         });
 
         // Unified Submit Function
-        document.getElementById('editStaffForm').addEventListener('submit', function(e) {
+        document.getElementById('editStaffForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const form = e.target;
+            if (!window.SubmissionGuard?.begin(form, e.submitter)) return;
             const formData = new FormData(form);
             const errorAlert = document.getElementById('editErrorAlert');
 
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
-            .then(async response => {
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                });
                 const data = await response.json();
-                return { response, data };
-            })
-            .then(({ response, data }) => {
+
                 if (response.ok && data.success) {
                     bootstrap.Modal.getInstance(document.getElementById('editStaffModal'))?.hide();
-                    return AppAlert.show(data.success, 'success', {
+                    await AppAlert.show(data.success, 'success', {
                         title: 'Staff account updated',
                         buttonLabel: 'Done'
-                    }).then(() => window.location.reload());
+                    });
+                    window.location.reload();
+                    return;
                 }
                 if (response.status === 422 && data.errors) {
                     errorAlert.style.display = 'none';
-                    return AppAlert.show(Object.values(data.errors).flat().join('\n'), 'error', {
+                    await AppAlert.show(Object.values(data.errors).flat().join('\n'), 'error', {
                         title: 'Update could not be saved'
                     });
+                    return;
                 }
                 throw new Error(data.message || 'The staff account could not be updated. Please try again.');
-            })
-            .catch(error => {
+            } catch (error) {
                 AppAlert.show(error.message, 'error', { title: 'Update could not be saved' });
-            });
+            } finally {
+                window.SubmissionGuard?.finish(form);
+            }
         });
 
         document.getElementById('resetPasswordForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const form = e.target;
+            if (!window.SubmissionGuard?.begin(form, e.submitter)) return;
             const errorAlert = document.getElementById('resetPasswordErrorAlert');
 
             try {
@@ -645,6 +649,8 @@
                 throw new Error(data.message || 'The password could not be reset. Please try again.');
             } catch (error) {
                 AppAlert.show(error.message, 'error', { title: 'Password reset failed' });
+            } finally {
+                window.SubmissionGuard?.finish(form);
             }
         });
     </script>

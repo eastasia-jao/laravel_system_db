@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\PreventDuplicateFormSubmissions;
-use Illuminate\Http\Request;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -20,7 +20,7 @@ class FormSubmissionIdempotencyTest extends TestCase
         config(['cache.default' => 'array']);
         Cache::flush();
 
-        $middleware = new PreventDuplicateFormSubmissions();
+        $middleware = new PreventDuplicateFormSubmissions;
         $submissionId = (string) Str::uuid();
         $actionCount = 0;
         $next = function () use (&$actionCount) {
@@ -48,7 +48,7 @@ class FormSubmissionIdempotencyTest extends TestCase
         config(['cache.default' => 'array']);
         Cache::flush();
 
-        $middleware = new PreventDuplicateFormSubmissions();
+        $middleware = new PreventDuplicateFormSubmissions;
         $actionCount = 0;
         $next = function () use (&$actionCount) {
             $actionCount++;
@@ -83,7 +83,7 @@ class FormSubmissionIdempotencyTest extends TestCase
         config(['cache.default' => 'array']);
         Cache::flush();
 
-        $middleware = new PreventDuplicateFormSubmissions();
+        $middleware = new PreventDuplicateFormSubmissions;
         $submissionId = (string) Str::uuid();
         $next = fn () => response()->json(['errors' => ['field' => ['Invalid value.']]], 422);
 

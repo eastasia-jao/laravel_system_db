@@ -91,6 +91,11 @@ const unlockSubmissionForm = form => {
     if (submissionId) submissionId.value = newSubmissionId();
 };
 
+window.SubmissionGuard = {
+    begin: lockSubmissionForm,
+    finish: unlockSubmissionForm,
+};
+
 document.querySelectorAll('form').forEach(prepareSubmissionForm);
 new MutationObserver(records => {
     records.forEach(record => {

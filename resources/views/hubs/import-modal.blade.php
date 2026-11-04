@@ -61,8 +61,9 @@
                     this.importStatus = 'uploading';
                     this.importResult = null;
                     this.failureMessage = '';
-                    this.elapsedTimer = setInterval(() => this.elapsed++, 1000);
                     const form = this.$root.querySelector('#storeHubImportForm');
+                    if (!window.SubmissionGuard?.begin(form)) return;
+                    this.elapsedTimer = setInterval(() => this.elapsed++, 1000);
                     try {
                         const response = await fetch(form.action, {
                             method: 'POST', body: new FormData(form),
@@ -84,6 +85,7 @@
                         this.failureMessage = String(error?.message || 'The import could not be started.').trim() || 'The import could not be started.';
                         this.importResult = { error: this.failureMessage };
                         clearInterval(this.elapsedTimer);
+                        window.SubmissionGuard?.finish(form);
                     }
                 },
                 updateImportStatus(record) {
@@ -96,6 +98,7 @@
                     if (['completed', 'failed'].includes(record.status)) {
                         clearInterval(this.elapsedTimer);
                         clearInterval(this.pollTimer);
+                        window.SubmissionGuard?.finish(this.$root.querySelector('#storeHubImportForm'));
                     }
                 },
                 closeResult() {
