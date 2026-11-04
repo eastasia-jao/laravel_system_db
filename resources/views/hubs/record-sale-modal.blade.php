@@ -1113,7 +1113,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 && !field.disabled
                 && field.type !== 'file'
                 && !field.name.startsWith('items[')
-                && !['_token', 'store_hub_id'].includes(field.name))
+                && !['_token', '_submission_id', 'store_hub_id'].includes(field.name))
             .map(field => ({
                 name: field.name,
                 value: field.value,

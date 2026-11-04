@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('history:prune')
     ->weeklyOn(0, '02:00')
     ->withoutOverlapping();
+
+Schedule::command('form-submissions:prune')
+    ->dailyAt('03:00')
+    ->withoutOverlapping();

@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnforceIdleSessionTimeout;
 use App\Http\Middleware\EnsureUserBelongsToHub;
+use App\Http\Middleware\PreventDuplicateFormSubmissions;
 use App\Http\Middleware\RequirePasswordChange;
 use App\Support\ActiveUserSession;
 use Illuminate\Foundation\Application;
@@ -32,6 +33,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'idle-timeout' => EnforceIdleSessionTimeout::class,
             'password.changed' => RequirePasswordChange::class,
         ]);
+
+        $middleware->appendToGroup('web', PreventDuplicateFormSubmissions::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->respond(function (Response $response) {

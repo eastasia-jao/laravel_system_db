@@ -675,19 +675,20 @@
 
                 // Prevent multiple submissions if already processing
                 if (form.getAttribute('data-submitting') === 'true') return;
+                form.setAttribute('data-submitting', 'true');
 
                 const confirmed = await window.showConfirmationModal(
                     'Are you sure the products and quantities are correct? This will verify the order and deduct inventory stock.'
                 );
 
                 if (confirmed) {
-                    form.setAttribute('data-submitting', 'true');
-                    
                     // Disable submit buttons inside the form to give visual feedback
                     const submitBtn = form.querySelector('button[type="submit"]');
                     if (submitBtn) submitBtn.disabled = true;
 
                     this.submit();
+                } else {
+                    form.removeAttribute('data-submitting');
                 }
             });
         });

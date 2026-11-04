@@ -93,7 +93,7 @@ Back up `storage/app/private` and `storage/app/public` from the same recovery po
 - Staff activity logs, sales, payments, returns, replacements, and inventory movements are not automatically deleted. Keep at least three years readily searchable and retain older records in a protected archive. Keep financial and tax-related records for the period required by your accountant and applicable regulations; use ten years as the conservative planning target until that period is confirmed.
 - Back up the database and uploaded proof files before configuring retention. Deleting transaction history can break audit, reconciliation, and return workflows; archive older business records before any approved deletion.
 
-The weekly `history:prune` schedule removes only the two short-lived record types above. To preview the eligible counts without deleting anything, run `php artisan history:prune --dry-run`. Production must run Laravel's scheduler every minute (`php artisan schedule:run`); configure the host scheduler/service accordingly. The command accepts `--notifications-days=N` and `--file-requests-days=N` overrides for a manual run.
+The weekly `history:prune` schedule removes only the two short-lived record types above. Expired duplicate-form submission keys are also pruned daily when the database cache store is active. To preview the eligible counts without deleting anything, run `php artisan history:prune --dry-run`. Production must run Laravel's scheduler every minute (`php artisan schedule:run`); configure the host scheduler/service accordingly. The command accepts `--notifications-days=N` and `--file-requests-days=N` overrides for a manual run.
 
 ## Scaling notes
 
